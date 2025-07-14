@@ -21,6 +21,7 @@ import {
 	ChevronDown,
 	Bell,
 	Settings,
+	User,
 } from "lucide-react";
 import {
 	Collapsible,
@@ -28,7 +29,15 @@ import {
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-const navigation = [
+interface NavigationItem {
+	name: string;
+	href: string;
+	icon: any;
+	badge?: string | null;
+	dynamicBadge?: "verified" | "notVerified" | "total";
+}
+
+const navigation: NavigationItem[] = [
 	{
 		name: "Dashboard",
 		href: "/dashboard",
@@ -45,7 +54,7 @@ const navigation = [
 		name: "View Alerts",
 		href: "/dashboard/alerts",
 		icon: FileText,
-		badge: "12",
+		dynamicBadge: "total",
 	},
 	{
 		name: "Call Logs",
@@ -86,10 +95,33 @@ export function ModernSidebar({
 	const [alertsExpanded, setAlertsExpanded] = useState(true);
 	const [user, setUser] = useState<any>(null);
 	const [isLoggingOut, setIsLoggingOut] = useState(false);
+	const [alertCounts, setAlertCounts] = useState({
+		verified: 0,
+		notVerified: 0,
+		total: 0,
+	});
 
 	useEffect(() => {
 		const userData = AuthService.getUser();
 		setUser(userData);
+	}, []);
+
+	useEffect(() => {
+		const fetchAlertCounts = async () => {
+			try {
+				const counts = await AuthService.fetchAlertCounts();
+				setAlertCounts(counts);
+			} catch (error) {
+				console.error(
+					"Error fetching alert counts for sidebar:",
+					error
+				);
+			}
+		};
+
+		if (AuthService.isAuthenticated()) {
+			fetchAlertCounts();
+		}
 	}, []);
 
 	const handleLogout = async () => {
@@ -126,6 +158,15 @@ export function ModernSidebar({
 		return user.email || `${user.username}@health.go.ug`;
 	};
 
+	const getBadgeValue = (item: NavigationItem) => {
+		if (item.badge) return item.badge;
+		if (item.dynamicBadge) {
+			const count = alertCounts[item.dynamicBadge];
+			return count > 0 ? count.toString() : null;
+		}
+		return null;
+	};
+
 	return (
 		<>
 			{/* Mobile sidebar */}
@@ -149,6 +190,8 @@ export function ModernSidebar({
 						getUserInitials={getUserInitials}
 						getUserDisplayName={getUserDisplayName}
 						getUserEmail={getUserEmail}
+						alertCounts={alertCounts}
+						getBadgeValue={getBadgeValue}
 					/>
 					<div className="absolute top-4 right-4">
 						<Button
@@ -175,6 +218,8 @@ export function ModernSidebar({
 					getUserInitials={getUserInitials}
 					getUserDisplayName={getUserDisplayName}
 					getUserEmail={getUserEmail}
+					alertCounts={alertCounts}
+					getBadgeValue={getBadgeValue}
 				/>
 			</div>
 		</>
@@ -191,6 +236,8 @@ function SidebarContent({
 	getUserInitials,
 	getUserDisplayName,
 	getUserEmail,
+	alertCounts,
+	getBadgeValue,
 }: {
 	pathname: string;
 	alertsExpanded: boolean;
@@ -201,9 +248,15 @@ function SidebarContent({
 	getUserInitials: (name: string) => string;
 	getUserDisplayName: () => string;
 	getUserEmail: () => string;
+	alertCounts: {
+		verified: number;
+		notVerified: number;
+		total: number;
+	};
+	getBadgeValue: (item: NavigationItem) => string | null;
 }) {
 	return (
-		<div className="flex flex-col flex-grow bg-gradient-to-b from-white to-gray-50/50 shadow-xl border-r border-gray-200/50">
+		<div className="flex flex-col flex-grow bg-gradient-to-b overflow-y-auto from-white to-gray-50/50 shadow-xl border-r border-gray-200/50">
 			{/* Header */}
 			<div className="flex h-20 items-center px-6 bg-gradient-to-r from-uganda-red via-uganda-red to-uganda-yellow relative overflow-hidden">
 				<div className="absolute inset-0 bg-black/10"></div>
@@ -258,18 +311,18 @@ function SidebarContent({
 						<div className="grid grid-cols-2 gap-2">
 							<div className="bg-gradient-to-br from-green-50 to-green-100 p-3 rounded-lg border border-green-200/50">
 								<div className="text-lg font-bold text-green-700">
-									24
+									{alertCounts.verified}
 								</div>
 								<div className="text-xs text-green-600">
-									Active
+									Verified
 								</div>
 							</div>
 							<div className="bg-gradient-to-br from-red-50 to-red-100 p-3 rounded-lg border border-red-200/50">
 								<div className="text-lg font-bold text-red-700">
-									3
+									{alertCounts.notVerified}
 								</div>
 								<div className="text-xs text-red-600">
-									Critical
+									Unverified
 								</div>
 							</div>
 						</div>
@@ -306,7 +359,7 @@ function SidebarContent({
 										}`}
 									/>
 									{item.name}
-									{item.badge && (
+									{getBadgeValue(item) && (
 										<Badge
 											variant="secondary"
 											className={`ml-auto text-xs ${
@@ -315,7 +368,7 @@ function SidebarContent({
 													: "bg-gray-200 text-gray-700"
 											}`}
 										>
-											{item.badge}
+											{getBadgeValue(item)}
 										</Badge>
 									)}
 								</Link>
@@ -365,19 +418,23 @@ function SidebarContent({
 												}`}
 											/>
 											{item.name}
-											{item.badge && (
+											{getBadgeValue(item) && (
 												<Badge
 													variant="secondary"
 													className={`ml-auto text-xs ${
 														isActive
 															? "bg-white/20 text-white"
-															: item.badge ===
+															: getBadgeValue(
+																	item
+															  ) ===
 															  "New"
 															? "bg-uganda-yellow text-uganda-black"
 															: "bg-blue-100 text-blue-700"
 													}`}
 												>
-													{item.badge}
+													{getBadgeValue(
+														item
+													)}
 												</Badge>
 											)}
 										</Link>
@@ -407,19 +464,20 @@ function SidebarContent({
 										}`}
 									/>
 									{item.name}
-									{item.badge && (
+									{getBadgeValue(item) && (
 										<Badge
 											variant="secondary"
 											className={`ml-auto text-xs ${
 												isActive
 													? "bg-white/20 text-white"
-													: item.badge ===
-													  "New"
+													: getBadgeValue(
+															item
+													  ) === "New"
 													? "bg-uganda-yellow text-uganda-black"
 													: "bg-blue-100 text-blue-700"
 											}`}
 										>
-											{item.badge}
+											{getBadgeValue(item)}
 										</Badge>
 									)}
 								</Link>
@@ -434,6 +492,26 @@ function SidebarContent({
 						<h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
 							System
 						</h3>
+						<Link href="/dashboard/profile">
+							<Button
+								variant="ghost"
+								className={`w-full justify-start px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+									pathname === "/dashboard/profile"
+										? "bg-gradient-to-r from-uganda-red to-uganda-yellow text-white shadow-lg shadow-uganda-red/25"
+										: "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+								}`}
+							>
+								<User
+									className={`mr-3 h-5 w-5 ${
+										pathname ===
+										"/dashboard/profile"
+											? "text-white"
+											: "text-gray-400"
+									}`}
+								/>
+								Profile
+							</Button>
+						</Link>
 						<Button
 							variant="ghost"
 							className="w-full justify-start px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-lg"

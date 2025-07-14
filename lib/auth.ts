@@ -5,16 +5,24 @@ interface LoginCredentials {
     password: string
 }
 
+// Updated user interface to match API response
+export interface User {
+    id: number
+    username: string
+    firstName: string
+    lastName: string
+    otherName: string
+    email: string
+    affiliation: string
+    userType: string
+    level: string
+    createdAt: string
+    updatedAt: string
+}
+
 interface LoginResponse {
     token: string
-    user?: {
-        id: string
-        username: string
-        email: string
-        level: string
-        affiliation: string
-        userType: string
-    }
+    user?: User
 }
 
 interface ApiError {
@@ -40,8 +48,8 @@ export class AuthService {
             if (!response.ok) {
                 let errorMessage = 'Login failed'
                 try {
-                    const errorData = await response.json()
-                    errorMessage = errorData.message || errorData.error || errorMessage
+                    const errorData: ApiError = await response.json()
+                    errorMessage = errorData.message || errorMessage
                 } catch (e) {
                     // If response is not JSON, use status text
                     errorMessage = response.statusText || errorMessage
@@ -127,13 +135,13 @@ export class AuthService {
         return null
     }
 
-    static setUser(user: any): void {
+    static setUser(user: User): void {
         if (typeof window !== 'undefined') {
             localStorage.setItem(this.USER_KEY, JSON.stringify(user))
         }
     }
 
-    static getUser(): any | null {
+    static getUser(): User | null {
         if (typeof window !== 'undefined') {
             try {
                 const userData = localStorage.getItem(this.USER_KEY)
@@ -144,6 +152,140 @@ export class AuthService {
             }
         }
         return null
+    }
+
+    static async fetchUserProfile(): Promise<User> {
+        try {
+            const response = await this.makeAuthenticatedRequest(`${API_BASE_URL}/users/profile`, {
+                method: 'GET',
+            })
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch user profile: ${response.statusText}`)
+            }
+
+            const userData = await response.json()
+
+            // Update stored user data
+            this.setUser(userData)
+
+            return userData
+        } catch (error) {
+            console.error('Error fetching user profile:', error)
+            throw error
+        }
+    }
+
+    static async fetchAllUsers(): Promise<User[]> {
+        try {
+            const response = await this.makeAuthenticatedRequest(`${API_BASE_URL}/users/all`, {
+                method: 'GET',
+            })
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch users: ${response.statusText}`)
+            }
+
+            const users = await response.json()
+            return users
+        } catch (error) {
+            console.error('Error fetching users:', error)
+            throw error
+        }
+    }
+
+    static async registerUser(userData: {
+        username: string
+        password: string
+        firstName: string
+        lastName: string
+        otherName?: string
+        email: string
+        affiliation: string
+        userType?: string
+        level?: string
+    }): Promise<User> {
+        try {
+            const response = await this.makeAuthenticatedRequest(`${API_BASE_URL}/users/register`, {
+                method: 'POST',
+                body: JSON.stringify(userData),
+            })
+
+            if (!response.ok) {
+                let errorMessage = 'Failed to register user'
+                try {
+                    const errorData = await response.json()
+                    errorMessage = errorData.message || errorMessage
+                } catch (e) {
+                    errorMessage = response.statusText || errorMessage
+                }
+                throw new Error(errorMessage)
+            }
+
+            const newUser = await response.json()
+            return newUser
+        } catch (error) {
+            console.error('Error registering user:', error)
+            throw error
+        }
+    }
+
+    static async fetchVerifiedAlertsCount(): Promise<number> {
+        try {
+            const response = await this.makeAuthenticatedRequest(`${API_BASE_URL}/alerts/verified/count`, {
+                method: 'GET',
+            })
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch verified alerts count: ${response.statusText}`)
+            }
+
+            const data = await response.json()
+            return data.count || 0
+        } catch (error) {
+            console.error('Error fetching verified alerts count:', error)
+            throw error
+        }
+    }
+
+    static async fetchNotVerifiedAlertsCount(): Promise<number> {
+        try {
+            const response = await this.makeAuthenticatedRequest(`${API_BASE_URL}/alerts/not-verified/count`, {
+                method: 'GET',
+            })
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch not-verified alerts count: ${response.statusText}`)
+            }
+
+            const data = await response.json()
+            return data.count || 0
+        } catch (error) {
+            console.error('Error fetching not-verified alerts count:', error)
+            throw error
+        }
+    }
+
+    static async fetchAlertCounts(): Promise<{
+        verified: number
+        notVerified: number
+        total: number
+    }> {
+        try {
+            const [verifiedCount, notVerifiedCount] = await Promise.all([
+                this.fetchVerifiedAlertsCount(),
+                this.fetchNotVerifiedAlertsCount()
+            ])
+
+            return {
+                verified: verifiedCount,
+                notVerified: notVerifiedCount,
+                total: verifiedCount + notVerifiedCount
+            }
+        } catch (error) {
+            console.error('Error fetching alert counts:', error)
+            throw error
+        }
     }
 
     static isAuthenticated(): boolean {
