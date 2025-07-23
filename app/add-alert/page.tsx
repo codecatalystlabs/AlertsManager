@@ -207,15 +207,57 @@ export default function PublicAddAlertPage() {
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
+		console.log("Form submission started"); // Debug log
 		setIsSubmitting(true);
 		setSubmitStatus({ type: null, message: "" });
 
 		try {
+			// Validate required fields
+			if (
+				!formData.date ||
+				!formData.callTime ||
+				!formData.nameOfPersonReporting ||
+				!formData.numberOfPersonReporting ||
+				!formData.sourceOfAlert ||
+				!formData.caseName ||
+				!formData.caseAge ||
+				!formData.caseSex ||
+				!formData.caseAlertDescription
+			) {
+				throw new Error("Please fill in all required fields");
+			}
+
+			console.log("Validation passed, preparing data"); // Debug log
+
+			// Helper function to format time properly
+			const formatTime = (timeString: string): string => {
+				if (!timeString) return new Date().toISOString();
+
+				// If it's in HH:MM format, create a proper date with today's date
+				if (timeString.match(/^\d{2}:\d{2}$/)) {
+					const today = new Date();
+					const [hours, minutes] = timeString.split(":");
+					today.setHours(
+						parseInt(hours, 10),
+						parseInt(minutes, 10),
+						0,
+						0
+					);
+					return today.toISOString();
+				}
+
+				// Fallback to current time
+				return new Date().toISOString();
+			};
+
 			// Prepare the data to match the API structure
 			const alertData = {
-				date: formData.date,
-				time: formData.callTime,
-				alertReportedBefore: formData.alertReportedBefore,
+				date: formData.date
+					? new Date(formData.date).toISOString()
+					: new Date().toISOString(),
+				time: formatTime(formData.callTime),
+				alertReportedBefore:
+					formData.alertReportedBefore === "yes" ? "Yes" : "No",
 				personReporting: formData.nameOfPersonReporting,
 				contactNumber: formData.numberOfPersonReporting,
 				status: formData.status || "Pending",
@@ -233,40 +275,48 @@ export default function PublicAddAlertPage() {
 				pointOfContactPhone: formData.nextOfKinPhoneNumber,
 				narrative: formData.narrative,
 				symptoms: formData.signsAndSymptoms.join(", "),
+				isHighlighted: false,
+				isVerified: false,
 			};
 
-			const apiUrl = `${
-				process.env.NEXT_PUBLIC_API_BASE_URL ||
-				"http://localhost:8089/api/v1"
-			}/alerts`;
-
-			let response: Response;
+			console.log("Sending alert data:", alertData); // Debug log
 
 			if (isAuthenticated) {
-				// Use authenticated request if logged in
-				response = await AuthService.makeAuthenticatedRequest(
-					apiUrl,
+				// Use the new createAlert method for authenticated users
+				await AuthService.createAlert(alertData);
+			} else {
+				// Use public endpoint if not authenticated
+				const response = await fetch(
+					`${
+						process.env.NEXT_PUBLIC_API_BASE_URL ||
+						"http://localhost:8089/api/v1"
+					}/alerts/create`,
 					{
 						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+						},
 						body: JSON.stringify(alertData),
 					}
 				);
-			} else {
-				// Use public endpoint if not authenticated
-				response = await fetch(apiUrl, {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify(alertData),
-				});
+
+				if (!response.ok) {
+					let errorMessage =
+						"Failed to submit alert. Please try again.";
+					try {
+						const errorData = await response.json();
+						errorMessage =
+							errorData.message ||
+							errorData.error ||
+							errorMessage;
+					} catch (e) {
+						// Use default error message
+					}
+					throw new Error(errorMessage);
+				}
 			}
 
-			if (!response.ok) {
-				throw new Error(
-					"Failed to submit alert. Please try again."
-				);
-			}
+			console.log("Alert submitted successfully"); // Debug log
 
 			setSubmitStatus({
 				type: "success",
@@ -297,6 +347,7 @@ export default function PublicAddAlertPage() {
 				signsAndSymptoms: [],
 			});
 		} catch (err) {
+			console.error("Error in form submission:", err); // Debug log
 			setSubmitStatus({
 				type: "error",
 				message:

@@ -20,6 +20,61 @@ export interface User {
     updatedAt: string
 }
 
+// Alert interface to match the Go struct
+export interface Alert {
+    id?: number
+    status: string
+    date: string
+    time: string
+    callTaker?: string
+    cifNo?: string
+    personReporting: string
+    village?: string
+    subCounty?: string
+    contactNumber: string
+    sourceOfAlert: string
+    alertCaseName: string
+    alertCaseAge: number
+    alertCaseSex: string
+    alertCasePregnantDuration?: number
+    alertCaseVillage?: string
+    alertCaseParish?: string
+    alertCaseSubCounty?: string
+    alertCaseDistrict?: string
+    alertCaseNationality?: string
+    pointOfContactName?: string
+    pointOfContactRelationship?: string
+    pointOfContactPhone?: string
+    history?: string
+    healthFacilityVisit?: string
+    traditionalHealerVisit?: string
+    symptoms?: string
+    actions?: string
+    caseVerificationDesk?: string
+    fieldVerification?: string
+    fieldVerificationDecision?: string
+    feedback?: string
+    labResult?: string
+    labResultDate?: string | null
+    isHighlighted?: boolean
+    assignedTo?: string
+    alertReportedBefore?: string
+    alertFrom?: string
+    verified?: string
+    comments?: string
+    verificationDate?: string | null
+    verificationTime?: string | null
+    response?: string
+    narrative?: string
+    facilityType?: string
+    facility?: string
+    isVerified?: boolean
+    verifiedBy?: string
+    region?: string
+    createdAt?: string
+    updatedAt?: string
+}
+
 interface LoginResponse {
     token: string
     user?: User
@@ -226,6 +281,147 @@ export class AuthService {
             return newUser
         } catch (error) {
             console.error('Error registering user:', error)
+            throw error
+        }
+    }
+
+    // Alert Management Methods
+    static async createAlert(alertData: Partial<Alert>): Promise<Alert> {
+        try {
+            console.log("AuthService.createAlert called with:", alertData); // Debug log
+
+            // Helper function to format time properly
+            const formatTime = (timeString?: string): string => {
+                if (!timeString) return new Date().toISOString();
+
+                // If it's already an ISO string, use it
+                if (timeString.includes('T')) {
+                    return new Date(timeString).toISOString();
+                }
+
+                // If it's in HH:MM format, create a proper date
+                if (timeString.match(/^\d{2}:\d{2}$/)) {
+                    const today = new Date();
+                    const [hours, minutes] = timeString.split(':');
+                    today.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+                    return today.toISOString();
+                }
+
+                // Fallback to current time
+                return new Date().toISOString();
+            };
+
+            // Format the data to match the Go struct expectations
+            const formattedData = {
+                ...alertData,
+                // Ensure date and time are properly formatted
+                date: alertData.date ? new Date(alertData.date).toISOString() : new Date().toISOString(),
+                time: formatTime(alertData.time),
+                // Ensure required fields have default values
+                status: alertData.status || "Pending",
+                response: alertData.response || "Routine",
+                alertCaseAge: alertData.alertCaseAge || 0,
+                isHighlighted: alertData.isHighlighted || false,
+                isVerified: alertData.isVerified || false,
+                // Convert boolean to string for alertReportedBefore if needed
+                alertReportedBefore: alertData.alertReportedBefore === "yes" ? "Yes" :
+                    alertData.alertReportedBefore === "no" ? "No" :
+                        alertData.alertReportedBefore || "No",
+            };
+
+            console.log("Formatted data for API:", formattedData); // Debug log
+
+            const response = await this.makeAuthenticatedRequest(`${API_BASE_URL}/alerts/create`, {
+                method: 'POST',
+                body: JSON.stringify(formattedData),
+            })
+
+            console.log("API response status:", response.status); // Debug log
+
+            if (!response.ok) {
+                let errorMessage = 'Failed to create alert'
+                try {
+                    const errorData = await response.json()
+                    console.log("API error response:", errorData); // Debug log
+                    errorMessage = errorData.message || errorData.error || errorMessage
+                } catch (e) {
+                    console.log("Could not parse error response:", e); // Debug log
+                    errorMessage = response.statusText || errorMessage
+                }
+                throw new Error(errorMessage)
+            }
+
+            const newAlert = await response.json()
+            console.log("Alert created successfully:", newAlert); // Debug log
+            return newAlert
+        } catch (error) {
+            console.error('Error creating alert:', error)
+            throw error
+        }
+    }
+
+    static async deleteAlert(alertId: number): Promise<void> {
+        try {
+            const response = await this.makeAuthenticatedRequest(`${API_BASE_URL}/alerts/${alertId}`, {
+                method: 'DELETE',
+            })
+
+            if (!response.ok) {
+                let errorMessage = 'Failed to delete alert'
+                try {
+                    const errorData = await response.json()
+                    errorMessage = errorData.message || errorMessage
+                } catch (e) {
+                    errorMessage = response.statusText || errorMessage
+                }
+                throw new Error(errorMessage)
+            }
+        } catch (error) {
+            console.error('Error deleting alert:', error)
+            throw error
+        }
+    }
+
+    static async fetchAlert(alertId: number): Promise<Alert> {
+        try {
+            const response = await this.makeAuthenticatedRequest(`${API_BASE_URL}/alerts/${alertId}`, {
+                method: 'GET',
+            })
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch alert: ${response.statusText}`)
+            }
+
+            const alert = await response.json()
+            return alert
+        } catch (error) {
+            console.error('Error fetching alert:', error)
+            throw error
+        }
+    }
+
+    static async updateAlert(alertId: number, alertData: Partial<Alert>): Promise<Alert> {
+        try {
+            const response = await this.makeAuthenticatedRequest(`${API_BASE_URL}/alerts/${alertId}`, {
+                method: 'PUT',
+                body: JSON.stringify(alertData),
+            })
+
+            if (!response.ok) {
+                let errorMessage = 'Failed to update alert'
+                try {
+                    const errorData = await response.json()
+                    errorMessage = errorData.message || errorMessage
+                } catch (e) {
+                    errorMessage = response.statusText || errorMessage
+                }
+                throw new Error(errorMessage)
+            }
+
+            const updatedAlert = await response.json()
+            return updatedAlert
+        } catch (error) {
+            console.error('Error updating alert:', error)
             throw error
         }
     }

@@ -362,7 +362,37 @@ const columns: ColumnDef<DashboardAlert>[] = [
 							<Edit className="mr-2 h-4 w-4" />
 							Edit Alert
 						</DropdownMenuItem>
-						<DropdownMenuItem className="text-red-600">
+						<DropdownMenuSeparator />
+						<DropdownMenuItem
+							className="text-red-600 focus:text-red-600"
+							onClick={async () => {
+								if (
+									confirm(
+										`Are you sure you want to delete alert #${alert.id}? This action cannot be undone.`
+									)
+								) {
+									try {
+										// Note: This would need to be implemented with real alert IDs
+										// await AuthService.deleteAlert(parseInt(alert.id));
+										console.log(
+											"Delete functionality would be implemented here for alert:",
+											alert.id
+										);
+										alert(
+											"Delete functionality is available in the Alerts Management page."
+										);
+									} catch (error) {
+										console.error(
+											"Error deleting alert:",
+											error
+										);
+										alert(
+											"Failed to delete alert. Please try again."
+										);
+									}
+								}
+							}}
+						>
 							<Trash2 className="mr-2 h-4 w-4" />
 							Delete Alert
 						</DropdownMenuItem>
