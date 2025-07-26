@@ -484,6 +484,94 @@ export class AuthService {
         }
     }
 
+    // Alert Verification Methods
+    static async generateVerificationToken(alertId: number): Promise<{ token: string; alertId: number }> {
+        try {
+            const response = await this.makeAuthenticatedRequest(`${API_BASE_URL}/alerts/${alertId}/generate-token`, {
+                method: 'POST',
+            })
+
+            if (!response.ok) {
+                let errorMessage = 'Failed to generate verification token'
+                try {
+                    const errorData = await response.json()
+                    errorMessage = errorData.message || errorData.error || errorMessage
+                } catch (e) {
+                    errorMessage = response.statusText || errorMessage
+                }
+                throw new Error(errorMessage)
+            }
+
+            const data = await response.json()
+            return {
+                token: data.token,
+                alertId: data.alertId
+            }
+        } catch (error) {
+            console.error('Error generating verification token:', error)
+            throw error
+        }
+    }
+
+    static async verifyAlert(alertId: number, verificationData: {
+        token: string
+        status: string
+        verificationDate: string
+        verificationTime: string
+        cifNo: string
+        personReporting: string
+        village: string
+        subCounty: string
+        contactNumber: string
+        sourceOfAlert: string
+        alertCaseName: string
+        alertCaseAge: number
+        alertCaseSex: string
+        alertCasePregnantDuration: number
+        alertCaseVillage: string
+        alertCaseParish: string
+        alertCaseSubCounty: string
+        alertCaseDistrict: string
+        alertCaseNationality: string
+        pointOfContactName: string
+        pointOfContactRelationship: string
+        pointOfContactPhone: string
+        history: string
+        healthFacilityVisit: string
+        traditionalHealerVisit: string
+        symptoms: string
+        actions: string
+        feedback: string
+        verifiedBy: string
+    }): Promise<Alert> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/alerts/${alertId}/verify`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(verificationData),
+            })
+
+            if (!response.ok) {
+                let errorMessage = 'Failed to verify alert'
+                try {
+                    const errorData = await response.json()
+                    errorMessage = errorData.message || errorData.error || errorMessage
+                } catch (e) {
+                    errorMessage = response.statusText || errorMessage
+                }
+                throw new Error(errorMessage)
+            }
+
+            const data = await response.json()
+            return data.alert
+        } catch (error) {
+            console.error('Error verifying alert:', error)
+            throw error
+        }
+    }
+
     static isAuthenticated(): boolean {
         const token = this.getToken()
         if (!token) return false

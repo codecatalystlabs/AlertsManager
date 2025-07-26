@@ -193,7 +193,6 @@ export default function DashboardAddAlertPage() {
 
 	const handleInputChange = (field: string, value: string) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
-		console.log(`Field ${field} changed to:`, value); // Debug log
 	};
 
 	const handleSymptomsChange = (symptom: string, checked: boolean) => {
@@ -206,16 +205,9 @@ export default function DashboardAddAlertPage() {
 		console.log("Symptoms updated:", formData.symptoms); // Debug log
 	};
 
-	// Debug function to check form state
-	const debugFormState = () => {
-		console.log("Current form data:", formData);
-		console.log("Is submitting:", isSubmitting);
-		console.log("Submit status:", submitStatus);
-	};
-
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		console.log("Form submission started"); // Debug log
+
 		setIsSubmitting(true);
 		setSubmitStatus({ type: null, message: "" });
 
@@ -287,11 +279,7 @@ export default function DashboardAddAlertPage() {
 				isVerified: false,
 			};
 
-			console.log("Sending alert data:", alertData); // Debug log
-
 			await AuthService.createAlert(alertData);
-
-			console.log("Alert created successfully"); // Debug log
 
 			setSubmitStatus({
 				type: "success",
@@ -985,14 +973,6 @@ export default function DashboardAddAlertPage() {
 							<Button
 								type="button"
 								variant="outline"
-								onClick={debugFormState}
-								className="bg-blue-500 text-white"
-							>
-								Debug Form
-							</Button>
-							<Button
-								type="button"
-								variant="outline"
 								onClick={() =>
 									router.push("/dashboard/alerts")
 								}
@@ -1003,11 +983,6 @@ export default function DashboardAddAlertPage() {
 								type="submit"
 								disabled={isSubmitting}
 								className="bg-gradient-to-r from-uganda-red to-uganda-yellow hover:from-uganda-red/90 hover:to-uganda-yellow/90 text-white px-6"
-								onClick={() =>
-									console.log(
-										"Submit button clicked"
-									)
-								} // Debug log
 							>
 								{isSubmitting
 									? "Creating Alert..."

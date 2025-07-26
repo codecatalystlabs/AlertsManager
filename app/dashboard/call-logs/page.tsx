@@ -14,6 +14,9 @@ import {
 	AlertCircle,
 	Loader2,
 	RefreshCw,
+	Eye,
+	Edit,
+	Shield,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -39,6 +42,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DataTable } from "@/components/ui/data-table";
 import { AuthService } from "@/lib/auth";
+import { AlertVerificationDialog } from "@/components/alert-verification-dialog";
+import { AlertDetailsDialog } from "@/components/alert-details-dialog";
+import { AlertEditDialog } from "@/components/alert-edit-dialog";
 
 interface AlertLog {
 	id: number;
@@ -102,6 +108,13 @@ export default function CallLogsPage() {
 	const [sourceFilter, setSourceFilter] = useState<string>("all");
 	const [searchTerm, setSearchTerm] = useState("");
 
+	// Dialog states
+	const [selectedAlert, setSelectedAlert] = useState<AlertLog | null>(null);
+	const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+	const [isVerificationDialogOpen, setIsVerificationDialogOpen] =
+		useState(false);
+	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
 	const fetchAlerts = async () => {
 		try {
 			setLoading(true);
@@ -149,6 +162,25 @@ export default function CallLogsPage() {
 				window.alert("Failed to delete alert. Please try again.");
 			}
 		}
+	};
+
+	const handleViewDetails = (alert: AlertLog) => {
+		setSelectedAlert(alert);
+		setIsDetailsDialogOpen(true);
+	};
+
+	const handleVerifyAlert = (alert: AlertLog) => {
+		setSelectedAlert(alert);
+		setIsVerificationDialogOpen(true);
+	};
+
+	const handleEditAlert = (alert: AlertLog) => {
+		setSelectedAlert(alert);
+		setIsEditDialogOpen(true);
+	};
+
+	const handleVerificationComplete = () => {
+		fetchAlerts(); // Refresh the alerts list
 	};
 
 	// Create columns with access to the delete function
@@ -375,12 +407,34 @@ export default function CallLogsPage() {
 								Copy alert ID
 							</DropdownMenuItem>
 							<DropdownMenuSeparator />
-							<DropdownMenuItem>
+							<DropdownMenuItem
+								onClick={() =>
+									handleViewDetails(alertItem)
+								}
+							>
+								<Eye className="h-4 w-4 mr-2" />
 								View details
 							</DropdownMenuItem>
-							<DropdownMenuItem>
+							<DropdownMenuItem
+								onClick={() =>
+									handleEditAlert(alertItem)
+								}
+							>
+								<Edit className="h-4 w-4 mr-2" />
 								Edit alert
 							</DropdownMenuItem>
+							{!alertItem.isVerified && (
+								<DropdownMenuItem
+									onClick={() =>
+										handleVerifyAlert(alertItem)
+									}
+									className="text-green-600 focus:text-green-600"
+								>
+									<Shield className="h-4 w-4 mr-2" />
+									Verify alert
+								</DropdownMenuItem>
+							)}
+							<DropdownMenuSeparator />
 							<DropdownMenuItem
 								className="text-red-600 focus:text-red-600"
 								onClick={() =>
@@ -675,6 +729,42 @@ export default function CallLogsPage() {
 					/>
 				</CardContent>
 			</Card>
+
+			{/* Dialogs */}
+			{selectedAlert && (
+				<>
+					<AlertDetailsDialog
+						isOpen={isDetailsDialogOpen}
+						onClose={() => {
+							setIsDetailsDialogOpen(false);
+							setSelectedAlert(null);
+						}}
+						alert={selectedAlert}
+					/>
+
+					<AlertVerificationDialog
+						isOpen={isVerificationDialogOpen}
+						onClose={() => {
+							setIsVerificationDialogOpen(false);
+							setSelectedAlert(null);
+						}}
+						alert={selectedAlert}
+						onVerificationComplete={
+							handleVerificationComplete
+						}
+					/>
+
+					<AlertEditDialog
+						isOpen={isEditDialogOpen}
+						onClose={() => {
+							setIsEditDialogOpen(false);
+							setSelectedAlert(null);
+						}}
+						alert={selectedAlert}
+						onEditComplete={handleVerificationComplete}
+					/>
+				</>
+			)}
 		</div>
 	);
 }
