@@ -89,6 +89,5 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
 		);
 	}
 
-	// Default render for any other routes
 	return <>{children}</>;
 }

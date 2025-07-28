@@ -7,7 +7,6 @@ export default function HomePage() {
 	const router = useRouter();
 
 	useEffect(() => {
-		// Always redirect to the add alert form as the main landing page
 		router.push("/add-alert");
 	}, [router]);
 
