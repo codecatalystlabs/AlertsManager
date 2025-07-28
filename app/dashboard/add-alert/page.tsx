@@ -310,12 +310,10 @@ export default function DashboardAddAlertPage() {
 				symptoms: [],
 			});
 
-			// Redirect to alerts page after 2 seconds
 			setTimeout(() => {
 				router.push("/dashboard/alerts");
 			}, 2000);
 		} catch (err) {
-			console.error("Error in form submission:", err); // Debug log
 			setSubmitStatus({
 				type: "error",
 				message:
