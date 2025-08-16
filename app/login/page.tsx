@@ -82,25 +82,28 @@ export default function LoginPage() {
 	}
 
 	return (
-		<div className="min-h-screen flex items-center justify-center relative">
+		<div className="min-h-screen  bg-cover bg-center flex items-center justify-center relative">
 			{/* Background Image */}
 			<div className="absolute inset-0 z-0">
 				<Image
-					src="/placeholder.svg?height=1080&width=1920"
+					src="/covid.jpg"
 					alt="Uganda Health Ministry Background"
 					fill
 					className="object-cover opacity-20"
 				/>
-				<div className="absolute inset-0 bg-gradient-to-br from-uganda-black/80 via-uganda-red/60 to-uganda-yellow/40"></div>
+				<div className="absolute inset-0 bg-gradient-to-br from-uganda-black/30 via-uganda-red/40 to-uganda-yellow/40"></div>
 			</div>
 
 			{/* Login Form */}
 			<Card className="w-full max-w-md mx-4 z-10 shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
 				<CardHeader className="text-center space-y-4">
-					<div className="mx-auto w-16 h-16 bg-gradient-to-br from-uganda-yellow to-uganda-red rounded-full flex items-center justify-center">
-						<span className="text-2xl font-bold text-white">
-							MoH
-						</span>
+					<div className="mx-auto rounded-full flex items-center justify-center">
+						<Image
+							src="/logo.png"
+							alt="Uganda Health Ministry Logo"
+							width={150}
+							height={150}
+						/>
 					</div>
 					<CardTitle className="text-2xl font-bold text-uganda-black">
 						Health Alert System
