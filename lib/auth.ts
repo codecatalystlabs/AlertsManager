@@ -545,6 +545,7 @@ export class AuthService {
         verifiedBy: string
         deskVerificationActions: string
         fieldVerificationFeedback: string
+        caseCode?: string
     }): Promise<Alert> {
         try {
             const response = await fetch(`${API_BASE_URL}/alerts/${alertId}/verify`, {

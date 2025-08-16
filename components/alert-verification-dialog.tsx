@@ -31,7 +31,6 @@ import {
 	XCircleIcon,
 	Loader2,
 	UserIcon,
-	MapPinIcon,
 	HeartIcon,
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
@@ -186,6 +185,8 @@ export function AlertVerificationDialog({
 	const [isVerifying, setIsVerifying] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [success, setSuccess] = useState<string | null>(null);
+	const [vhfCaseCode, setVhfCaseCode] = useState<string | null>(null);
+	const [showVhfForm, setShowVhfForm] = useState(false);
 
 	const [formData, setFormData] = useState({
 		status: "",
@@ -205,7 +206,7 @@ export function AlertVerificationDialog({
 		alertCaseParish: alert?.alertCaseParish || "",
 		alertCaseSubCounty: alert?.alertCaseSubCounty || "",
 		alertCaseDistrict: alert?.alertCaseDistrict || "",
-		alertCaseNationality: "Ugandan",
+		alertCaseNationality: alert?.alertCaseNationality || "",
 		pointOfContactName: alert?.pointOfContactName || "",
 		pointOfContactRelationship: "",
 		pointOfContactPhone: alert?.pointOfContactPhone || "",
@@ -264,6 +265,16 @@ export function AlertVerificationDialog({
 		}
 	}, [isOpen, alert]);
 
+	// Show VHF form when Field Case Verification is selected
+	useEffect(() => {
+		if (formData.deskVerificationActions === "Field Case Verification") {
+			setShowVhfForm(true);
+		} else {
+			setShowVhfForm(false);
+			setVhfCaseCode(null);
+		}
+	}, [formData.deskVerificationActions]);
+
 	const generateTokenAutomatically = async () => {
 		if (!alert?.id) return;
 
@@ -314,6 +325,36 @@ export function AlertVerificationDialog({
 	const handleInputChange = (field: string, value: string | number) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
 	};
+
+	// Handle VHF form iframe messages
+	const handleVhfMessage = (event: MessageEvent) => {
+		// Check if the message is from the VHF form success page
+		if (event.origin === "https://response.health.go.ug") {
+			const url = event.data?.url || window.location.href;
+
+			// Extract case code from success URL
+			const urlParams = new URLSearchParams(url.split("?")[1]);
+			const caseCode = urlParams.get("case_code");
+
+			if (caseCode) {
+				setVhfCaseCode(caseCode);
+				setShowVhfForm(false);
+				toast({
+					title: "VHF Form Submitted Successfully",
+					description: `Case Code: ${caseCode}`,
+				});
+			}
+		}
+	};
+
+	// Listen for VHF form messages
+	useEffect(() => {
+		if (showVhfForm) {
+			window.addEventListener("message", handleVhfMessage);
+			return () =>
+				window.removeEventListener("message", handleVhfMessage);
+		}
+	}, [showVhfForm]);
 
 	const handleVerification = async () => {
 		if (!alert?.id || !verificationToken) {
@@ -390,6 +431,7 @@ export function AlertVerificationDialog({
 				deskVerificationActions: formData.deskVerificationActions,
 				fieldVerificationFeedback:
 					formData.fieldVerificationFeedback,
+				caseCode: vhfCaseCode || "",
 			});
 
 			setSuccess("Alert verified successfully!");
@@ -827,7 +869,7 @@ export function AlertVerificationDialog({
 						{/* Location Information */}
 						<div className="space-y-4">
 							<div className="flex items-center gap-3">
-								<MapPinIcon className="h-5 w-5 text-uganda-red" />
+								<UserIcon className="h-5 w-5 text-uganda-red" />
 								<h3 className="text-lg font-semibold">
 									Location Information
 								</h3>
@@ -1256,6 +1298,236 @@ export function AlertVerificationDialog({
 								</RadioGroup>
 							</div>
 						</div>
+
+						{/* VHF Case Investigation Form - Only show when Field Case Verification is selected */}
+						{showVhfForm && (
+							<>
+								<Separator />
+								<div className="space-y-4">
+									<div className="flex items-center gap-3">
+										<AlertTriangleIcon className="h-5 w-5 text-uganda-red" />
+										<h3 className="text-lg font-semibold">
+											VHF Case Investigation
+											Form
+										</h3>
+									</div>
+
+									<div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+										<p className="text-sm text-blue-800 mb-2">
+											<strong>Note:</strong>{" "}
+											Complete the VHF (Viral
+											Hemorrhagic Fever) Case
+											Investigation Form below.
+											The "Get Location" button
+											in the form will capture
+											your GPS coordinates
+											automatically. After
+											submission, the case code
+											will be automatically
+											captured.
+										</p>
+									</div>
+
+									<div className="border rounded-lg overflow-hidden">
+										<iframe
+											src="https://response.health.go.ug/vhf-cif"
+											className="w-full h-[600px]"
+											title="VHF Case Investigation Form"
+											sandbox="allow-same-origin allow-scripts allow-forms allow-navigation"
+											allow="geolocation; camera; microphone"
+											onLoad={() => {
+												// Monitor for navigation to success page
+												const iframe =
+													document.querySelector(
+														'iframe[title="VHF Case Investigation Form"]'
+													) as HTMLIFrameElement;
+												if (
+													iframe?.contentWindow
+												) {
+													try {
+														// Check iframe URL periodically for success page
+														const checkUrl =
+															setInterval(
+																() => {
+																	try {
+																		const currentUrl =
+																			iframe
+																				.contentWindow
+																				?.location
+																				.href;
+																		if (
+																			currentUrl?.includes(
+																				"/vhf-cif/success"
+																			)
+																		) {
+																			const urlParams =
+																				new URLSearchParams(
+																					currentUrl.split(
+																						"?"
+																					)[1]
+																				);
+																			const caseCode =
+																				urlParams.get(
+																					"case_code"
+																				);
+																			if (
+																				caseCode
+																			) {
+																				setVhfCaseCode(
+																					caseCode
+																				);
+																				setShowVhfForm(
+																					false
+																				);
+																				clearInterval(
+																					checkUrl
+																				);
+																				toast(
+																					{
+																						title: "VHF Form Submitted Successfully",
+																						description: `Case Code: ${caseCode}`,
+																					}
+																				);
+																			}
+																		}
+																	} catch (e) {
+																		// Cross-origin error - expected
+																	}
+																},
+																1000
+															);
+
+														// Clean up interval after 10 minutes
+														setTimeout(
+															() =>
+																clearInterval(
+																	checkUrl
+																),
+															600000
+														);
+													} catch (e) {
+														// Cross-origin restrictions
+													}
+												}
+											}}
+										/>
+									</div>
+
+									<div className="flex justify-between items-center">
+										<Button
+											type="button"
+											variant="outline"
+											onClick={() => {
+												setShowVhfForm(
+													false
+												);
+												handleInputChange(
+													"deskVerificationActions",
+													""
+												);
+											}}
+										>
+											Cancel VHF Form
+										</Button>
+										<p className="text-sm text-gray-600">
+											The form will close
+											automatically after
+											successful submission
+										</p>
+									</div>
+								</div>
+							</>
+						)}
+
+						{/* Manual Case Code Input - Show when Field Case Verification is selected */}
+						{formData.deskVerificationActions ===
+							"Field Case Verification" && (
+							<>
+								<Separator />
+								<div className="space-y-4">
+									<div className="flex items-center gap-3">
+										<UserIcon className="h-5 w-5 text-uganda-red" />
+										<h3 className="text-lg font-semibold">
+											VHF Case Code
+										</h3>
+									</div>
+
+									<div className="space-y-2">
+										<Label
+											htmlFor="vhfCaseCode"
+											className="text-sm font-medium"
+										>
+											Case Code{" "}
+											{vhfCaseCode
+												? "(Auto-captured)"
+												: "(Manual Entry)"}
+										</Label>
+										<Input
+											id="vhfCaseCode"
+											type="text"
+											value={vhfCaseCode || ""}
+											onChange={(e) =>
+												setVhfCaseCode(
+													e.target.value
+												)
+											}
+											placeholder="Enter VHF case code (e.g., VHF-20250816-8022)"
+											className={
+												vhfCaseCode
+													? "bg-green-50 border-green-300"
+													: ""
+											}
+										/>
+										<p className="text-xs text-gray-500">
+											{vhfCaseCode
+												? "This code was automatically captured from the VHF form submission. You can edit it if needed."
+												: "Enter the case code manually or complete the VHF form above for automatic capture."}
+										</p>
+									</div>
+								</div>
+							</>
+						)}
+
+						{/* VHF Case Code Display - Show when case code is captured */}
+						{vhfCaseCode && (
+							<>
+								<Separator />
+								<div className="space-y-4">
+									<div className="flex items-center gap-3">
+										<CheckCircleIcon className="h-5 w-5 text-green-600" />
+										<h3 className="text-lg font-semibold text-green-800">
+											VHF Case Investigation
+											Completed
+										</h3>
+									</div>
+
+									<div className="bg-green-50 p-4 rounded-lg border border-green-200">
+										<div className="flex items-center gap-2">
+											<CheckCircleIcon className="h-5 w-5 text-green-600" />
+											<div>
+												<p className="text-sm font-medium text-green-800">
+													VHF Case Code:{" "}
+													<span className="font-mono">
+														{
+															vhfCaseCode
+														}
+													</span>
+												</p>
+												<p className="text-xs text-green-600 mt-1">
+													The VHF Case
+													Investigation
+													Form has been
+													successfully
+													submitted and
+													linked to this
+													alert.
+												</p>
+											</div>
+										</div>
+									</div>
+								</div>
+							</>
+						)}
 
 						{/* Field Verification Feedback - Only show when Field Case Verification is selected */}
 						{formData.deskVerificationActions ===

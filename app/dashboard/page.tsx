@@ -71,6 +71,60 @@ interface AlertCounts {
 	total: number;
 }
 
+interface CallLogAlert {
+	id: number;
+	status: string;
+	date: string;
+	time: string;
+	callTaker: string;
+	cifNo: string;
+	personReporting: string;
+	village: string;
+	subCounty: string;
+	contactNumber: string;
+	sourceOfAlert: string;
+	alertCaseName: string;
+	alertCaseAge: number;
+	alertCaseSex: string;
+	alertCasePregnantDuration: number;
+	alertCaseVillage: string;
+	alertCaseParish: string;
+	alertCaseSubCounty: string;
+	alertCaseDistrict: string;
+	alertCaseNationality: string;
+	pointOfContactName: string;
+	pointOfContactRelationship: string;
+	pointOfContactPhone: string;
+	history: string;
+	healthFacilityVisit: string;
+	traditionalHealerVisit: string;
+	symptoms: string;
+	actions: string;
+	caseVerificationDesk: string;
+	fieldVerification: string;
+	fieldVerificationDecision: string;
+	feedback: string;
+	labResult: string;
+	labResultDate: string | null;
+	isHighlighted: boolean;
+	assignedTo: string;
+	alertReportedBefore: string;
+	alertFrom: string;
+	verified: string;
+	comments: string;
+	verificationDate: string;
+	verificationTime: string;
+	response: string;
+	narrative: string;
+	facilityType: string;
+	facility: string;
+	isVerified: boolean;
+	verifiedBy: string;
+	region: string;
+	createdAt: string;
+	updatedAt: string;
+}
+
 // Mock data for alerts table (this would come from a real API)
 const recentAlerts: DashboardAlert[] = [
 	{
@@ -152,256 +206,252 @@ const recentAlerts: DashboardAlert[] = [
 ];
 
 // Table columns definition
-const columns: ColumnDef<DashboardAlert>[] = [
-	{
-		accessorKey: "id",
-		header: ({ column }) => {
-			return (
-				<Button
-					variant="ghost"
-					onClick={() =>
-						column.toggleSorting(
-							column.getIsSorted() === "asc"
-						)
-					}
-					className="text-white hover:text-white hover:bg-white/10"
-				>
-					Alert ID
-					<ArrowUpDown className="ml-2 h-4 w-4" />
-				</Button>
-			);
-		},
-		cell: ({ row }) => (
-			<div className="font-medium">#{row.getValue("id")}</div>
-		),
-	},
-	{
-		accessorKey: "personCalling",
-		header: ({ column }) => {
-			return (
-				<Button
-					variant="ghost"
-					onClick={() =>
-						column.toggleSorting(
-							column.getIsSorted() === "asc"
-						)
-					}
-					className="text-white hover:text-white hover:bg-white/10"
-				>
-					Person Calling
-					<ArrowUpDown className="ml-2 h-4 w-4" />
-				</Button>
-			);
-		},
-		cell: ({ row }) => (
-			<div className="font-medium">
-				{row.getValue("personCalling")}
-			</div>
-		),
-	},
-	{
-		accessorKey: "source",
-		header: "Source",
-		cell: ({ row }) => {
-			const source = row.getValue("source") as string;
-			return (
-				<Badge
-					variant="outline"
-					className="bg-blue-50 text-blue-700 border-blue-200"
-				>
-					{source}
-				</Badge>
-			);
-		},
-	},
-	{
-		accessorKey: "phone",
-		header: "Phone",
-		cell: ({ row }) => (
-			<div className="flex items-center">
-				<Phone className="mr-2 h-4 w-4 text-gray-500" />
-				{row.getValue("phone")}
-			</div>
-		),
-	},
-	{
-		accessorKey: "date",
-		header: ({ column }) => {
-			return (
-				<Button
-					variant="ghost"
-					onClick={() =>
-						column.toggleSorting(
-							column.getIsSorted() === "asc"
-						)
-					}
-					className="text-white hover:text-white hover:bg-white/10"
-				>
-					Date
-					<ArrowUpDown className="ml-2 h-4 w-4" />
-				</Button>
-			);
-		},
-	},
-	{
-		accessorKey: "district",
-		header: "District",
-		cell: ({ row }) => (
-			<div className="font-medium">{row.getValue("district")}</div>
-		),
-	},
-	{
-		accessorKey: "caseName",
-		header: "Case Name",
-		cell: ({ row }) => (
-			<div className="font-medium">{row.getValue("caseName")}</div>
-		),
-	},
-	{
-		accessorKey: "age",
-		header: "Age",
-		cell: ({ row }) => (
-			<div className="text-center">{row.getValue("age")} years</div>
-		),
-	},
-	{
-		accessorKey: "sex",
-		header: "Sex",
-		cell: ({ row }) => {
-			const sex = row.getValue("sex") as string;
-			return (
-				<Badge
-					variant="outline"
-					className={
-						sex === "Male"
-							? "bg-blue-50 text-blue-700"
-							: "bg-pink-50 text-pink-700"
-					}
-				>
-					{sex}
-				</Badge>
-			);
-		},
-	},
-	{
-		accessorKey: "status",
-		header: "Status",
-		cell: ({ row }) => {
-			const status = row.getValue("status") as string;
-			const colors = {
-				Verified: "bg-green-100 text-green-800",
-				Pending: "bg-yellow-100 text-yellow-800",
-				Investigating: "bg-blue-100 text-blue-800",
-				Resolved: "bg-gray-100 text-gray-800",
-			};
-			return (
-				<Badge className={colors[status as keyof typeof colors]}>
-					{status}
-				</Badge>
-			);
-		},
-	},
-	{
-		accessorKey: "priority",
-		header: "Priority",
-		cell: ({ row }) => {
-			const priority = row.getValue("priority") as string;
-			const colors = {
-				High: "bg-red-100 text-red-800",
-				Medium: "bg-orange-100 text-orange-800",
-				Low: "bg-green-100 text-green-800",
-			};
-			return (
-				<Badge className={colors[priority as keyof typeof colors]}>
-					{priority}
-				</Badge>
-			);
-		},
-	},
-	{
-		accessorKey: "duration",
-		header: "Duration",
-		cell: ({ row }) => (
-			<div className="flex items-center">
-				<Clock className="mr-2 h-4 w-4 text-gray-500" />
-				{row.getValue("duration")}
-			</div>
-		),
-	},
-	{
-		id: "actions",
-		header: "Actions",
-		cell: ({ row }) => {
-			const alert = row.original;
-			return (
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<Button
-							variant="ghost"
-							className="h-8 w-8 p-0"
-						>
-							<span className="sr-only">Open menu</span>
-							<MoreHorizontal className="h-4 w-4" />
-						</Button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end">
-						<DropdownMenuLabel>Actions</DropdownMenuLabel>
-						<DropdownMenuItem
-							onClick={() =>
-								navigator.clipboard.writeText(alert.id)
-							}
-						>
-							Copy Alert ID
-						</DropdownMenuItem>
-						<DropdownMenuSeparator />
-						<DropdownMenuItem>
-							<Eye className="mr-2 h-4 w-4" />
-							View Details
-						</DropdownMenuItem>
-						<DropdownMenuItem>
-							<Edit className="mr-2 h-4 w-4" />
-							Edit Alert
-						</DropdownMenuItem>
-						<DropdownMenuSeparator />
-						<DropdownMenuItem
-							className="text-red-600 focus:text-red-600"
-							onClick={async () => {
-								if (
-									confirm(
-										`Are you sure you want to delete alert #${alert.id}? This action cannot be undone.`
-									)
-								) {
-									try {
-										// Note: This would need to be implemented with real alert IDs
-										// await AuthService.deleteAlert(parseInt(alert.id));
-										console.log(
-											"Delete functionality would be implemented here for alert:",
-											alert.id
-										);
-										alert(
-											"Delete functionality is available in the Alerts Management page."
-										);
-									} catch (error) {
-										console.error(
-											"Error deleting alert:",
-											error
-										);
-										alert(
-											"Failed to delete alert. Please try again."
-										);
-									}
-								}
-							}}
-						>
-							<Trash2 className="mr-2 h-4 w-4" />
-							Delete Alert
-						</DropdownMenuItem>
-					</DropdownMenuContent>
-				</DropdownMenu>
-			);
-		},
-	},
-];
+// const columns: ColumnDef<DashboardAlert>[] = [
+// 	{
+// 		accessorKey: "id",
+// 		header: ({ column }) => {
+// 			return (
+// 				<Button
+// 					variant="ghost"
+// 					onClick={() =>
+// 						column.toggleSorting(
+// 							column.getIsSorted() === "asc"
+// 						)
+// 					}
+// 					className="text-white hover:text-white hover:bg-white/10"
+// 				>
+// 					Alert ID
+// 					<ArrowUpDown className="ml-2 h-4 w-4" />
+// 				</Button>
+// 			);
+// 		},
+// 		cell: ({ row }) => (
+// 			<div className="font-medium">#{row.getValue("id")}</div>
+// 		),
+// 	},
+// 	{
+// 		accessorKey: "personCalling",
+// 		header: ({ column }) => {
+// 			return (
+// 				<Button
+// 					variant="ghost"
+// 					onClick={() =>
+// 						column.toggleSorting(
+// 							column.getIsSorted() === "asc"
+// 						)
+// 					}
+// 					className="text-white hover:text-white hover:bg-white/10"
+// 				>
+// 					Person Calling
+// 					<ArrowUpDown className="ml-2 h-4 w-4" />
+// 				</Button>
+// 			);
+// 		},
+// 		cell: ({ row }) => (
+// 			<div className="font-medium">
+// 				{row.getValue("personCalling")}
+// 			</div>
+// 		),
+// 	},
+// 	{
+// 		accessorKey: "source",
+// 		header: "Source",
+// 		cell: ({ row }) => {
+// 			const source = row.getValue("source") as string;
+// 			return (
+// 				<Badge
+// 					variant="outline"
+// 					className="bg-blue-50 text-blue-700 border-blue-200"
+// 				>
+// 					{source}
+// 				</Badge>
+// 			);
+// 		},
+// 	},
+// 	{
+// 		accessorKey: "phone",
+// 		header: "Phone",
+// 		cell: ({ row }) => (
+// 			<div className="flex items-center">
+// 				<Phone className="mr-2 h-4 w-4 text-gray-500" />
+// 				{row.getValue("phone")}
+// 			</div>
+// 		),
+// 	},
+// 	{
+// 		accessorKey: "date",
+// 		header: ({ column }) => {
+// 			return (
+// 				<Button
+// 					variant="ghost"
+// 					onClick={() =>
+// 						column.toggleSorting(
+// 							column.getIsSorted() === "asc"
+// 						)
+// 					}
+// 					className="text-white hover:text-white hover:bg-white/10"
+// 				>
+// 					Date
+// 					<ArrowUpDown className="ml-2 h-4 w-4" />
+// 				</Button>
+// 			);
+// 		},
+// 	},
+// 	{
+// 		accessorKey: "district",
+// 		header: "District",
+// 		cell: ({ row }) => (
+// 			<div className="font-medium">{row.getValue("district")}</div>
+// 		),
+// 	},
+// 	{
+// 		accessorKey: "caseName",
+// 		header: "Case Name",
+// 		cell: ({ row }) => (
+// 			<div className="font-medium">{row.getValue("caseName")}</div>
+// 		),
+// 	},
+// 	{
+// 		accessorKey: "age",
+// 		header: "Age",
+// 		cell: ({ row }) => (
+// 			<div className="text-center">{row.getValue("age")} years</div>
+// 		),
+// 	},
+// 	{
+// 		accessorKey: "sex",
+// 		header: "Sex",
+// 		cell: ({ row }) => {
+// 			const sex = row.getValue("sex") as string;
+// 			return (
+// 				<Badge
+// 					variant="outline"
+// 					className={
+// 						sex === "Male"
+// 							? "bg-blue-50 text-blue-700"
+// 							: "bg-pink-50 text-pink-700"
+// 					}
+// 				>
+// 					{sex}
+// 				</Badge>
+// 			);
+// 		},
+// 	},
+// 	{
+// 		accessorKey: "status",
+// 		header: "Status",
+// 		cell: ({ row }) => {
+// 			const status = row.getValue("status") as string;
+// 			const colors = {
+// 				Verified: "bg-green-100 text-green-800",
+// 				Pending: "bg-yellow-100 text-yellow-800",
+// 				Investigating: "bg-blue-100 text-blue-800",
+// 				Resolved: "bg-gray-100 text-gray-800",
+// 			};
+// 			return (
+// 				<Badge className={colors[status as keyof typeof colors]}>
+// 					{status}
+// 				</Badge>
+// 			);
+// 		},
+// 	},
+// 	{
+// 		accessorKey: "priority",
+// 		header: "Priority",
+// 		cell: ({ row }) => {
+// 			const priority = row.getValue("priority") as string;
+// 			const colors = {
+// 				High: "bg-red-100 text-red-800",
+// 				Medium: "bg-orange-100 text-orange-800",
+// 				Low: "bg-green-100 text-green-800",
+// 			};
+// 			return (
+// 				<Badge className={colors[priority as keyof typeof colors]}>
+// 					{priority}
+// 				</Badge>
+// 			);
+// 		},
+// 	},
+// 	{
+// 		accessorKey: "duration",
+// 		header: "Duration",
+// 		cell: ({ row }) => (
+// 			<div className="flex items-center">
+// 				<Clock className="mr-2 h-4 w-4 text-gray-500" />
+// 				{row.getValue("duration")}
+// 			</div>
+// 		),
+// 	},
+// 	{
+// 		id: "actions",
+// 		header: "Actions",
+// 		cell: ({ row }) => {
+// 			const alert = row.original;
+// 			return (
+// 				<DropdownMenu>
+// 					<DropdownMenuTrigger asChild>
+// 						<Button
+// 							variant="ghost"
+// 							className="h-8 w-8 p-0"
+// 						>
+// 							<span className="sr-only">Open menu</span>
+// 							<MoreHorizontal className="h-4 w-4" />
+// 						</Button>
+// 					</DropdownMenuTrigger>
+// 					<DropdownMenuContent align="end">
+// 						<DropdownMenuLabel>Actions</DropdownMenuLabel>
+// 						<DropdownMenuItem
+// 							onClick={() =>
+// 								navigator.clipboard.writeText(alert.id)
+// 							}
+// 						>
+// 							Copy Alert ID
+// 						</DropdownMenuItem>
+// 						<DropdownMenuSeparator />
+// 						<DropdownMenuItem>
+// 							<Eye className="mr-2 h-4 w-4" />
+// 							View Details
+// 						</DropdownMenuItem>
+// 						<DropdownMenuItem>
+// 							<Edit className="mr-2 h-4 w-4" />
+// 							Edit Alert
+// 						</DropdownMenuItem>
+// 						<DropdownMenuSeparator />
+// 						<DropdownMenuItem
+// 							className="text-red-600 focus:text-red-600"
+// 							onClick={async () => {
+// 								if (
+// 									confirm(
+// 										`Are you sure you want to delete alert #${alert.id}? This action cannot be undone.`
+// 									)
+// 								) {
+// 									try {
+// 										// Note: This would need to be implemented with real alert IDs
+// 										// await AuthService.deleteAlert(parseInt(alert.id));
+// 										console.log(
+// 											"Delete functionality would be implemented here for alert:",
+// 											alert.id
+// 										);
+
+// 									} catch (error) {
+// 										console.error(
+// 											"Error deleting alert:",
+// 											error
+// 										);
+
+// 									}
+// 								}
+// 							}}
+// 						>
+// 							<Trash2 className="mr-2 h-4 w-4" />
+// 							Delete Alert
+// 						</DropdownMenuItem>
+// 					</DropdownMenuContent>
+// 				</DropdownMenu>
+// 			);
+// 		},
+// 	},
+// ];
 
 export default function DashboardPage() {
 	const [alertCounts, setAlertCounts] = useState<AlertCounts>({
@@ -409,18 +459,48 @@ export default function DashboardPage() {
 		notVerified: 0,
 		total: 0,
 	});
+	const [alerts, setAlerts] = useState<CallLogAlert[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [statusFilter, setStatusFilter] = useState<string>("");
 	const [districtFilter, setDistrictFilter] = useState<string>("");
 	const [priorityFilter, setPriorityFilter] = useState<string>("");
 
-	const fetchAlertCounts = async () => {
+	const fetchAlertsData = async () => {
 		try {
 			setLoading(true);
 			setError(null);
-			const counts = await AuthService.fetchAlertCounts();
-			setAlertCounts(counts);
+
+			// Fetch alerts from call logs API
+			const response = await AuthService.makeAuthenticatedRequest(
+				`${
+					process.env.NEXT_PUBLIC_API_BASE_URL ||
+					"http://localhost:8089/api/v1"
+				}/alerts`
+			);
+
+			if (!response.ok) {
+				throw new Error("Failed to fetch alerts");
+			}
+
+			const data = await response.json();
+			const alertsData = Array.isArray(data) ? data : [];
+			setAlerts(alertsData);
+
+			// Calculate counts based on verification status
+			const verified = alertsData.filter(
+				(alert: CallLogAlert) => alert.isVerified === true
+			).length;
+			const notVerified = alertsData.filter(
+				(alert: CallLogAlert) => alert.isVerified === false
+			).length;
+			const total = alertsData.length;
+
+			setAlertCounts({
+				verified,
+				notVerified,
+				total,
+			});
 		} catch (err) {
 			console.error("Error fetching alert counts:", err);
 			setError(
@@ -428,14 +508,30 @@ export default function DashboardPage() {
 					? err.message
 					: "Failed to fetch alert counts"
 			);
+			setAlerts([]);
+			setAlertCounts({
+				verified: 0,
+				notVerified: 0,
+				total: 0,
+			});
 		} finally {
 			setLoading(false);
 		}
 	};
 
 	useEffect(() => {
-		fetchAlertCounts();
+		fetchAlertsData();
 	}, []);
+
+	// Calculate today's statistics
+	const today = new Date().toISOString().split("T")[0];
+	const todayAlerts = alerts.filter((alert) => {
+		const alertDate = new Date(alert.date).toISOString().split("T")[0];
+		return alertDate === today;
+	});
+	const todayVerified = todayAlerts.filter(
+		(alert) => alert.isVerified
+	).length;
 
 	// Filter data based on selected filters
 	const filteredData = recentAlerts.filter((alert) => {
@@ -545,9 +641,9 @@ export default function DashboardPage() {
 							</div>
 						</div>
 						<Button
-							onClick={fetchAlertCounts}
+							onClick={fetchAlertsData}
 							variant="outline"
-							className="border-white/30 text-white hover:bg-white/10"
+							className="border-white/30 text-black hover:bg-white/10"
 							size="sm"
 						>
 							<RefreshCw className="h-4 w-4 mr-2" />
@@ -582,7 +678,8 @@ export default function DashboardPage() {
 								<div className="flex items-center mt-2">
 									<CheckCircle className="h-4 w-4 text-green-600 mr-1" />
 									<span className="text-xs text-green-600">
-										All verified cases
+										{alertCounts.verified} of{" "}
+										{alertCounts.total} alerts
 									</span>
 								</div>
 							</div>
@@ -606,7 +703,8 @@ export default function DashboardPage() {
 								<div className="flex items-center mt-2">
 									<AlertTriangle className="h-4 w-4 text-red-600 mr-1" />
 									<span className="text-xs text-red-600">
-										Requires attention
+										{alertCounts.notVerified} of{" "}
+										{alertCounts.total} alerts
 									</span>
 								</div>
 							</div>
@@ -630,7 +728,10 @@ export default function DashboardPage() {
 								<div className="flex items-center mt-2">
 									<TrendingUp className="h-4 w-4 text-blue-600 mr-1" />
 									<span className="text-xs text-blue-600">
-										All time total
+										{alertCounts.verified}{" "}
+										verified,{" "}
+										{alertCounts.notVerified}{" "}
+										pending
 									</span>
 								</div>
 							</div>
@@ -684,7 +785,7 @@ export default function DashboardPage() {
 									Total Calls Today
 								</p>
 								<p className="text-2xl font-bold text-purple-700">
-									0
+									{todayAlerts.length}
 								</p>
 							</div>
 							<Phone className="h-8 w-8 text-purple-500" />
@@ -697,10 +798,10 @@ export default function DashboardPage() {
 						<div className="flex items-center justify-between">
 							<div>
 								<p className="text-indigo-600 text-sm font-medium">
-									Active Cases
+									Pending Verification
 								</p>
 								<p className="text-2xl font-bold text-indigo-700">
-									{121}
+									{alertCounts.notVerified}
 								</p>
 							</div>
 							<Users className="h-8 w-8 text-indigo-500" />
@@ -713,10 +814,10 @@ export default function DashboardPage() {
 						<div className="flex items-center justify-between">
 							<div>
 								<p className="text-teal-600 text-sm font-medium">
-									Resolved Today
+									Verified Today
 								</p>
 								<p className="text-2xl font-bold text-teal-700">
-									0
+									{todayVerified}
 								</p>
 							</div>
 							<CheckCircle className="h-8 w-8 text-teal-500" />
@@ -846,10 +947,10 @@ export default function DashboardPage() {
 								Alert Details
 							</h3>
 						</div>
-						<DataTable
+						{/* <DataTable
 							columns={columns}
 							data={filteredData}
-						/>
+						/> */}
 					</div>
 				</CardContent>
 			</Card>

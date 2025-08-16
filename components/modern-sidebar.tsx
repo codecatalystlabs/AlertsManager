@@ -107,20 +107,52 @@ export function ModernSidebar({
 	}, []);
 
 	useEffect(() => {
-		const fetchAlertCounts = async () => {
+		const fetchAlertsData = async () => {
 			try {
-				const counts = await AuthService.fetchAlertCounts();
-				setAlertCounts(counts);
+				// Fetch alerts from call logs API
+				const response = await AuthService.makeAuthenticatedRequest(
+					`${
+						process.env.NEXT_PUBLIC_API_BASE_URL ||
+						"http://localhost:8089/api/v1"
+					}/alerts`
+				);
+
+				if (!response.ok) {
+					throw new Error("Failed to fetch alerts");
+				}
+
+				const data = await response.json();
+				const alertsData = Array.isArray(data) ? data : [];
+
+				// Calculate counts based on verification status
+				const verified = alertsData.filter(
+					(alert: any) => alert.isVerified === true
+				).length;
+				const notVerified = alertsData.filter(
+					(alert: any) => alert.isVerified === false
+				).length;
+				const total = alertsData.length;
+
+				setAlertCounts({
+					verified,
+					notVerified,
+					total,
+				});
 			} catch (error) {
 				console.error(
 					"Error fetching alert counts for sidebar:",
 					error
 				);
+				setAlertCounts({
+					verified: 0,
+					notVerified: 0,
+					total: 0,
+				});
 			}
 		};
 
 		if (AuthService.isAuthenticated()) {
-			fetchAlertCounts();
+			fetchAlertsData();
 		}
 	}, []);
 
@@ -304,32 +336,7 @@ function SidebarContent({
 			<ScrollArea className="flex-1 px-4 py-4">
 				<nav className="space-y-2">
 					{/* Quick Stats */}
-					<div className="mb-6">
-						<h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-							Quick Stats
-						</h3>
-						<div className="grid grid-cols-2 gap-2">
-							<div className="bg-gradient-to-br from-green-50 to-green-100 p-3 rounded-lg border border-green-200/50">
-								<div className="text-lg font-bold text-green-700">
-									{alertCounts.verified}
-								</div>
-								<div className="text-xs text-green-600">
-									Verified
-								</div>
-							</div>
-							<div className="bg-gradient-to-br from-red-50 to-red-100 p-3 rounded-lg border border-red-200/50">
-								<div className="text-lg font-bold text-red-700">
-									{alertCounts.notVerified}
-								</div>
-								<div className="text-xs text-red-600">
-									Unverified
-								</div>
-							</div>
-						</div>
-					</div>
-
-					<Separator className="my-4" />
-
+					
 					{/* Main Navigation */}
 					<div className="space-y-1">
 						<h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
