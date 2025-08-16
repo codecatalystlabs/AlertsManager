@@ -227,13 +227,11 @@ export default function DashboardAddAlertPage() {
 				throw new Error("Please fill in all required fields");
 			}
 
-			console.log("Validation passed, preparing data"); // Debug log
 
 			// Helper function to format time properly
 			const formatTime = (timeString: string): string => {
 				if (!timeString) return new Date().toISOString();
 
-				// If it's in HH:MM format, create a proper date with today's date
 				if (timeString.match(/^\d{2}:\d{2}$/)) {
 					const today = new Date();
 					const [hours, minutes] = timeString.split(":");
@@ -246,7 +244,6 @@ export default function DashboardAddAlertPage() {
 					return today.toISOString();
 				}
 
-				// Fallback to current time
 				return new Date().toISOString();
 			};
 

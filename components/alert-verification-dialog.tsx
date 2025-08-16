@@ -35,6 +35,7 @@ import {
 	HeartIcon,
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
+import { useToast } from "@/hooks/use-toast";
 
 interface AlertVerificationDialogProps {
 	isOpen: boolean;
@@ -179,6 +180,7 @@ export function AlertVerificationDialog({
 	alert,
 	onVerificationComplete,
 }: AlertVerificationDialogProps) {
+	const { toast } = useToast();
 	const [verificationToken, setVerificationToken] = useState<string>("");
 	const [isGeneratingToken, setIsGeneratingToken] = useState(false);
 	const [isVerifying, setIsVerifying] = useState(false);
@@ -214,6 +216,8 @@ export function AlertVerificationDialog({
 		actions: "",
 		feedback: "",
 		verifiedBy: "",
+		deskVerificationActions: "",
+		fieldVerificationFeedback: "",
 	});
 
 	useEffect(() => {
@@ -237,7 +241,7 @@ export function AlertVerificationDialog({
 				alertCaseParish: alert.alertCaseParish || "",
 				alertCaseSubCounty: alert.alertCaseSubCounty || "",
 				alertCaseDistrict: alert.alertCaseDistrict || "",
-				alertCaseNationality: "Ugandan",
+				alertCaseNationality: alert.alertCaseNationality || "",
 				pointOfContactName: alert.pointOfContactName || "",
 				pointOfContactRelationship: "",
 				pointOfContactPhone: alert.pointOfContactPhone || "",
@@ -248,18 +252,19 @@ export function AlertVerificationDialog({
 				actions: "",
 				feedback: "",
 				verifiedBy: "",
+				deskVerificationActions: "",
+				fieldVerificationFeedback: "",
 			});
 			setVerificationToken("");
 			setError(null);
 			setSuccess(null);
+
+			// Automatically generate token when dialog opens
+			generateTokenAutomatically();
 		}
 	}, [isOpen, alert]);
 
-	const handleInputChange = (field: string, value: string | number) => {
-		setFormData((prev) => ({ ...prev, [field]: value }));
-	};
-
-	const generateToken = async () => {
+	const generateTokenAutomatically = async () => {
 		if (!alert?.id) return;
 
 		setIsGeneratingToken(true);
@@ -270,7 +275,6 @@ export function AlertVerificationDialog({
 				alert.id
 			);
 			setVerificationToken(result.token);
-			setSuccess("Verification token generated successfully!");
 		} catch (err) {
 			const errorMessage =
 				err instanceof Error
@@ -279,20 +283,43 @@ export function AlertVerificationDialog({
 
 			// Check if it's a database schema error
 			if (errorMessage.includes("Unknown column 'created_at'")) {
-				setError(
-					"Database configuration error. Please contact the system administrator to fix the database schema."
-				);
+				const dbError =
+					"Database configuration error. Please contact the system administrator to fix the database schema.";
+				setError(dbError);
+
+				// Show error toast for database issues
+				toast({
+					title: "🔧 Database Configuration Error",
+					description:
+						"Please contact the system administrator to fix the database schema.",
+					variant: "destructive",
+					duration: 8000,
+				});
 			} else {
 				setError(errorMessage);
+
+				// Show error toast for token generation
+				toast({
+					title: "⚠️ Token Generation Failed",
+					description: errorMessage,
+					variant: "destructive",
+					duration: 5000,
+				});
 			}
 		} finally {
 			setIsGeneratingToken(false);
 		}
 	};
 
+	const handleInputChange = (field: string, value: string | number) => {
+		setFormData((prev) => ({ ...prev, [field]: value }));
+	};
+
 	const handleVerification = async () => {
 		if (!alert?.id || !verificationToken) {
-			setError("Please generate a verification token first");
+			setError(
+				"Verification token not available. Please close and reopen the dialog."
+			);
 			return;
 		}
 
@@ -360,19 +387,42 @@ export function AlertVerificationDialog({
 				actions: formData.actions,
 				feedback: formData.feedback,
 				verifiedBy: formData.verifiedBy,
+				deskVerificationActions: formData.deskVerificationActions,
+				fieldVerificationFeedback:
+					formData.fieldVerificationFeedback,
 			});
 
 			setSuccess("Alert verified successfully!");
+
+			// Show success toast
+			toast({
+				title: "✅ Verification Successful",
+				description: `Alert ALT${String(alert.id).padStart(
+					3,
+					"0"
+				)} has been verified successfully.`,
+				duration: 5000,
+			});
+
 			setTimeout(() => {
 				onVerificationComplete();
 				onClose();
 			}, 2000);
 		} catch (err) {
-			setError(
+			const errorMessage =
 				err instanceof Error
 					? err.message
-					: "Failed to verify alert"
-			);
+					: "Failed to verify alert";
+
+			setError(errorMessage);
+
+			// Show error toast
+			toast({
+				title: "❌ Verification Failed",
+				description: errorMessage,
+				variant: "destructive",
+				duration: 5000,
+			});
 		} finally {
 			setIsVerifying(false);
 		}
@@ -415,47 +465,20 @@ export function AlertVerificationDialog({
 					</Alert>
 				)}
 
-				{/* Token Generation Section */}
-				<div className="space-y-4">
-					<div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-						<div>
-							<h3 className="font-semibold">
-								Verification Token
-							</h3>
-							<p className="text-sm text-gray-600">
-								Generate a token to proceed with
-								verification
+				{/* Loading State */}
+				{isGeneratingToken && (
+					<div className="flex items-center justify-center p-8">
+						<div className="text-center">
+							<Loader2 className="h-8 w-8 animate-spin text-uganda-red mx-auto mb-4" />
+							<p className="text-gray-600">
+								Generating verification token...
 							</p>
 						</div>
-						<div className="flex items-center gap-2">
-							{verificationToken && (
-								<Badge
-									variant="secondary"
-									className="font-mono"
-								>
-									{verificationToken}
-								</Badge>
-							)}
-							<Button
-								onClick={generateToken}
-								disabled={isGeneratingToken}
-								variant="outline"
-								size="sm"
-							>
-								{isGeneratingToken ? (
-									<Loader2 className="h-4 w-4 animate-spin" />
-								) : (
-									"Generate Token"
-								)}
-							</Button>
-						</div>
 					</div>
-				</div>
-
-				<Separator />
+				)}
 
 				{/* Verification Form */}
-				{verificationToken && (
+				{verificationToken && !isGeneratingToken && (
 					<div className="space-y-6">
 						{/* Basic Information */}
 						<div className="space-y-4">
@@ -708,6 +731,99 @@ export function AlertVerificationDialog({
 
 						<Separator />
 
+						{/* Reporter Information */}
+						<div className="space-y-4">
+							<div className="flex items-center gap-3">
+								<UserIcon className="h-5 w-5 text-uganda-red" />
+								<h3 className="text-lg font-semibold">
+									Reporter Information
+								</h3>
+							</div>
+
+							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+								<div className="space-y-2">
+									<Label
+										htmlFor="personReporting"
+										className="text-sm font-medium"
+									>
+										Person Reporting *
+									</Label>
+									<Input
+										id="personReporting"
+										value={
+											formData.personReporting
+										}
+										onChange={(e) =>
+											handleInputChange(
+												"personReporting",
+												e.target.value
+											)
+										}
+										required
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label
+										htmlFor="contactNumber"
+										className="text-sm font-medium"
+									>
+										Contact Number *
+									</Label>
+									<Input
+										id="contactNumber"
+										value={formData.contactNumber}
+										onChange={(e) =>
+											handleInputChange(
+												"contactNumber",
+												e.target.value
+											)
+										}
+										required
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label
+										htmlFor="sourceOfAlert"
+										className="text-sm font-medium"
+									>
+										Source of Alert *
+									</Label>
+									<Select
+										value={formData.sourceOfAlert}
+										onValueChange={(value) =>
+											handleInputChange(
+												"sourceOfAlert",
+												value
+											)
+										}
+									>
+										<SelectTrigger>
+											<SelectValue placeholder="Select source" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="Community">
+												Community
+											</SelectItem>
+											<SelectItem value="VHT">
+												VHT
+											</SelectItem>
+											<SelectItem value="Health Facility">
+												Health Facility
+											</SelectItem>
+											<SelectItem value="Health Worker">
+												Health Worker
+											</SelectItem>
+											<SelectItem value="Other">
+												Other
+											</SelectItem>
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
+						</div>
+
+						<Separator />
+
 						{/* Location Information */}
 						<div className="space-y-4">
 							<div className="flex items-center gap-3">
@@ -717,7 +833,43 @@ export function AlertVerificationDialog({
 								</h3>
 							</div>
 
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+								<div className="space-y-2">
+									<Label
+										htmlFor="village"
+										className="text-sm font-medium"
+									>
+										Village (Reporter)
+									</Label>
+									<Input
+										id="village"
+										value={formData.village}
+										onChange={(e) =>
+											handleInputChange(
+												"village",
+												e.target.value
+											)
+										}
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label
+										htmlFor="subCounty"
+										className="text-sm font-medium"
+									>
+										Sub County
+									</Label>
+									<Input
+										id="subCounty"
+										value={formData.subCounty}
+										onChange={(e) =>
+											handleInputChange(
+												"subCounty",
+												e.target.value
+											)
+										}
+									/>
+								</div>
 								<div className="space-y-2">
 									<Label
 										htmlFor="alertCaseDistrict"
@@ -757,12 +909,15 @@ export function AlertVerificationDialog({
 										</SelectContent>
 									</Select>
 								</div>
+							</div>
+
+							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 								<div className="space-y-2">
 									<Label
 										htmlFor="alertCaseVillage"
 										className="text-sm font-medium"
 									>
-										Village
+										Case Village
 									</Label>
 									<Input
 										id="alertCaseVillage"
@@ -777,8 +932,398 @@ export function AlertVerificationDialog({
 										}
 									/>
 								</div>
+								<div className="space-y-2">
+									<Label
+										htmlFor="alertCaseParish"
+										className="text-sm font-medium"
+									>
+										Case Parish
+									</Label>
+									<Input
+										id="alertCaseParish"
+										value={
+											formData.alertCaseParish
+										}
+										onChange={(e) =>
+											handleInputChange(
+												"alertCaseParish",
+												e.target.value
+											)
+										}
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label
+										htmlFor="alertCaseSubCounty"
+										className="text-sm font-medium"
+									>
+										Case Sub County
+									</Label>
+									<Input
+										id="alertCaseSubCounty"
+										value={
+											formData.alertCaseSubCounty
+										}
+										onChange={(e) =>
+											handleInputChange(
+												"alertCaseSubCounty",
+												e.target.value
+											)
+										}
+									/>
+								</div>
+							</div>
+
+							<div className="space-y-2">
+								<Label
+									htmlFor="alertCaseNationality"
+									className="text-sm font-medium"
+								>
+									Case Nationality
+								</Label>
+								<Input
+									id="alertCaseNationality"
+									value={
+										formData.alertCaseNationality
+									}
+									onChange={(e) =>
+										handleInputChange(
+											"alertCaseNationality",
+											e.target.value
+										)
+									}
+								/>
 							</div>
 						</div>
+
+						<Separator />
+
+						{/* Point of Contact Information */}
+						<div className="space-y-4">
+							<div className="flex items-center gap-3">
+								<UserIcon className="h-5 w-5 text-uganda-red" />
+								<h3 className="text-lg font-semibold">
+									Point of Contact Information
+								</h3>
+							</div>
+
+							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+								<div className="space-y-2">
+									<Label
+										htmlFor="pointOfContactName"
+										className="text-sm font-medium"
+									>
+										Point of Contact Name
+									</Label>
+									<Input
+										id="pointOfContactName"
+										value={
+											formData.pointOfContactName
+										}
+										onChange={(e) =>
+											handleInputChange(
+												"pointOfContactName",
+												e.target.value
+											)
+										}
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label
+										htmlFor="pointOfContactRelationship"
+										className="text-sm font-medium"
+									>
+										Relationship
+									</Label>
+									<Input
+										id="pointOfContactRelationship"
+										value={
+											formData.pointOfContactRelationship
+										}
+										onChange={(e) =>
+											handleInputChange(
+												"pointOfContactRelationship",
+												e.target.value
+											)
+										}
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label
+										htmlFor="pointOfContactPhone"
+										className="text-sm font-medium"
+									>
+										Point of Contact Phone
+									</Label>
+									<Input
+										id="pointOfContactPhone"
+										value={
+											formData.pointOfContactPhone
+										}
+										onChange={(e) =>
+											handleInputChange(
+												"pointOfContactPhone",
+												e.target.value
+											)
+										}
+									/>
+								</div>
+							</div>
+						</div>
+
+						<Separator />
+
+						{/* Medical Information */}
+						<div className="space-y-4">
+							<div className="flex items-center gap-3">
+								<HeartIcon className="h-5 w-5 text-uganda-red" />
+								<h3 className="text-lg font-semibold">
+									Medical Information
+								</h3>
+							</div>
+
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+								<div className="space-y-2">
+									<Label
+										htmlFor="alertCasePregnantDuration"
+										className="text-sm font-medium"
+									>
+										Pregnant Duration (months)
+									</Label>
+									<Input
+										id="alertCasePregnantDuration"
+										type="number"
+										value={
+											formData.alertCasePregnantDuration
+										}
+										onChange={(e) =>
+											handleInputChange(
+												"alertCasePregnantDuration",
+												parseInt(
+													e.target.value
+												) || 0
+											)
+										}
+										min="0"
+										max="9"
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label
+										htmlFor="symptoms"
+										className="text-sm font-medium"
+									>
+										Symptoms
+									</Label>
+									<Textarea
+										id="symptoms"
+										value={formData.symptoms}
+										onChange={(e) =>
+											handleInputChange(
+												"symptoms",
+												e.target.value
+											)
+										}
+										rows={2}
+										placeholder="List symptoms separated by commas"
+									/>
+								</div>
+							</div>
+
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+								<div className="space-y-2">
+									<Label
+										htmlFor="healthFacilityVisit"
+										className="text-sm font-medium"
+									>
+										Health Facility Visit
+									</Label>
+									<Textarea
+										id="healthFacilityVisit"
+										value={
+											formData.healthFacilityVisit
+										}
+										onChange={(e) =>
+											handleInputChange(
+												"healthFacilityVisit",
+												e.target.value
+											)
+										}
+										rows={2}
+										placeholder="Details about health facility visits"
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label
+										htmlFor="traditionalHealerVisit"
+										className="text-sm font-medium"
+									>
+										Traditional Healer Visit
+									</Label>
+									<Textarea
+										id="traditionalHealerVisit"
+										value={
+											formData.traditionalHealerVisit
+										}
+										onChange={(e) =>
+											handleInputChange(
+												"traditionalHealerVisit",
+												e.target.value
+											)
+										}
+										rows={2}
+										placeholder="Details about traditional healer visits"
+									/>
+								</div>
+							</div>
+						</div>
+
+						<Separator />
+
+						{/* Desk Verification Actions */}
+						<div className="space-y-4">
+							<div className="flex items-center gap-3">
+								<AlertTriangleIcon className="h-5 w-5 text-uganda-red" />
+								<h3 className="text-lg font-semibold">
+									Desk Verification Actions
+								</h3>
+							</div>
+
+							<div className="bg-gray-50 p-4 rounded-lg">
+								<RadioGroup
+									value={
+										formData.deskVerificationActions
+									}
+									onValueChange={(value) =>
+										handleInputChange(
+											"deskVerificationActions",
+											value
+										)
+									}
+									className="flex flex-wrap gap-6"
+								>
+									<div className="flex items-center space-x-2">
+										<RadioGroupItem
+											value="Field Case Verification"
+											id="field-case-verification"
+										/>
+										<Label
+											htmlFor="field-case-verification"
+											className="text-sm font-medium"
+										>
+											Field Case Verification
+										</Label>
+									</div>
+									<div className="flex items-center space-x-2">
+										<RadioGroupItem
+											value="Discarded"
+											id="discarded"
+										/>
+										<Label
+											htmlFor="discarded"
+											className="text-sm font-medium"
+										>
+											Discarded
+										</Label>
+									</div>
+									<div className="flex items-center space-x-2">
+										<RadioGroupItem
+											value="Validated for EMS Evacuation"
+											id="validated-ems"
+										/>
+										<Label
+											htmlFor="validated-ems"
+											className="text-sm font-medium"
+										>
+											Validated for EMS
+											Evacuation
+										</Label>
+									</div>
+									<div className="flex items-center space-x-2">
+										<RadioGroupItem
+											value="Mortality Surveillance/Supervised Burial"
+											id="mortality-surveillance"
+										/>
+										<Label
+											htmlFor="mortality-surveillance"
+											className="text-sm font-medium"
+										>
+											Mortality
+											Surveillance/Supervised
+											Burial
+										</Label>
+									</div>
+								</RadioGroup>
+							</div>
+						</div>
+
+						{/* Field Verification Feedback - Only show when Field Case Verification is selected */}
+						{formData.deskVerificationActions ===
+							"Field Case Verification" && (
+							<>
+								<Separator />
+								<div className="space-y-4">
+									<div className="flex items-center gap-3">
+										<CheckCircleIcon className="h-5 w-5 text-uganda-red" />
+										<h3 className="text-lg font-semibold">
+											Field Verification
+											Feedback
+										</h3>
+									</div>
+
+									<div className="bg-gray-50 p-4 rounded-lg">
+										<RadioGroup
+											value={
+												formData.fieldVerificationFeedback
+											}
+											onValueChange={(value) =>
+												handleInputChange(
+													"fieldVerificationFeedback",
+													value
+												)
+											}
+											className="flex flex-wrap gap-6"
+										>
+											{[
+												"SDB",
+												"Discard",
+												"Sample collection",
+												"Mortality Surveillance/Supervised Burial",
+												"Recommend for Evacuation",
+											].map((option) => (
+												<div
+													key={option}
+													className="flex items-center space-x-2"
+												>
+													<RadioGroupItem
+														value={
+															option
+														}
+														id={`feedback-${option
+															.toLowerCase()
+															.replace(
+																/[^a-z0-9]/g,
+																"-"
+															)}`}
+													/>
+													<Label
+														htmlFor={`feedback-${option
+															.toLowerCase()
+															.replace(
+																/[^a-z0-9]/g,
+																"-"
+															)}`}
+														className="text-sm font-medium"
+													>
+														{option}
+													</Label>
+												</div>
+											))}
+										</RadioGroup>
+									</div>
+								</div>
+							</>
+						)}
 
 						<Separator />
 

@@ -543,6 +543,8 @@ export class AuthService {
         actions: string
         feedback: string
         verifiedBy: string
+        deskVerificationActions: string
+        fieldVerificationFeedback: string
     }): Promise<Alert> {
         try {
             const response = await fetch(`${API_BASE_URL}/alerts/${alertId}/verify`, {
