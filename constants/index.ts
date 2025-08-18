@@ -20,6 +20,7 @@ const ugandaDistricts = [
     "Bulambuli",
     "Buliisa",
     "Bundibugyo",
+    "Bunyangabu",
     "Bushenyi",
     "Busia",
     "Butaleja",
@@ -114,11 +115,6 @@ const ugandaDistricts = [
 ];
 
 
-
-
-
-
-
 const signsAndSymptoms = [
     "Fever (≥38°C)",
     "Headache",
@@ -138,7 +134,6 @@ const signsAndSymptoms = [
 const alertSource = [
     {
         name: "Community Member",
-
     },
     { name: "VHT (Village Health Team)" },
     { name: "Health Facility" },
@@ -150,7 +145,7 @@ const alertSource = [
 
 
 const alertResponse = [
-    { name: "Infectious Disease" },
+    { name: "Infectious Disease(Communicable Diseases)" },
     { name: "Mass Gathering(CHAN,NRM Gathering)" },
     { name: "Disasters" },
     { name: "Routine Emergency" },
@@ -158,9 +153,25 @@ const alertResponse = [
     { name: "Other" },
 ]
 
+const alertStatus = [
+    { name: "Pending" },
+    { name: "In Progress" },
+    { name: "Completed" },
+    { name: "Cancelled" },
+]
+
+const alertActions = [
+    { name: "Alert reported" },
+    { name: "Alert verified" },
+    { name: "Alert investigated" },
+    { name: "Alert resolved" },
+]
+
 export {
     ugandaDistricts,
     signsAndSymptoms,
     alertSource,
-    alertResponse
+    alertResponse,
+    alertStatus,
+    alertActions
 }
