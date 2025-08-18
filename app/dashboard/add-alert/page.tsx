@@ -29,143 +29,19 @@ import {
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
 import Link from "next/link";
+import { signsAndSymptoms, ugandaDistricts } from "@/constants";
 
-const ugandaDistricts = [
-	"Abim",
-	"Adjumani",
-	"Agago",
-	"Alebtong",
-	"Amolatar",
-	"Amudat",
-	"Amuria",
-	"Amuru",
-	"Apac",
-	"Arua",
-	"Budaka",
-	"Bududa",
-	"Bugiri",
-	"Buhweju",
-	"Buikwe",
-	"Bukedea",
-	"Bukomansimbi",
-	"Bukwo",
-	"Bulambuli",
-	"Buliisa",
-	"Bundibugyo",
-	"Bushenyi",
-	"Busia",
-	"Butaleja",
-	"Butambala",
-	"Buvuma",
-	"Buyende",
-	"Dokolo",
-	"Gomba",
-	"Gulu",
-	"Hoima",
-	"Ibanda",
-	"Iganga",
-	"Isingiro",
-	"Jinja",
-	"Kaabong",
-	"Kabale",
-	"Kabarole",
-	"Kaberamaido",
-	"Kalangala",
-	"Kaliro",
-	"Kampala",
-	"Kamuli",
-	"Kamwenge",
-	"Kanungu",
-	"Kapchorwa",
-	"Kasese",
-	"Katakwi",
-	"Kayunga",
-	"Kibaale",
-	"Kiboga",
-	"Kibuku",
-	"Kiruhura",
-	"Kiryandongo",
-	"Kisoro",
-	"Kitgum",
-	"Koboko",
-	"Kole",
-	"Kotido",
-	"Kumi",
-	"Kween",
-	"Kyankwanzi",
-	"Kyegegwa",
-	"Kyenjojo",
-	"Lamwo",
-	"Lira",
-	"Luuka",
-	"Luwero",
-	"Lwengo",
-	"Lyantonde",
-	"Manafwa",
-	"Maracha",
-	"Masaka",
-	"Masindi",
-	"Mayuge",
-	"Mbale",
-	"Mbarara",
-	"Mitooma",
-	"Mityana",
-	"Mokono",
-	"Moroto",
-	"Moyo",
-	"Mpigi",
-	"Mubende",
-	"Mukono",
-	"Nakapiripirit",
-	"Nakaseke",
-	"Nakasongola",
-	"Namayingo",
-	"Namutumba",
-	"Napak",
-	"Nebbi",
-	"Ngora",
-	"Ntoroko",
-	"Ntungamo",
-	"Nwoya",
-	"Otuke",
-	"Oyam",
-	"Pader",
-	"Pallisa",
-	"Rakai",
-	"Rubirizi",
-	"Rukungiri",
-	"Sembabule",
-	"Serere",
-	"Sheema",
-	"Sironko",
-	"Soroti",
-	"Tororo",
-	"Wakiso",
-	"Yumbe",
-	"Zombo",
-];
 
-const signsAndSymptoms = [
-	"Fever (≥38°C)",
-	"Headache",
-	"General Weakness",
-	"Skin/Body Rash",
-	"Sore Throat",
-	"Vomiting",
-	"Bleeding",
-	"Abdominal Pain",
-	"Aching Muscles/Pain",
-	"Difficulty Swallowing",
-	"Difficulty Breathing",
-	"Lethargy/Weakness",
-];
 
 export default function DashboardAddAlertPage() {
 	const router = useRouter();
 	const [formData, setFormData] = useState({
 		date: "",
 		time: "",
+		callTaker: "",
+		cif_no: "",
 		alertReportedBefore: "",
+		alertCaseNationality: "",
 		personReporting: "",
 		contactNumber: "",
 		status: "",
@@ -216,6 +92,7 @@ export default function DashboardAddAlertPage() {
 			if (
 				!formData.date ||
 				!formData.time ||
+				!formData.cif_no ||
 				!formData.personReporting ||
 				!formData.contactNumber ||
 				!formData.sourceOfAlert ||
@@ -226,7 +103,6 @@ export default function DashboardAddAlertPage() {
 			) {
 				throw new Error("Please fill in all required fields");
 			}
-
 
 			// Helper function to format time properly
 			const formatTime = (timeString: string): string => {
@@ -253,24 +129,33 @@ export default function DashboardAddAlertPage() {
 					? new Date(formData.date).toISOString()
 					: new Date().toISOString(),
 				time: formatTime(formData.time),
+				callTaker: formData.callTaker || "",
+				cifNo: formData.cif_no || "",
 				alertReportedBefore:
 					formData.alertReportedBefore === "yes" ? "Yes" : "No",
 				personReporting: formData.personReporting,
+				village: formData.alertCaseVillage || "",
 				contactNumber: formData.contactNumber,
 				status: formData.status || "Pending",
 				response: formData.response || "Routine",
 				alertCaseDistrict: formData.alertCaseDistrict,
-				subCounty: formData.subCounty,
-				alertCaseVillage: formData.alertCaseVillage,
-				alertCaseParish: formData.alertCaseParish,
+				subCounty: formData.subCounty || "",
+				alertCaseVillage: formData.alertCaseVillage || "",
+				alertCaseSubCounty: formData.subCounty || "",
+				alertCaseParish: formData.alertCaseParish || "",
+				alertCaseNationality: formData.alertCaseNationality || "",
 				sourceOfAlert: formData.sourceOfAlert,
 				history: formData.history,
 				alertCaseName: formData.alertCaseName,
 				alertCaseAge: parseInt(formData.alertCaseAge) || 0,
 				alertCaseSex: formData.alertCaseSex,
-				pointOfContactName: formData.pointOfContactName,
-				pointOfContactPhone: formData.pointOfContactPhone,
-				narrative: formData.narrative,
+				pointOfContactName: formData.pointOfContactName || "",
+				pointOfContactRelationship: "Family",
+				pointOfContactPhone: formData.pointOfContactPhone || "",
+				healthFacilityVisit: "No",
+				traditionalHealerVisit: "No",
+				actions: "Alert reported",
+				narrative: formData.narrative || "",
 				symptoms: formData.symptoms.join(", "),
 				isHighlighted: false,
 				isVerified: false,
@@ -287,7 +172,10 @@ export default function DashboardAddAlertPage() {
 			setFormData({
 				date: "",
 				time: "",
+				callTaker: "",
+				cif_no: "",
 				alertReportedBefore: "",
+				alertCaseNationality: "",
 				personReporting: "",
 				contactNumber: "",
 				status: "",
@@ -437,6 +325,48 @@ export default function DashboardAddAlertPage() {
 											)
 										}
 										required
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label
+										htmlFor="cif_no"
+										className="text-sm font-medium"
+									>
+										CIF Number *
+									</Label>
+									<Input
+										id="cif_no"
+										value={formData.cif_no}
+										onChange={(e) =>
+											handleInputChange(
+												"cif_no",
+												e.target.value
+											)
+										}
+										required
+										placeholder="Enter CIF number"
+									/>
+								</div>
+							</div>
+
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+								<div className="space-y-2">
+									<Label
+										htmlFor="callTaker"
+										className="text-sm font-medium"
+									>
+										Call Taker Name
+									</Label>
+									<Input
+										id="callTaker"
+										value={formData.callTaker}
+										onChange={(e) =>
+											handleInputChange(
+												"callTaker",
+												e.target.value
+											)
+										}
+										placeholder="Enter call taker's name"
 									/>
 								</div>
 								<div className="space-y-2">

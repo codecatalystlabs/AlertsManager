@@ -30,141 +30,14 @@ import {
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
 import Link from "next/link";
-
-const ugandaDistricts = [
-	"Abim",
-	"Adjumani",
-	"Agago",
-	"Alebtong",
-	"Amolatar",
-	"Amudat",
-	"Amuria",
-	"Amuru",
-	"Apac",
-	"Arua",
-	"Budaka",
-	"Bududa",
-	"Bugiri",
-	"Buhweju",
-	"Buikwe",
-	"Bukedea",
-	"Bukomansimbi",
-	"Bukwo",
-	"Bulambuli",
-	"Buliisa",
-	"Bundibugyo",
-	"Bushenyi",
-	"Busia",
-	"Butaleja",
-	"Butambala",
-	"Buvuma",
-	"Buyende",
-	"Dokolo",
-	"Gomba",
-	"Gulu",
-	"Hoima",
-	"Ibanda",
-	"Iganga",
-	"Isingiro",
-	"Jinja",
-	"Kaabong",
-	"Kabale",
-	"Kabarole",
-	"Kaberamaido",
-	"Kalangala",
-	"Kaliro",
-	"Kampala",
-	"Kamuli",
-	"Kamwenge",
-	"Kanungu",
-	"Kapchorwa",
-	"Kasese",
-	"Katakwi",
-	"Kayunga",
-	"Kibaale",
-	"Kiboga",
-	"Kibuku",
-	"Kiruhura",
-	"Kiryandongo",
-	"Kisoro",
-	"Kitgum",
-	"Koboko",
-	"Kole",
-	"Kotido",
-	"Kumi",
-	"Kween",
-	"Kyankwanzi",
-	"Kyegegwa",
-	"Kyenjojo",
-	"Lamwo",
-	"Lira",
-	"Luuka",
-	"Luwero",
-	"Lwengo",
-	"Lyantonde",
-	"Manafwa",
-	"Maracha",
-	"Masaka",
-	"Masindi",
-	"Mayuge",
-	"Mbale",
-	"Mbarara",
-	"Mitooma",
-	"Mityana",
-	"Mokono",
-	"Moroto",
-	"Moyo",
-	"Mpigi",
-	"Mubende",
-	"Mukono",
-	"Nakapiripirit",
-	"Nakaseke",
-	"Nakasongola",
-	"Namayingo",
-	"Namutumba",
-	"Napak",
-	"Nebbi",
-	"Ngora",
-	"Ntoroko",
-	"Ntungamo",
-	"Nwoya",
-	"Otuke",
-	"Oyam",
-	"Pader",
-	"Pallisa",
-	"Rakai",
-	"Rubirizi",
-	"Rukungiri",
-	"Sembabule",
-	"Serere",
-	"Sheema",
-	"Sironko",
-	"Soroti",
-	"Tororo",
-	"Wakiso",
-	"Yumbe",
-	"Zombo",
-];
-
-const signsAndSymptoms = [
-	"Fever (≥38°C)",
-	"Headache",
-	"General Weakness",
-	"Skin/Body Rash",
-	"Sore Throat",
-	"Vomiting",
-	"Bleeding",
-	"Abdominal Pain",
-	"Aching Muscles/Pain",
-	"Difficulty Swallowing",
-	"Difficulty Breathing",
-	"Lethargy/Weakness",
-];
+import { alertResponse, alertSource, signsAndSymptoms, ugandaDistricts } from "@/constants";
 
 export default function PublicAddAlertPage() {
 	const [formData, setFormData] = useState({
 		date: "",
 		callTime: "",
+		call_taker: "",
+		cif_no: "",
 		alertReportedBefore: "",
 		nameOfPersonReporting: "",
 		numberOfPersonReporting: "",
@@ -207,7 +80,6 @@ export default function PublicAddAlertPage() {
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		console.log("Form submission started"); // Debug log
 		setIsSubmitting(true);
 		setSubmitStatus({ type: null, message: "" });
 
@@ -216,6 +88,7 @@ export default function PublicAddAlertPage() {
 			if (
 				!formData.date ||
 				!formData.callTime ||
+				!formData.cif_no ||
 				!formData.nameOfPersonReporting ||
 				!formData.numberOfPersonReporting ||
 				!formData.sourceOfAlert ||
@@ -226,8 +99,6 @@ export default function PublicAddAlertPage() {
 			) {
 				throw new Error("Please fill in all required fields");
 			}
-
-			console.log("Validation passed, preparing data"); // Debug log
 
 			// Helper function to format time properly
 			const formatTime = (timeString: string): string => {
@@ -256,24 +127,33 @@ export default function PublicAddAlertPage() {
 					? new Date(formData.date).toISOString()
 					: new Date().toISOString(),
 				time: formatTime(formData.callTime),
+				cifNo: formData.cif_no || "",
 				alertReportedBefore:
 					formData.alertReportedBefore === "yes" ? "Yes" : "No",
 				personReporting: formData.nameOfPersonReporting,
+				village: formData.village || "",
 				contactNumber: formData.numberOfPersonReporting,
 				status: formData.status || "Pending",
 				response: formData.response || "Routine",
 				alertCaseDistrict: formData.district,
-				subCounty: formData.subcounty,
-				alertCaseVillage: formData.village,
-				alertCaseParish: formData.parish,
+				subCounty: formData.subcounty || "",
+				alertCaseVillage: formData.village || "",
+				alertCaseSubCounty: formData.subcounty || "",
+				alertCaseParish: formData.parish || "",
+				alertCaseNationality: "Ugandan",
 				sourceOfAlert: formData.sourceOfAlert,
+				callTaker: formData.call_taker || "",
 				history: formData.caseAlertDescription,
 				alertCaseName: formData.caseName,
 				alertCaseAge: parseInt(formData.caseAge) || 0,
 				alertCaseSex: formData.caseSex,
-				pointOfContactName: formData.nameOfNextOfKin,
-				pointOfContactPhone: formData.nextOfKinPhoneNumber,
-				narrative: formData.narrative,
+				pointOfContactName: formData.nameOfNextOfKin || "",
+				pointOfContactRelationship: "Family",
+				pointOfContactPhone: formData.nextOfKinPhoneNumber || "",
+				healthFacilityVisit: "No",
+				traditionalHealerVisit: "No",
+				actions: "Alert reported",
+				narrative: formData.narrative || "",
 				symptoms: formData.signsAndSymptoms.join(", "),
 				isHighlighted: false,
 				isVerified: false,
@@ -316,8 +196,6 @@ export default function PublicAddAlertPage() {
 				}
 			}
 
-			console.log("Alert submitted successfully"); // Debug log
-
 			setSubmitStatus({
 				type: "success",
 				message: "Alert submitted successfully! Thank you for reporting this health alert. The relevant authorities have been notified.",
@@ -327,6 +205,8 @@ export default function PublicAddAlertPage() {
 			setFormData({
 				date: "",
 				callTime: "",
+				call_taker: "",
+				cif_no: "",
 				alertReportedBefore: "",
 				nameOfPersonReporting: "",
 				numberOfPersonReporting: "",
@@ -347,7 +227,6 @@ export default function PublicAddAlertPage() {
 				signsAndSymptoms: [],
 			});
 		} catch (err) {
-			console.error("Error in form submission:", err); // Debug log
 			setSubmitStatus({
 				type: "error",
 				message:
@@ -533,6 +412,52 @@ export default function PublicAddAlertPage() {
 										/>
 									</div>
 									<div className="space-y-2">
+										<Label
+											htmlFor="cif_no"
+											className="text-sm font-medium text-gray-700"
+										>
+											CIF Number *
+										</Label>
+										<Input
+											id="cif_no"
+											value={formData.cif_no}
+											onChange={(e) =>
+												handleInputChange(
+													"cif_no",
+													e.target.value
+												)
+											}
+											required
+											placeholder="Enter CIF number"
+											className="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
+										/>
+									</div>
+								</div>
+
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+									<div className="space-y-2">
+										<Label
+											htmlFor="call_taker"
+											className="text-sm font-medium text-gray-700"
+										>
+											Call Taker Name
+										</Label>
+										<Input
+											id="call_taker"
+											value={
+												formData.call_taker
+											}
+											onChange={(e) =>
+												handleInputChange(
+													"call_taker",
+													e.target.value
+												)
+											}
+											placeholder="Enter call taker's name"
+											className="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
+										/>
+									</div>
+									<div className="space-y-2">
 										<Label className="text-sm font-medium text-gray-700">
 											Alert reported before? *
 										</Label>
@@ -638,44 +563,76 @@ export default function PublicAddAlertPage() {
 										/>
 									</div>
 								</div>
+								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+									<div className="space-y-2">
+										<Label
+											htmlFor="sourceOfAlert"
+											className="text-sm font-medium text-gray-700"
+										>
+											Source of Alert *
+										</Label>
+										<Select
+											onValueChange={(value) =>
+												handleInputChange(
+													"sourceOfAlert",
+													value
+												)
+											}
+										>
+											<SelectTrigger className="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20">
+												<SelectValue placeholder="How did you learn about this case?" />
+											</SelectTrigger>
+											<SelectContent>
+												{alertSource?.map(
+													(source) => (
+														<SelectItem
+															key={
+																source.name
+															}
+															value={
+																source.name
+															}
+														>
+															{
+																source.name
+															}
+														</SelectItem>
+													)
+												)}
+											</SelectContent>
+										</Select>
+									</div>
 
-								<div className="space-y-2">
-									<Label
-										htmlFor="sourceOfAlert"
-										className="text-sm font-medium text-gray-700"
-									>
-										Source of Alert *
-									</Label>
-									<Select
-										onValueChange={(value) =>
-											handleInputChange(
-												"sourceOfAlert",
-												value
-											)
-										}
-									>
-										<SelectTrigger className="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20">
-											<SelectValue placeholder="How did you learn about this case?" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="Community">
-												Community Member
-											</SelectItem>
-											<SelectItem value="VHT">
-												VHT (Village Health
-												Team)
-											</SelectItem>
-											<SelectItem value="Facility">
-												Health Facility
-											</SelectItem>
-											<SelectItem value="Health Worker">
-												Health Worker
-											</SelectItem>
-											<SelectItem value="Other">
-												Other
-											</SelectItem>
-										</SelectContent>
-									</Select>
+									{/* Response */}
+									<div className="space-y-2">
+										<Label
+											htmlFor="response"
+											className="text-sm font-medium"
+										>
+											Response *
+										</Label>
+										<Select
+											onValueChange={(value) =>
+												handleInputChange(
+													"response",
+													value
+												)
+											}
+											value={formData.response}
+										>
+											<SelectTrigger>
+												<SelectValue placeholder="Select alert source" />
+											</SelectTrigger>
+											<SelectContent>
+												{alertResponse?.map((source) => (
+													<SelectItem key={source.name} value={source.name}>{ source.name }</SelectItem>
+													
+												))}
+												
+												
+											</SelectContent>
+										</Select>
+									</div>
 								</div>
 							</div>
 
