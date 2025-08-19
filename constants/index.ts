@@ -154,10 +154,9 @@ const alertResponse = [
 ]
 
 const alertStatus = [
-    { name: "Pending" },
-    { name: "In Progress" },
-    { name: "Completed" },
-    { name: "Cancelled" },
+    { name: "Alive" },
+    { name: "Dead" },
+    { name: "Unknown" },
 ]
 
 const alertActions = [
