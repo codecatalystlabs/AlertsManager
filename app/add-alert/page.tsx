@@ -37,7 +37,7 @@ export default function PublicAddAlertPage() {
 		date: "",
 		callTime: "",
 		call_taker: "",
-		cif_no: "",
+		// cif_no: "",
 		alertReportedBefore: "",
 		nameOfPersonReporting: "",
 		numberOfPersonReporting: "",
@@ -88,7 +88,7 @@ export default function PublicAddAlertPage() {
 			if (
 				!formData.date ||
 				!formData.callTime ||
-				!formData.cif_no ||
+				// !formData.cif_no ||
 				!formData.nameOfPersonReporting ||
 				!formData.numberOfPersonReporting ||
 				!formData.sourceOfAlert ||
@@ -127,7 +127,7 @@ export default function PublicAddAlertPage() {
 					? new Date(formData.date).toISOString()
 					: new Date().toISOString(),
 				time: formatTime(formData.callTime),
-				cifNo: formData.cif_no || "",
+				// cifNo: formData.cif_no || "",
 				alertReportedBefore:
 					formData.alertReportedBefore === "yes" ? "Yes" : "No",
 				personReporting: formData.nameOfPersonReporting,
@@ -206,7 +206,7 @@ export default function PublicAddAlertPage() {
 				date: "",
 				callTime: "",
 				call_taker: "",
-				cif_no: "",
+				// cif_no: "",
 				alertReportedBefore: "",
 				nameOfPersonReporting: "",
 				numberOfPersonReporting: "",
@@ -325,36 +325,6 @@ export default function PublicAddAlertPage() {
 			</div>
 
 			<div className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-				{/* Status Messages */}
-				{submitStatus.type && (
-					<div className="mb-6">
-						<Alert
-							className={
-								submitStatus.type === "success"
-									? "border-green-200 bg-green-50"
-									: "border-red-200 bg-red-50"
-							}
-						>
-							<AlertTriangleIcon
-								className={`h-4 w-4 ${
-									submitStatus.type === "success"
-										? "text-green-600"
-										: "text-red-600"
-								}`}
-							/>
-							<AlertDescription
-								className={
-									submitStatus.type === "success"
-										? "text-green-700"
-										: "text-red-700"
-								}
-							>
-								{submitStatus.message}
-							</AlertDescription>
-						</Alert>
-					</div>
-				)}
-
 				{/* Main Form */}
 				<Card className="shadow-xl border-0">
 					<CardHeader className="bg-gradient-to-r from-uganda-red to-uganda-yellow text-white rounded-t-lg">
@@ -1117,6 +1087,39 @@ export default function PublicAddAlertPage() {
 								</Button>
 							</div>
 						</form>
+
+						{/* Status Messages */}
+						{submitStatus.type && (
+							<div className="mb-6">
+								<Alert
+									className={
+										submitStatus.type ===
+										"success"
+											? "border-green-200 bg-green-50"
+											: "border-red-200 bg-red-50"
+									}
+								>
+									<AlertTriangleIcon
+										className={`h-4 w-4 ${
+											submitStatus.type ===
+											"success"
+												? "text-green-600"
+												: "text-red-600"
+										}`}
+									/>
+									<AlertDescription
+										className={
+											submitStatus.type ===
+											"success"
+												? "text-green-700"
+												: "text-red-700"
+										}
+									>
+										{submitStatus.message}
+									</AlertDescription>
+								</Alert>
+							</div>
+						)}
 					</CardContent>
 				</Card>
 
