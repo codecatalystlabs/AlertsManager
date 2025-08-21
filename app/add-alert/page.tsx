@@ -30,7 +30,13 @@ import {
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
 import Link from "next/link";
-import { alertResponse, alertSource, alertStatus, signsAndSymptoms, ugandaDistricts } from "@/constants";
+import {
+	alertResponse,
+	alertSource,
+	alertStatus,
+	signsAndSymptoms,
+	ugandaDistricts,
+} from "@/constants";
 
 export default function PublicAddAlertPage() {
 	const [formData, setFormData] = useState({
@@ -1090,7 +1096,7 @@ export default function PublicAddAlertPage() {
 
 						{/* Status Messages */}
 						{submitStatus.type && (
-							<div className="mb-6">
+							<div className="my-6">
 								<Alert
 									className={
 										submitStatus.type ===
