@@ -10,7 +10,6 @@ import {
 import { useDashboardData } from "@/hooks/use-dashboard-data";
 import { LOADING_MESSAGES } from "@/constants/dashboard";
 
-
 export default function DashboardPage(): JSX.Element {
 	const { data, loading, error, refetch } = useDashboardData();
 	const [isRefreshing, setIsRefreshing] = useState(false);

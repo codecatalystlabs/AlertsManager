@@ -184,6 +184,7 @@ export function AlertEditDialog({
 	const [formData, setFormData] = useState({
 		date: "",
 		time: "",
+		cifNo: "",
 		alertReportedBefore: "",
 		personReporting: "",
 		contactNumber: "",
@@ -204,6 +205,8 @@ export function AlertEditDialog({
 		symptoms: [] as string[],
 	});
 
+	console.log(alert, "Alert is here");
+
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [success, setSuccess] = useState<string | null>(null);
@@ -221,12 +224,13 @@ export function AlertEditDialog({
 
 			// Parse symptoms string to array
 			const symptomsArray = alert.symptoms
-				? alert.symptoms.split(", ").filter((s) => s.trim())
+				? alert.symptoms.split(", ").filter((s: any) => s.trim())
 				: [];
 
 			setFormData({
 				date: alertDate,
 				time: alertTime,
+				cifNo: alert.cifNo || "",
 				alertReportedBefore: alert.alertReportedBefore || "",
 				personReporting: alert.personReporting || "",
 				contactNumber: alert.contactNumber || "",
@@ -277,6 +281,7 @@ export function AlertEditDialog({
 			if (
 				!formData.date ||
 				!formData.time ||
+				!formData.cifNo ||
 				!formData.personReporting ||
 				!formData.contactNumber ||
 				!formData.sourceOfAlert ||
@@ -315,8 +320,9 @@ export function AlertEditDialog({
 					? new Date(formData.date).toISOString()
 					: new Date().toISOString(),
 				time: formatTime(formData.time),
+				cifNo: formData.cifNo,
 				alertReportedBefore:
-					formData.alertReportedBefore === "yes" ? "Yes" : "No",
+					formData.alertReportedBefore === "Yes" ? "Yes" : "No",
 				personReporting: formData.personReporting,
 				contactNumber: formData.contactNumber,
 				status: formData.status || "Pending",
@@ -445,6 +451,29 @@ export function AlertEditDialog({
 									required
 								/>
 							</div>
+							<div className="space-y-2">
+								<Label
+									htmlFor="cifNo"
+									className="text-sm font-medium"
+								>
+									CIF Number *
+								</Label>
+								<Input
+									id="cifNo"
+									value={formData.cifNo}
+									onChange={(e) =>
+										handleInputChange(
+											"cifNo",
+											e.target.value
+										)
+									}
+									required
+									placeholder="Enter CIF number"
+								/>
+							</div>
+						</div>
+
+						<div className="grid grid-cols-1 gap-4">
 							<div className="space-y-2">
 								<Label className="text-sm font-medium">
 									Alert reported before? *

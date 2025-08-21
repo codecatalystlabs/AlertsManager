@@ -295,15 +295,26 @@ export default function PublicAddAlertPage() {
 									</Button>
 								</>
 							) : (
-								<Link href="/login">
-									<Button
-										variant="secondary"
-										className="bg-white/20 text-white border-white/30 hover:bg-white/30"
-									>
-										<LogIn className="w-4 h-4 mr-2" />
-										Login
-									</Button>
-								</Link>
+								<>
+									<Link href="/dashboard/evd-definition" target="_blank">
+										<Button
+											variant="secondary"
+											className="bg-white/20 text-white border-white/30 hover:bg-white/30"
+										>
+											<Home className="w-4 h-4 mr-2" />
+											EVD Definition
+										</Button>
+									</Link>
+									<Link href="/login">
+										<Button
+											variant="secondary"
+											className="bg-white/20 text-white border-white/30 hover:bg-white/30"
+										>
+											<LogIn className="w-4 h-4 mr-2" />
+											Login
+										</Button>
+									</Link>
+								</>
 							)}
 						</div>
 					</div>
@@ -624,12 +635,22 @@ export default function PublicAddAlertPage() {
 												<SelectValue placeholder="Select alert source" />
 											</SelectTrigger>
 											<SelectContent>
-												{alertResponse?.map((source) => (
-													<SelectItem key={source.name} value={source.name}>{ source.name }</SelectItem>
-													
-												))}
-												
-												
+												{alertResponse?.map(
+													(source) => (
+														<SelectItem
+															key={
+																source.name
+															}
+															value={
+																source.name
+															}
+														>
+															{
+																source.name
+															}
+														</SelectItem>
+													)
+												)}
 											</SelectContent>
 										</Select>
 									</div>

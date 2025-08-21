@@ -96,5 +96,6 @@ export const ADDITIONAL_STATS: StatCardConfig[] = [
 export const LOADING_MESSAGES = {
     DASHBOARD: 'Loading dashboard data...',
     ALERTS: 'Loading alerts...',
+    CALL_LOGS: 'Loading call logs...',
     REFRESHING: 'Refreshing data...',
 } as const;
