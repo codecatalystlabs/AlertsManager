@@ -114,7 +114,6 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
             setAlerts(Array.isArray(data) ? data : []);
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to fetch call logs';
-            console.error('Error fetching call logs:', err);
             setError(errorMessage);
             setAlerts([]);
         } finally {
@@ -131,9 +130,8 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
 
         try {
             await AuthService.deleteAlert(alertId);
-            await fetchAlerts(); // Refresh the list
+            await fetchAlerts(); 
         } catch (error) {
-            console.error('Error deleting alert:', error);
             setError('Failed to delete alert. Please try again.');
             throw error;
         }
@@ -147,7 +145,6 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         setFiltersState(initialFilters);
     }, []);
 
-    // Memoized filtered data
     const filteredAlerts = useMemo(() => {
         return alerts.filter((alert) => {
             const matchesStatus =

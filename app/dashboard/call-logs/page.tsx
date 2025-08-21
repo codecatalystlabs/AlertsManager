@@ -94,7 +94,6 @@ export default function CallLogsPage(): JSX.Element {
 			try {
 				await deleteAlert(alertId);
 			} catch (error) {
-				// Error is already handled in the hook
 				console.error("Failed to delete alert:", error);
 			}
 		},
