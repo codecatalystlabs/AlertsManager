@@ -37,7 +37,13 @@ import {
 	CalendarIcon,
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
-import { alertResponse, alertStatus, signsAndSymptoms, ugandaDistricts } from "@/constants";
+import {
+	alertResponse,
+	alertStatus,
+	signsAndSymptoms,
+	ugandaDistricts,
+} from "@/constants";
+import { useToast } from "@/hooks/use-toast";
 
 interface AlertEditDialogProps {
 	isOpen: boolean;
@@ -52,6 +58,7 @@ export function AlertEditDialog({
 	alert,
 	onEditComplete,
 }: AlertEditDialogProps) {
+	const { toast } = useToast();
 	const [formData, setFormData] = useState({
 		date: "",
 		time: "",
@@ -216,16 +223,36 @@ export function AlertEditDialog({
 			await AuthService.updateAlert(alert.id, alertData);
 
 			setSuccess("Alert updated successfully!");
+
+			// Show success toast
+			toast({
+				title: "✅ Alert Updated Successfully",
+				description: `Alert ALT${String(alert.id).padStart(
+					3,
+					"0"
+				)} has been updated successfully.`,
+				duration: 5000,
+			});
+
 			setTimeout(() => {
 				onEditComplete();
 				onClose();
 			}, 2000);
 		} catch (err) {
-			setError(
+			const errorMessage =
 				err instanceof Error
 					? err.message
-					: "An error occurred while updating the alert. Please try again."
-			);
+					: "An error occurred while updating the alert. Please try again.";
+
+			setError(errorMessage);
+
+			// Show error toast
+			toast({
+				title: "❌ Update Failed",
+				description: errorMessage,
+				variant: "destructive",
+				duration: 5000,
+			});
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -503,15 +530,20 @@ export function AlertEditDialog({
 										<SelectValue placeholder="Select alert status" />
 									</SelectTrigger>
 									<SelectContent>
-										
-										{alertStatus?.map((status) => (
-											<SelectItem
-												key={status.name}
-												value={status.name}
-											>
-												{status.name}
-											</SelectItem>
-										))}
+										{alertStatus?.map(
+											(status) => (
+												<SelectItem
+													key={
+														status.name
+													}
+													value={
+														status.name
+													}
+												>
+													{status.name}
+												</SelectItem>
+											)
+										)}
 									</SelectContent>
 								</Select>
 							</div>
