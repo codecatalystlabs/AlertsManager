@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
 import Link from "next/link";
-import { alertResponse, alertSource, signsAndSymptoms, ugandaDistricts } from "@/constants";
+import { alertResponse, alertSource, alertStatus, signsAndSymptoms, ugandaDistricts } from "@/constants";
 
 export default function PublicAddAlertPage() {
 	const [formData, setFormData] = useState({
@@ -296,7 +296,10 @@ export default function PublicAddAlertPage() {
 								</>
 							) : (
 								<>
-									<Link href="/dashboard/evd-definition" target="_blank">
+									<Link
+										href="/dashboard/evd-definition"
+										target="_blank"
+									>
 										<Button
 											variant="secondary"
 											className="bg-white/20 text-white border-white/30 hover:bg-white/30"
@@ -422,7 +425,47 @@ export default function PublicAddAlertPage() {
 											className="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
 										/>
 									</div>
+
 									<div className="space-y-2">
+										<Label
+											htmlFor="status"
+											className="text-sm font-medium"
+										>
+											Alert Status *
+										</Label>
+										<Select
+											onValueChange={(value) =>
+												handleInputChange(
+													"status",
+													value
+												)
+											}
+											value={formData.status}
+										>
+											<SelectTrigger>
+												<SelectValue placeholder="Select alert status" />
+											</SelectTrigger>
+											<SelectContent>
+												{alertStatus?.map(
+													(status) => (
+														<SelectItem
+															key={
+																status.name
+															}
+															value={
+																status.name
+															}
+														>
+															{
+																status.name
+															}
+														</SelectItem>
+													)
+												)}
+											</SelectContent>
+										</Select>
+									</div>
+									{/* <div className="space-y-2">
 										<Label
 											htmlFor="cif_no"
 											className="text-sm font-medium text-gray-700"
@@ -442,7 +485,7 @@ export default function PublicAddAlertPage() {
 											placeholder="Enter CIF number"
 											className="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
 										/>
-									</div>
+									</div> */}
 								</div>
 
 								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">

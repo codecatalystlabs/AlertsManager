@@ -39,7 +39,7 @@ export default function DashboardAddAlertPage() {
 		date: "",
 		time: "",
 		callTaker: "",
-		cif_no: "",
+		// cif_no: "",
 		alertReportedBefore: "",
 		alertCaseNationality: "",
 		personReporting: "",
@@ -92,7 +92,6 @@ export default function DashboardAddAlertPage() {
 			if (
 				!formData.date ||
 				!formData.time ||
-				!formData.cif_no ||
 				!formData.personReporting ||
 				!formData.contactNumber ||
 				!formData.sourceOfAlert ||
@@ -130,7 +129,7 @@ export default function DashboardAddAlertPage() {
 					: new Date().toISOString(),
 				time: formatTime(formData.time),
 				callTaker: formData.callTaker || "",
-				cifNo: formData.cif_no || "",
+				// cifNo: formData.cif_no || "",
 				alertReportedBefore:
 					formData.alertReportedBefore === "yes" ? "Yes" : "No",
 				personReporting: formData.personReporting,
@@ -173,7 +172,7 @@ export default function DashboardAddAlertPage() {
 				date: "",
 				time: "",
 				callTaker: "",
-				cif_no: "",
+				// cif_no: "",
 				alertReportedBefore: "",
 				alertCaseNationality: "",
 				personReporting: "",
@@ -327,7 +326,7 @@ export default function DashboardAddAlertPage() {
 										required
 									/>
 								</div>
-								<div className="space-y-2">
+								{/* <div className="space-y-2">
 									<Label
 										htmlFor="cif_no"
 										className="text-sm font-medium"
@@ -346,7 +345,7 @@ export default function DashboardAddAlertPage() {
 										required
 										placeholder="Enter CIF number"
 									/>
-								</div>
+								</div> */}
 							</div>
 
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">

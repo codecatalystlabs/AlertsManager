@@ -224,7 +224,7 @@ export function AlertEditDialog({
 
 			setSuccess("Alert updated successfully!");
 
-			// Show success toast
+			
 			toast({
 				title: "✅ Alert Updated Successfully",
 				description: `Alert ALT${String(alert.id).padStart(
