@@ -37,6 +37,7 @@ import {
 	CalendarIcon,
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
+import { alertResponse, alertStatus, signsAndSymptoms, ugandaDistricts } from "@/constants";
 
 interface AlertEditDialogProps {
 	isOpen: boolean;
@@ -44,136 +45,6 @@ interface AlertEditDialogProps {
 	alert: any;
 	onEditComplete: () => void;
 }
-
-const ugandaDistricts = [
-	"Abim",
-	"Adjumani",
-	"Agago",
-	"Alebtong",
-	"Amolatar",
-	"Amudat",
-	"Amuria",
-	"Amuru",
-	"Apac",
-	"Arua",
-	"Budaka",
-	"Bududa",
-	"Bugiri",
-	"Buhweju",
-	"Buikwe",
-	"Bukedea",
-	"Bukomansimbi",
-	"Bukwo",
-	"Bulambuli",
-	"Buliisa",
-	"Bundibugyo",
-	"Bushenyi",
-	"Busia",
-	"Butaleja",
-	"Butambala",
-	"Buvuma",
-	"Buyende",
-	"Dokolo",
-	"Gomba",
-	"Gulu",
-	"Hoima",
-	"Ibanda",
-	"Iganga",
-	"Isingiro",
-	"Jinja",
-	"Kaabong",
-	"Kabale",
-	"Kabarole",
-	"Kaberamaido",
-	"Kalangala",
-	"Kaliro",
-	"Kampala",
-	"Kamuli",
-	"Kamwenge",
-	"Kanungu",
-	"Kapchorwa",
-	"Kasese",
-	"Katakwi",
-	"Kayunga",
-	"Kibaale",
-	"Kiboga",
-	"Kibuku",
-	"Kiruhura",
-	"Kiryandongo",
-	"Kisoro",
-	"Kitgum",
-	"Koboko",
-	"Kole",
-	"Kotido",
-	"Kumi",
-	"Kween",
-	"Kyankwanzi",
-	"Kyegegwa",
-	"Kyenjojo",
-	"Lamwo",
-	"Lira",
-	"Luuka",
-	"Luwero",
-	"Lwengo",
-	"Lyantonde",
-	"Manafwa",
-	"Maracha",
-	"Masaka",
-	"Masindi",
-	"Mayuge",
-	"Mbale",
-	"Mbarara",
-	"Mitooma",
-	"Mityana",
-	"Mokono",
-	"Moroto",
-	"Moyo",
-	"Mpigi",
-	"Mubende",
-	"Mukono",
-	"Nakapiripirit",
-	"Nakaseke",
-	"Nakasongola",
-	"Namayingo",
-	"Namutumba",
-	"Napak",
-	"Nebbi",
-	"Ngora",
-	"Ntoroko",
-	"Ntungamo",
-	"Nwoya",
-	"Otuke",
-	"Oyam",
-	"Pader",
-	"Pallisa",
-	"Rakai",
-	"Rubirizi",
-	"Rukungiri",
-	"Sembabule",
-	"Serere",
-	"Sheema",
-	"Sironko",
-	"Soroti",
-	"Tororo",
-	"Wakiso",
-	"Yumbe",
-	"Zombo",
-];
-
-const signsAndSymptoms = [
-	"Fever (≥38°C)",
-	"Headache",
-	"General Weakness",
-	"Skin/Body Rash",
-	"Sore Throat",
-	"Vomiting",
-	"Bleeding",
-	"Abdominal Pain",
-	"Aching Muscles/Pain",
-	"Difficulty Swallowing",
-	"Difficulty Breathing",
-	"Lethargy/Weakness",
-];
 
 export function AlertEditDialog({
 	isOpen,
@@ -573,41 +444,107 @@ export function AlertEditDialog({
 							</div>
 						</div>
 
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div className="space-y-2">
+								<Label
+									htmlFor="sourceOfAlert"
+									className="text-sm font-medium"
+								>
+									Source of Alert *
+								</Label>
+								<Select
+									onValueChange={(value) =>
+										handleInputChange(
+											"sourceOfAlert",
+											value
+										)
+									}
+									value={formData.sourceOfAlert}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Select alert source" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="Community">
+											Community Member
+										</SelectItem>
+										<SelectItem value="VHT">
+											VHT (Village Health Team)
+										</SelectItem>
+										<SelectItem value="Facility">
+											Health Facility
+										</SelectItem>
+										<SelectItem value="Health Worker">
+											Health Worker
+										</SelectItem>
+										<SelectItem value="Other">
+											Other
+										</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="space-y-2">
+								<Label
+									htmlFor="status"
+									className="text-sm font-medium"
+								>
+									Alert Status *
+								</Label>
+								<Select
+									onValueChange={(value) =>
+										handleInputChange(
+											"status",
+											value
+										)
+									}
+									value={formData.status}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Select alert status" />
+									</SelectTrigger>
+									<SelectContent>
+										
+										{alertStatus?.map((status) => (
+											<SelectItem
+												key={status.name}
+												value={status.name}
+											>
+												{status.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+						</div>
+
 						<div className="space-y-2">
 							<Label
-								htmlFor="sourceOfAlert"
+								htmlFor="response"
 								className="text-sm font-medium"
 							>
-								Source of Alert *
+								Response Type
 							</Label>
 							<Select
 								onValueChange={(value) =>
 									handleInputChange(
-										"sourceOfAlert",
+										"response",
 										value
 									)
 								}
-								value={formData.sourceOfAlert}
+								value={formData.response}
 							>
 								<SelectTrigger>
-									<SelectValue placeholder="Select alert source" />
+									<SelectValue placeholder="Select response type" />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="Community">
-										Community Member
-									</SelectItem>
-									<SelectItem value="VHT">
-										VHT (Village Health Team)
-									</SelectItem>
-									<SelectItem value="Facility">
-										Health Facility
-									</SelectItem>
-									<SelectItem value="Health Worker">
-										Health Worker
-									</SelectItem>
-									<SelectItem value="Other">
-										Other
-									</SelectItem>
+									{alertResponse?.map((response) => (
+										<SelectItem
+											key={response.name}
+											value={response.name}
+										>
+											{response.name}
+										</SelectItem>
+									))}
 								</SelectContent>
 							</Select>
 						</div>
