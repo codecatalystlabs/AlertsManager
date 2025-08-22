@@ -1,3 +1,5 @@
+import { Brain, Thermometer, Droplets, Eye, Heart, Users, AlertTriangle, CheckCircle, Stethoscope } from "lucide-react";
+
 const ugandaDistricts = [
     "Abim",
     "Adjumani",
@@ -140,7 +142,8 @@ const alertSource = [
     { name: "Health Worker" },
     { name: "Schools" },
     { name: "Mass Gathering" },
-    { name: "Point Of Entry" }
+    { name: "Point Of Entry" },
+    {name:"Social Media"}
 ]
 
 
@@ -166,11 +169,105 @@ const alertActions = [
     { name: "Alert resolved" },
 ]
 
+
+
+
+
+const caseDefinitions = [
+    {
+        id: "community",
+        title: "Community Case Definition",
+        icon: Users,
+        color: "bg-blue-500",
+        description: "Basic definition for community-level identification",
+        criteria: {
+            primary: "Illness with onset of fever and no response to treatment",
+            or: [
+                "Bleeding (from the nose or any other part of the body, bloody diarrhea, blood in urine)",
+                "Any sudden death",
+            ],
+        },
+    },
+    {
+        id: "suspect",
+        title: "Suspect Case Definition",
+        icon: AlertTriangle,
+        color: "bg-yellow-500",
+        description: "Detailed criteria for suspected EVD cases",
+        criteria: {
+            primary: "Illness with onset of fever and no response to treatment for usual causes of fever",
+            and: "At least three of the following signs:",
+            signs: [
+                "Headache",
+                "Vomiting",
+                "Diarrhea",
+                "Anorexia/loss of appetite",
+                "Lethargy",
+                "Stomach pain",
+                "Aching muscles or joints",
+                "Difficulty swallowing",
+                "Breathing difficulties",
+                "Hiccups",
+                "Convulsions",
+            ],
+            or: [
+                {
+                    condition:
+                        "Illness with onset of fever and no response to treatment AND at least one of the following signs of unexplained bleeding:",
+                    signs: [
+                        "Bloody diarrhea",
+                        "Bleeding from gums",
+                        "Bleeding into skin (purpura)",
+                        "Bleeding into eyes and urine",
+                        "Bleeding from the nose",
+                        "Sudden/unexplained death",
+                    ],
+                },
+                "Any person with history of contact with a probable or confirmed Ebola case and having any one sign and symptom of Ebola Virus Disease",
+                "Any person with history of travel to an area with a probable or confirmed Ebola case and having signs and symptoms of Ebola Virus Disease",
+            ],
+        },
+    },
+    {
+        id: "probable",
+        title: "Probable Case",
+        icon: Stethoscope,
+        color: "bg-orange-500",
+        description: "Cases with epidemiological links but no lab confirmation",
+        criteria: {
+            primary:
+                "Any person who died from a 'suspected' EVD and had an epidemiological link to a confirmed case but was not tested and did not have laboratory confirmation of the disease",
+        },
+    },
+    {
+        id: "confirmed",
+        title: "Confirmed Case",
+        icon: CheckCircle,
+        color: "bg-green-500",
+        description: "Laboratory-confirmed EVD cases",
+        criteria: {
+            primary: "A suspected case with a positive laboratory result for either:",
+            tests: ["Virus antigen", "Viral RNA detected by RT-PCR", "IgM antibodies against Ebola"],
+        },
+    },
+]
+
+const symptoms = [
+    { name: "Fever", icon: Thermometer, severity: "high" },
+    { name: "Headache", icon: Brain, severity: "high" },
+    { name: "Bleeding", icon: Droplets, severity: "critical" },
+    { name: "Vomiting", icon: Heart, severity: "medium" },
+    { name: "Diarrhea", icon: Heart, severity: "medium" },
+    { name: "Eye symptoms", icon: Eye, severity: "medium" },
+]
+
 export {
     ugandaDistricts,
     signsAndSymptoms,
     alertSource,
     alertResponse,
     alertStatus,
-    alertActions
+    alertActions,
+    caseDefinitions,
+    symptoms
 }

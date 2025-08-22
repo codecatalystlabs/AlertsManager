@@ -303,7 +303,7 @@ export default function PublicAddAlertPage() {
 							) : (
 								<>
 									<Link
-										href="/dashboard/evd-definition"
+										href="/evd-definition"
 										target="_blank"
 									>
 										<Button
