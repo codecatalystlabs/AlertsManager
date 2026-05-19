@@ -179,7 +179,7 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
             const matchesStatus =
                 filters.status === 'all' ||
                 (filters.status === 'other' && alert.status !== 'Alive') ||
-                alert.status.toLowerCase() === filters.status.toLowerCase();
+                (alert.status ?? '').toLowerCase() === filters.status.toLowerCase();
 
             const matchesVerification =
                 filters.verification === 'all' ||
@@ -188,14 +188,15 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
 
             const matchesSource =
                 filters.source === 'all' ||
-                alert.sourceOfAlert.toLowerCase() === filters.source.toLowerCase();
+                (alert.sourceOfAlert ?? '').toLowerCase() === filters.source.toLowerCase();
 
+            const search = filters.search.toLowerCase();
             const matchesSearch =
                 filters.search === '' ||
-                alert.personReporting.toLowerCase().includes(filters.search.toLowerCase()) ||
-                alert.contactNumber.includes(filters.search) ||
-                alert.alertCaseDistrict.toLowerCase().includes(filters.search.toLowerCase()) ||
-                alert.id.toString().includes(filters.search);
+                (alert.personReporting ?? '').toLowerCase().includes(search) ||
+                (alert.contactNumber ?? '').includes(filters.search) ||
+                (alert.alertCaseDistrict ?? '').toLowerCase().includes(search) ||
+                (alert.id?.toString() ?? '').includes(filters.search);
 
             return (
                 matchesStatus &&
