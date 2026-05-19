@@ -1,4 +1,10 @@
 /** @type {import('next').NextConfig} */
+const apiBaseUrl = (
+  process.env.API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  "http://localhost:8089/api/v1"
+).replace(/\/$/, "")
+
 const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
@@ -8,6 +14,25 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
+  },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        crypto: false,
+      }
+    }
+    return config
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/api/v1/:path*",
+        destination: `${apiBaseUrl}/:path*`,
+      },
+    ]
   },
 }
 

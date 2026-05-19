@@ -44,6 +44,7 @@ export default function AlertsPage(): JSX.Element {
 		refetch,
 		deleteAlert,
 		exportToCSV,
+		exportToExcel,
 	} = useAlertsData();
 
 	const [isRefreshing, setIsRefreshing] = useState(false);
@@ -91,7 +92,8 @@ export default function AlertsPage(): JSX.Element {
 		<div className="space-y-8">
 			<AlertsHeader
 				onRefresh={handleRefresh}
-				onExport={exportToCSV}
+				onExportExcel={exportToExcel}
+				onExportCsv={exportToCSV}
 				isRefreshing={isRefreshing}
 			/>
 

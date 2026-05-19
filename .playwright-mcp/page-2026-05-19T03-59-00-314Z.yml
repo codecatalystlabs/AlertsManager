@@ -1,0 +1,4 @@
+- generic [active] [ref=e1]:
+  - paragraph [ref=e5]: Checking authentication...
+  - region "Notifications (F8)":
+    - list

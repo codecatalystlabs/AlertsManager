@@ -1,6 +1,10 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
+import {
+	STAT_FILTER_PRESETS,
+	type CallLogsStatFilter,
+} from "@/constants/call-logs";
 import {
 	CallLogsHeader,
 	CallLogsStats,
@@ -39,6 +43,7 @@ export default function CallLogsPage(): JSX.Element {
 		stats,
 		filters,
 		loading,
+		isValidating,
 		error,
 		selectedAlert,
 		setFilters,
@@ -46,6 +51,7 @@ export default function CallLogsPage(): JSX.Element {
 		refetch,
 		deleteAlert,
 		exportToExcel,
+		exportToCSV,
 		clearFilters,
 	} = useCallLogsData();
 
@@ -55,6 +61,20 @@ export default function CallLogsPage(): JSX.Element {
 		useState(false);
 	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 	const [isRefreshing, setIsRefreshing] = useState(false);
+	const tableSectionRef = useRef<HTMLDivElement>(null);
+
+	const handleStatCardClick = useCallback(
+		(stat: CallLogsStatFilter) => {
+			setFilters(STAT_FILTER_PRESETS[stat]);
+			requestAnimationFrame(() => {
+				tableSectionRef.current?.scrollIntoView({
+					behavior: "smooth",
+					block: "start",
+				});
+			});
+		},
+		[setFilters]
+	);
 
 	const handleRefresh = useCallback(async () => {
 		setIsRefreshing(true);
@@ -123,8 +143,9 @@ export default function CallLogsPage(): JSX.Element {
 		<div className="space-y-6">
 			<CallLogsHeader
 				onRefresh={handleRefresh}
-				onExport={exportToExcel}
-				isRefreshing={isRefreshing}
+				onExportExcel={exportToExcel}
+				onExportCsv={exportToCSV}
+				isRefreshing={isRefreshing || isValidating}
 			/>
 
 			{error && (
@@ -135,7 +156,11 @@ export default function CallLogsPage(): JSX.Element {
 				/>
 			)}
 
-			<CallLogsStats stats={stats} />
+			<CallLogsStats
+				stats={stats}
+				filters={filters}
+				onStatClick={handleStatCardClick}
+			/>
 
 			<CallLogsFilters
 				filters={filters}
@@ -143,6 +168,7 @@ export default function CallLogsPage(): JSX.Element {
 				onClearFilters={clearFilters}
 			/>
 
+			<div ref={tableSectionRef}>
 			<CallLogsTable
 				alerts={filteredAlerts}
 				onViewDetails={handleViewDetails}
@@ -150,6 +176,7 @@ export default function CallLogsPage(): JSX.Element {
 				onVerifyAlert={handleVerifyAlert}
 				onDeleteAlert={handleDeleteAlert}
 			/>
+			</div>
 
 			{/* Dialogs */}
 			{selectedAlert && (

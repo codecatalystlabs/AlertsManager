@@ -22,9 +22,77 @@ export const CALL_LOGS_CONFIG = {
 export const STATUS_FILTER_OPTIONS = [
 	{ value: "all", label: "All Status" },
 	{ value: "alive", label: "Alive" },
+	{ value: "other", label: "Other Status" },
 	{ value: "dead", label: "Dead" },
 	{ value: "unknown", label: "Unknown" },
 ] as const;
+
+export const VERIFICATION_FILTER_OPTIONS = [
+	{ value: "all", label: "All Verification" },
+	{ value: "verified", label: "Verified" },
+	{ value: "pending", label: "Pending Verification" },
+] as const;
+
+export type CallLogsStatFilter = "alive" | "other" | "verified" | "pending";
+
+export interface CallLogsFilterState {
+	status: string;
+	source: string;
+	search: string;
+	verification: string;
+}
+
+export const CALL_LOGS_INITIAL_FILTERS: CallLogsFilterState = {
+	status: "all",
+	source: "all",
+	search: "",
+	verification: "all",
+};
+
+export const STAT_FILTER_PRESETS: Record<
+	CallLogsStatFilter,
+	CallLogsFilterState
+> = {
+	alive: {
+		status: "alive",
+		source: "all",
+		search: "",
+		verification: "all",
+	},
+	other: {
+		status: "other",
+		source: "all",
+		search: "",
+		verification: "all",
+	},
+	verified: {
+		status: "all",
+		source: "all",
+		search: "",
+		verification: "verified",
+	},
+	pending: {
+		status: "all",
+		source: "all",
+		search: "",
+		verification: "pending",
+	},
+};
+
+export function getActiveStatFromFilters(
+	filters: CallLogsFilterState
+): CallLogsStatFilter | null {
+	if (filters.search || filters.source !== "all") return null;
+	if (filters.status === "alive" && filters.verification === "all")
+		return "alive";
+	if (filters.status === "other" && filters.verification === "all")
+		return "other";
+	if (filters.status === "all" && filters.verification === "verified")
+		return "verified";
+	if (filters.status === "all" && filters.verification === "pending")
+		return "pending";
+	return null;
+}
 
 export const SOURCE_FILTER_OPTIONS = [
 	{ value: "all", label: "All Sources" },

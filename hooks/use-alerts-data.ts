@@ -1,5 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AuthService, Alert as AlertType } from '@/lib/auth';
+import { exportAlertsToCsv, exportAlertsToExcel } from '@/lib/alert-export';
+import { ALERTS_CONFIG } from '@/constants/alerts';
+import { fetchAllAlerts } from '@/lib/fetch-alerts';
+import {
+    getCachedAlerts,
+    invalidateAlertsCache,
+    setCachedAlerts,
+    subscribeAlertsCache,
+} from '@/lib/alerts-cache';
 
 interface AlertsFilters {
     status: string;
@@ -21,6 +30,7 @@ interface UseAlertsDataReturn {
     stats: AlertsStats;
     filters: AlertsFilters;
     loading: boolean;
+    isValidating: boolean;
     error: string | null;
     deletingId: number | null;
     uniqueDistricts: string[];
@@ -29,9 +39,8 @@ interface UseAlertsDataReturn {
     refetch: () => Promise<void>;
     deleteAlert: (alertId: number) => Promise<void>;
     exportToCSV: () => void;
+    exportToExcel: () => Promise<void>;
 }
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8089/api/v1';
 
 const initialFilters: AlertsFilters = {
     status: '',
@@ -43,30 +52,52 @@ const initialFilters: AlertsFilters = {
 export const useAlertsData = (): UseAlertsDataReturn => {
     const [alerts, setAlerts] = useState<AlertType[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isValidating, setIsValidating] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [filters, setFiltersState] = useState<AlertsFilters>(initialFilters);
 
-    const fetchAlerts = useCallback(async () => {
-        try {
+    const loadAlerts = useCallback(async (options?: { force?: boolean }) => {
+        const force = options?.force ?? false;
+        const cached = getCachedAlerts<AlertType[]>();
+
+        if (!force && cached) {
+            setAlerts(cached.data);
+            setLoading(false);
+        } else if (!cached) {
             setLoading(true);
-            setError(null);
+        }
 
-            const response = await AuthService.makeAuthenticatedRequest(`${API_BASE_URL}/alerts`);
+        if (force) {
+            setIsValidating(true);
+        }
 
-            if (!response.ok) {
-                throw new Error(`Failed to fetch alerts: ${response.status} ${response.statusText}`);
+        setError(null);
+
+        try {
+            const result = await fetchAllAlerts<AlertType[]>({ force });
+            setAlerts(result.data);
+
+            if (result.revalidate) {
+                setIsValidating(true);
+                result
+                    .revalidate()
+                    .then((fresh) => setAlerts(fresh))
+                    .catch((err) =>
+                        console.error('Background alerts refresh failed:', err)
+                    )
+                    .finally(() => setIsValidating(false));
             }
-
-            const data = await response.json();
-            setAlerts(Array.isArray(data) ? data : []);
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to fetch alerts';
             console.error('Error fetching alerts:', err);
             setError(errorMessage);
-            setAlerts([]);
+            if (!cached) {
+                setAlerts([]);
+            }
         } finally {
             setLoading(false);
+            setIsValidating(false);
         }
     }, []);
 
@@ -74,14 +105,20 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         try {
             setDeletingId(alertId);
             await AuthService.deleteAlert(alertId);
-
-            // Remove the alert from local state
-            setAlerts(currentAlerts => currentAlerts.filter(alert => alert.id !== alertId));
+            invalidateAlertsCache();
+            setAlerts((currentAlerts) =>
+                currentAlerts.filter((alert) => alert.id !== alertId)
+            );
+            const cached = getCachedAlerts<AlertType[]>();
+            if (cached) {
+                const next = cached.data.filter((alert) => alert.id !== alertId);
+                setCachedAlerts(next);
+            }
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to delete alert';
             console.error('Error deleting alert:', err);
             setError(errorMessage);
-            throw err; // Re-throw to allow component to handle UI feedback
+            throw err;
         } finally {
             setDeletingId(null);
         }
@@ -91,7 +128,6 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         setFiltersState(currentFilters => ({ ...currentFilters, ...newFilters }));
     }, []);
 
-    // Memoized filtered data
     const filteredAlerts = useMemo(() => {
         return alerts.filter((alert) => {
             const matchesStatus = !filters.status || filters.status === 'all' || alert.status === filters.status;
@@ -108,7 +144,6 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         });
     }, [alerts, filters]);
 
-    // Memoized statistics
     const stats = useMemo((): AlertsStats => {
         const alive = alerts.filter(alert => alert.status === 'Alive').length;
         const dead = alerts.filter(alert => alert.status === 'Dead').length;
@@ -118,7 +153,6 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         return { alive, dead, unknown, total };
     }, [alerts]);
 
-    // Memoized unique values for filters
     const uniqueDistricts = useMemo(() => {
         return Array.from(new Set(alerts.map(alert => alert.alertCaseDistrict).filter(Boolean)));
     }, [alerts]);
@@ -127,45 +161,43 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         return Array.from(new Set(alerts.map(alert => alert.sourceOfAlert).filter(Boolean)));
     }, [alerts]);
 
-    // Export functionality
+    const exportPrefix = ALERTS_CONFIG.EXPORT_FILENAME_PREFIX;
+
     const exportToCSV = useCallback(() => {
-        const headers = [
-            'Alert ID', 'Status', 'Date', 'Time', 'Reporter', 'Source of Alert',
-            'District', 'Contact Number', 'Alert Case Name', 'Age', 'Sex', 'Verified'
-        ];
+        const exported = exportAlertsToCsv(filteredAlerts, exportPrefix);
+        if (!exported) {
+            window.alert('No records to export. Adjust your filters or refresh the data.');
+        }
+    }, [filteredAlerts, exportPrefix]);
 
-        const csvContent = [
-            headers.join(','),
-            ...filteredAlerts.map((alert) =>
-                [
-                    `ALT${String(alert.id).padStart(3, '0')}`,
-                    alert.status,
-                    new Date(alert.date).toLocaleDateString(),
-                    new Date(alert.time).toLocaleTimeString(),
-                    alert.personReporting,
-                    alert.sourceOfAlert,
-                    alert.alertCaseDistrict,
-                    alert.contactNumber,
-                    alert.alertCaseName,
-                    alert.alertCaseAge,
-                    alert.alertCaseSex,
-                    alert.isVerified ? 'Yes' : 'Pending',
-                ].join(',')
-            ),
-        ].join('\n');
+    const exportToExcel = useCallback(async () => {
+        try {
+            const exported = await exportAlertsToExcel(
+                filteredAlerts,
+                exportPrefix,
+                'Alerts'
+            );
+            if (!exported) {
+                window.alert('No records to export. Adjust your filters or refresh the data.');
+            }
+        } catch (err) {
+            console.error('Excel export failed:', err);
+            window.alert('Failed to export Excel file. Please try again.');
+        }
+    }, [filteredAlerts, exportPrefix]);
 
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `alerts_export_${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-    }, [filteredAlerts]);
+    const refetch = useCallback(() => loadAlerts({ force: true }), [loadAlerts]);
 
     useEffect(() => {
-        fetchAlerts();
-    }, [fetchAlerts]);
+        loadAlerts();
+    }, [loadAlerts]);
+
+    useEffect(() => {
+        const unsubscribe = subscribeAlertsCache<AlertType[]>((data) => {
+            setAlerts(data);
+        });
+        return unsubscribe;
+    }, []);
 
     return {
         alerts,
@@ -173,13 +205,15 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         stats,
         filters,
         loading,
+        isValidating,
         error,
         deletingId,
         uniqueDistricts,
         uniqueSources,
         setFilters,
-        refetch: fetchAlerts,
+        refetch,
         deleteAlert,
         exportToCSV,
+        exportToExcel,
     };
 };

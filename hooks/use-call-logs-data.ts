@@ -1,5 +1,17 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AuthService } from '@/lib/auth';
+import { exportAlertsToCsv, exportAlertsToExcel } from '@/lib/alert-export';
+import {
+    CALL_LOGS_CONFIG,
+    CALL_LOGS_INITIAL_FILTERS,
+    type CallLogsFilterState,
+} from '@/constants/call-logs';
+import { fetchAllAlerts } from '@/lib/fetch-alerts';
+import {
+    getCachedAlerts,
+    invalidateAlertsCache,
+    subscribeAlertsCache,
+} from '@/lib/alerts-cache';
 
 export interface AlertLog {
     id: number;
@@ -55,11 +67,7 @@ export interface AlertLog {
     updatedAt: string;
 }
 
-interface CallLogsFilters {
-    status: string;
-    source: string;
-    search: string;
-}
+type CallLogsFilters = CallLogsFilterState;
 
 interface CallLogsStats {
     alive: number;
@@ -74,50 +82,71 @@ interface UseCallLogsDataReturn {
     stats: CallLogsStats;
     filters: CallLogsFilters;
     loading: boolean;
+    isValidating: boolean;
     error: string | null;
     selectedAlert: AlertLog | null;
     setFilters: (filters: Partial<CallLogsFilters>) => void;
     setSelectedAlert: (alert: AlertLog | null) => void;
     refetch: () => Promise<void>;
     deleteAlert: (alertId: number) => Promise<void>;
-    exportToExcel: () => void;
+    exportToExcel: () => Promise<void>;
+    exportToCSV: () => void;
     clearFilters: () => void;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8089/api/v1';
-
-const initialFilters: CallLogsFilters = {
-    status: 'all',
-    source: 'all',
-    search: '',
-};
+const initialFilters: CallLogsFilters = { ...CALL_LOGS_INITIAL_FILTERS };
 
 export const useCallLogsData = (): UseCallLogsDataReturn => {
     const [alerts, setAlerts] = useState<AlertLog[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isValidating, setIsValidating] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [filters, setFiltersState] = useState<CallLogsFilters>(initialFilters);
     const [selectedAlert, setSelectedAlert] = useState<AlertLog | null>(null);
 
-    const fetchAlerts = useCallback(async () => {
-        try {
+    const loadAlerts = useCallback(async (options?: { force?: boolean }) => {
+        const force = options?.force ?? false;
+        const cached = getCachedAlerts<AlertLog[]>();
+
+        if (!force && cached) {
+            setAlerts(cached.data);
+            setLoading(false);
+        } else if (!cached) {
             setLoading(true);
-            setError(null);
+        }
 
-            const response = await AuthService.makeAuthenticatedRequest(`${API_BASE_URL}/alerts`);
+        if (force) {
+            setIsValidating(true);
+        }
 
-            if (!response.ok) {
-                throw new Error(`Failed to fetch alerts: ${response.status} ${response.statusText}`);
+        setError(null);
+
+        try {
+            const result = await fetchAllAlerts<AlertLog[]>({ force });
+            setAlerts(result.data);
+
+            if (result.revalidate) {
+                setIsValidating(true);
+                result
+                    .revalidate()
+                    .then((fresh) => setAlerts(fresh))
+                    .catch((err) =>
+                        console.error('Background alerts refresh failed:', err)
+                    )
+                    .finally(() => setIsValidating(false));
             }
-
-            const data = await response.json();
-            setAlerts(Array.isArray(data) ? data : []);
         } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Failed to fetch call logs';
+            const errorMessage =
+                err instanceof Error ? err.message : 'Failed to fetch call logs';
             setError(errorMessage);
-            setAlerts([]);
+            if (!cached) {
+                setAlerts([]);
+            }
         } finally {
             setLoading(false);
+            if (force) {
+                setIsValidating(false);
+            }
         }
     }, []);
 
@@ -130,12 +159,13 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
 
         try {
             await AuthService.deleteAlert(alertId);
-            await fetchAlerts(); 
+            invalidateAlertsCache();
+            await loadAlerts({ force: true });
         } catch (error) {
             setError('Failed to delete alert. Please try again.');
             throw error;
         }
-    }, [fetchAlerts]);
+    }, [loadAlerts]);
 
     const setFilters = useCallback((newFilters: Partial<CallLogsFilters>) => {
         setFiltersState(currentFilters => ({ ...currentFilters, ...newFilters }));
@@ -149,7 +179,13 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         return alerts.filter((alert) => {
             const matchesStatus =
                 filters.status === 'all' ||
+                (filters.status === 'other' && alert.status !== 'Alive') ||
                 alert.status.toLowerCase() === filters.status.toLowerCase();
+
+            const matchesVerification =
+                filters.verification === 'all' ||
+                (filters.verification === 'verified' && alert.isVerified) ||
+                (filters.verification === 'pending' && !alert.isVerified);
 
             const matchesSource =
                 filters.source === 'all' ||
@@ -162,11 +198,15 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
                 alert.alertCaseDistrict.toLowerCase().includes(filters.search.toLowerCase()) ||
                 alert.id.toString().includes(filters.search);
 
-            return matchesStatus && matchesSource && matchesSearch;
+            return (
+                matchesStatus &&
+                matchesVerification &&
+                matchesSource &&
+                matchesSearch
+            );
         });
     }, [alerts, filters]);
 
-    // Memoized statistics
     const stats = useMemo((): CallLogsStats => {
         const alive = alerts.filter(alert => alert.status === 'Alive').length;
         const other = alerts.filter(alert => alert.status !== 'Alive').length;
@@ -176,15 +216,43 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         return { alive, other, verified, pending };
     }, [alerts]);
 
-    // Export functionality
-    const exportToExcel = useCallback(() => {
-        console.log('Export to Excel functionality to be implemented');
-        // TODO: Implement actual Excel export functionality
-    }, []);
+    const exportPrefix = CALL_LOGS_CONFIG.EXPORT_FILENAME_PREFIX;
+
+    const exportToCSV = useCallback(() => {
+        const exported = exportAlertsToCsv(filteredAlerts, exportPrefix);
+        if (!exported) {
+            window.alert('No records to export. Adjust your filters or refresh the data.');
+        }
+    }, [filteredAlerts, exportPrefix]);
+
+    const exportToExcel = useCallback(async () => {
+        try {
+            const exported = await exportAlertsToExcel(
+                filteredAlerts,
+                exportPrefix,
+                'Call Logs'
+            );
+            if (!exported) {
+                window.alert('No records to export. Adjust your filters or refresh the data.');
+            }
+        } catch (err) {
+            console.error('Excel export failed:', err);
+            window.alert('Failed to export Excel file. Please try again.');
+        }
+    }, [filteredAlerts, exportPrefix]);
+
+    const refetch = useCallback(() => loadAlerts({ force: true }), [loadAlerts]);
 
     useEffect(() => {
-        fetchAlerts();
-    }, [fetchAlerts]);
+        loadAlerts();
+    }, [loadAlerts]);
+
+    useEffect(() => {
+        const unsubscribe = subscribeAlertsCache<AlertLog[]>((data) => {
+            setAlerts(data);
+        });
+        return unsubscribe;
+    }, []);
 
     return {
         alerts,
@@ -192,13 +260,15 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         stats,
         filters,
         loading,
+        isValidating,
         error,
         selectedAlert,
         setFilters,
         setSelectedAlert,
-        refetch: fetchAlerts,
+        refetch,
         deleteAlert,
         exportToExcel,
+        exportToCSV,
         clearFilters,
     };
 };

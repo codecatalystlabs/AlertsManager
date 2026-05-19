@@ -131,6 +131,7 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 							<Input
 								id="date-filter"
 								type="date"
+								max="2100-12-31"
 								value={filters.date}
 								onChange={(e) =>
 									onFiltersChange({

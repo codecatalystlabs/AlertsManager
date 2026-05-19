@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { AuthService } from '@/lib/auth';
 import { AlertCounts, CallLogAlert } from '@/app/dashboard/types';
+import { fetchAllAlerts } from '@/lib/fetch-alerts';
+import { getCachedAlerts, subscribeAlertsCache } from '@/lib/alerts-cache';
 
 interface DashboardData {
     alerts: CallLogAlert[];
@@ -12,26 +13,24 @@ interface DashboardData {
 interface UseDashboardDataReturn {
     data: DashboardData;
     loading: boolean;
+    isValidating: boolean;
     error: string | null;
     refetch: () => Promise<void>;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8089/api/v1';
-
 export const useDashboardData = (): UseDashboardDataReturn => {
     const [alerts, setAlerts] = useState<CallLogAlert[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isValidating, setIsValidating] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const calculateDashboardMetrics = useCallback((alertsData: CallLogAlert[]) => {
         const today = new Date().toISOString().split('T')[0];
 
-        // Calculate alert counts
         const verified = alertsData.filter(alert => alert.isVerified === true).length;
         const notVerified = alertsData.filter(alert => alert.isVerified === false).length;
         const total = alertsData.length;
 
-        // Calculate today's statistics
         const todayAlerts = alertsData.filter(alert => {
             const alertDate = new Date(alert.date).toISOString().split('T')[0];
             return alertDate === today;
@@ -46,33 +45,61 @@ export const useDashboardData = (): UseDashboardDataReturn => {
         };
     }, []);
 
-    const fetchAlertsData = useCallback(async () => {
-        try {
+    const loadAlerts = useCallback(async (options?: { force?: boolean }) => {
+        const force = options?.force ?? false;
+        const cached = getCachedAlerts<CallLogAlert[]>();
+
+        if (!force && cached) {
+            setAlerts(cached.data);
+            setLoading(false);
+        } else if (!cached) {
             setLoading(true);
-            setError(null);
+        }
 
-            const response = await AuthService.makeAuthenticatedRequest(`${API_BASE_URL}/alerts`);
+        if (force) {
+            setIsValidating(true);
+        }
 
-            if (!response.ok) {
-                throw new Error(`Failed to fetch alerts: ${response.status} ${response.statusText}`);
+        setError(null);
+
+        try {
+            const result = await fetchAllAlerts<CallLogAlert[]>({ force });
+            setAlerts(result.data);
+
+            if (result.revalidate) {
+                setIsValidating(true);
+                result
+                    .revalidate()
+                    .then((fresh) => setAlerts(fresh))
+                    .catch((err) =>
+                        console.error('Background dashboard refresh failed:', err)
+                    )
+                    .finally(() => setIsValidating(false));
             }
-
-            const data = await response.json();
-            const alertsData = Array.isArray(data) ? data : [];
-
-            setAlerts(alertsData);
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to fetch alert data';
             setError(errorMessage);
-            setAlerts([]);
+            if (!cached) {
+                setAlerts([]);
+            }
         } finally {
             setLoading(false);
+            setIsValidating(false);
         }
     }, []);
 
+    const refetch = useCallback(() => loadAlerts({ force: true }), [loadAlerts]);
+
     useEffect(() => {
-        fetchAlertsData();
-    }, [fetchAlertsData]);
+        loadAlerts();
+    }, [loadAlerts]);
+
+    useEffect(() => {
+        const unsubscribe = subscribeAlertsCache<CallLogAlert[]>((data) => {
+            setAlerts(data);
+        });
+        return unsubscribe;
+    }, []);
 
     const dashboardMetrics = calculateDashboardMetrics(alerts);
 
@@ -82,7 +109,8 @@ export const useDashboardData = (): UseDashboardDataReturn => {
             ...dashboardMetrics,
         },
         loading,
+        isValidating,
         error,
-        refetch: fetchAlertsData,
+        refetch,
     };
 };

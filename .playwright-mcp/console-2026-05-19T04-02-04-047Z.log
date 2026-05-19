@@ -1,0 +1,143 @@
+[    6287ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[    6570ms] [WARNING] Image with src "http://localhost:3003/logo.png" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: "auto"' or 'height: "auto"' to maintain the aspect ratio. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/shared/lib/utils/warn-once.js:15
+[    6599ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    6616ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3003/login:0
+[    6626ms] [LOG] [Fast Refresh] done in 27ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[    6652ms] [WARNING] Image with src "/logo.png" was detected as the Largest Contentful Paint (LCP). Please add the "priority" property if this image is above the fold.
+Read more: https://nextjs.org/docs/api-reference/next/image#priority @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/shared/lib/utils/warn-once.js:15
+[    6945ms] [LOG] [Fast Refresh] done in 346ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[    6954ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    7208ms] [LOG] [Fast Refresh] done in 254ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[    7213ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    7431ms] [LOG] [Fast Refresh] done in 218ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[    7435ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    7671ms] [LOG] [Fast Refresh] done in 237ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[    7674ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    7942ms] [LOG] [Fast Refresh] done in 267ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[    7949ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    8339ms] [LOG] [Fast Refresh] done in 391ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[    8348ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    8637ms] [LOG] [Fast Refresh] done in 288ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[    8639ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    8864ms] [LOG] [Fast Refresh] done in 226ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[    8868ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    9077ms] [LOG] [Fast Refresh] done in 208ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[    9080ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    9284ms] [LOG] [Fast Refresh] done in 204ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[    9288ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    9480ms] [LOG] [Fast Refresh] done in 193ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[    9483ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    9684ms] [LOG] [Fast Refresh] done in 201ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[    9687ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    9837ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[    9882ms] [LOG] [Fast Refresh] done in 45ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   13564ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3003/login?_rsc=v3pub:0
+[   13571ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   13575ms] [LOG] [Fast Refresh] done in 5ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   13877ms] [ERROR] Failed to fetch RSC payload for http://localhost:3003/login. Falling back to browser navigation. TypeError: Failed to fetch
+    at fetchServerResponse (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/router-reducer/fetch-server-response.js:58:27)
+    at fastRefreshReducerImpl (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/router-reducer/reducers/fast-refresh-reducer.js:33:67)
+    at clientReducer (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/router-reducer/router-reducer.js:41:67)
+    at Object.action (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/shared/lib/router/action-queue.js:150:55)
+    at runAction (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/shared/lib/router/action-queue.js:56:38)
+    at dispatchAction (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/shared/lib/router/action-queue.js:113:9)
+    at Object.dispatch (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/shared/lib/router/action-queue.js:145:40)
+    at eval (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/use-reducer-with-devtools.js:130:21)
+    at eval (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/app-router.js:304:25)
+    at startTransition (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react/cjs/react.development.js:2597:25)
+    at Object.fastRefresh (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/app-router.js:303:48)
+    at eval (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:277:28)
+    at startTransition (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react/cjs/react.development.js:2597:25)
+    at processMessage (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:276:44)
+    at WebSocket.handler (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:395:17) @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[   14676ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[   14878ms] [WARNING] Image with src "http://localhost:3003/logo.png" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: "auto"' or 'height: "auto"' to maintain the aspect ratio. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/shared/lib/utils/warn-once.js:15
+[   14886ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   14900ms] [LOG] [Fast Refresh] done in 14ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   14930ms] [WARNING] Image with src "/logo.png" was detected as the Largest Contentful Paint (LCP). Please add the "priority" property if this image is above the fold.
+Read more: https://nextjs.org/docs/api-reference/next/image#priority @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/shared/lib/utils/warn-once.js:15
+[   14941ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3003/login:0
+[   15113ms] [LOG] [Fast Refresh] done in 227ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   15122ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   15320ms] [LOG] [Fast Refresh] done in 198ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   15346ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   15542ms] [LOG] [Fast Refresh] done in 197ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   15553ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   15601ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:3003/api/v1/login:0
+[   15735ms] [LOG] [Fast Refresh] done in 181ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   15737ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   15889ms] [LOG] [Fast Refresh] done in 151ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   15903ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   16033ms] [LOG] [Fast Refresh] done in 131ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   16038ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   16176ms] [LOG] [Fast Refresh] done in 138ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   16180ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   16330ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   16332ms] [LOG] [Fast Refresh] done in 1ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   17562ms] [LOG] [Fast Refresh] done in 1232ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   17576ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   18160ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3003/login?_rsc=v3pub:0
+[   18163ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   18175ms] [LOG] [Fast Refresh] done in 12ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   18338ms] [LOG] [Fast Refresh] done in 174ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   18339ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   18518ms] [LOG] [Fast Refresh] done in 179ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   18546ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   19173ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[   19342ms] [WARNING] Image with src "http://localhost:3003/logo.png" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: "auto"' or 'height: "auto"' to maintain the aspect ratio. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/shared/lib/utils/warn-once.js:15
+[   19351ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   19384ms] [WARNING] Image with src "/logo.png" was detected as the Largest Contentful Paint (LCP). Please add the "priority" property if this image is above the fold.
+Read more: https://nextjs.org/docs/api-reference/next/image#priority @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/shared/lib/utils/warn-once.js:15
+[   19396ms] [LOG] [Fast Refresh] done in 45ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   19415ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3003/login:0
+[   19541ms] [LOG] [Fast Refresh] done in 189ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   19546ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   19680ms] [LOG] [Fast Refresh] done in 134ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   19686ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   19846ms] [LOG] [Fast Refresh] done in 159ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   19851ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   20036ms] [LOG] [Fast Refresh] done in 185ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   20040ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   20250ms] [LOG] [Fast Refresh] done in 210ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   20255ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   20405ms] [LOG] [Fast Refresh] done in 149ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   20408ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   20581ms] [LOG] [Fast Refresh] done in 174ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   20583ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   20753ms] [LOG] [Fast Refresh] done in 169ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   20758ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   20936ms] [LOG] [Fast Refresh] done in 177ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   20939ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   21186ms] [LOG] [Fast Refresh] done in 248ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   21207ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   21686ms] [LOG] [Fast Refresh] done in 479ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   21705ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   22218ms] [LOG] [Fast Refresh] done in 514ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   22450ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   22762ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   22791ms] [LOG] [Fast Refresh] done in 29ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   23027ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3003/login?_rsc=v3pub:0
+[   23031ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   23037ms] [LOG] [Fast Refresh] done in 5ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   23260ms] [LOG] [Fast Refresh] done in 228ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   23264ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   23504ms] [LOG] [Fast Refresh] done in 240ms @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:43
+[   23508ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[   23512ms] [ERROR] Failed to fetch RSC payload for http://localhost:3003/login. Falling back to browser navigation. TypeError: Failed to fetch
+    at fetchServerResponse (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/router-reducer/fetch-server-response.js:58:27)
+    at fastRefreshReducerImpl (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/router-reducer/reducers/fast-refresh-reducer.js:33:67)
+    at clientReducer (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/router-reducer/router-reducer.js:41:67)
+    at Object.action (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/shared/lib/router/action-queue.js:150:55)
+    at runAction (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/shared/lib/router/action-queue.js:56:38)
+    at dispatchAction (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/shared/lib/router/action-queue.js:113:9)
+    at Object.dispatch (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/shared/lib/router/action-queue.js:145:40)
+    at eval (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/use-reducer-with-devtools.js:130:21)
+    at eval (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/app-router.js:304:25)
+    at startTransition (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react/cjs/react.development.js:2597:25)
+    at Object.fastRefresh (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/app-router.js:303:48)
+    at eval (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:277:28)
+    at startTransition (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react/cjs/react.development.js:2597:25)
+    at processMessage (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:276:44)
+    at WebSocket.handler (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:395:17) @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[   23678ms] Invalid or unexpected token
+[   24366ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559

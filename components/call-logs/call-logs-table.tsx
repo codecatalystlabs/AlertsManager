@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { AlertLog } from "@/hooks/use-call-logs-data";
 import {
+	CALL_LOGS_CONFIG,
 	createCallLogsTableColumns,
 	type CallLogsTableCallbacks,
 } from "@/constants/call-logs";
@@ -27,6 +28,8 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 			[onViewDetails, onEditAlert, onVerifyAlert, onDeleteAlert]
 		);
 
+		console.log(alerts,"alerts");
+
 		const columns = useMemo(
 			() => createCallLogsTableColumns(callbacks),
 			[callbacks]
@@ -45,6 +48,7 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 						data={alerts}
 						searchKey="personReporting"
 						searchPlaceholder="Search reporters..."
+						pageSize={CALL_LOGS_CONFIG.ITEMS_PER_PAGE}
 					/>
 				</CardContent>
 			</Card>

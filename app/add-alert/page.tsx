@@ -37,6 +37,9 @@ import {
 	signsAndSymptoms,
 	ugandaDistricts,
 } from "@/constants";
+import { getLocalDateString } from "@/lib/utils";
+import { MohLogo } from "@/components/moh-logo";
+import { useIsAuthenticated } from "@/hooks/use-auth-status";
 
 export default function PublicAddAlertPage() {
 	const [formData, setFormData] = useState({
@@ -69,7 +72,7 @@ export default function PublicAddAlertPage() {
 		type: "success" | "error" | null;
 		message: string;
 	}>({ type: null, message: "" });
-	const isAuthenticated = AuthService.isAuthenticated();
+	const isAuthenticated = useIsAuthenticated();
 
 	const handleInputChange = (field: string, value: string) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
@@ -252,11 +255,7 @@ export default function PublicAddAlertPage() {
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="flex justify-between items-center py-4">
 						<div className="flex items-center space-x-3">
-							<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm border border-white/30">
-								<span className="text-lg font-bold text-white">
-									MoH
-								</span>
-							</div>
+							<MohLogo />
 							<div>
 								<h1 className="text-xl font-bold">
 									Uganda Health Alert System
@@ -369,6 +368,7 @@ export default function PublicAddAlertPage() {
 										<Input
 											id="date"
 											type="date"
+											max={getLocalDateString()}
 											value={formData.date}
 											onChange={(e) =>
 												handleInputChange(
@@ -1137,10 +1137,11 @@ export default function PublicAddAlertPage() {
 						</h3>
 						<p className="text-red-700 text-sm">
 							For immediate medical emergencies, please
-							call <strong>911</strong> or visit the
-							nearest health facility. This form is for
-							reporting suspected disease outbreaks and
-							public health concerns.
+							call <strong>0800-100-066</strong>, SMS{" "}
+							<strong>6767</strong>, or visit the nearest
+							health facility. This form is for reporting
+							suspected disease outbreaks and public
+							health concerns.
 						</p>
 					</CardContent>
 				</Card>

@@ -1,0 +1,181 @@
+[    6751ms] Invalid or unexpected token
+[    7793ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[  127862ms] ChunkLoadError: Loading chunk app/layout failed.
+(timeout: http://localhost:3003/_next/static/chunks/app/layout.js)
+    at __webpack_require__.f.j (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163417817:852:29)
+    at http://localhost:3003/_next/static/chunks/webpack.js?v=1779163417817:155:40
+    at Array.reduce (<anonymous>)
+    at __webpack_require__.e (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163417817:154:67)
+    at fn.e (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163417817:391:50)
+    at loadChunk (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:244:30)
+    at preloadModule (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:170:22)
+    at resolveModule (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:1813:17)
+    at processFullRow (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:1902:9)
+    at processBinaryChunk (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:2072:7)
+[  127872ms] [ERROR] Warning: An error occurred during hydration. The server HTML was replaced with client content in <%s>. #document @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[  127878ms] ChunkLoadError: Loading chunk app/layout failed.
+(timeout: http://localhost:3003/_next/static/chunks/app/layout.js)
+    at __webpack_require__.f.j (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163417817:852:29)
+    at http://localhost:3003/_next/static/chunks/webpack.js?v=1779163417817:155:40
+    at Array.reduce (<anonymous>)
+    at __webpack_require__.e (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163417817:154:67)
+    at fn.e (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163417817:391:50)
+    at loadChunk (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:244:30)
+    at preloadModule (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:170:22)
+    at resolveModule (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:1813:17)
+    at processFullRow (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:1902:9)
+    at processBinaryChunk (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:2072:7)
+[  127879ms] ChunkLoadError: Loading chunk app/layout failed.
+(timeout: http://localhost:3003/_next/static/chunks/app/layout.js)
+    at __webpack_require__.f.j (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163417817:852:29)
+    at http://localhost:3003/_next/static/chunks/webpack.js?v=1779163417817:155:40
+    at Array.reduce (<anonymous>)
+    at __webpack_require__.e (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163417817:154:67)
+    at fn.e (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163417817:391:50)
+    at loadChunk (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:244:30)
+    at preloadModule (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:170:22)
+    at resolveModule (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:1813:17)
+    at processFullRow (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:1902:9)
+    at processBinaryChunk (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:2072:7)
+[  127880ms] ChunkLoadError: Loading chunk app/layout failed.
+(timeout: http://localhost:3003/_next/static/chunks/app/layout.js)
+    at __webpack_require__.f.j (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163417817:852:29)
+    at http://localhost:3003/_next/static/chunks/webpack.js?v=1779163417817:155:40
+    at Array.reduce (<anonymous>)
+    at __webpack_require__.e (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163417817:154:67)
+    at fn.e (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163417817:391:50)
+    at loadChunk (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:244:30)
+    at preloadModule (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:170:22)
+    at resolveModule (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:1813:17)
+    at processFullRow (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:1902:9)
+    at processBinaryChunk (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:2072:7)
+[  127887ms] [ERROR] The above error occurred in the <NotFoundErrorBoundary> component:
+
+    at Lazy
+    at body
+    at html
+    at RootLayout (Server)
+    at RedirectErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:74:9)
+    at RedirectBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:82:11)
+    at NotFoundErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:76:9)
+    at NotFoundBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:84:11)
+    at DevRootNotFoundBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/dev-root-not-found-boundary.js:33:11)
+    at ReactDevOverlay (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/ReactDevOverlay.js:87:9)
+    at HotReload (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:321:11)
+    at Router (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/app-router.js:207:11)
+    at ErrorBoundaryHandler (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/error-boundary.js:113:9)
+    at ErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/error-boundary.js:160:11)
+    at AppRouter (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/app-router.js:585:13)
+    at ServerRoot (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:112:27)
+    at Root (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:117:11)
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ReactDevOverlay. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[  127889ms] Error: There was an error while hydrating. Because the error happened outside of a Suspense boundary, the entire root will switch to client rendering.
+See more info here: https://nextjs.org/docs/messages/react-hydration-error
+    at updateHostRoot (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:16571:57)
+    at beginWork$1 (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:18486:14)
+    at beginWork (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:26927:14)
+    at performUnitOfWork (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:25748:12)
+    at workLoopSync (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:25464:5)
+    at renderRootSync (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:25419:7)
+    at recoverFromConcurrentError (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:24597:20)
+    at performConcurrentWorkOnRoot (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:24542:26)
+    at workLoop (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/scheduler/cjs/scheduler.development.js:256:34)
+    at flushWork (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/scheduler/cjs/scheduler.development.js:225:14)
+    at MessagePort.performWorkUntilDeadline (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/scheduler/cjs/scheduler.development.js:534:21)
+[  128358ms] [WARNING] [Fast Refresh] performing full reload because your application had an unrecoverable error @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:114
+[  128371ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[  128675ms] Invalid or unexpected token
+[  129235ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:38559
+[  249290ms] ChunkLoadError: Loading chunk app/layout failed.
+(timeout: http://localhost:3003/_next/static/chunks/app/layout.js)
+    at __webpack_require__.f.j (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163539835:852:29)
+    at http://localhost:3003/_next/static/chunks/webpack.js?v=1779163539835:155:40
+    at Array.reduce (<anonymous>)
+    at __webpack_require__.e (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163539835:154:67)
+    at fn.e (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163539835:391:50)
+    at loadChunk (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:244:30)
+    at preloadModule (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:170:22)
+    at resolveModule (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:1813:17)
+    at processFullRow (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:1902:9)
+    at processBinaryChunk (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:2072:7)
+[  249302ms] [ERROR] Warning: An error occurred during hydration. The server HTML was replaced with client content in <%s>. #document @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[  249308ms] ChunkLoadError: Loading chunk app/layout failed.
+(timeout: http://localhost:3003/_next/static/chunks/app/layout.js)
+    at __webpack_require__.f.j (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163539835:852:29)
+    at http://localhost:3003/_next/static/chunks/webpack.js?v=1779163539835:155:40
+    at Array.reduce (<anonymous>)
+    at __webpack_require__.e (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163539835:154:67)
+    at fn.e (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163539835:391:50)
+    at loadChunk (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:244:30)
+    at preloadModule (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:170:22)
+    at resolveModule (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:1813:17)
+    at processFullRow (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:1902:9)
+    at processBinaryChunk (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:2072:7)
+[  249309ms] ChunkLoadError: Loading chunk app/layout failed.
+(timeout: http://localhost:3003/_next/static/chunks/app/layout.js)
+    at __webpack_require__.f.j (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163539835:852:29)
+    at http://localhost:3003/_next/static/chunks/webpack.js?v=1779163539835:155:40
+    at Array.reduce (<anonymous>)
+    at __webpack_require__.e (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163539835:154:67)
+    at fn.e (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163539835:391:50)
+    at loadChunk (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:244:30)
+    at preloadModule (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:170:22)
+    at resolveModule (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:1813:17)
+    at processFullRow (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:1902:9)
+    at processBinaryChunk (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:2072:7)
+[  249310ms] ChunkLoadError: Loading chunk app/layout failed.
+(timeout: http://localhost:3003/_next/static/chunks/app/layout.js)
+    at __webpack_require__.f.j (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163539835:852:29)
+    at http://localhost:3003/_next/static/chunks/webpack.js?v=1779163539835:155:40
+    at Array.reduce (<anonymous>)
+    at __webpack_require__.e (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163539835:154:67)
+    at fn.e (http://localhost:3003/_next/static/chunks/webpack.js?v=1779163539835:391:50)
+    at loadChunk (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:244:30)
+    at preloadModule (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:170:22)
+    at resolveModule (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:1813:17)
+    at processFullRow (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:1902:9)
+    at processBinaryChunk (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.development.js:2072:7)
+[  249319ms] [ERROR] The above error occurred in the <NotFoundErrorBoundary> component:
+
+    at Lazy
+    at body
+    at html
+    at RootLayout (Server)
+    at RedirectErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:74:9)
+    at RedirectBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/redirect-boundary.js:82:11)
+    at NotFoundErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:76:9)
+    at NotFoundBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/not-found-boundary.js:84:11)
+    at DevRootNotFoundBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/dev-root-not-found-boundary.js:33:11)
+    at ReactDevOverlay (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/ReactDevOverlay.js:87:9)
+    at HotReload (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:321:11)
+    at Router (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/app-router.js:207:11)
+    at ErrorBoundaryHandler (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/error-boundary.js:113:9)
+    at ErrorBoundary (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/error-boundary.js:160:11)
+    at AppRouter (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/app-router.js:585:13)
+    at ServerRoot (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:112:27)
+    at Root (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:117:11)
+
+React will try to recreate this component tree from scratch using the error boundary you provided, ReactDevOverlay. @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/app-index.js:32
+[  249324ms] Error: There was an error while hydrating. Because the error happened outside of a Suspense boundary, the entire root will switch to client rendering.
+See more info here: https://nextjs.org/docs/messages/react-hydration-error
+    at updateHostRoot (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:16571:57)
+    at beginWork$1 (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:18486:14)
+    at beginWork (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:26927:14)
+    at performUnitOfWork (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:25748:12)
+    at workLoopSync (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:25464:5)
+    at renderRootSync (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:25419:7)
+    at recoverFromConcurrentError (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:24597:20)
+    at performConcurrentWorkOnRoot (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom.development.js:24542:26)
+    at workLoop (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/scheduler/cjs/scheduler.development.js:256:34)
+    at flushWork (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/scheduler/cjs/scheduler.development.js:225:14)
+    at MessagePort.performWorkUntilDeadline (webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/scheduler/cjs/scheduler.development.js:534:21)
+[  249680ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[  250344ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3003/_next/static/webpack/6c46885a0badf8ae.webpack.hot-update.json:0
+[  250344ms] [WARNING] [Fast Refresh] performing full reload because your application had an unrecoverable error @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:114
+[  250350ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/components/react-dev-overlay/app/hot-reloader-client.js:186
+[  250359ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3003/login:0
+[  250569ms] Invalid or unexpected token
+[  250908ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3003/_next/static/css/app/layout.css?v=1779163661679:0
+[  250926ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3003/_next/static/chunks/main-app.js?v=1779163661679:0
+[  250926ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3003/_next/static/chunks/app-pages-internals.js:0

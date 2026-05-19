@@ -28,6 +28,7 @@ import {
 	ArrowLeft,
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
+import { getLocalDateString } from "@/lib/utils";
 import Link from "next/link";
 import { signsAndSymptoms, ugandaDistricts } from "@/constants";
 
@@ -296,6 +297,7 @@ export default function DashboardAddAlertPage() {
 									<Input
 										id="date"
 										type="date"
+										max={getLocalDateString()}
 										value={formData.date}
 										onChange={(e) =>
 											handleInputChange(

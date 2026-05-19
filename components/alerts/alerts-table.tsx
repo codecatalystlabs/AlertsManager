@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Alert as AlertType } from "@/lib/auth";
 import {
+	ALERTS_CONFIG,
 	createAlertsTableColumns,
 	type AlertsTableCallbacks,
 } from "@/constants/alerts";
@@ -43,6 +44,7 @@ export const AlertsTable = memo<AlertsTableProps>(
 						data={alerts}
 						searchKey="alertCaseName"
 						searchPlaceholder="Search by case name..."
+						pageSize={ALERTS_CONFIG.ITEMS_PER_PAGE}
 					/>
 				</CardContent>
 			</Card>

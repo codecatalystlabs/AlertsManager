@@ -14,15 +14,13 @@ import { Filter } from "lucide-react";
 import {
 	STATUS_FILTER_OPTIONS,
 	SOURCE_FILTER_OPTIONS,
+	VERIFICATION_FILTER_OPTIONS,
+	type CallLogsFilterState,
 } from "@/constants/call-logs";
 
 interface CallLogsFiltersProps {
-	filters: {
-		status: string;
-		source: string;
-		search: string;
-	};
-	onFiltersChange: (filters: Partial<typeof filters>) => void;
+	filters: CallLogsFilterState;
+	onFiltersChange: (filters: Partial<CallLogsFilterState>) => void;
 	onClearFilters: () => void;
 }
 
@@ -37,7 +35,7 @@ export const CallLogsFilters = memo<CallLogsFiltersProps>(
 					</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
 						<div className="space-y-2">
 							<Label htmlFor="search">Search</Label>
 							<Input
@@ -66,6 +64,32 @@ export const CallLogsFilters = memo<CallLogsFiltersProps>(
 								</SelectTrigger>
 								<SelectContent>
 									{STATUS_FILTER_OPTIONS.map(
+										(option) => (
+											<SelectItem
+												key={option.value}
+												value={option.value}
+											>
+												{option.label}
+											</SelectItem>
+										)
+									)}
+								</SelectContent>
+							</Select>
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="verification-filter">Verification</Label>
+							<Select
+								value={filters.verification}
+								onValueChange={(value) =>
+									onFiltersChange({ verification: value })
+								}
+							>
+								<SelectTrigger>
+									<SelectValue placeholder="Filter by verification" />
+								</SelectTrigger>
+								<SelectContent>
+									{VERIFICATION_FILTER_OPTIONS.map(
 										(option) => (
 											<SelectItem
 												key={option.value}

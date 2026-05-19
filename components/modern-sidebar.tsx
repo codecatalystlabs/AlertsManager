@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AuthService } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 import {
 	LayoutDashboard,
 	AlertTriangle,
@@ -17,22 +18,22 @@ import {
 	LogOut,
 	X,
 	Phone,
-	Stethoscope,
 	ChevronDown,
-	Bell,
-	Settings,
 	User,
+	PanelLeftClose,
+	PanelLeftOpen,
 } from "lucide-react";
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { MohLogo } from "@/components/moh-logo";
 
 interface NavigationItem {
 	name: string;
 	href: string;
-	icon: any;
+	icon: React.ComponentType<{ className?: string }>;
 	badge?: string | null;
 	dynamicBadge?: "verified" | "notVerified" | "total";
 }
@@ -68,12 +69,6 @@ const navigation: NavigationItem[] = [
 		icon: Upload,
 		badge: "New",
 	},
-	// {
-	// 	name: "EVD Case Definition",
-	// 	href: "/dashboard/evd-definition",
-	// 	icon: Stethoscope,
-	// 	badge: "New",
-	// },
 	{
 		name: "Manage Users",
 		href: "/dashboard/users",
@@ -83,61 +78,70 @@ const navigation: NavigationItem[] = [
 ];
 
 interface ModernSidebarProps {
-	sidebarOpen: boolean;
-	setSidebarOpen: (open: boolean) => void;
+	mobileOpen: boolean;
+	onMobileClose: () => void;
+	collapsed: boolean;
+	onToggleCollapsed: () => void;
 }
 
 export function ModernSidebar({
-	sidebarOpen,
-	setSidebarOpen,
+	mobileOpen,
+	onMobileClose,
+	collapsed,
+	onToggleCollapsed,
 }: ModernSidebarProps) {
 	const pathname = usePathname();
 	const [alertsExpanded, setAlertsExpanded] = useState(true);
-	const [user, setUser] = useState<any>(null);
+	const [user, setUser] = useState<ReturnType<typeof AuthService.getUser>>(
+		null
+	);
 	const [isLoggingOut, setIsLoggingOut] = useState(false);
 	const [alertCounts, setAlertCounts] = useState({
 		verified: 0,
 		notVerified: 0,
 		total: 0,
 	});
+	const mobilePanelRef = useRef<HTMLDivElement>(null);
+	const closeButtonRef = useRef<HTMLButtonElement>(null);
 
 	useEffect(() => {
 		const userData = AuthService.getUser();
 		setUser(userData);
 	}, []);
 
+	const applyCounts = (alertsData: { isVerified?: boolean }[]) => {
+		const verified = alertsData.filter(
+			(alert) => alert.isVerified === true
+		).length;
+		const notVerified = alertsData.filter(
+			(alert) => alert.isVerified === false
+		).length;
+		setAlertCounts({
+			verified,
+			notVerified,
+			total: alertsData.length,
+		});
+	};
+
 	useEffect(() => {
-		const fetchAlertsData = async () => {
+		if (!AuthService.isAuthenticated()) return;
+
+		const loadCounts = async () => {
 			try {
-				// Fetch alerts from call logs API
-				const response = await AuthService.makeAuthenticatedRequest(
-					`${
-						process.env.NEXT_PUBLIC_API_BASE_URL ||
-						"http://localhost:8089/api/v1"
-					}/alerts`
-				);
+				const { fetchAllAlerts } = await import("@/lib/fetch-alerts");
+				const result = await fetchAllAlerts<
+					{ isVerified?: boolean }[]
+				>();
+				applyCounts(result.data);
 
-				if (!response.ok) {
-					throw new Error("Failed to fetch alerts");
+				if (result.revalidate) {
+					result.revalidate().then(applyCounts).catch((error) => {
+						console.error(
+							"Error revalidating alert counts for sidebar:",
+							error
+						);
+					});
 				}
-
-				const data = await response.json();
-				const alertsData = Array.isArray(data) ? data : [];
-
-				// Calculate counts based on verification status
-				const verified = alertsData.filter(
-					(alert: any) => alert.isVerified === true
-				).length;
-				const notVerified = alertsData.filter(
-					(alert: any) => alert.isVerified === false
-				).length;
-				const total = alertsData.length;
-
-				setAlertCounts({
-					verified,
-					notVerified,
-					total,
-				});
 			} catch (error) {
 				console.error(
 					"Error fetching alert counts for sidebar:",
@@ -151,13 +155,37 @@ export function ModernSidebar({
 			}
 		};
 
-		if (AuthService.isAuthenticated()) {
-			fetchAlertsData();
-		}
+		loadCounts();
+
+		let unsubscribe: (() => void) | undefined;
+		import("@/lib/alerts-cache").then(({ subscribeAlertsCache }) => {
+			unsubscribe = subscribeAlertsCache(applyCounts);
+		});
+
+		return () => unsubscribe?.();
 	}, []);
 
+	useEffect(() => {
+		if (!mobileOpen) return;
+
+		const previousFocus = document.activeElement as HTMLElement | null;
+		closeButtonRef.current?.focus();
+
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") onMobileClose();
+		};
+		document.addEventListener("keydown", onKeyDown);
+		document.body.style.overflow = "hidden";
+
+		return () => {
+			document.removeEventListener("keydown", onKeyDown);
+			document.body.style.overflow = "";
+			previousFocus?.focus();
+		};
+	}, [mobileOpen, onMobileClose]);
+
 	const handleLogout = async () => {
-		if (isLoggingOut) return; // Prevent multiple logout calls
+		if (isLoggingOut) return;
 
 		try {
 			setIsLoggingOut(true);
@@ -165,7 +193,6 @@ export function ModernSidebar({
 			window.location.href = "/add-alert";
 		} catch (error) {
 			console.error("Logout error:", error);
-			// Even if logout fails, redirect to add alert page
 			window.location.href = "/add-alert";
 		} finally {
 			setIsLoggingOut(false);
@@ -199,38 +226,63 @@ export function ModernSidebar({
 		return null;
 	};
 
+	const contentProps = {
+		pathname,
+		alertsExpanded,
+		setAlertsExpanded,
+		user,
+		onLogout: handleLogout,
+		isLoggingOut,
+		getUserInitials,
+		getUserDisplayName,
+		getUserEmail,
+		alertCounts,
+		getBadgeValue,
+	};
+
 	return (
 		<>
-			{/* Mobile sidebar */}
+			{/* Mobile drawer */}
 			<div
-				className={`fixed inset-0 z-50 lg:hidden ${
-					sidebarOpen ? "block" : "hidden"
-				}`}
+				className={cn(
+					"fixed inset-0 z-50 lg:hidden transition-opacity duration-300",
+					mobileOpen
+						? "pointer-events-auto opacity-100"
+						: "pointer-events-none opacity-0"
+				)}
+				role="dialog"
+				aria-modal="true"
+				aria-hidden={!mobileOpen}
+				aria-label="Navigation menu"
+				id="mobile-sidebar"
 			>
-				<div
+				<button
+					type="button"
 					className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm"
-					onClick={() => setSidebarOpen(false)}
+					onClick={onMobileClose}
+					aria-label="Close navigation menu"
+					tabIndex={mobileOpen ? 0 : -1}
 				/>
-				<div className="fixed inset-y-0 left-0 flex w-72 flex-col bg-white shadow-2xl">
+				<div
+					ref={mobilePanelRef}
+					className={cn(
+						"fixed inset-y-0 left-0 flex w-[min(18rem,85vw)] flex-col bg-white shadow-2xl transition-transform duration-300 ease-out",
+						mobileOpen ? "translate-x-0" : "-translate-x-full"
+					)}
+				>
 					<SidebarContent
-						pathname={pathname}
-						alertsExpanded={alertsExpanded}
-						setAlertsExpanded={setAlertsExpanded}
-						user={user}
-						onLogout={handleLogout}
-						isLoggingOut={isLoggingOut}
-						getUserInitials={getUserInitials}
-						getUserDisplayName={getUserDisplayName}
-						getUserEmail={getUserEmail}
-						alertCounts={alertCounts}
-						getBadgeValue={getBadgeValue}
+						{...contentProps}
+						collapsed={false}
+						onNavigate={onMobileClose}
 					/>
 					<div className="absolute top-4 right-4">
 						<Button
+							ref={closeButtonRef}
 							variant="ghost"
 							size="sm"
-							onClick={() => setSidebarOpen(false)}
+							onClick={onMobileClose}
 							className="text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+							aria-label="Close navigation menu"
 						>
 							<X className="h-5 w-5" />
 						</Button>
@@ -239,22 +291,93 @@ export function ModernSidebar({
 			</div>
 
 			{/* Desktop sidebar */}
-			<div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-72 lg:flex-col">
+			<aside
+				id="desktop-sidebar"
+				className={cn(
+					"hidden lg:fixed lg:inset-y-0 lg:z-30 lg:flex lg:flex-col transition-[width] duration-300 ease-in-out",
+					collapsed ? "lg:w-16" : "lg:w-72"
+				)}
+				aria-label="Main navigation"
+			>
 				<SidebarContent
-					pathname={pathname}
-					alertsExpanded={alertsExpanded}
-					setAlertsExpanded={setAlertsExpanded}
-					user={user}
-					onLogout={handleLogout}
-					isLoggingOut={isLoggingOut}
-					getUserInitials={getUserInitials}
-					getUserDisplayName={getUserDisplayName}
-					getUserEmail={getUserEmail}
-					alertCounts={alertCounts}
-					getBadgeValue={getBadgeValue}
+					{...contentProps}
+					collapsed={collapsed}
+					onToggleCollapsed={onToggleCollapsed}
 				/>
-			</div>
+			</aside>
 		</>
+	);
+}
+
+function NavLink({
+	item,
+	pathname,
+	getBadgeValue,
+	collapsed,
+	onNavigate,
+}: {
+	item: NavigationItem;
+	pathname: string;
+	getBadgeValue: (item: NavigationItem) => string | null;
+	collapsed: boolean;
+	onNavigate?: () => void;
+}) {
+	const isActive =
+		pathname === item.href ||
+		(item.href === "/add-alert" && pathname === "/add-alert");
+	const badge = getBadgeValue(item);
+
+	return (
+		<Link
+			href={item.href}
+			onClick={onNavigate}
+			title={collapsed ? item.name : undefined}
+			className={cn(
+				"group relative flex items-center rounded-lg text-sm font-medium transition-all duration-200",
+				collapsed ? "justify-center p-2.5" : "px-3 py-2.5",
+				isActive
+					? "bg-gradient-to-r from-uganda-red to-uganda-yellow text-white shadow-lg shadow-uganda-red/25"
+					: "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+			)}
+		>
+			<item.icon
+				className={cn(
+					"h-5 w-5 shrink-0 transition-colors",
+					!collapsed && "mr-3",
+					isActive
+						? "text-white"
+						: "text-gray-400 group-hover:text-gray-600"
+				)}
+			/>
+			{!collapsed && (
+				<>
+					<span className="truncate">{item.name}</span>
+					{badge && (
+						<Badge
+							variant="secondary"
+							className={cn(
+								"ml-auto text-xs",
+								isActive
+									? "bg-white/20 text-white"
+									: badge === "New"
+										? "bg-uganda-yellow text-uganda-black"
+										: "bg-gray-200 text-gray-700"
+							)}
+						>
+							{badge}
+						</Badge>
+					)}
+				</>
+			)}
+			{collapsed && badge && (
+				<span
+					className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-uganda-red px-1 text-[10px] font-semibold text-white"
+					aria-label={`${item.name}: ${badge}`}
+				>
+					{badge.length > 2 ? "•" : badge}
+				</span>
+			)}
+		</Link>
 	);
 }
 
@@ -268,291 +391,294 @@ function SidebarContent({
 	getUserInitials,
 	getUserDisplayName,
 	getUserEmail,
-	alertCounts,
 	getBadgeValue,
+	collapsed,
+	onToggleCollapsed,
+	onNavigate,
 }: {
 	pathname: string;
 	alertsExpanded: boolean;
 	setAlertsExpanded: (expanded: boolean) => void;
-	user: any;
+	user: ReturnType<typeof AuthService.getUser>;
 	onLogout: () => Promise<void>;
 	isLoggingOut: boolean;
 	getUserInitials: (name: string) => string;
 	getUserDisplayName: () => string;
 	getUserEmail: () => string;
-	alertCounts: {
-		verified: number;
-		notVerified: number;
-		total: number;
-	};
 	getBadgeValue: (item: NavigationItem) => string | null;
+	collapsed: boolean;
+	onToggleCollapsed?: () => void;
+	onNavigate?: () => void;
 }) {
+	const displayName = getUserDisplayName();
+
 	return (
-		<div className="flex flex-col flex-grow bg-gradient-to-b overflow-y-auto from-white to-gray-50/50 shadow-xl border-r border-gray-200/50">
+		<div className="flex flex-col flex-grow bg-gradient-to-b overflow-hidden from-white to-gray-50/50 shadow-xl border-r border-gray-200/50 h-full">
 			{/* Header */}
-			<div className="flex h-20 items-center px-6 bg-gradient-to-r from-uganda-red via-uganda-red to-uganda-yellow relative overflow-hidden">
-				<div className="absolute inset-0 bg-black/10"></div>
-				<div className="relative flex items-center space-x-3">
-					<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm border border-white/30">
-						<span className="text-xl font-bold text-white">
-							MoH
-						</span>
-					</div>
-					<div>
-						<h1 className="text-lg font-bold text-white">
-							Health Alert
-						</h1>
-						<p className="text-xs text-white/80">
-							Ministry of Health Uganda
-						</p>
-					</div>
+			<div
+				className={cn(
+					"flex items-center bg-gradient-to-r from-uganda-red via-uganda-red to-uganda-yellow relative overflow-hidden shrink-0",
+					collapsed ? "h-16 justify-center px-2" : "h-20 px-6"
+				)}
+			>
+				<div className="absolute inset-0 bg-black/10" />
+				<div
+					className={cn(
+						"relative flex items-center",
+						collapsed ? "justify-center" : "space-x-3"
+					)}
+				>
+					<MohLogo size={collapsed ? "sm" : "md"} />
+					{!collapsed && (
+						<div className="min-w-0">
+							<h1 className="text-lg font-bold text-white truncate">
+								Health Alert
+							</h1>
+							<p className="text-xs text-white/80 truncate">
+								Ministry of Health Uganda
+							</p>
+						</div>
+					)}
 				</div>
 			</div>
 
 			{/* User Profile */}
-			<div className="px-6 py-4 border-b border-gray-200/50">
-				<div className="flex items-center space-x-3">
-					<div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-uganda-yellow to-uganda-red text-white font-semibold text-sm">
-						{getUserInitials(getUserDisplayName())}
-					</div>
-					<div className="flex-1 min-w-0">
-						<p className="text-sm font-semibold text-gray-900 truncate">
-							{getUserDisplayName()}
-						</p>
-						<p className="text-xs text-gray-500 truncate">
-							{getUserEmail()}
-						</p>
-					</div>
-					<Badge
-						variant="secondary"
-						className="bg-green-100 text-green-700 text-xs"
+			<div
+				className={cn(
+					"border-b border-gray-200/50 shrink-0",
+					collapsed ? "px-2 py-3 flex justify-center" : "px-6 py-4"
+				)}
+			>
+				<div
+					className={cn(
+						"flex items-center",
+						collapsed ? "justify-center" : "space-x-3"
+					)}
+				>
+					<div
+						className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-uganda-yellow to-uganda-red text-white font-semibold text-sm"
+						title={collapsed ? displayName : undefined}
 					>
-						Online
-					</Badge>
+						{getUserInitials(displayName)}
+					</div>
+					{!collapsed && (
+						<>
+							<div className="flex-1 min-w-0">
+								<p className="text-sm font-semibold text-gray-900 truncate">
+									{displayName}
+								</p>
+								<p className="text-xs text-gray-500 truncate">
+									{getUserEmail()}
+								</p>
+							</div>
+							<Badge
+								variant="secondary"
+								className="bg-green-100 text-green-700 text-xs shrink-0"
+							>
+								Online
+							</Badge>
+						</>
+					)}
 				</div>
 			</div>
 
 			{/* Navigation */}
-			<ScrollArea className="flex-1 px-4 py-4">
-				<nav className="space-y-2">
-					{/* Quick Stats */}
-					
-					{/* Main Navigation */}
+			<ScrollArea className={cn("flex-1", collapsed ? "px-2 py-3" : "px-4 py-4")}>
+				<nav className="space-y-2" aria-label="Sidebar navigation">
 					<div className="space-y-1">
-						<h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-							Main Menu
-						</h3>
+						{!collapsed && (
+							<h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+								Main Menu
+							</h3>
+						)}
 
-						{navigation.slice(0, 2).map((item) => {
-							const isActive =
-								pathname === item.href ||
-								(item.href === "/add-alert" &&
-									pathname === "/add-alert");
-							return (
-								<Link
+						{navigation.slice(0, 2).map((item) => (
+							<NavLink
+								key={item.name}
+								item={item}
+								pathname={pathname}
+								getBadgeValue={getBadgeValue}
+								collapsed={collapsed}
+								onNavigate={onNavigate}
+							/>
+						))}
+
+						{collapsed ? (
+							navigation.slice(2, 5).map((item) => (
+								<NavLink
 									key={item.name}
-									href={item.href}
-									className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
-										isActive
-											? "bg-gradient-to-r from-uganda-red to-uganda-yellow text-white shadow-lg shadow-uganda-red/25"
-											: "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-									}`}
-								>
-									<item.icon
-										className={`mr-3 h-5 w-5 transition-colors ${
-											isActive
-												? "text-white"
-												: "text-gray-400 group-hover:text-gray-600"
-										}`}
-									/>
-									{item.name}
-									{getBadgeValue(item) && (
-										<Badge
-											variant="secondary"
-											className={`ml-auto text-xs ${
-												isActive
-													? "bg-white/20 text-white"
-													: "bg-gray-200 text-gray-700"
-											}`}
-										>
-											{getBadgeValue(item)}
-										</Badge>
-									)}
-								</Link>
-							);
-						})}
-
-						{/* Alerts Section */}
-						<Collapsible
-							open={alertsExpanded}
-							onOpenChange={setAlertsExpanded}
-						>
-							<CollapsibleTrigger asChild>
-								<Button
-									variant="ghost"
-									className="w-full justify-start px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-lg"
-								>
-									<AlertTriangle className="mr-3 h-5 w-5 text-gray-400" />
-									Alert Management
-									<ChevronDown
-										className={`ml-auto h-4 w-4 transition-transform ${
-											alertsExpanded
-												? "rotate-180"
-												: ""
-										}`}
-									/>
-								</Button>
-							</CollapsibleTrigger>
-							<CollapsibleContent className="space-y-1 ml-6 mt-1">
-								{navigation.slice(2, 5).map((item) => {
-									const isActive =
-										pathname === item.href;
-									return (
-										<Link
-											key={item.name}
-											href={item.href}
-											className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-												isActive
-													? "bg-gradient-to-r from-uganda-red to-uganda-yellow text-white shadow-lg shadow-uganda-red/25"
-													: "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-											}`}
-										>
-											<item.icon
-												className={`mr-3 h-4 w-4 transition-colors ${
-													isActive
-														? "text-white"
-														: "text-gray-400 group-hover:text-gray-600"
-												}`}
-											/>
-											{item.name}
-											{getBadgeValue(item) && (
-												<Badge
-													variant="secondary"
-													className={`ml-auto text-xs ${
-														isActive
-															? "bg-white/20 text-white"
-															: getBadgeValue(
-																	item
-															  ) ===
-															  "New"
-															? "bg-uganda-yellow text-uganda-black"
-															: "bg-blue-100 text-blue-700"
-													}`}
-												>
-													{getBadgeValue(
-														item
-													)}
-												</Badge>
+									item={item}
+									pathname={pathname}
+									getBadgeValue={getBadgeValue}
+									collapsed={collapsed}
+									onNavigate={onNavigate}
+								/>
+							))
+						) : (
+							<Collapsible
+								open={alertsExpanded}
+								onOpenChange={setAlertsExpanded}
+							>
+								<CollapsibleTrigger asChild>
+									<Button
+										variant="ghost"
+										className="w-full justify-start px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-lg"
+									>
+										<AlertTriangle className="mr-3 h-5 w-5 text-gray-400" />
+										Alert Management
+										<ChevronDown
+											className={cn(
+												"ml-auto h-4 w-4 transition-transform",
+												alertsExpanded && "rotate-180"
 											)}
-										</Link>
-									);
-								})}
-							</CollapsibleContent>
-						</Collapsible>
+										/>
+									</Button>
+								</CollapsibleTrigger>
+								<CollapsibleContent className="space-y-1 ml-6 mt-1">
+									{navigation.slice(2, 5).map((item) => {
+										const isActive = pathname === item.href;
+										const badge = getBadgeValue(item);
+										return (
+											<Link
+												key={item.name}
+												href={item.href}
+												onClick={onNavigate}
+												className={cn(
+													"group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200",
+													isActive
+														? "bg-gradient-to-r from-uganda-red to-uganda-yellow text-white shadow-lg shadow-uganda-red/25"
+														: "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+												)}
+											>
+												<item.icon
+													className={cn(
+														"mr-3 h-4 w-4 transition-colors",
+														isActive
+															? "text-white"
+															: "text-gray-400 group-hover:text-gray-600"
+													)}
+												/>
+												{item.name}
+												{badge && (
+													<Badge
+														variant="secondary"
+														className={cn(
+															"ml-auto text-xs",
+															isActive
+																? "bg-white/20 text-white"
+																: badge === "New"
+																	? "bg-uganda-yellow text-uganda-black"
+																	: "bg-blue-100 text-blue-700"
+														)}
+													>
+														{badge}
+													</Badge>
+												)}
+											</Link>
+										);
+									})}
+								</CollapsibleContent>
+							</Collapsible>
+						)}
 
-						{/* Other Navigation Items */}
-						{navigation.slice(5).map((item) => {
-							const isActive = pathname === item.href;
-							return (
-								<Link
-									key={item.name}
-									href={item.href}
-									className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
-										isActive
-											? "bg-gradient-to-r from-uganda-red to-uganda-yellow text-white shadow-lg shadow-uganda-red/25"
-											: "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-									}`}
-								>
-									<item.icon
-										className={`mr-3 h-5 w-5 transition-colors ${
-											isActive
-												? "text-white"
-												: "text-gray-400 group-hover:text-gray-600"
-										}`}
-									/>
-									{item.name}
-									{getBadgeValue(item) && (
-										<Badge
-											variant="secondary"
-											className={`ml-auto text-xs ${
-												isActive
-													? "bg-white/20 text-white"
-													: getBadgeValue(
-															item
-													  ) === "New"
-													? "bg-uganda-yellow text-uganda-black"
-													: "bg-blue-100 text-blue-700"
-											}`}
-										>
-											{getBadgeValue(item)}
-										</Badge>
-									)}
-								</Link>
-							);
-						})}
+						{navigation.slice(5).map((item) => (
+							<NavLink
+								key={item.name}
+								item={item}
+								pathname={pathname}
+								getBadgeValue={getBadgeValue}
+								collapsed={collapsed}
+								onNavigate={onNavigate}
+							/>
+						))}
 					</div>
 
-					<Separator className="my-4" />
+					<Separator className={cn("my-4", collapsed && "mx-1")} />
 
-					{/* System Section */}
 					<div className="space-y-1">
-						<h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-							System
-						</h3>
-						<Link href="/dashboard/profile">
+						{!collapsed && (
+							<h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+								System
+							</h3>
+						)}
+						<Link
+							href="/dashboard/profile"
+							onClick={onNavigate}
+							title={collapsed ? "Profile" : undefined}
+						>
 							<Button
 								variant="ghost"
-								className={`w-full justify-start px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+								className={cn(
+									"w-full text-sm font-medium rounded-lg transition-all duration-200",
+									collapsed
+										? "justify-center p-2.5"
+										: "justify-start px-3 py-2.5",
 									pathname === "/dashboard/profile"
 										? "bg-gradient-to-r from-uganda-red to-uganda-yellow text-white shadow-lg shadow-uganda-red/25"
 										: "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-								}`}
+								)}
 							>
 								<User
-									className={`mr-3 h-5 w-5 ${
-										pathname ===
-										"/dashboard/profile"
+									className={cn(
+										"h-5 w-5",
+										!collapsed && "mr-3",
+										pathname === "/dashboard/profile"
 											? "text-white"
 											: "text-gray-400"
-									}`}
+									)}
 								/>
-								Profile
+								{!collapsed && "Profile"}
 							</Button>
 						</Link>
-						{/* <Button
-							variant="ghost"
-							className="w-full justify-start px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-lg"
-						>
-							<Settings className="mr-3 h-5 w-5 text-gray-400" />
-							Settings
-						</Button> */}
-						{/* <Button
-							variant="ghost"
-							className="w-full justify-start px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-lg"
-						>
-							<Bell className="mr-3 h-5 w-5 text-gray-400" />
-							Notifications
-							<Badge
-								variant="secondary"
-								className="ml-auto bg-red-100 text-red-700 text-xs"
-							>
-								2
-							</Badge>
-						</Button> */}
 					</div>
 				</nav>
 			</ScrollArea>
 
 			{/* Footer */}
-			<div className="p-4 border-t border-gray-200/50">
+			<div
+				className={cn(
+					"border-t border-gray-200/50 shrink-0 space-y-2",
+					collapsed ? "p-2" : "p-4"
+				)}
+			>
+				{onToggleCollapsed && (
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={onToggleCollapsed}
+						className={cn(
+							"w-full text-gray-600 hover:bg-gray-100 rounded-lg",
+							collapsed ? "justify-center p-2.5" : "justify-start"
+						)}
+						aria-expanded={!collapsed}
+						aria-label={
+							collapsed ? "Expand sidebar" : "Collapse sidebar"
+						}
+					>
+						{collapsed ? (
+							<PanelLeftOpen className="h-5 w-5" />
+						) : (
+							<>
+								<PanelLeftClose className="mr-3 h-5 w-5" />
+								Collapse
+							</>
+						)}
+					</Button>
+				)}
 				<Button
 					variant="ghost"
-					className="w-full justify-start text-gray-700 hover:bg-red-50 hover:text-red-700 rounded-lg"
+					className={cn(
+						"w-full text-gray-700 hover:bg-red-50 hover:text-red-700 rounded-lg",
+						collapsed ? "justify-center p-2.5" : "justify-start"
+					)}
 					onClick={onLogout}
 					disabled={isLoggingOut}
+					title={collapsed ? "Sign Out" : undefined}
+					aria-label={collapsed ? "Sign Out" : undefined}
 				>
-					<LogOut className="mr-3 h-5 w-5" />
-					{isLoggingOut ? "Signing Out..." : "Sign Out"}
+					<LogOut className={cn("h-5 w-5", !collapsed && "mr-3")} />
+					{!collapsed &&
+						(isLoggingOut ? "Signing Out..." : "Sign Out")}
 				</Button>
 			</div>
 		</div>

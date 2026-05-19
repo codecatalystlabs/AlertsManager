@@ -1,16 +1,22 @@
 import React, { memo } from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Download } from "lucide-react";
+import { RefreshCw, Download, FileSpreadsheet } from "lucide-react";
 import { CALL_LOGS_CONFIG } from "@/constants/call-logs";
 
 interface CallLogsHeaderProps {
 	onRefresh: () => void;
-	onExport: () => void;
+	onExportExcel: () => void;
+	onExportCsv: () => void;
 	isRefreshing?: boolean;
 }
 
 export const CallLogsHeader = memo<CallLogsHeaderProps>(
-	({ onRefresh, onExport, isRefreshing = false }) => {
+	({
+		onRefresh,
+		onExportExcel,
+		onExportCsv,
+		isRefreshing = false,
+	}) => {
 		return (
 			<div className="flex items-center justify-between">
 				<div>
@@ -21,7 +27,7 @@ export const CallLogsHeader = memo<CallLogsHeaderProps>(
 						{CALL_LOGS_CONFIG.PAGE_DESCRIPTION}
 					</p>
 				</div>
-				<div className="flex space-x-2">
+				<div className="flex flex-wrap gap-2 justify-end">
 					<Button
 						onClick={onRefresh}
 						variant="outline"
@@ -36,11 +42,19 @@ export const CallLogsHeader = memo<CallLogsHeaderProps>(
 						{isRefreshing ? "Refreshing..." : "Refresh"}
 					</Button>
 					<Button
-						onClick={onExport}
-						className="bg-uganda-red hover:bg-uganda-red/90 gap-2"
+						onClick={onExportCsv}
+						variant="outline"
+						className="gap-2"
 					>
 						<Download className="h-4 w-4" />
-						Export to Excel
+						Export CSV
+					</Button>
+					<Button
+						onClick={onExportExcel}
+						className="bg-uganda-red hover:bg-uganda-red/90 gap-2"
+					>
+						<FileSpreadsheet className="h-4 w-4" />
+						Export Excel
 					</Button>
 				</div>
 			</div>

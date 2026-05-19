@@ -1,17 +1,18 @@
 import React, { memo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Plus, Download } from "lucide-react";
+import { RefreshCw, Plus, Download, FileSpreadsheet } from "lucide-react";
 import { ALERTS_CONFIG } from "@/constants/alerts";
 
 interface AlertsHeaderProps {
 	onRefresh: () => void;
-	onExport: () => void;
+	onExportExcel: () => void;
+	onExportCsv: () => void;
 	isRefreshing?: boolean;
 }
 
 export const AlertsHeader = memo<AlertsHeaderProps>(
-	({ onRefresh, onExport, isRefreshing = false }) => {
+	({ onRefresh, onExportExcel, onExportCsv, isRefreshing = false }) => {
 		const router = useRouter();
 
 		return (
@@ -24,7 +25,7 @@ export const AlertsHeader = memo<AlertsHeaderProps>(
 						{ALERTS_CONFIG.PAGE_DESCRIPTION}
 					</p>
 				</div>
-				<div className="flex space-x-2">
+				<div className="flex flex-wrap gap-2">
 					<Button
 						onClick={onRefresh}
 						variant="outline"
@@ -46,11 +47,19 @@ export const AlertsHeader = memo<AlertsHeaderProps>(
 						Create Alert
 					</Button>
 					<Button
-						onClick={onExport}
-						className="bg-gradient-to-r from-uganda-red to-uganda-yellow text-white hover:from-uganda-red/90 hover:to-uganda-yellow/90 gap-2"
+						onClick={onExportCsv}
+						variant="outline"
+						className="gap-2"
 					>
 						<Download className="w-4 h-4" />
-						Export to Excel
+						Export CSV
+					</Button>
+					<Button
+						onClick={onExportExcel}
+						className="bg-gradient-to-r from-uganda-red to-uganda-yellow text-white hover:from-uganda-red/90 hover:to-uganda-yellow/90 gap-2"
+					>
+						<FileSpreadsheet className="w-4 h-4" />
+						Export Excel
 					</Button>
 				</div>
 			</div>

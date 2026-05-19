@@ -1,3 +1,5 @@
+import { invalidateAlertsCache } from '@/lib/alerts-cache'
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8089/api/v1'
 
 interface LoginCredentials {
@@ -353,6 +355,7 @@ export class AuthService {
 
             const newAlert = await response.json()
             console.log("Alert created successfully:", newAlert); // Debug log
+            invalidateAlertsCache()
             return newAlert
         } catch (error) {
             console.error('Error creating alert:', error)
@@ -376,6 +379,8 @@ export class AuthService {
                 }
                 throw new Error(errorMessage)
             }
+
+            invalidateAlertsCache()
         } catch (error) {
             console.error('Error deleting alert:', error)
             throw error
@@ -419,6 +424,7 @@ export class AuthService {
             }
 
             const updatedAlert = await response.json()
+            invalidateAlertsCache()
             return updatedAlert
         } catch (error) {
             console.error('Error updating alert:', error)
@@ -568,6 +574,7 @@ export class AuthService {
             }
 
             const data = await response.json()
+            invalidateAlertsCache()
             return data.alert
         } catch (error) {
             console.error('Error verifying alert:', error)

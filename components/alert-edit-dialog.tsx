@@ -37,6 +37,7 @@ import {
 	CalendarIcon,
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
+import { getLocalDateString } from "@/lib/utils";
 import {
 	alertResponse,
 	alertStatus,
@@ -319,6 +320,7 @@ export function AlertEditDialog({
 								<Input
 									id="date"
 									type="date"
+									max={getLocalDateString()}
 									value={formData.date}
 									onChange={(e) =>
 										handleInputChange(

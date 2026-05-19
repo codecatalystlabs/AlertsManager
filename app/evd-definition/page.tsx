@@ -7,6 +7,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { AuthService } from "@/lib/auth";
 import Link from "next/link";
+import { MohLogo } from "@/components/moh-logo";
+import { useIsAuthenticated } from "@/hooks/use-auth-status";
 import {
 	Stethoscope,
 	Users,
@@ -115,7 +117,7 @@ const symptoms = [
 ];
 
 export default function EVDDefinitionPage() {
-	const isAuthenticated = AuthService.isAuthenticated();
+	const isAuthenticated = useIsAuthenticated();
 
 	return (
 		<div className="min-h-screen bg-gray-50">
@@ -124,11 +126,7 @@ export default function EVDDefinitionPage() {
 				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="flex justify-between items-center py-4">
 						<div className="flex items-center space-x-3">
-							<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm border border-white/30">
-								<span className="text-lg font-bold text-white">
-									MoH
-								</span>
-							</div>
+							<MohLogo />
 							<div>
 								<h1 className="text-xl font-bold">
 									Uganda Health Alert System
