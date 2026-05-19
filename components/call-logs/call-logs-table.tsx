@@ -28,7 +28,7 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 			[onViewDetails, onEditAlert, onVerifyAlert, onDeleteAlert]
 		);
 
-		console.log(alerts,"alerts");
+		// console.log(alerts,"alerts");
 
 		const columns = useMemo(
 			() => createCallLogsTableColumns(callbacks),
