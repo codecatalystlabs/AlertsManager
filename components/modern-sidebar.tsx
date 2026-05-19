@@ -135,11 +135,8 @@ export function ModernSidebar({
 				applyCounts(result.data);
 
 				if (result.revalidate) {
-					result.revalidate().then(applyCounts).catch((error) => {
-						console.error(
-							"Error revalidating alert counts for sidebar:",
-							error
-						);
+					result.revalidate().then((fresh) => {
+						if (fresh) applyCounts(fresh);
 					});
 				}
 			} catch (error) {

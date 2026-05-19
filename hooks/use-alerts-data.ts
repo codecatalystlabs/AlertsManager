@@ -82,10 +82,9 @@ export const useAlertsData = (): UseAlertsDataReturn => {
                 setIsValidating(true);
                 result
                     .revalidate()
-                    .then((fresh) => setAlerts(fresh))
-                    .catch((err) =>
-                        console.error('Background alerts refresh failed:', err)
-                    )
+                    .then((fresh) => {
+                        if (fresh) setAlerts(fresh);
+                    })
                     .finally(() => setIsValidating(false));
             }
         } catch (err) {

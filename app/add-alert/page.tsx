@@ -29,6 +29,7 @@ import {
 	Home,
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
+import { getClientApiBaseUrl } from "@/lib/api-config";
 import Link from "next/link";
 import {
 	alertResponse,
@@ -176,10 +177,7 @@ export default function PublicAddAlertPage() {
 			} else {
 				// Use public endpoint if not authenticated
 				const response = await fetch(
-					`${
-						process.env.NEXT_PUBLIC_API_BASE_URL ||
-						"http://localhost:8089/api/v1"
-					}/alerts/create`,
+					`${getClientApiBaseUrl()}/alerts/create`,
 					{
 						method: "POST",
 						headers: {

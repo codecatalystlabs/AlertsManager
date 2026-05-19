@@ -85,5 +85,6 @@ export function isCacheUsable(): boolean {
 export interface FetchAlertsResult<T> {
 	data: T;
 	fromCache: boolean;
-	revalidate?: () => Promise<T>;
+	/** Resolves to fresh data, or null if background refresh failed (cached data still valid). */
+	revalidate?: () => Promise<T | null>;
 }

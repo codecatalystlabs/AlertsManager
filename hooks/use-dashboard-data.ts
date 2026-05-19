@@ -70,10 +70,9 @@ export const useDashboardData = (): UseDashboardDataReturn => {
                 setIsValidating(true);
                 result
                     .revalidate()
-                    .then((fresh) => setAlerts(fresh))
-                    .catch((err) =>
-                        console.error('Background dashboard refresh failed:', err)
-                    )
+                    .then((fresh) => {
+                        if (fresh) setAlerts(fresh);
+                    })
                     .finally(() => setIsValidating(false));
             }
         } catch (err) {

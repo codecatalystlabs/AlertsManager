@@ -1,4 +1,5 @@
 import { AuthService } from "@/lib/auth";
+import { getClientApiBaseUrl } from "@/lib/api-config";
 import {
 	getCachedAlerts,
 	setCachedAlerts,
@@ -7,22 +8,55 @@ import {
 	type FetchAlertsResult,
 } from "@/lib/alerts-cache";
 
-const API_BASE_URL =
-	process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8089/api/v1";
+class AlertsFetchError extends Error {
+	constructor(
+		message: string,
+		readonly status?: number
+	) {
+		super(message);
+		this.name = "AlertsFetchError";
+	}
+}
 
 async function fetchAlertsFromApi<T>(): Promise<T> {
-	const response = await AuthService.makeAuthenticatedRequest(
-		`${API_BASE_URL}/alerts`
-	);
+	const apiBase = getClientApiBaseUrl();
+	let response: Response;
+
+	try {
+		response = await AuthService.makeAuthenticatedRequest(
+			`${apiBase}/alerts`
+		);
+	} catch (error) {
+		if (error instanceof TypeError) {
+			throw new AlertsFetchError(
+				"Cannot reach the API. If developing locally, ensure the backend is running on port 8089."
+			);
+		}
+		throw error;
+	}
 
 	if (!response.ok) {
-		throw new Error(
-			`Failed to fetch alerts: ${response.status} ${response.statusText}`
+		const hint =
+			response.status >= 500
+				? " The API may be down or misconfigured — check that the backend is running (local: port 8089) and restart `yarn dev` after changing .env."
+				: "";
+		throw new AlertsFetchError(
+			`Failed to fetch alerts: ${response.status} ${response.statusText}.${hint}`,
+			response.status
 		);
 	}
 
 	const data = await response.json();
 	return (Array.isArray(data) ? data : []) as T;
+}
+
+function warnBackgroundRevalidate(error: unknown): void {
+	if (process.env.NODE_ENV === "development") {
+		console.warn(
+			"[alerts] Background refresh failed; continuing with cached data.",
+			error instanceof Error ? error.message : error
+		);
+	}
 }
 
 /**
@@ -47,9 +81,14 @@ export async function fetchAllAlerts<T>(
 				data: cached.data,
 				fromCache: true,
 				revalidate: async () => {
-					const fresh = await fetchAlertsFromApi<T>();
-					setCachedAlerts(fresh);
-					return fresh;
+					try {
+						const fresh = await fetchAlertsFromApi<T>();
+						setCachedAlerts(fresh);
+						return fresh;
+					} catch (error) {
+						warnBackgroundRevalidate(error);
+						return null;
+					}
 				},
 			};
 		}

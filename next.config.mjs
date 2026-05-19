@@ -1,8 +1,7 @@
 /** @type {import('next').NextConfig} */
+// Rewrite target must be an absolute upstream URL — never use NEXT_PUBLIC (/api/v1).
 const apiBaseUrl = (
-  process.env.API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  "http://localhost:8089/api/v1"
+  process.env.API_BASE_URL || "http://localhost:8089/api/v1"
 ).replace(/\/$/, "")
 
 const nextConfig = {
