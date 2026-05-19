@@ -1,5 +1,6 @@
 import { invalidateAlertsCache } from '@/lib/alerts-cache'
 import { getClientApiBaseUrl } from '@/lib/api-config'
+import { notifyAuthStatusChange } from '@/lib/auth-events'
 
 const API_BASE_URL = getClientApiBaseUrl()
 
@@ -174,28 +175,53 @@ export class AuthService {
     }
 
     static clearLocalStorage(): void {
-        if (typeof window !== 'undefined') {
+        if (typeof window === 'undefined') return
+        try {
             localStorage.removeItem(this.TOKEN_KEY)
             localStorage.removeItem(this.USER_KEY)
+        } catch {
+            /* private mode / storage disabled */
         }
+        notifyAuthStatusChange()
     }
 
     static setToken(token: string): void {
-        if (typeof window !== 'undefined') {
+        if (typeof window === 'undefined') return
+        try {
             localStorage.setItem(this.TOKEN_KEY, token)
+        } catch {
+            /* private mode / storage disabled */
         }
+        notifyAuthStatusChange()
     }
 
     static getToken(): string | null {
-        if (typeof window !== 'undefined') {
+        if (typeof window === 'undefined') return null
+        try {
             return localStorage.getItem(this.TOKEN_KEY)
+        } catch {
+            return null
         }
-        return null
+    }
+
+    private static decodeJwtPayload(token: string): Record<string, unknown> | null {
+        try {
+            const parts = token.split('.')
+            if (parts.length !== 3) return null
+
+            const base64Url = parts[1]
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
+            const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+            return JSON.parse(atob(padded))
+        } catch {
+            return null
+        }
     }
 
     static setUser(user: User): void {
         if (typeof window !== 'undefined') {
             localStorage.setItem(this.USER_KEY, JSON.stringify(user))
+            notifyAuthStatusChange()
         }
     }
 
@@ -584,16 +610,23 @@ export class AuthService {
     }
 
     static isAuthenticated(): boolean {
-        const token = this.getToken()
-        if (!token) return false
-
-        // Basic token validation (check if it's not expired)
         try {
-            const payload = JSON.parse(atob(token.split('.')[1]))
-            const currentTime = Date.now() / 1000
-            return payload.exp > currentTime
-        } catch (error) {
-            // If token is malformed, consider it invalid
+            const token = this.getToken()
+            if (!token) return false
+
+            const payload = this.decodeJwtPayload(token)
+            if (!payload) {
+                this.clearLocalStorage()
+                return false
+            }
+
+            if (typeof payload.exp === 'number') {
+                return payload.exp > Date.now() / 1000
+            }
+
+            // Valid JWT shape but no expiry claim — treat as authenticated
+            return true
+        } catch {
             return false
         }
     }

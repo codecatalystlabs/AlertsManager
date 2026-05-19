@@ -1,92 +1,69 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
-import { AuthService } from "@/lib/auth";
+import { useEffect, useRef } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { AuthLoading } from "@/components/auth-loading";
+import { useAuthStatus } from "@/hooks/use-auth-status";
+import { isProtectedRoute, isPublicRoute } from "@/lib/auth-routes";
 
 interface AuthWrapperProps {
 	children: React.ReactNode;
 }
 
-// Routes that don't require authentication
-const publicRoutes = ["/", "/add-alert", "/login"];
-
-// Routes that require authentication
-const protectedRoutes = ["/dashboard"];
+const REDIRECT_FALLBACK_MS = 1500;
 
 export function AuthWrapper({ children }: AuthWrapperProps) {
-	const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(
+	const pathname = usePathname();
+	const router = useRouter();
+	const { isAuthenticated, isReady } = useAuthStatus();
+	const redirectFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(
 		null
 	);
-	const pathname = usePathname();
+
+	const isPublic = isPublicRoute(pathname);
+	const isProtected = isProtectedRoute(pathname);
 
 	useEffect(() => {
-		const checkAuth = () => {
-			const authenticated = AuthService.isAuthenticated();
-			setIsAuthenticated(authenticated);
+		if (redirectFallbackRef.current) {
+			clearTimeout(redirectFallbackRef.current);
+			redirectFallbackRef.current = null;
+		}
 
-			// Check if current route requires authentication
-			const isProtectedRoute = protectedRoutes.some((route) =>
-				pathname.startsWith(route)
-			);
-			const isPublicRoute = publicRoutes.includes(pathname);
+		if (!isReady) return;
 
-			// If it's a protected route and user is not authenticated, redirect to login
-			if (isProtectedRoute && !authenticated) {
-				window.location.href = "/login";
-			}
+		if (isProtected && !isAuthenticated) {
+			router.replace("/login");
+			redirectFallbackRef.current = setTimeout(() => {
+				if (window.location.pathname.startsWith("/dashboard")) {
+					window.location.href = "/login";
+				}
+			}, REDIRECT_FALLBACK_MS);
+			return;
+		}
 
-			// If user is authenticated and tries to access login page, redirect to dashboard
-			if (authenticated && pathname === "/login") {
-				window.location.href = "/dashboard";
+		if (isAuthenticated && pathname === "/login") {
+			router.replace("/dashboard");
+		}
+	}, [isReady, isAuthenticated, isProtected, pathname, router]);
+
+	useEffect(() => {
+		return () => {
+			if (redirectFallbackRef.current) {
+				clearTimeout(redirectFallbackRef.current);
 			}
 		};
+	}, []);
 
-		checkAuth();
-	}, [pathname]);
-
-	// For public routes, always render children regardless of auth status
-	const isPublicRoute = publicRoutes.includes(pathname);
-	const isProtectedRoute = protectedRoutes.some((route) =>
-		pathname.startsWith(route)
-	);
-
-	// Show loading state only for protected routes while checking authentication
-	if (isProtectedRoute && isAuthenticated === null) {
-		return (
-			<div className="min-h-screen flex items-center justify-center">
-				<div className="text-center">
-					<div className="animate-spin rounded-full h-32 w-32 border-b-2 border-uganda-red mx-auto"></div>
-					<p className="mt-4 text-gray-600">
-						Checking authentication...
-					</p>
-				</div>
-			</div>
-		);
-	}
-
-	// For public routes, always render
-	if (isPublicRoute) {
+	if (isPublic) {
 		return <>{children}</>;
 	}
 
-	// For protected routes, only render if authenticated
-	if (isProtectedRoute && isAuthenticated) {
-		return <>{children}</>;
+	if (isProtected && !isReady) {
+		return <AuthLoading message="Checking authentication..." />;
 	}
 
-	// For protected routes without authentication, the useEffect will handle redirect
-	if (isProtectedRoute && !isAuthenticated) {
-		return (
-			<div className="min-h-screen flex items-center justify-center">
-				<div className="text-center">
-					<div className="animate-spin rounded-full h-32 w-32 border-b-2 border-uganda-red mx-auto"></div>
-					<p className="mt-4 text-gray-600">
-						Redirecting to login...
-					</p>
-				</div>
-			</div>
-		);
+	if (isProtected && !isAuthenticated) {
+		return <AuthLoading message="Redirecting to login..." />;
 	}
 
 	return <>{children}</>;

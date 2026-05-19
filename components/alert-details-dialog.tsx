@@ -21,11 +21,12 @@ import {
 	XCircleIcon,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { Alert } from "@/lib/auth";
 
 interface AlertDetailsDialogProps {
 	isOpen: boolean;
 	onClose: () => void;
-	alert: any;
+	alert: Alert;
 }
 
 export function AlertDetailsDialog({

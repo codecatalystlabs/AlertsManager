@@ -6,6 +6,7 @@ import {
 	ErrorAlert,
 	LoadingSpinner,
 	StatsGrid,
+	DashboardCharts,
 } from "@/components/dashboard";
 import { useDashboardData } from "@/hooks/use-dashboard-data";
 import { LOADING_MESSAGES } from "@/constants/dashboard";
@@ -51,6 +52,8 @@ export default function DashboardPage(): JSX.Element {
 				todayAlerts={data.todayAlerts.length}
 				todayVerified={data.todayVerified}
 			/>
+
+			<DashboardCharts alerts={data.alerts} />
 		</div>
 	);
 }

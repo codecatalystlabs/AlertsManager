@@ -1,5 +1,6 @@
 import { AuthService } from "@/lib/auth";
 import { getClientApiBaseUrl } from "@/lib/api-config";
+import { formatAlertsFetchError } from "@/lib/api-errors";
 import {
 	getCachedAlerts,
 	setCachedAlerts,
@@ -36,12 +37,9 @@ async function fetchAlertsFromApi<T>(): Promise<T> {
 	}
 
 	if (!response.ok) {
-		const hint =
-			response.status >= 500
-				? " The API may be down or misconfigured — check that the backend is running (local: port 8089) and restart `yarn dev` after changing .env."
-				: "";
+		const bodyText = await response.text().catch(() => "");
 		throw new AlertsFetchError(
-			`Failed to fetch alerts: ${response.status} ${response.statusText}.${hint}`,
+			formatAlertsFetchError(response.status, response.statusText, bodyText),
 			response.status
 		);
 	}

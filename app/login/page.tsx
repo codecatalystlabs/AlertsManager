@@ -3,6 +3,7 @@
 import type React from "react";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,30 +15,26 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AuthLoading } from "@/components/auth-loading";
+import { useAuthStatus } from "@/hooks/use-auth-status";
 import { AuthService } from "@/lib/auth";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import Image from "next/image";
 
 export default function LoginPage() {
+	const router = useRouter();
+	const { isAuthenticated, isReady } = useAuthStatus();
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [success, setSuccess] = useState<string | null>(null);
-	const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
 	useEffect(() => {
-		// Check if user is already authenticated
-		const checkAuth = () => {
-			if (AuthService.isAuthenticated()) {
-				window.location.href = "/dashboard";
-			} else {
-				setIsCheckingAuth(false);
-			}
-		};
-
-		checkAuth();
-	}, []);
+		if (isReady && isAuthenticated) {
+			router.replace("/dashboard");
+		}
+	}, [isReady, isAuthenticated, router]);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -67,18 +64,8 @@ export default function LoginPage() {
 		}
 	};
 
-	// Show loading state while checking authentication
-	if (isCheckingAuth) {
-		return (
-			<div className="min-h-screen flex items-center justify-center">
-				<div className="text-center">
-					<div className="animate-spin rounded-full h-32 w-32 border-b-2 border-uganda-red mx-auto"></div>
-					<p className="mt-4 text-gray-600">
-						Checking authentication...
-					</p>
-				</div>
-			</div>
-		);
+	if (isReady && isAuthenticated) {
+		return <AuthLoading message="Redirecting to dashboard..." />;
 	}
 
 	return (

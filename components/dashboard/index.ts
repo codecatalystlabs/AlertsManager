@@ -3,3 +3,4 @@ export { WelcomeSection } from './welcome-section';
 export { ErrorAlert } from './error-alert';
 export { LoadingSpinner } from './loading-spinner';
 export { StatsGrid } from './stats-grid';
+export { DashboardCharts } from './dashboard-charts';

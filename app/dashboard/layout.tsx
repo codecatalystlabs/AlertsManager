@@ -11,6 +11,7 @@ import {
 	getMainContentPaddingClass,
 } from "@/hooks/use-sidebar-state";
 import { cn } from "@/lib/utils";
+import { ApiBackendStatus } from "@/components/api-backend-status";
 
 export default function DashboardLayout({
 	children,
@@ -82,12 +83,16 @@ export default function DashboardLayout({
 								</h1>
 							</div>
 							<div className="flex items-center gap-x-4 lg:gap-x-6 shrink-0">
-								<div className="hidden sm:flex sm:items-center sm:space-x-2">
-									<div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
-									<span className="text-sm text-gray-700">
-										System Online
-									</span>
-								</div>
+								{process.env.NODE_ENV === "development" ? (
+									<ApiBackendStatus />
+								) : (
+									<div className="hidden sm:flex sm:items-center sm:space-x-2">
+										<div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+										<span className="text-sm text-gray-700">
+											System Online
+										</span>
+									</div>
+								)}
 							</div>
 						</div>
 					</div>

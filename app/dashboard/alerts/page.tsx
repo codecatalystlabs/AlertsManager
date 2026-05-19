@@ -8,6 +8,8 @@ import {
 	AlertsTable,
 } from "@/components/alerts";
 import { ErrorAlert, LoadingSpinner } from "@/components/dashboard";
+import { AlertDetailsDialog } from "@/components/alert-details-dialog";
+import { AlertEditDialog } from "@/components/alert-edit-dialog";
 import { useAlertsData } from "@/hooks/use-alerts-data";
 import { Alert as AlertType } from "@/lib/auth";
 import { LOADING_MESSAGES } from "@/constants/dashboard";
@@ -48,6 +50,9 @@ export default function AlertsPage(): JSX.Element {
 	} = useAlertsData();
 
 	const [isRefreshing, setIsRefreshing] = useState(false);
+	const [selectedAlert, setSelectedAlert] = useState<AlertType | null>(null);
+	const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
 	const handleRefresh = useCallback(async () => {
 		setIsRefreshing(true);
@@ -71,13 +76,23 @@ export default function AlertsPage(): JSX.Element {
 	);
 
 	const handleViewAlert = useCallback((alert: AlertType) => {
-		// TODO: Implement view alert functionality
-		console.log("View alert:", alert);
+		setSelectedAlert(alert);
+		setIsDetailsDialogOpen(true);
 	}, []);
 
 	const handleEditAlert = useCallback((alert: AlertType) => {
-		// TODO: Implement edit alert functionality
-		console.log("Edit alert:", alert);
+		setSelectedAlert(alert);
+		setIsEditDialogOpen(true);
+	}, []);
+
+	const handleEditComplete = useCallback(() => {
+		refetch();
+	}, [refetch]);
+
+	const closeDialogs = useCallback(() => {
+		setIsDetailsDialogOpen(false);
+		setIsEditDialogOpen(false);
+		setSelectedAlert(null);
 	}, []);
 
 	const handleRetry = useCallback(async () => {
@@ -121,6 +136,23 @@ export default function AlertsPage(): JSX.Element {
 				onViewAlert={handleViewAlert}
 				onEditAlert={handleEditAlert}
 			/>
+
+			{selectedAlert && (
+				<>
+					<AlertDetailsDialog
+						isOpen={isDetailsDialogOpen}
+						onClose={closeDialogs}
+						alert={selectedAlert}
+					/>
+
+					<AlertEditDialog
+						isOpen={isEditDialogOpen}
+						onClose={closeDialogs}
+						alert={selectedAlert}
+						onEditComplete={handleEditComplete}
+					/>
+				</>
+			)}
 		</div>
 	);
 }
