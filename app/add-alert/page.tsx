@@ -649,21 +649,21 @@ export default function PublicAddAlertPage() {
 											value={formData.response}
 										>
 											<SelectTrigger>
-												<SelectValue placeholder="Select alert source" />
+												<SelectValue placeholder="Select disease" />
 											</SelectTrigger>
 											<SelectContent>
 												{alertResponse?.map(
-													(source) => (
+													(disease) => (
 														<SelectItem
 															key={
-																source.name
+																disease.code
 															}
 															value={
-																source.name
+																disease.code
 															}
 														>
 															{
-																source.name
+																disease.name
 															}
 														</SelectItem>
 													)
