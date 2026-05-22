@@ -58,7 +58,7 @@ export function useReportsData(): UseReportsDataReturn {
 	const [reportsLoading, setReportsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
-	const loadReports = useCallback(async () => {
+	const loadMatrices = useCallback(async () => {
 		const range = clampRange(dateRange);
 		if (!range.fromDate || !range.toDate) return;
 
@@ -66,21 +66,13 @@ export function useReportsData(): UseReportsDataReturn {
 		setError(null);
 
 		try {
-			const [daily, cumulative, series] = await Promise.all([
-				fetchReportMatrix(
-					buildReportsQuery(range, "daily")
-				),
-				fetchReportMatrix(
-					buildReportsQuery(range, "cumulative")
-				),
-				fetchReportTimeseries(
-					buildReportsQuery(range, chartScope)
-				),
+			const [daily, cumulative] = await Promise.all([
+				fetchReportMatrix(buildReportsQuery(range, "daily")),
+				fetchReportMatrix(buildReportsQuery(range, "cumulative")),
 			]);
 
 			setDailyMatrix(daily);
 			setCumulativeMatrix(cumulative);
-			setTimeseries(series);
 		} catch (err) {
 			const message =
 				err instanceof Error ? err.message : "Failed to load reports";
@@ -88,7 +80,27 @@ export function useReportsData(): UseReportsDataReturn {
 		} finally {
 			setReportsLoading(false);
 		}
+	}, [dateRange]);
+
+	const loadTimeseries = useCallback(async () => {
+		const range = clampRange(dateRange);
+		if (!range.fromDate || !range.toDate) return;
+
+		try {
+			const series = await fetchReportTimeseries(
+				buildReportsQuery(range, chartScope)
+			);
+			setTimeseries(series);
+		} catch (err) {
+			const message =
+				err instanceof Error ? err.message : "Failed to load chart data";
+			setError(message);
+		}
 	}, [dateRange, chartScope]);
+
+	const refetch = useCallback(async () => {
+		await Promise.all([loadMatrices(), loadTimeseries()]);
+	}, [loadMatrices, loadTimeseries]);
 
 	const setDateRange = useCallback((patch: Partial<ReportsDateRange>) => {
 		setDateRangeState((prev) => clampRange({ ...prev, ...patch }));
@@ -102,7 +114,7 @@ export function useReportsData(): UseReportsDataReturn {
 				const opts = await fetchReportOptions();
 				if (!cancelled) setOptions(opts);
 			} catch {
-				// Options are optional; defaults work for scope select
+				// Defaults are sufficient for scope select
 			} finally {
 				if (!cancelled) setOptionsLoading(false);
 			}
@@ -115,8 +127,12 @@ export function useReportsData(): UseReportsDataReturn {
 	}, []);
 
 	useEffect(() => {
-		loadReports();
-	}, [loadReports]);
+		loadMatrices();
+	}, [loadMatrices]);
+
+	useEffect(() => {
+		loadTimeseries();
+	}, [loadTimeseries]);
 
 	return {
 		options,
@@ -130,6 +146,6 @@ export function useReportsData(): UseReportsDataReturn {
 		error,
 		setDateRange,
 		setChartScope,
-		refetch: loadReports,
+		refetch,
 	};
-};
+}

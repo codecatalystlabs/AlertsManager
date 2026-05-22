@@ -1,5 +1,5 @@
 import React, { memo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Filter } from "lucide-react";
 import {
 	STATUS_FILTER_OPTIONS,
 	SOURCE_FILTER_OPTIONS,
@@ -29,114 +28,110 @@ export const CallLogsFilters = memo<CallLogsFiltersProps>(
 	({ filters, onFiltersChange, onClearFilters }) => {
 		return (
 			<Card className={LAYOUT.card}>
-				<CardHeader className={LAYOUT.cardHeader}>
-					<CardTitle className={`${LAYOUT.cardTitle} flex items-center gap-1.5`}>
-						<Filter className="h-4 w-4" />
-						Filters
-					</CardTitle>
-				</CardHeader>
-				<CardContent className={LAYOUT.cardContent}>
+				<CardContent className="p-3">
 					<div className={LAYOUT.filtersGrid}>
-						<div className="space-y-1">
-							<Label htmlFor="search" className="text-xs">Search</Label>
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="search" className="text-[11px]">
+								Search
+							</Label>
 							<Input
 								id="search"
-								placeholder="Search by reporter, contact, district..."
+								placeholder="Reporter, contact, district…"
 								value={filters.search}
 								onChange={(e) =>
 									onFiltersChange({
 										search: e.target.value,
 									})
 								}
-								className="w-full"
+								className="h-8 text-xs w-full"
 							/>
 						</div>
 
-						<div className="space-y-2">
-							<Label htmlFor="status-filter">Status</Label>
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="status-filter" className="text-[11px]">
+								Status
+							</Label>
 							<Select
 								value={filters.status}
 								onValueChange={(value) =>
 									onFiltersChange({ status: value })
 								}
 							>
-								<SelectTrigger>
-									<SelectValue placeholder="Filter by status" />
+								<SelectTrigger className="h-8 text-xs">
+									<SelectValue placeholder="All" />
 								</SelectTrigger>
 								<SelectContent>
-									{STATUS_FILTER_OPTIONS.map(
-										(option) => (
-											<SelectItem
-												key={option.value}
-												value={option.value}
-											>
-												{option.label}
-											</SelectItem>
-										)
-									)}
+									{STATUS_FILTER_OPTIONS.map((option) => (
+										<SelectItem
+											key={option.value}
+											value={option.value}
+										>
+											{option.label}
+										</SelectItem>
+									))}
 								</SelectContent>
 							</Select>
 						</div>
 
-						<div className="space-y-2">
-							<Label htmlFor="verification-filter">Verification</Label>
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="verification-filter" className="text-[11px]">
+								Verification
+							</Label>
 							<Select
 								value={filters.verification}
 								onValueChange={(value) =>
 									onFiltersChange({ verification: value })
 								}
 							>
-								<SelectTrigger>
-									<SelectValue placeholder="Filter by verification" />
+								<SelectTrigger className="h-8 text-xs">
+									<SelectValue placeholder="All" />
 								</SelectTrigger>
 								<SelectContent>
-									{VERIFICATION_FILTER_OPTIONS.map(
-										(option) => (
-											<SelectItem
-												key={option.value}
-												value={option.value}
-											>
-												{option.label}
-											</SelectItem>
-										)
-									)}
+									{VERIFICATION_FILTER_OPTIONS.map((option) => (
+										<SelectItem
+											key={option.value}
+											value={option.value}
+										>
+											{option.label}
+										</SelectItem>
+									))}
 								</SelectContent>
 							</Select>
 						</div>
 
-						<div className="space-y-2">
-							<Label htmlFor="source-filter">Source</Label>
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="source-filter" className="text-[11px]">
+								Source
+							</Label>
 							<Select
 								value={filters.source}
 								onValueChange={(value) =>
 									onFiltersChange({ source: value })
 								}
 							>
-								<SelectTrigger>
-									<SelectValue placeholder="Filter by source" />
+								<SelectTrigger className="h-8 text-xs">
+									<SelectValue placeholder="All" />
 								</SelectTrigger>
 								<SelectContent>
-									{SOURCE_FILTER_OPTIONS.map(
-										(option) => (
-											<SelectItem
-												key={option.value}
-												value={option.value}
-											>
-												{option.label}
-											</SelectItem>
-										)
-									)}
+									{SOURCE_FILTER_OPTIONS.map((option) => (
+										<SelectItem
+											key={option.value}
+											value={option.value}
+										>
+											{option.label}
+										</SelectItem>
+									))}
 								</SelectContent>
 							</Select>
 						</div>
 
-						<div className="flex items-end">
+						<div className="min-w-0">
 							<Button
 								variant="outline"
 								onClick={onClearFilters}
-								className="w-full"
+								className="h-8 w-full text-xs"
 							>
-								Clear Filters
+								Clear
 							</Button>
 						</div>
 					</div>

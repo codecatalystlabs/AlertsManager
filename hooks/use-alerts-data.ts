@@ -3,6 +3,7 @@ import { AuthService, Alert as AlertType } from '@/lib/auth';
 import { exportAlertsToCsv, exportAlertsToExcel } from '@/lib/alert-export';
 import { ALERTS_CONFIG } from '@/constants/alerts';
 import { fetchAlertsPage, type AlertsListParams } from '@/lib/fetch-alerts';
+import { fetchReportOptions } from '@/lib/fetch-reports';
 import { invalidateAlertsCache } from '@/lib/alerts-cache';
 
 interface AlertsFilters {
@@ -113,32 +114,6 @@ export const useAlertsData = (): UseAlertsDataReturn => {
 
     const filtersRef = useRef(filters);
     filtersRef.current = filters;
-
-    const loadFilterOptions = useCallback(async () => {
-        try {
-            const result = await fetchAlertsPage<AlertType>({ page: 1, limit: 500 });
-            setUniqueDistricts(
-                Array.from(
-                    new Set(
-                        result.data
-                            .map((alert) => alert.alertCaseDistrict)
-                            .filter(Boolean)
-                    )
-                ) as string[]
-            );
-            setUniqueSources(
-                Array.from(
-                    new Set(
-                        result.data
-                            .map((alert) => alert.sourceOfAlert)
-                            .filter(Boolean)
-                    )
-                ) as string[]
-            );
-        } catch {
-            // Filter dropdowns can stay empty if metadata fetch fails
-        }
-    }, []);
 
     const loadAlerts = useCallback(async () => {
         setIsValidating(true);
@@ -268,11 +243,46 @@ export const useAlertsData = (): UseAlertsDataReturn => {
     }, [loadAlerts, filters.district, filters.verification]);
 
     useEffect(() => {
-        const id = window.setTimeout(() => {
-            loadFilterOptions();
-        }, 0);
-        return () => window.clearTimeout(id);
-    }, [loadFilterOptions]);
+        let cancelled = false;
+
+        async function loadDistrictOptions() {
+            try {
+                const opts = await fetchReportOptions();
+                if (!cancelled) {
+                    setUniqueDistricts(opts.districts.filter(Boolean));
+                }
+            } catch {
+                // District filter can stay empty if options fail
+            }
+        }
+
+        loadDistrictOptions();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    useEffect(() => {
+        const fromPage = Array.from(
+            new Set(
+                alerts
+                    .map((alert) => alert.sourceOfAlert)
+                    .filter(Boolean) as string[]
+            )
+        );
+        if (!fromPage.length) return;
+
+        setUniqueSources((prev) => {
+            const merged = Array.from(new Set([...prev, ...fromPage])).sort();
+            if (
+                merged.length === prev.length &&
+                merged.every((value, index) => value === prev[index])
+            ) {
+                return prev;
+            }
+            return merged;
+        });
+    }, [alerts]);
 
     return {
         alerts,

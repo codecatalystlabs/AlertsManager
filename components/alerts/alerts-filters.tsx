@@ -1,5 +1,5 @@
 import React, { memo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
@@ -9,7 +9,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Filter } from "lucide-react";
 import { STATUS_OPTIONS, VERIFICATION_FILTER_OPTIONS } from "@/constants/alerts";
 import { LAYOUT } from "@/constants/layout";
 
@@ -32,17 +31,11 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 	({ filters, onFiltersChange, uniqueDistricts, uniqueSources }) => {
 		return (
 			<Card className={LAYOUT.card}>
-				<CardHeader className={LAYOUT.cardHeader}>
-					<CardTitle className={`${LAYOUT.cardTitle} flex items-center gap-1.5`}>
-						<Filter className="h-4 w-4 text-uganda-red" />
-						Filters
-					</CardTitle>
-				</CardHeader>
-				<CardContent className={LAYOUT.cardContent}>
+				<CardContent className="p-3">
 					<div className={LAYOUT.filtersGrid}>
-						<div className="space-y-1">
-							<Label htmlFor="status-filter" className="text-xs">
-								Filter by Status
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="status-filter" className="text-[11px]">
+								Status
 							</Label>
 							<Select
 								value={filters.status}
@@ -50,8 +43,8 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 									onFiltersChange({ status: value })
 								}
 							>
-								<SelectTrigger id="status-filter">
-									<SelectValue placeholder="All Statuses" />
+								<SelectTrigger id="status-filter" className="h-8 text-xs">
+									<SelectValue placeholder="All" />
 								</SelectTrigger>
 								<SelectContent>
 									{STATUS_OPTIONS.map((option) => (
@@ -66,9 +59,9 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 							</Select>
 						</div>
 
-						<div className="space-y-2">
-							<Label htmlFor="district-filter">
-								Filter by District
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="district-filter" className="text-[11px]">
+								District
 							</Label>
 							<Select
 								value={filters.district}
@@ -78,8 +71,8 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 									})
 								}
 							>
-								<SelectTrigger id="district-filter">
-									<SelectValue placeholder="All Districts" />
+								<SelectTrigger id="district-filter" className="h-8 text-xs">
+									<SelectValue placeholder="All" />
 								</SelectTrigger>
 								<SelectContent>
 									<SelectItem value="all">
@@ -99,9 +92,9 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 							</Select>
 						</div>
 
-						<div className="space-y-2">
-							<Label htmlFor="source-filter">
-								Filter by Source
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="source-filter" className="text-[11px]">
+								Source
 							</Label>
 							<Select
 								value={filters.source}
@@ -109,8 +102,8 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 									onFiltersChange({ source: value })
 								}
 							>
-								<SelectTrigger id="source-filter">
-									<SelectValue placeholder="All Sources" />
+								<SelectTrigger id="source-filter" className="h-8 text-xs">
+									<SelectValue placeholder="All" />
 								</SelectTrigger>
 								<SelectContent>
 									<SelectItem value="all">
@@ -128,9 +121,9 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 							</Select>
 						</div>
 
-						<div className="space-y-2">
-							<Label htmlFor="verification-filter">
-								Verification Status
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="verification-filter" className="text-[11px]">
+								Verification
 							</Label>
 							<Select
 								value={filters.verification}
@@ -138,8 +131,8 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 									onFiltersChange({ verification: value })
 								}
 							>
-								<SelectTrigger id="verification-filter">
-									<SelectValue placeholder="All Verification" />
+								<SelectTrigger id="verification-filter" className="h-8 text-xs">
+									<SelectValue placeholder="All" />
 								</SelectTrigger>
 								<SelectContent>
 									{VERIFICATION_FILTER_OPTIONS.map((option) => (
@@ -154,9 +147,9 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 							</Select>
 						</div>
 
-						<div className="space-y-2">
-							<Label htmlFor="date-filter">
-								Filter by Date
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="date-filter" className="text-[11px]">
+								Date
 							</Label>
 							<Input
 								id="date-filter"
@@ -168,7 +161,7 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 										date: e.target.value,
 									})
 								}
-								className="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
+								className="h-8 text-xs border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
 							/>
 						</div>
 					</div>

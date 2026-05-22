@@ -1,6 +1,6 @@
 /** Client-side cache for /alerts list — stale-while-revalidate */
 
-const CACHE_KEY = "uganda_health_alerts_v1";
+const CACHE_KEY = "uganda_health_alerts_v2";
 const FRESH_MS = 5 * 60 * 1000; // serve from cache without network
 const STALE_MS = 15 * 60 * 1000; // serve stale, revalidate in background
 

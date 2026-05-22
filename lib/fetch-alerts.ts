@@ -24,6 +24,9 @@ export interface AlertsListParams {
 	limit?: number;
 	district?: string;
 	is_verified?: boolean;
+	from_date?: string;
+	to_date?: string;
+	status?: string;
 }
 
 export interface PaginatedAlertsResult<T> {
@@ -32,6 +35,17 @@ export interface PaginatedAlertsResult<T> {
 	limit: number;
 	total: number;
 	totalPages: number;
+}
+
+/** Dashboard chart window — avoids loading the full alerts table. */
+const DASHBOARD_LOOKBACK_DAYS = 90;
+const DASHBOARD_PAGE_LIMIT = 200;
+const DASHBOARD_MAX_PAGES = 5;
+
+export interface AlertTotals {
+	verified: number;
+	notVerified: number;
+	total: number;
 }
 
 function buildAlertsUrl(apiBase: string, params?: AlertsListParams): string {
@@ -48,6 +62,15 @@ function buildAlertsUrl(apiBase: string, params?: AlertsListParams): string {
 	}
 	if (params?.is_verified !== undefined) {
 		searchParams.set("is_verified", String(params.is_verified));
+	}
+	if (params?.from_date) {
+		searchParams.set("from_date", params.from_date);
+	}
+	if (params?.to_date) {
+		searchParams.set("to_date", params.to_date);
+	}
+	if (params?.status) {
+		searchParams.set("status", params.status);
 	}
 
 	const query = searchParams.toString();
@@ -107,30 +130,57 @@ async function requestAlerts<T>(url: string): Promise<T> {
 	return response.json() as Promise<T>;
 }
 
-/** Load full list for dashboard/cache — uses pagination with a high limit when API wraps results. */
-async function fetchAlertsFromApi<T>(): Promise<T[]> {
-	const apiBase = getClientApiBaseUrl();
-	const json = await requestAlerts<unknown>(`${apiBase}/alerts`);
-
-	if (Array.isArray(json)) {
-		return json as T[];
-	}
-
-	const firstPage = parsePaginatedAlertsResponse<T>(json);
-	const total = firstPage.total;
-
-	if (total > firstPage.data.length && total > 0) {
-		const full = await fetchAlertsPage<T>({
-			page: 1,
-			limit: Math.min(total, 10_000),
-		});
-		return full.data;
-	}
-
-	return firstPage.data;
+export function dashboardDateRange(): { from_date: string; to_date: string } {
+	const to = new Date();
+	const from = new Date();
+	from.setDate(from.getDate() - (DASHBOARD_LOOKBACK_DAYS - 1));
+	return {
+		from_date: from.toISOString().split("T")[0],
+		to_date: to.toISOString().split("T")[0],
+	};
 }
 
-/** Paginated alerts list: GET /api/v1/alerts?page=1&limit=10&district=...&is_verified=... */
+/** Lightweight totals via pagination metadata (3 tiny requests). */
+export async function fetchAlertTotals(): Promise<AlertTotals> {
+	const [all, verified, notVerified] = await Promise.all([
+		fetchAlertsPage({ page: 1, limit: 1 }),
+		fetchAlertsPage({ page: 1, limit: 1, is_verified: true }),
+		fetchAlertsPage({ page: 1, limit: 1, is_verified: false }),
+	]);
+
+	return {
+		total: all.total,
+		verified: verified.total,
+		notVerified: notVerified.total,
+	};
+}
+
+/** Bounded alerts for dashboard charts (last 90 days, max 1000 rows, parallel pages). */
+async function fetchDashboardAlertsFromApi<T>(): Promise<T[]> {
+	const range = dashboardDateRange();
+	const baseParams: AlertsListParams = {
+		page: 1,
+		limit: DASHBOARD_PAGE_LIMIT,
+		...range,
+	};
+
+	const first = await fetchAlertsPage<T>(baseParams);
+	const maxPages = Math.min(first.totalPages, DASHBOARD_MAX_PAGES);
+
+	if (maxPages <= 1) {
+		return first.data;
+	}
+
+	const rest = await Promise.all(
+		Array.from({ length: maxPages - 1 }, (_, index) =>
+			fetchAlertsPage<T>({ ...baseParams, page: index + 2 })
+		)
+	);
+
+	return [...first.data, ...rest.flatMap((page) => page.data)];
+}
+
+/** Paginated alerts list: GET /api/v1/alerts?page=1&limit=10&district=... */
 export async function fetchAlertsPage<T>(
 	params: AlertsListParams = {}
 ): Promise<PaginatedAlertsResult<T>> {
@@ -149,10 +199,8 @@ function warnBackgroundRevalidate(error: unknown): void {
 }
 
 /**
- * Fetch all alerts with cache:
- * - Fresh cache: return immediately
- * - Stale cache: return immediately + background revalidate
- * - Missing/expired or force: network fetch
+ * Fetch dashboard alerts with cache (90-day window, capped pages).
+ * Stats totals should use fetchAlertTotals() in parallel for accuracy.
  */
 export async function fetchAllAlerts<T>(
 	options: { force?: boolean } = {}
@@ -171,7 +219,7 @@ export async function fetchAllAlerts<T>(
 				fromCache: true,
 				revalidate: async () => {
 					try {
-						const fresh = await fetchAlertsFromApi<T>();
+						const fresh = await fetchDashboardAlertsFromApi<T>();
 						setCachedAlerts(fresh);
 						return fresh;
 					} catch (error) {
@@ -183,7 +231,7 @@ export async function fetchAllAlerts<T>(
 		}
 	}
 
-	const data = await fetchAlertsFromApi<T>();
+	const data = await fetchDashboardAlertsFromApi<T>();
 	setCachedAlerts(data);
 	return { data, fromCache: false };
 }

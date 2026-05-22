@@ -22,28 +22,26 @@ interface StatCardProps {
 
 const StatCard = memo<StatCardProps>(
 	({ title, value, icon, gradient, iconBg, textColor }) => (
-		<Card className={`bg-gradient-to-br ${gradient} border-opacity-50 shadow-sm`}>
-			<CardContent className="p-3">
-				<div className="flex items-center justify-between gap-2">
-					<div>
+		<Card className={`bg-gradient-to-br ${gradient} border-opacity-50 shadow-sm min-w-0`}>
+			<CardContent className="p-2">
+				<div className="flex items-center gap-2 min-w-0">
+					<div
+						className={`h-7 w-7 ${iconBg} rounded-full flex items-center justify-center shrink-0`}
+					>
+						<span className="text-white font-bold text-xs">{icon}</span>
+					</div>
+					<div className="min-w-0">
 						<p
 							className={`${textColor.replace(
 								"700",
 								"600"
-							)} text-xs font-medium`}
+							)} text-[11px] font-medium truncate leading-tight`}
 						>
 							{title}
 						</p>
-						<p className={`text-xl font-bold ${textColor}`}>
+						<p className={`text-lg font-bold leading-tight ${textColor}`}>
 							{value.toLocaleString()}
 						</p>
-					</div>
-					<div
-						className={`h-9 w-9 ${iconBg} rounded-full flex items-center justify-center shrink-0`}
-					>
-						<span className="text-white font-bold text-sm">
-							{icon}
-						</span>
 					</div>
 				</div>
 			</CardContent>

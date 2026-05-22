@@ -1,12 +1,22 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { ErrorAlert } from "@/components/dashboard";
-import {
-	ReportsMatrixTable,
-	ReportsTimeseriesChart,
-	ReportsToolbar,
-} from "@/components/reports";
+import { ReportsMatrixTable, ReportsToolbar } from "@/components/reports";
+
+const ReportsTimeseriesChart = dynamic(
+	() =>
+		import("@/components/reports/reports-timeseries-chart").then((m) => ({
+			default: m.ReportsTimeseriesChart,
+		})),
+	{
+		ssr: false,
+		loading: () => (
+			<div className="h-[300px] animate-pulse rounded-lg border bg-muted/40" />
+		),
+	}
+);
 import { LAYOUT } from "@/constants/layout";
 import { useReportsData } from "@/hooks/use-reports-data";
 

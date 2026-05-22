@@ -44,6 +44,7 @@ const StatCard = memo<StatCardProps>(
 		onClick,
 	}) => (
 		<Card
+			className="min-w-0"
 			role="button"
 			tabIndex={0}
 			onClick={onClick}
@@ -61,14 +62,14 @@ const StatCard = memo<StatCardProps>(
 			aria-pressed={isActive}
 			aria-label={`Filter table by ${title}`}
 		>
-			<CardContent className="p-3">
-				<div className="flex items-center gap-2">
-					<Icon className={`h-6 w-6 shrink-0 ${iconColor}`} />
+			<CardContent className="p-2">
+				<div className="flex items-center gap-2 min-w-0">
+					<Icon className={`h-5 w-5 shrink-0 ${iconColor}`} />
 					<div className="min-w-0">
-						<p className="text-xs font-medium text-gray-600">
+						<p className="text-[11px] font-medium text-gray-600 truncate leading-tight">
 							{title}
 						</p>
-						<p className={`text-xl font-bold ${textColor}`}>
+						<p className={`text-lg font-bold leading-tight ${textColor}`}>
 							{value.toLocaleString()}
 						</p>
 					</div>
