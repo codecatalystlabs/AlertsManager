@@ -45,7 +45,7 @@ export default function DashboardLayout({
 							: "lg:pl-72"
 					)}
 				>
-					<div className="sticky top-0 z-40 flex h-16 items-center gap-x-4 border-b border-gray-200/50 bg-white/80 backdrop-blur-xl px-4 shadow-sm sm:gap-x-6 sm:px-8">
+					<div className="sticky top-0 z-40 flex h-12 items-center gap-x-3 border-b border-gray-200/50 bg-white/80 backdrop-blur-xl px-3 shadow-sm sm:gap-x-4 sm:px-4">
 						<Button
 							variant="ghost"
 							size="sm"
@@ -78,7 +78,7 @@ export default function DashboardLayout({
 						</Button>
 						<div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
 							<div className="flex flex-1 items-center min-w-0">
-								<h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
+								<h1 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
 									Health Alert Management System
 								</h1>
 							</div>
@@ -97,8 +97,8 @@ export default function DashboardLayout({
 						</div>
 					</div>
 
-					<main className="py-8">
-						<div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+					<main className="py-3">
+						<div className="mx-auto max-w-[1600px] px-3 sm:px-4 lg:px-5">
 							{children}
 						</div>
 					</main>

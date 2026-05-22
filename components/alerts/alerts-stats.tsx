@@ -1,5 +1,6 @@
 import React, { memo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { LAYOUT } from "@/constants/layout";
 
 interface AlertsStatsProps {
 	stats: {
@@ -21,26 +22,26 @@ interface StatCardProps {
 
 const StatCard = memo<StatCardProps>(
 	({ title, value, icon, gradient, iconBg, textColor }) => (
-		<Card className={`bg-gradient-to-br ${gradient} border-opacity-50`}>
-			<CardContent className="p-6">
-				<div className="flex items-center justify-between">
+		<Card className={`bg-gradient-to-br ${gradient} border-opacity-50 shadow-sm`}>
+			<CardContent className="p-3">
+				<div className="flex items-center justify-between gap-2">
 					<div>
 						<p
 							className={`${textColor.replace(
 								"700",
 								"600"
-							)} text-sm font-medium`}
+							)} text-xs font-medium`}
 						>
 							{title}
 						</p>
-						<p className={`text-2xl font-bold ${textColor}`}>
+						<p className={`text-xl font-bold ${textColor}`}>
 							{value.toLocaleString()}
 						</p>
 					</div>
 					<div
-						className={`h-12 w-12 ${iconBg} rounded-full flex items-center justify-center`}
+						className={`h-9 w-9 ${iconBg} rounded-full flex items-center justify-center shrink-0`}
 					>
-						<span className="text-white font-bold text-lg">
+						<span className="text-white font-bold text-sm">
 							{icon}
 						</span>
 					</div>
@@ -89,7 +90,7 @@ export const AlertsStats = memo<AlertsStatsProps>(({ stats }) => {
 	];
 
 	return (
-		<div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+		<div className={LAYOUT.statsGrid}>
 			{statCards.map((card) => (
 				<StatCard
 					key={card.title}

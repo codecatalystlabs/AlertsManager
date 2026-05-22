@@ -26,7 +26,7 @@ export function getBackendUpstreamUrl(): string {
 		return getServerApiBaseUrl();
 	}
 
-	return process.env.NEXT_PUBLIC_API_DEV_UPSTREAM || "http://localhost:8089/api/v1";
+	return process.env.NEXT_PUBLIC_API_DEV_UPSTREAM || "http://127.0.0.1:8089/api/v1";
 }
 
 export function formatAlertsFetchError(

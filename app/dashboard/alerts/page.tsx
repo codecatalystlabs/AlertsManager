@@ -7,12 +7,12 @@ import {
 	AlertsFilters,
 	AlertsTable,
 } from "@/components/alerts";
-import { ErrorAlert, LoadingSpinner } from "@/components/dashboard";
+import { ErrorAlert } from "@/components/dashboard";
 import { AlertDetailsDialog } from "@/components/alert-details-dialog";
 import { AlertEditDialog } from "@/components/alert-edit-dialog";
 import { useAlertsData } from "@/hooks/use-alerts-data";
 import { Alert as AlertType } from "@/lib/auth";
-import { LOADING_MESSAGES } from "@/constants/dashboard";
+import { LAYOUT } from "@/constants/layout";
 
 /**
  * Alerts Page Component
@@ -33,16 +33,19 @@ import { LOADING_MESSAGES } from "@/constants/dashboard";
  */
 export default function AlertsPage(): JSX.Element {
 	const {
-		alerts,
 		filteredAlerts,
 		stats,
 		filters,
+		pagination,
 		loading,
+		isValidating,
 		error,
 		deletingId,
 		uniqueDistricts,
 		uniqueSources,
 		setFilters,
+		setPage,
+		setPageSize,
 		refetch,
 		deleteAlert,
 		exportToCSV,
@@ -99,12 +102,8 @@ export default function AlertsPage(): JSX.Element {
 		await handleRefresh();
 	}, [handleRefresh]);
 
-	if (loading) {
-		return <LoadingSpinner message={LOADING_MESSAGES.ALERTS} />;
-	}
-
 	return (
-		<div className="space-y-8">
+		<div className={LAYOUT.pageGap}>
 			<AlertsHeader
 				onRefresh={handleRefresh}
 				onExportExcel={exportToExcel}
@@ -131,6 +130,13 @@ export default function AlertsPage(): JSX.Element {
 
 			<AlertsTable
 				alerts={filteredAlerts}
+				totalCount={pagination.total}
+				page={pagination.page}
+				pageSize={pagination.limit}
+				totalPages={pagination.totalPages}
+				isLoading={loading || isValidating}
+				onPageChange={setPage}
+				onPageSizeChange={setPageSize}
 				deletingId={deletingId}
 				onDeleteAlert={handleDeleteAlert}
 				onViewAlert={handleViewAlert}

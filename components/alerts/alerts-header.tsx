@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Plus, Download, FileSpreadsheet } from "lucide-react";
 import { ALERTS_CONFIG } from "@/constants/alerts";
+import { LAYOUT } from "@/constants/layout";
 
 interface AlertsHeaderProps {
 	onRefresh: () => void;
@@ -16,20 +17,21 @@ export const AlertsHeader = memo<AlertsHeaderProps>(
 		const router = useRouter();
 
 		return (
-			<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+			<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
 				<div>
-					<h1 className="text-3xl font-bold text-uganda-black">
+					<h1 className={LAYOUT.pageTitle}>
 						{ALERTS_CONFIG.PAGE_TITLE}
 					</h1>
-					<p className="text-gray-600 mt-1">
+					<p className={LAYOUT.pageSubtitle}>
 						{ALERTS_CONFIG.PAGE_DESCRIPTION}
 					</p>
 				</div>
-				<div className="flex flex-wrap gap-2">
+				<div className="flex flex-wrap gap-1.5">
 					<Button
 						onClick={onRefresh}
 						variant="outline"
-						className="gap-2"
+						size="sm"
+						className="gap-1.5 h-8"
 						disabled={isRefreshing}
 					>
 						<RefreshCw
@@ -41,7 +43,8 @@ export const AlertsHeader = memo<AlertsHeaderProps>(
 					</Button>
 					<Button
 						onClick={() => router.push("/add-alert")}
-						className="bg-uganda-red hover:bg-uganda-red/90 gap-2"
+						size="sm"
+						className="bg-uganda-red hover:bg-uganda-red/90 gap-1.5 h-8"
 					>
 						<Plus className="w-4 h-4" />
 						Create Alert
@@ -49,14 +52,16 @@ export const AlertsHeader = memo<AlertsHeaderProps>(
 					<Button
 						onClick={onExportCsv}
 						variant="outline"
-						className="gap-2"
+						size="sm"
+						className="gap-1.5 h-8"
 					>
 						<Download className="w-4 h-4" />
 						Export CSV
 					</Button>
 					<Button
 						onClick={onExportExcel}
-						className="bg-gradient-to-r from-uganda-red to-uganda-yellow text-white hover:from-uganda-red/90 hover:to-uganda-yellow/90 gap-2"
+						size="sm"
+						className="bg-gradient-to-r from-uganda-red to-uganda-yellow text-white hover:from-uganda-red/90 hover:to-uganda-yellow/90 gap-1.5 h-8"
 					>
 						<FileSpreadsheet className="w-4 h-4" />
 						Export Excel

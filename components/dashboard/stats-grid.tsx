@@ -1,3 +1,5 @@
+"use client";
+
 import React, { memo, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { StatsCard } from './stats-card';

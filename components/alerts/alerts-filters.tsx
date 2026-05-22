@@ -10,16 +10,20 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Filter } from "lucide-react";
-import { STATUS_OPTIONS } from "@/constants/alerts";
+import { STATUS_OPTIONS, VERIFICATION_FILTER_OPTIONS } from "@/constants/alerts";
+import { LAYOUT } from "@/constants/layout";
+
+export interface AlertsFilterState {
+	status: string;
+	district: string;
+	source: string;
+	date: string;
+	verification: string;
+}
 
 interface AlertsFiltersProps {
-	filters: {
-		status: string;
-		district: string;
-		source: string;
-		date: string;
-	};
-	onFiltersChange: (filters: Partial<typeof filters>) => void;
+	filters: AlertsFilterState;
+	onFiltersChange: (filters: Partial<AlertsFilterState>) => void;
 	uniqueDistricts: string[];
 	uniqueSources: string[];
 }
@@ -27,17 +31,17 @@ interface AlertsFiltersProps {
 export const AlertsFilters = memo<AlertsFiltersProps>(
 	({ filters, onFiltersChange, uniqueDistricts, uniqueSources }) => {
 		return (
-			<Card>
-				<CardHeader>
-					<CardTitle className="flex items-center gap-2">
-						<Filter className="h-5 w-5 text-uganda-red" />
-						Advanced Filters
+			<Card className={LAYOUT.card}>
+				<CardHeader className={LAYOUT.cardHeader}>
+					<CardTitle className={`${LAYOUT.cardTitle} flex items-center gap-1.5`}>
+						<Filter className="h-4 w-4 text-uganda-red" />
+						Filters
 					</CardTitle>
 				</CardHeader>
-				<CardContent>
-					<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-						<div className="space-y-2">
-							<Label htmlFor="status-filter">
+				<CardContent className={LAYOUT.cardContent}>
+					<div className={LAYOUT.filtersGrid}>
+						<div className="space-y-1">
+							<Label htmlFor="status-filter" className="text-xs">
 								Filter by Status
 							</Label>
 							<Select
@@ -118,6 +122,32 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 											value={source}
 										>
 											{source}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="verification-filter">
+								Verification Status
+							</Label>
+							<Select
+								value={filters.verification}
+								onValueChange={(value) =>
+									onFiltersChange({ verification: value })
+								}
+							>
+								<SelectTrigger id="verification-filter">
+									<SelectValue placeholder="All Verification" />
+								</SelectTrigger>
+								<SelectContent>
+									{VERIFICATION_FILTER_OPTIONS.map((option) => (
+										<SelectItem
+											key={option.value}
+											value={option.value}
+										>
+											{option.label}
 										</SelectItem>
 									))}
 								</SelectContent>

@@ -6,7 +6,8 @@
  */
 export const CLIENT_API_BASE = "/api/v1";
 
-const LOCAL_API_BASE = "http://localhost:8089/api/v1";
+/** Use 127.0.0.1 — on Windows, `localhost` often resolves to ::1 while the Go API binds IPv4 only. */
+const LOCAL_API_BASE = "http://127.0.0.1:8089/api/v1";
 
 /** Base URL for client-side fetch calls (goes through Next.js proxy). */
 export function getClientApiBaseUrl(): string {

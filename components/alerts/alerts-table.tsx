@@ -7,9 +7,17 @@ import {
 	createAlertsTableColumns,
 	type AlertsTableCallbacks,
 } from "@/constants/alerts";
+import { LAYOUT } from "@/constants/layout";
 
 interface AlertsTableProps {
 	alerts: AlertType[];
+	totalCount: number;
+	page: number;
+	pageSize: number;
+	totalPages: number;
+	isLoading?: boolean;
+	onPageChange: (page: number) => void;
+	onPageSizeChange: (pageSize: number) => void;
 	deletingId: number | null;
 	onDeleteAlert: (alertId: number) => Promise<void>;
 	onViewAlert?: (alert: AlertType) => void;
@@ -17,7 +25,20 @@ interface AlertsTableProps {
 }
 
 export const AlertsTable = memo<AlertsTableProps>(
-	({ alerts, deletingId, onDeleteAlert, onViewAlert, onEditAlert }) => {
+	({
+		alerts,
+		totalCount,
+		page,
+		pageSize,
+		totalPages,
+		isLoading,
+		onPageChange,
+		onPageSizeChange,
+		deletingId,
+		onDeleteAlert,
+		onViewAlert,
+		onEditAlert,
+	}) => {
 		const callbacks: AlertsTableCallbacks = useMemo(
 			() => ({
 				onDelete: onDeleteAlert,
@@ -34,17 +55,26 @@ export const AlertsTable = memo<AlertsTableProps>(
 		);
 
 		return (
-			<Card>
-				<CardHeader>
-					<CardTitle>All Alerts ({alerts.length})</CardTitle>
+			<Card className={LAYOUT.card}>
+				<CardHeader className={LAYOUT.cardHeader}>
+					<CardTitle className={LAYOUT.cardTitle}>
+						All Alerts ({totalCount.toLocaleString()})
+					</CardTitle>
 				</CardHeader>
-				<CardContent>
+				<CardContent className={LAYOUT.cardContent}>
 					<DataTable
 						columns={columns}
 						data={alerts}
 						searchKey="alertCaseName"
 						searchPlaceholder="Search by case name..."
-						pageSize={ALERTS_CONFIG.ITEMS_PER_PAGE}
+						pageSize={pageSize}
+						manualPagination
+						pageCount={totalPages}
+						totalRowCount={totalCount}
+						pageIndex={page - 1}
+						onPageChange={(pageIndex) => onPageChange(pageIndex + 1)}
+						onPageSizeChange={onPageSizeChange}
+						isLoading={isLoading}
 					/>
 				</CardContent>
 			</Card>

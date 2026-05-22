@@ -17,6 +17,7 @@ import {
 	VERIFICATION_FILTER_OPTIONS,
 	type CallLogsFilterState,
 } from "@/constants/call-logs";
+import { LAYOUT } from "@/constants/layout";
 
 interface CallLogsFiltersProps {
 	filters: CallLogsFilterState;
@@ -27,17 +28,17 @@ interface CallLogsFiltersProps {
 export const CallLogsFilters = memo<CallLogsFiltersProps>(
 	({ filters, onFiltersChange, onClearFilters }) => {
 		return (
-			<Card>
-				<CardHeader>
-					<CardTitle className="flex items-center gap-2">
-						<Filter className="h-5 w-5" />
-						Filters & Search
+			<Card className={LAYOUT.card}>
+				<CardHeader className={LAYOUT.cardHeader}>
+					<CardTitle className={`${LAYOUT.cardTitle} flex items-center gap-1.5`}>
+						<Filter className="h-4 w-4" />
+						Filters
 					</CardTitle>
 				</CardHeader>
-				<CardContent>
-					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-						<div className="space-y-2">
-							<Label htmlFor="search">Search</Label>
+				<CardContent className={LAYOUT.cardContent}>
+					<div className={LAYOUT.filtersGrid}>
+						<div className="space-y-1">
+							<Label htmlFor="search" className="text-xs">Search</Label>
 							<Input
 								id="search"
 								placeholder="Search by reporter, contact, district..."

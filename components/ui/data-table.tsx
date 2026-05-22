@@ -43,6 +43,14 @@ interface DataTableProps<TData, TValue> {
   searchKey?: string
   searchPlaceholder?: string
   pageSize?: number
+  /** Server-driven pagination: parent owns page state and supplies total row count. */
+  manualPagination?: boolean
+  pageCount?: number
+  totalRowCount?: number
+  pageIndex?: number
+  onPageChange?: (pageIndex: number) => void
+  onPageSizeChange?: (pageSize: number) => void
+  isLoading?: boolean
 }
 
 export function DataTable<TData, TValue>({
@@ -51,13 +59,20 @@ export function DataTable<TData, TValue>({
   searchKey,
   searchPlaceholder = "Search...",
   pageSize = 10,
+  manualPagination = false,
+  pageCount: controlledPageCount,
+  totalRowCount,
+  pageIndex: controlledPageIndex,
+  onPageChange,
+  onPageSizeChange,
+  isLoading = false,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = React.useState({})
   const [pagination, setPagination] = React.useState<PaginationState>({
-    pageIndex: 0,
+    pageIndex: controlledPageIndex ?? 0,
     pageSize,
   })
 
@@ -65,14 +80,37 @@ export function DataTable<TData, TValue>({
     setPagination((prev) => ({ ...prev, pageSize }))
   }, [pageSize])
 
+  React.useEffect(() => {
+    if (controlledPageIndex !== undefined) {
+      setPagination((prev) => ({ ...prev, pageIndex: controlledPageIndex }))
+    }
+  }, [controlledPageIndex])
+
   const table = useReactTable({
     data,
     columns,
+    manualPagination,
+    pageCount: manualPagination ? controlledPageCount : undefined,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    onPaginationChange: setPagination,
+    onPaginationChange: (updater) => {
+      setPagination((prev) => {
+        const next = typeof updater === "function" ? updater(prev) : updater
+        if (manualPagination) {
+          if (next.pageIndex !== prev.pageIndex) {
+            onPageChange?.(next.pageIndex)
+          }
+          if (next.pageSize !== prev.pageSize) {
+            onPageSizeChange?.(next.pageSize)
+          }
+        }
+        return next
+      })
+    },
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    ...(manualPagination
+      ? {}
+      : { getPaginationRowModel: getPaginationRowModel() }),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
@@ -86,18 +124,24 @@ export function DataTable<TData, TValue>({
     },
   })
 
-  const filteredCount = table.getFilteredRowModel().rows.length
-  const pageCount = table.getPageCount()
+  const filteredCount = manualPagination
+    ? (totalRowCount ?? data.length)
+    : table.getFilteredRowModel().rows.length
+  const pageCount = manualPagination
+    ? (controlledPageCount ?? 1)
+    : table.getPageCount()
   const currentPage = table.getState().pagination.pageIndex
   const pageSizeValue = table.getState().pagination.pageSize
-  const pageRows = table.getPaginationRowModel().rows
+  const pageRows = manualPagination
+    ? table.getRowModel().rows
+    : table.getPaginationRowModel().rows
   const startRow = filteredCount === 0 ? 0 : currentPage * pageSizeValue + 1
   const endRow = Math.min((currentPage + 1) * pageSizeValue, filteredCount)
   const pageRange = getPaginationRange(currentPage, pageCount)
 
   return (
     <div className="w-full">
-      <div className="flex items-center py-4">
+      <div className="flex items-center py-2">
         {searchKey && (
           <Input
             placeholder={searchPlaceholder}
@@ -150,7 +194,13 @@ export function DataTable<TData, TValue>({
             ))}
           </TableHeader>
           <TableBody>
-            {pageRows.length ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-24 text-center">
+                  Loading...
+                </TableCell>
+              </TableRow>
+            ) : pageRows.length ? (
               pageRows.map((row) => (
                 <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
                   {row.getVisibleCells().map((cell) => (
@@ -168,7 +218,7 @@ export function DataTable<TData, TValue>({
           </TableBody>
         </Table>
       </div>
-      <div className="flex flex-col gap-3 border-t bg-muted/30 px-2 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 border-t bg-muted/30 px-2 py-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">
           Showing {startRow}–{endRow} of {filteredCount} row(s)
           {pageCount > 0 && (

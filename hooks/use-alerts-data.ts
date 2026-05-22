@@ -1,20 +1,16 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AuthService, Alert as AlertType } from '@/lib/auth';
 import { exportAlertsToCsv, exportAlertsToExcel } from '@/lib/alert-export';
 import { ALERTS_CONFIG } from '@/constants/alerts';
-import { fetchAllAlerts } from '@/lib/fetch-alerts';
-import {
-    getCachedAlerts,
-    invalidateAlertsCache,
-    setCachedAlerts,
-    subscribeAlertsCache,
-} from '@/lib/alerts-cache';
+import { fetchAlertsPage, type AlertsListParams } from '@/lib/fetch-alerts';
+import { invalidateAlertsCache } from '@/lib/alerts-cache';
 
 interface AlertsFilters {
     status: string;
     district: string;
     source: string;
     date: string;
+    verification: string;
 }
 
 interface AlertsStats {
@@ -24,11 +20,19 @@ interface AlertsStats {
     total: number;
 }
 
+interface AlertsPagination {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+}
+
 interface UseAlertsDataReturn {
     alerts: AlertType[];
     filteredAlerts: AlertType[];
     stats: AlertsStats;
     filters: AlertsFilters;
+    pagination: AlertsPagination;
     loading: boolean;
     isValidating: boolean;
     error: string | null;
@@ -36,6 +40,8 @@ interface UseAlertsDataReturn {
     uniqueDistricts: string[];
     uniqueSources: string[];
     setFilters: (filters: Partial<AlertsFilters>) => void;
+    setPage: (page: number) => void;
+    setPageSize: (limit: number) => void;
     refetch: () => Promise<void>;
     deleteAlert: (alertId: number) => Promise<void>;
     exportToCSV: () => void;
@@ -47,7 +53,49 @@ const initialFilters: AlertsFilters = {
     district: '',
     source: '',
     date: '',
+    verification: 'all',
 };
+
+function toApiParams(
+    filters: AlertsFilters,
+    page: number,
+    limit: number
+): AlertsListParams {
+    const params: AlertsListParams = { page, limit };
+
+    if (filters.district && filters.district !== 'all') {
+        params.district = filters.district;
+    }
+
+    if (filters.verification === 'verified') {
+        params.is_verified = true;
+    } else if (filters.verification === 'pending') {
+        params.is_verified = false;
+    }
+
+    return params;
+}
+
+function applyClientFilters(alerts: AlertType[], filters: AlertsFilters): AlertType[] {
+    return alerts.filter((alert) => {
+        const matchesStatus =
+            !filters.status ||
+            filters.status === 'all' ||
+            alert.status === filters.status;
+        const matchesSource =
+            !filters.source ||
+            filters.source === 'all' ||
+            alert.sourceOfAlert === filters.source;
+
+        let matchesDate = true;
+        if (filters.date) {
+            const alertDate = new Date(alert.date).toISOString().split('T')[0];
+            matchesDate = alertDate === filters.date;
+        }
+
+        return matchesStatus && matchesSource && matchesDate;
+    });
+}
 
 export const useAlertsData = (): UseAlertsDataReturn => {
     const [alerts, setAlerts] = useState<AlertType[]>([]);
@@ -56,153 +104,182 @@ export const useAlertsData = (): UseAlertsDataReturn => {
     const [error, setError] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [filters, setFiltersState] = useState<AlertsFilters>(initialFilters);
+    const [page, setPageState] = useState(1);
+    const [limit, setLimitState] = useState<number>(ALERTS_CONFIG.ITEMS_PER_PAGE);
+    const [total, setTotal] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
+    const [uniqueDistricts, setUniqueDistricts] = useState<string[]>([]);
+    const [uniqueSources, setUniqueSources] = useState<string[]>([]);
 
-    const loadAlerts = useCallback(async (options?: { force?: boolean }) => {
-        const force = options?.force ?? false;
-        const cached = getCachedAlerts<AlertType[]>();
+    const filtersRef = useRef(filters);
+    filtersRef.current = filters;
 
-        if (!force && cached) {
-            setAlerts(cached.data);
-            setLoading(false);
-        } else if (!cached) {
-            setLoading(true);
+    const loadFilterOptions = useCallback(async () => {
+        try {
+            const result = await fetchAlertsPage<AlertType>({ page: 1, limit: 500 });
+            setUniqueDistricts(
+                Array.from(
+                    new Set(
+                        result.data
+                            .map((alert) => alert.alertCaseDistrict)
+                            .filter(Boolean)
+                    )
+                ) as string[]
+            );
+            setUniqueSources(
+                Array.from(
+                    new Set(
+                        result.data
+                            .map((alert) => alert.sourceOfAlert)
+                            .filter(Boolean)
+                    )
+                ) as string[]
+            );
+        } catch {
+            // Filter dropdowns can stay empty if metadata fetch fails
         }
+    }, []);
 
-        if (force) {
-            setIsValidating(true);
-        }
-
+    const loadAlerts = useCallback(async () => {
+        setIsValidating(true);
         setError(null);
 
         try {
-            const result = await fetchAllAlerts<AlertType[]>({ force });
-            setAlerts(result.data);
+            const result = await fetchAlertsPage<AlertType>(
+                toApiParams(filtersRef.current, page, limit)
+            );
 
-            if (result.revalidate) {
-                setIsValidating(true);
-                result
-                    .revalidate()
-                    .then((fresh) => {
-                        if (fresh) setAlerts(fresh);
-                    })
-                    .finally(() => setIsValidating(false));
-            }
+            setAlerts(result.data);
+            setPageState(result.page);
+            setLimitState(result.limit);
+            setTotal(result.total);
+            setTotalPages(result.totalPages);
         } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Failed to fetch alerts';
+            const errorMessage =
+                err instanceof Error ? err.message : 'Failed to fetch alerts';
             console.error('Error fetching alerts:', err);
             setError(errorMessage);
-            if (!cached) {
-                setAlerts([]);
-            }
+            setAlerts([]);
+            setTotal(0);
+            setTotalPages(1);
         } finally {
             setLoading(false);
             setIsValidating(false);
         }
-    }, []);
+    }, [page, limit]);
 
-    const deleteAlert = useCallback(async (alertId: number) => {
-        try {
-            setDeletingId(alertId);
-            await AuthService.deleteAlert(alertId);
-            invalidateAlertsCache();
-            setAlerts((currentAlerts) =>
-                currentAlerts.filter((alert) => alert.id !== alertId)
-            );
-            const cached = getCachedAlerts<AlertType[]>();
-            if (cached) {
-                const next = cached.data.filter((alert) => alert.id !== alertId);
-                setCachedAlerts(next);
+    const loadAlertsForExport = useCallback(async (): Promise<AlertType[]> => {
+        const result = await fetchAlertsPage<AlertType>({
+            ...toApiParams(filtersRef.current, 1, limit),
+            page: 1,
+            limit: 10_000,
+        });
+        return applyClientFilters(result.data, filtersRef.current);
+    }, [limit]);
+
+    const deleteAlert = useCallback(
+        async (alertId: number) => {
+            try {
+                setDeletingId(alertId);
+                await AuthService.deleteAlert(alertId);
+                invalidateAlertsCache();
+                await loadAlerts();
+            } catch (err) {
+                const errorMessage =
+                    err instanceof Error ? err.message : 'Failed to delete alert';
+                console.error('Error deleting alert:', err);
+                setError(errorMessage);
+                throw err;
+            } finally {
+                setDeletingId(null);
             }
-        } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Failed to delete alert';
-            console.error('Error deleting alert:', err);
-            setError(errorMessage);
-            throw err;
-        } finally {
-            setDeletingId(null);
-        }
-    }, []);
+        },
+        [loadAlerts]
+    );
 
     const setFilters = useCallback((newFilters: Partial<AlertsFilters>) => {
-        setFiltersState(currentFilters => ({ ...currentFilters, ...newFilters }));
+        setFiltersState((currentFilters) => ({
+            ...currentFilters,
+            ...newFilters,
+        }));
+        setPageState(1);
     }, []);
 
-    const filteredAlerts = useMemo(() => {
-        return alerts.filter((alert) => {
-            const matchesStatus = !filters.status || filters.status === 'all' || alert.status === filters.status;
-            const matchesDistrict = !filters.district || filters.district === 'all' || alert.alertCaseDistrict === filters.district;
-            const matchesSource = !filters.source || filters.source === 'all' || alert.sourceOfAlert === filters.source;
+    const setPage = useCallback((nextPage: number) => {
+        setPageState(nextPage);
+    }, []);
 
-            let matchesDate = true;
-            if (filters.date) {
-                const alertDate = new Date(alert.date).toISOString().split('T')[0];
-                matchesDate = alertDate === filters.date;
-            }
+    const setPageSize = useCallback((nextLimit: number) => {
+        setLimitState(nextLimit);
+        setPageState(1);
+    }, []);
 
-            return matchesStatus && matchesDistrict && matchesSource && matchesDate;
-        });
-    }, [alerts, filters]);
+    const filteredAlerts = useMemo(
+        () => applyClientFilters(alerts, filters),
+        [alerts, filters]
+    );
 
     const stats = useMemo((): AlertsStats => {
-        const alive = alerts.filter(alert => alert.status === 'Alive').length;
-        const dead = alerts.filter(alert => alert.status === 'Dead').length;
-        const unknown = alerts.filter(alert => alert.status === 'Unknown' || alert.status === 'Pending').length;
-        const total = alerts.length;
+        const alive = alerts.filter((alert) => alert.status === 'Alive').length;
+        const dead = alerts.filter((alert) => alert.status === 'Dead').length;
+        const unknown = alerts.filter(
+            (alert) => alert.status === 'Unknown' || alert.status === 'Pending'
+        ).length;
 
-        return { alive, dead, unknown, total };
-    }, [alerts]);
-
-    const uniqueDistricts = useMemo(() => {
-        return Array.from(new Set(alerts.map(alert => alert.alertCaseDistrict).filter(Boolean)));
-    }, [alerts]);
-
-    const uniqueSources = useMemo(() => {
-        return Array.from(new Set(alerts.map(alert => alert.sourceOfAlert).filter(Boolean)));
-    }, [alerts]);
+        return { alive, dead, unknown, total: total || alerts.length };
+    }, [alerts, total]);
 
     const exportPrefix = ALERTS_CONFIG.EXPORT_FILENAME_PREFIX;
 
-    const exportToCSV = useCallback(() => {
-        const exported = exportAlertsToCsv(filteredAlerts, exportPrefix);
-        if (!exported) {
-            window.alert('No records to export. Adjust your filters or refresh the data.');
+    const exportToCSV = useCallback(async () => {
+        try {
+            const rows = await loadAlertsForExport();
+            const exported = exportAlertsToCsv(rows, exportPrefix);
+            if (!exported) {
+                window.alert(
+                    'No records to export. Adjust your filters or refresh the data.'
+                );
+            }
+        } catch (err) {
+            console.error('CSV export failed:', err);
+            window.alert('Failed to export CSV file. Please try again.');
         }
-    }, [filteredAlerts, exportPrefix]);
+    }, [loadAlertsForExport, exportPrefix]);
 
     const exportToExcel = useCallback(async () => {
         try {
-            const exported = await exportAlertsToExcel(
-                filteredAlerts,
-                exportPrefix,
-                'Alerts'
-            );
+            const rows = await loadAlertsForExport();
+            const exported = await exportAlertsToExcel(rows, exportPrefix, 'Alerts');
             if (!exported) {
-                window.alert('No records to export. Adjust your filters or refresh the data.');
+                window.alert(
+                    'No records to export. Adjust your filters or refresh the data.'
+                );
             }
         } catch (err) {
             console.error('Excel export failed:', err);
             window.alert('Failed to export Excel file. Please try again.');
         }
-    }, [filteredAlerts, exportPrefix]);
+    }, [loadAlertsForExport, exportPrefix]);
 
-    const refetch = useCallback(() => loadAlerts({ force: true }), [loadAlerts]);
+    const refetch = useCallback(() => loadAlerts(), [loadAlerts]);
 
     useEffect(() => {
         loadAlerts();
-    }, [loadAlerts]);
+    }, [loadAlerts, filters.district, filters.verification]);
 
     useEffect(() => {
-        const unsubscribe = subscribeAlertsCache<AlertType[]>((data) => {
-            setAlerts(data);
-        });
-        return unsubscribe;
-    }, []);
+        const id = window.setTimeout(() => {
+            loadFilterOptions();
+        }, 0);
+        return () => window.clearTimeout(id);
+    }, [loadFilterOptions]);
 
     return {
         alerts,
         filteredAlerts,
         stats,
         filters,
+        pagination: { page, limit, total, totalPages },
         loading,
         isValidating,
         error,
@@ -210,6 +287,8 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         uniqueDistricts,
         uniqueSources,
         setFilters,
+        setPage,
+        setPageSize,
         refetch,
         deleteAlert,
         exportToCSV,

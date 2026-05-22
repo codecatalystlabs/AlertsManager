@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AuthService } from '@/lib/auth';
 import { exportAlertsToCsv, exportAlertsToExcel } from '@/lib/alert-export';
 import {
@@ -6,12 +6,8 @@ import {
     CALL_LOGS_INITIAL_FILTERS,
     type CallLogsFilterState,
 } from '@/constants/call-logs';
-import { fetchAllAlerts } from '@/lib/fetch-alerts';
-import {
-    getCachedAlerts,
-    invalidateAlertsCache,
-    subscribeAlertsCache,
-} from '@/lib/alerts-cache';
+import { fetchAlertsPage, type AlertsListParams } from '@/lib/fetch-alerts';
+import { invalidateAlertsCache } from '@/lib/alerts-cache';
 
 export interface AlertLog {
     id: number;
@@ -76,17 +72,27 @@ interface CallLogsStats {
     pending: number;
 }
 
+interface CallLogsPagination {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+}
+
 interface UseCallLogsDataReturn {
     alerts: AlertLog[];
     filteredAlerts: AlertLog[];
     stats: CallLogsStats;
     filters: CallLogsFilters;
+    pagination: CallLogsPagination;
     loading: boolean;
     isValidating: boolean;
     error: string | null;
     selectedAlert: AlertLog | null;
     setFilters: (filters: Partial<CallLogsFilters>) => void;
     setSelectedAlert: (alert: AlertLog | null) => void;
+    setPage: (page: number) => void;
+    setPageSize: (limit: number) => void;
     refetch: () => Promise<void>;
     deleteAlert: (alertId: number) => Promise<void>;
     exportToExcel: () => Promise<void>;
@@ -94,177 +100,207 @@ interface UseCallLogsDataReturn {
     clearFilters: () => void;
 }
 
-const initialFilters: CallLogsFilters = { ...CALL_LOGS_INITIAL_FILTERS };
+function toApiParams(
+    filters: CallLogsFilters,
+    page: number,
+    limit: number
+): AlertsListParams {
+    const params: AlertsListParams = { page, limit };
+
+    if (filters.verification === 'verified') {
+        params.is_verified = true;
+    } else if (filters.verification === 'pending') {
+        params.is_verified = false;
+    }
+
+    return params;
+}
+
+function applyClientFilters(alerts: AlertLog[], filters: CallLogsFilters): AlertLog[] {
+    return alerts.filter((alert) => {
+        const matchesStatus =
+            filters.status === 'all' ||
+            (filters.status === 'other' && alert.status !== 'Alive') ||
+            (alert.status ?? '').toLowerCase() === filters.status.toLowerCase();
+
+        const matchesSource =
+            filters.source === 'all' ||
+            (alert.sourceOfAlert ?? '').toLowerCase() === filters.source.toLowerCase();
+
+        const search = filters.search.toLowerCase();
+        const matchesSearch =
+            filters.search === '' ||
+            (alert.personReporting ?? '').toLowerCase().includes(search) ||
+            (alert.contactNumber ?? '').includes(filters.search) ||
+            (alert.alertCaseDistrict ?? '').toLowerCase().includes(search) ||
+            (alert.id?.toString() ?? '').includes(filters.search);
+
+        return matchesStatus && matchesSource && matchesSearch;
+    });
+}
 
 export const useCallLogsData = (): UseCallLogsDataReturn => {
     const [alerts, setAlerts] = useState<AlertLog[]>([]);
     const [loading, setLoading] = useState(true);
     const [isValidating, setIsValidating] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [filters, setFiltersState] = useState<CallLogsFilters>(initialFilters);
+    const [filters, setFiltersState] = useState<CallLogsFilters>({
+        ...CALL_LOGS_INITIAL_FILTERS,
+    });
     const [selectedAlert, setSelectedAlert] = useState<AlertLog | null>(null);
+    const [page, setPageState] = useState(1);
+    const [limit, setLimitState] = useState<number>(CALL_LOGS_CONFIG.ITEMS_PER_PAGE);
+    const [total, setTotal] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
 
-    const loadAlerts = useCallback(async (options?: { force?: boolean }) => {
-        const force = options?.force ?? false;
-        const cached = getCachedAlerts<AlertLog[]>();
+    const filtersRef = useRef(filters);
+    filtersRef.current = filters;
 
-        if (!force && cached) {
-            setAlerts(cached.data);
-            setLoading(false);
-        } else if (!cached) {
-            setLoading(true);
-        }
-
-        if (force) {
-            setIsValidating(true);
-        }
-
+    const loadAlerts = useCallback(async () => {
+        setIsValidating(true);
         setError(null);
 
         try {
-            const result = await fetchAllAlerts<AlertLog[]>({ force });
-            setAlerts(result.data);
+            const result = await fetchAlertsPage<AlertLog>(
+                toApiParams(filtersRef.current, page, limit)
+            );
 
-            if (result.revalidate) {
-                setIsValidating(true);
-                result
-                    .revalidate()
-                    .then((fresh) => {
-                        if (fresh) setAlerts(fresh);
-                    })
-                    .finally(() => setIsValidating(false));
-            }
+            setAlerts(result.data);
+            setPageState(result.page);
+            setLimitState(result.limit);
+            setTotal(result.total);
+            setTotalPages(result.totalPages);
         } catch (err) {
             const errorMessage =
                 err instanceof Error ? err.message : 'Failed to fetch call logs';
             setError(errorMessage);
-            if (!cached) {
-                setAlerts([]);
-            }
+            setAlerts([]);
+            setTotal(0);
+            setTotalPages(1);
         } finally {
             setLoading(false);
-            if (force) {
-                setIsValidating(false);
+            setIsValidating(false);
+        }
+    }, [page, limit]);
+
+    const loadAlertsForExport = useCallback(async (): Promise<AlertLog[]> => {
+        const result = await fetchAlertsPage<AlertLog>({
+            ...toApiParams(filtersRef.current, 1, limit),
+            page: 1,
+            limit: 10_000,
+        });
+        return applyClientFilters(result.data, filtersRef.current);
+    }, [limit]);
+
+    const deleteAlert = useCallback(
+        async (alertId: number) => {
+            const confirmed = confirm(
+                `Are you sure you want to delete alert ALT${String(alertId).padStart(3, '0')}? This action cannot be undone.`
+            );
+
+            if (!confirmed) return;
+
+            try {
+                await AuthService.deleteAlert(alertId);
+                invalidateAlertsCache();
+                await loadAlerts();
+            } catch (err) {
+                setError('Failed to delete alert. Please try again.');
+                throw err;
             }
-        }
-    }, []);
-
-    const deleteAlert = useCallback(async (alertId: number) => {
-        const confirmed = confirm(
-            `Are you sure you want to delete alert ALT${String(alertId).padStart(3, '0')}? This action cannot be undone.`
-        );
-
-        if (!confirmed) return;
-
-        try {
-            await AuthService.deleteAlert(alertId);
-            invalidateAlertsCache();
-            await loadAlerts({ force: true });
-        } catch (error) {
-            setError('Failed to delete alert. Please try again.');
-            throw error;
-        }
-    }, [loadAlerts]);
+        },
+        [loadAlerts]
+    );
 
     const setFilters = useCallback((newFilters: Partial<CallLogsFilters>) => {
-        setFiltersState(currentFilters => ({ ...currentFilters, ...newFilters }));
+        setFiltersState((current) => ({ ...current, ...newFilters }));
+        setPageState(1);
     }, []);
 
     const clearFilters = useCallback(() => {
-        setFiltersState(initialFilters);
+        setFiltersState({ ...CALL_LOGS_INITIAL_FILTERS });
+        setPageState(1);
     }, []);
 
-    const filteredAlerts = useMemo(() => {
-        return alerts.filter((alert) => {
-            const matchesStatus =
-                filters.status === 'all' ||
-                (filters.status === 'other' && alert.status !== 'Alive') ||
-                (alert.status ?? '').toLowerCase() === filters.status.toLowerCase();
+    const setPage = useCallback((nextPage: number) => {
+        setPageState(nextPage);
+    }, []);
 
-            const matchesVerification =
-                filters.verification === 'all' ||
-                (filters.verification === 'verified' && alert.isVerified) ||
-                (filters.verification === 'pending' && !alert.isVerified);
+    const setPageSize = useCallback((nextLimit: number) => {
+        setLimitState(nextLimit);
+        setPageState(1);
+    }, []);
 
-            const matchesSource =
-                filters.source === 'all' ||
-                (alert.sourceOfAlert ?? '').toLowerCase() === filters.source.toLowerCase();
-
-            const search = filters.search.toLowerCase();
-            const matchesSearch =
-                filters.search === '' ||
-                (alert.personReporting ?? '').toLowerCase().includes(search) ||
-                (alert.contactNumber ?? '').includes(filters.search) ||
-                (alert.alertCaseDistrict ?? '').toLowerCase().includes(search) ||
-                (alert.id?.toString() ?? '').includes(filters.search);
-
-            return (
-                matchesStatus &&
-                matchesVerification &&
-                matchesSource &&
-                matchesSearch
-            );
-        });
-    }, [alerts, filters]);
+    const filteredAlerts = useMemo(
+        () => applyClientFilters(alerts, filters),
+        [alerts, filters]
+    );
 
     const stats = useMemo((): CallLogsStats => {
-        const alive = alerts.filter(alert => alert.status === 'Alive').length;
-        const other = alerts.filter(alert => alert.status !== 'Alive').length;
-        const verified = alerts.filter(alert => alert.isVerified).length;
-        const pending = alerts.filter(alert => !alert.isVerified).length;
+        const alive = alerts.filter((alert) => alert.status === 'Alive').length;
+        const other = alerts.filter((alert) => alert.status !== 'Alive').length;
+        const verified = alerts.filter((alert) => alert.isVerified).length;
+        const pending = alerts.filter((alert) => !alert.isVerified).length;
 
         return { alive, other, verified, pending };
     }, [alerts]);
 
     const exportPrefix = CALL_LOGS_CONFIG.EXPORT_FILENAME_PREFIX;
 
-    const exportToCSV = useCallback(() => {
-        const exported = exportAlertsToCsv(filteredAlerts, exportPrefix);
-        if (!exported) {
-            window.alert('No records to export. Adjust your filters or refresh the data.');
+    const exportToCSV = useCallback(async () => {
+        try {
+            const rows = await loadAlertsForExport();
+            const exported = exportAlertsToCsv(rows, exportPrefix);
+            if (!exported) {
+                window.alert(
+                    'No records to export. Adjust your filters or refresh the data.'
+                );
+            }
+        } catch (err) {
+            console.error('CSV export failed:', err);
+            window.alert('Failed to export CSV file. Please try again.');
         }
-    }, [filteredAlerts, exportPrefix]);
+    }, [loadAlertsForExport, exportPrefix]);
 
     const exportToExcel = useCallback(async () => {
         try {
+            const rows = await loadAlertsForExport();
             const exported = await exportAlertsToExcel(
-                filteredAlerts,
+                rows,
                 exportPrefix,
                 'Call Logs'
             );
             if (!exported) {
-                window.alert('No records to export. Adjust your filters or refresh the data.');
+                window.alert(
+                    'No records to export. Adjust your filters or refresh the data.'
+                );
             }
         } catch (err) {
             console.error('Excel export failed:', err);
             window.alert('Failed to export Excel file. Please try again.');
         }
-    }, [filteredAlerts, exportPrefix]);
+    }, [loadAlertsForExport, exportPrefix]);
 
-    const refetch = useCallback(() => loadAlerts({ force: true }), [loadAlerts]);
+    const refetch = useCallback(() => loadAlerts(), [loadAlerts]);
 
     useEffect(() => {
         loadAlerts();
-    }, [loadAlerts]);
-
-    useEffect(() => {
-        const unsubscribe = subscribeAlertsCache<AlertLog[]>((data) => {
-            setAlerts(data);
-        });
-        return unsubscribe;
-    }, []);
+    }, [loadAlerts, filters.verification]);
 
     return {
         alerts,
         filteredAlerts,
         stats,
         filters,
+        pagination: { page, limit, total, totalPages },
         loading,
         isValidating,
         error,
         selectedAlert,
         setFilters,
         setSelectedAlert,
+        setPage,
+        setPageSize,
         refetch,
         deleteAlert,
         exportToExcel,

@@ -4,6 +4,20 @@ import { notifyAuthStatusChange } from '@/lib/auth-events'
 
 const API_BASE_URL = getClientApiBaseUrl()
 
+function parseCountFromResponse(data: unknown): number {
+    if (typeof data === 'number') return data;
+    if (!data || typeof data !== 'object') return 0;
+    const body = data as Record<string, unknown>;
+    const nested = body.data as Record<string, unknown> | undefined;
+    return Number(
+        body.count ??
+            body.total ??
+            nested?.count ??
+            nested?.total ??
+            0
+    );
+}
+
 interface LoginCredentials {
     username: string
     password: string
@@ -470,7 +484,7 @@ export class AuthService {
             }
 
             const data = await response.json()
-            return data.count || 0
+            return parseCountFromResponse(data)
         } catch (error) {
             console.error('Error fetching verified alerts count:', error)
             throw error
@@ -488,7 +502,7 @@ export class AuthService {
             }
 
             const data = await response.json()
-            return data.count || 0
+            return parseCountFromResponse(data)
         } catch (error) {
             console.error('Error fetching not-verified alerts count:', error)
             throw error

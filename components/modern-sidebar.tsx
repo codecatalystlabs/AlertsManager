@@ -22,6 +22,7 @@ import {
 	User,
 	PanelLeftClose,
 	PanelLeftOpen,
+	BarChart3,
 } from "lucide-react";
 import {
 	Collapsible,
@@ -62,6 +63,12 @@ const navigation: NavigationItem[] = [
 		href: "/dashboard/call-logs",
 		icon: Phone,
 		badge: "3",
+	},
+	{
+		name: "Summaries / Reports",
+		href: "/dashboard/reports",
+		icon: BarChart3,
+		badge: null,
 	},
 	{
 		name: "Upload CSV",
@@ -109,36 +116,17 @@ export function ModernSidebar({
 		setUser(userData);
 	}, []);
 
-	const applyCounts = (alertsData: { isVerified?: boolean }[]) => {
-		const verified = alertsData.filter(
-			(alert) => alert.isVerified === true
-		).length;
-		const notVerified = alertsData.filter(
-			(alert) => alert.isVerified === false
-		).length;
-		setAlertCounts({
-			verified,
-			notVerified,
-			total: alertsData.length,
-		});
-	};
-
 	useEffect(() => {
 		if (!AuthService.isAuthenticated()) return;
 
 		const loadCounts = async () => {
 			try {
-				const { fetchAllAlerts } = await import("@/lib/fetch-alerts");
-				const result = await fetchAllAlerts<
-					{ isVerified?: boolean }[]
-				>();
-				applyCounts(result.data);
-
-				if (result.revalidate) {
-					result.revalidate().then((fresh) => {
-						if (fresh) applyCounts(fresh);
-					});
-				}
+				const counts = await AuthService.fetchAlertCounts();
+				setAlertCounts({
+					verified: counts.verified,
+					notVerified: counts.notVerified,
+					total: counts.total,
+				});
 			} catch (error) {
 				console.error(
 					"Error fetching alert counts for sidebar:",
@@ -153,13 +141,6 @@ export function ModernSidebar({
 		};
 
 		loadCounts();
-
-		let unsubscribe: (() => void) | undefined;
-		import("@/lib/alerts-cache").then(({ subscribeAlertsCache }) => {
-			unsubscribe = subscribeAlertsCache(applyCounts);
-		});
-
-		return () => unsubscribe?.();
 	}, []);
 
 	useEffect(() => {
@@ -501,7 +482,7 @@ function SidebarContent({
 						))}
 
 						{collapsed ? (
-							navigation.slice(2, 5).map((item) => (
+							navigation.slice(2, 6).map((item) => (
 								<NavLink
 									key={item.name}
 									item={item}
@@ -532,7 +513,7 @@ function SidebarContent({
 									</Button>
 								</CollapsibleTrigger>
 								<CollapsibleContent className="space-y-1 ml-6 mt-1">
-									{navigation.slice(2, 5).map((item) => {
+									{navigation.slice(2, 6).map((item) => {
 										const isActive = pathname === item.href;
 										const badge = getBadgeValue(item);
 										return (

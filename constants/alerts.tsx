@@ -45,6 +45,12 @@ export const STATUS_OPTIONS = [
 	{ value: "Pending", label: "Pending" },
 ] as const;
 
+export const VERIFICATION_FILTER_OPTIONS = [
+	{ value: "all", label: "All Verification" },
+	{ value: "verified", label: "Verified" },
+	{ value: "pending", label: "Pending Verification" },
+] as const;
+
 export interface AlertsTableCallbacks {
 	onDelete: (alertId: number) => Promise<void>;
 	onView?: (alert: AlertType) => void;

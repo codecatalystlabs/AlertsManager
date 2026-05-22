@@ -2,6 +2,7 @@ import React, { memo, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { AlertLog } from "@/hooks/use-call-logs-data";
+import { LAYOUT } from "@/constants/layout";
 import {
 	CALL_LOGS_CONFIG,
 	createCallLogsTableColumns,
@@ -10,6 +11,13 @@ import {
 
 interface CallLogsTableProps {
 	alerts: AlertLog[];
+	totalCount: number;
+	page: number;
+	pageSize: number;
+	totalPages: number;
+	isLoading?: boolean;
+	onPageChange: (page: number) => void;
+	onPageSizeChange: (pageSize: number) => void;
 	onViewDetails: (alert: AlertLog) => void;
 	onEditAlert: (alert: AlertLog) => void;
 	onVerifyAlert: (alert: AlertLog) => void;
@@ -17,7 +25,20 @@ interface CallLogsTableProps {
 }
 
 export const CallLogsTable = memo<CallLogsTableProps>(
-	({ alerts, onViewDetails, onEditAlert, onVerifyAlert, onDeleteAlert }) => {
+	({
+		alerts,
+		totalCount,
+		page,
+		pageSize,
+		totalPages,
+		isLoading,
+		onPageChange,
+		onPageSizeChange,
+		onViewDetails,
+		onEditAlert,
+		onVerifyAlert,
+		onDeleteAlert,
+	}) => {
 		const callbacks: CallLogsTableCallbacks = useMemo(
 			() => ({
 				onViewDetails,
@@ -28,27 +49,32 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 			[onViewDetails, onEditAlert, onVerifyAlert, onDeleteAlert]
 		);
 
-		// console.log(alerts,"alerts");
-
 		const columns = useMemo(
 			() => createCallLogsTableColumns(callbacks),
 			[callbacks]
 		);
 
 		return (
-			<Card>
-				<CardHeader>
-					<CardTitle>
-						Alert Logs ({alerts.length} records)
+			<Card className={LAYOUT.card}>
+				<CardHeader className={LAYOUT.cardHeader}>
+					<CardTitle className={LAYOUT.cardTitle}>
+						Alert Logs ({totalCount.toLocaleString()})
 					</CardTitle>
 				</CardHeader>
-				<CardContent>
+				<CardContent className={LAYOUT.cardContent}>
 					<DataTable
 						columns={columns}
 						data={alerts}
 						searchKey="personReporting"
 						searchPlaceholder="Search reporters..."
-						pageSize={CALL_LOGS_CONFIG.ITEMS_PER_PAGE}
+						pageSize={pageSize}
+						manualPagination
+						pageCount={totalPages}
+						totalRowCount={totalCount}
+						pageIndex={page - 1}
+						onPageChange={(pageIndex) => onPageChange(pageIndex + 1)}
+						onPageSizeChange={onPageSizeChange}
+						isLoading={isLoading}
 					/>
 				</CardContent>
 			</Card>

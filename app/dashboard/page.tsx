@@ -1,18 +1,30 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import {
 	WelcomeSection,
 	ErrorAlert,
-	LoadingSpinner,
 	StatsGrid,
-	DashboardCharts,
 } from "@/components/dashboard";
 import { useDashboardData } from "@/hooks/use-dashboard-data";
-import { LOADING_MESSAGES } from "@/constants/dashboard";
+import { LAYOUT } from "@/constants/layout";
+
+const DashboardCharts = dynamic(
+	() =>
+		import("@/components/dashboard/dashboard-charts").then((m) => ({
+			default: m.DashboardCharts,
+		})),
+	{
+		ssr: false,
+		loading: () => (
+			<div className="h-56 animate-pulse rounded-lg border bg-muted/40" />
+		),
+	}
+);
 
 export default function DashboardPage(): JSX.Element {
-	const { data, loading, error, refetch } = useDashboardData();
+	const { data, loading, chartsLoading, error, refetch } = useDashboardData();
 	const [isRefreshing, setIsRefreshing] = useState(false);
 
 	const handleRefresh = useCallback(async () => {
@@ -28,15 +40,11 @@ export default function DashboardPage(): JSX.Element {
 		await handleRefresh();
 	}, [handleRefresh]);
 
-	if (loading) {
-		return <LoadingSpinner message={LOADING_MESSAGES.DASHBOARD} />;
-	}
-
 	return (
-		<div className="space-y-8">
+		<div className={LAYOUT.pageGap}>
 			<WelcomeSection
 				onRefresh={handleRefresh}
-				isRefreshing={isRefreshing}
+				isRefreshing={isRefreshing || loading}
 			/>
 
 			{error && (
@@ -53,7 +61,14 @@ export default function DashboardPage(): JSX.Element {
 				todayVerified={data.todayVerified}
 			/>
 
-			<DashboardCharts alerts={data.alerts} />
+			{chartsLoading ? (
+				<div className="grid gap-3 md:grid-cols-2">
+					<div className="h-56 animate-pulse rounded-lg border bg-muted/40" />
+					<div className="h-56 animate-pulse rounded-lg border bg-muted/40" />
+				</div>
+			) : (
+				<DashboardCharts alerts={data.alerts} />
+			)}
 		</div>
 	);
 }

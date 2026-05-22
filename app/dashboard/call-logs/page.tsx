@@ -11,12 +11,12 @@ import {
 	CallLogsFilters,
 	CallLogsTable,
 } from "@/components/call-logs";
-import { ErrorAlert, LoadingSpinner } from "@/components/dashboard";
+import { ErrorAlert } from "@/components/dashboard";
 import { AlertVerificationDialog } from "@/components/alert-verification-dialog";
 import { AlertDetailsDialog } from "@/components/alert-details-dialog";
 import { AlertEditDialog } from "@/components/alert-edit-dialog";
 import { useCallLogsData, type AlertLog } from "@/hooks/use-call-logs-data";
-import { LOADING_MESSAGES } from "@/constants/dashboard";
+import { LAYOUT } from "@/constants/layout";
 
 /**
  * Call Logs Page Component
@@ -38,16 +38,18 @@ import { LOADING_MESSAGES } from "@/constants/dashboard";
  */
 export default function CallLogsPage(): JSX.Element {
 	const {
-		alerts,
 		filteredAlerts,
 		stats,
 		filters,
+		pagination,
 		loading,
 		isValidating,
 		error,
 		selectedAlert,
 		setFilters,
 		setSelectedAlert,
+		setPage,
+		setPageSize,
 		refetch,
 		deleteAlert,
 		exportToExcel,
@@ -135,12 +137,8 @@ export default function CallLogsPage(): JSX.Element {
 		setSelectedAlert(null);
 	}, [setSelectedAlert]);
 
-	if (loading) {
-		return <LoadingSpinner message={LOADING_MESSAGES.CALL_LOGS} />;
-	}
-
 	return (
-		<div className="space-y-6">
+		<div className={LAYOUT.pageGap}>
 			<CallLogsHeader
 				onRefresh={handleRefresh}
 				onExportExcel={exportToExcel}
@@ -171,6 +169,13 @@ export default function CallLogsPage(): JSX.Element {
 			<div ref={tableSectionRef}>
 			<CallLogsTable
 				alerts={filteredAlerts}
+				totalCount={pagination.total}
+				page={pagination.page}
+				pageSize={pagination.limit}
+				totalPages={pagination.totalPages}
+				isLoading={loading || isValidating}
+				onPageChange={setPage}
+				onPageSizeChange={setPageSize}
 				onViewDetails={handleViewDetails}
 				onEditAlert={handleEditAlert}
 				onVerifyAlert={handleVerifyAlert}

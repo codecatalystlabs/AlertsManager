@@ -7,6 +7,7 @@ import {
 	type CallLogsFilterState,
 } from "@/constants/call-logs";
 import { cn } from "@/lib/utils";
+import { LAYOUT } from "@/constants/layout";
 
 interface CallLogsStatsProps {
 	stats: {
@@ -60,18 +61,15 @@ const StatCard = memo<StatCardProps>(
 			aria-pressed={isActive}
 			aria-label={`Filter table by ${title}`}
 		>
-			<CardContent className="p-6">
-				<div className="flex items-center">
-					<Icon className={`h-8 w-8 ${iconColor}`} />
-					<div className="ml-4">
-						<p className="text-sm font-medium text-gray-600">
+			<CardContent className="p-3">
+				<div className="flex items-center gap-2">
+					<Icon className={`h-6 w-6 shrink-0 ${iconColor}`} />
+					<div className="min-w-0">
+						<p className="text-xs font-medium text-gray-600">
 							{title}
 						</p>
-						<p className={`text-2xl font-bold ${textColor}`}>
+						<p className={`text-xl font-bold ${textColor}`}>
 							{value.toLocaleString()}
-						</p>
-						<p className="text-xs text-muted-foreground mt-1">
-							Click to view in table
 						</p>
 					</div>
 				</div>
@@ -134,7 +132,7 @@ export const CallLogsStats = memo<CallLogsStatsProps>(
 		];
 
 		return (
-			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+			<div className={LAYOUT.statsGrid}>
 				{statCards.map((card) => (
 					<StatCard
 						key={card.statKey}

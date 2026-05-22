@@ -19,14 +19,74 @@ class AlertsFetchError extends Error {
 	}
 }
 
-async function fetchAlertsFromApi<T>(): Promise<T> {
-	const apiBase = getClientApiBaseUrl();
+export interface AlertsListParams {
+	page?: number;
+	limit?: number;
+	district?: string;
+	is_verified?: boolean;
+}
+
+export interface PaginatedAlertsResult<T> {
+	data: T[];
+	page: number;
+	limit: number;
+	total: number;
+	totalPages: number;
+}
+
+function buildAlertsUrl(apiBase: string, params?: AlertsListParams): string {
+	const searchParams = new URLSearchParams();
+
+	if (params?.page !== undefined) {
+		searchParams.set("page", String(params.page));
+	}
+	if (params?.limit !== undefined) {
+		searchParams.set("limit", String(params.limit));
+	}
+	if (params?.district) {
+		searchParams.set("district", params.district);
+	}
+	if (params?.is_verified !== undefined) {
+		searchParams.set("is_verified", String(params.is_verified));
+	}
+
+	const query = searchParams.toString();
+	return query ? `${apiBase}/alerts?${query}` : `${apiBase}/alerts`;
+}
+
+function parsePaginatedAlertsResponse<T>(json: unknown): PaginatedAlertsResult<T> {
+	if (Array.isArray(json)) {
+		const data = json as T[];
+		return {
+			data,
+			page: 1,
+			limit: data.length,
+			total: data.length,
+			totalPages: 1,
+		};
+	}
+
+	const body = json as Record<string, unknown>;
+	const nested = body.pagination as Record<string, unknown> | undefined;
+	const data = (body.data ?? body.alerts ?? body.items ?? []) as T[];
+
+	const page = Number(body.page ?? nested?.page ?? 1) || 1;
+	const limit = Number(
+		body.limit ?? body.page_size ?? nested?.limit ?? nested?.page_size ?? data.length
+	) || data.length;
+	const total = Number(body.total ?? nested?.total ?? data.length) || data.length;
+	const totalPages =
+		Number(body.total_pages ?? nested?.total_pages) ||
+		(limit > 0 ? Math.max(1, Math.ceil(total / limit)) : 1);
+
+	return { data, page, limit, total, totalPages };
+}
+
+async function requestAlerts<T>(url: string): Promise<T> {
 	let response: Response;
 
 	try {
-		response = await AuthService.makeAuthenticatedRequest(
-			`${apiBase}/alerts`
-		);
+		response = await AuthService.makeAuthenticatedRequest(url);
 	} catch (error) {
 		if (error instanceof TypeError) {
 			throw new AlertsFetchError(
@@ -44,8 +104,39 @@ async function fetchAlertsFromApi<T>(): Promise<T> {
 		);
 	}
 
-	const data = await response.json();
-	return (Array.isArray(data) ? data : []) as T;
+	return response.json() as Promise<T>;
+}
+
+/** Load full list for dashboard/cache — uses pagination with a high limit when API wraps results. */
+async function fetchAlertsFromApi<T>(): Promise<T[]> {
+	const apiBase = getClientApiBaseUrl();
+	const json = await requestAlerts<unknown>(`${apiBase}/alerts`);
+
+	if (Array.isArray(json)) {
+		return json as T[];
+	}
+
+	const firstPage = parsePaginatedAlertsResponse<T>(json);
+	const total = firstPage.total;
+
+	if (total > firstPage.data.length && total > 0) {
+		const full = await fetchAlertsPage<T>({
+			page: 1,
+			limit: Math.min(total, 10_000),
+		});
+		return full.data;
+	}
+
+	return firstPage.data;
+}
+
+/** Paginated alerts list: GET /api/v1/alerts?page=1&limit=10&district=...&is_verified=... */
+export async function fetchAlertsPage<T>(
+	params: AlertsListParams = {}
+): Promise<PaginatedAlertsResult<T>> {
+	const apiBase = getClientApiBaseUrl();
+	const json = await requestAlerts<unknown>(buildAlertsUrl(apiBase, params));
+	return parsePaginatedAlertsResponse<T>(json);
 }
 
 function warnBackgroundRevalidate(error: unknown): void {
