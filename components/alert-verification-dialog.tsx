@@ -184,7 +184,6 @@ export function AlertVerificationDialog({
 	const [isGeneratingToken, setIsGeneratingToken] = useState(false);
 	const [isVerifying, setIsVerifying] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [success, setSuccess] = useState<string | null>(null);
 	const [vhfCaseCode, setVhfCaseCode] = useState<string | null>(null);
 	const [showVhfForm, setShowVhfForm] = useState(false);
 
@@ -258,7 +257,6 @@ export function AlertVerificationDialog({
 			});
 			setVerificationToken("");
 			setError(null);
-			setSuccess(null);
 
 			// Automatically generate token when dialog opens
 			generateTokenAutomatically();
@@ -434,22 +432,19 @@ export function AlertVerificationDialog({
 				caseCode: vhfCaseCode || "",
 			});
 
-			setSuccess("Alert verified successfully!");
-
-			// Show success toast
+			// Show success toast and close the dialog immediately —
+			// the toast is the confirmation, no need to linger on the form.
 			toast({
-				title: "✅ Verification Successful",
+				title: "Verification successful",
 				description: `Alert ALT${String(alert.id).padStart(
 					3,
 					"0"
-				)} has been verified successfully.`,
-				duration: 5000,
+				)} has been verified.`,
+				duration: 4000,
 			});
 
-			setTimeout(() => {
-				onVerificationComplete();
-				onClose();
-			}, 2000);
+			onVerificationComplete();
+			onClose();
 		} catch (err) {
 			const errorMessage =
 				err instanceof Error
@@ -494,15 +489,6 @@ export function AlertVerificationDialog({
 						<XCircleIcon className="h-4 w-4 text-red-600" />
 						<AlertDescription className="text-red-700">
 							{error}
-						</AlertDescription>
-					</Alert>
-				)}
-
-				{success && (
-					<Alert className="border-green-200 bg-green-50">
-						<CheckCircleIcon className="h-4 w-4 text-green-600" />
-						<AlertDescription className="text-green-700">
-							{success}
 						</AlertDescription>
 					</Alert>
 				)}
