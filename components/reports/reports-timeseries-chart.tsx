@@ -10,7 +10,6 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
 	ChartContainer,
 	ChartLegend,
@@ -19,8 +18,6 @@ import {
 	ChartTooltipContent,
 	type ChartConfig,
 } from "@/components/ui/chart";
-import { cn } from "@/lib/utils";
-import { LAYOUT } from "@/constants/layout";
 import type { ReportTimeseries } from "@/lib/fetch-reports";
 import {
 	exportTimeseriesToCsv,
@@ -28,8 +25,8 @@ import {
 	notifyExportEmpty,
 } from "@/lib/report-export";
 
-const SIGNALS_COLOR = "#2563eb";
-const ALERTS_COLOR = "#ca8a04";
+const SIGNALS_COLOR = "oklch(0.22 0.02 250)"; // ink
+const ALERTS_COLOR = "oklch(0.55 0.2 25)"; // accent-red
 
 const chartConfig: ChartConfig = {
 	signals: { label: "Signals", color: SIGNALS_COLOR },
@@ -77,63 +74,80 @@ export const ReportsTimeseriesChart = memo<ReportsTimeseriesChartProps>(
 		}, [timeseries]);
 
 		return (
-			<Card className={LAYOUT.card}>
-				<CardHeader className={cn(LAYOUT.cardHeader, "flex-row items-start justify-between gap-2 space-y-0")}>
-					<CardTitle className={LAYOUT.cardTitle}>
-						{timeseries?.title || "Signals & Alerts"}
-					</CardTitle>
-					<div className="flex shrink-0 gap-1">
+			<section className="animate-reveal [animation-delay:100ms] editorial-card">
+				<header className="px-6 py-5 flex items-start justify-between gap-3 border-b border-foreground/[0.08]">
+					<div>
+						<p className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-1">
+							A · Timeline
+						</p>
+						<h2 className="serif text-2xl font-medium tracking-tight text-foreground">
+							{timeseries?.title || "Signals & Alerts"}
+						</h2>
+					</div>
+					<div className="flex shrink-0 gap-2">
 						<Button
 							type="button"
-							variant="outline"
-							size="sm"
-							className="h-7 px-2 gap-1"
+							variant="ghost"
+							className="px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-sm gap-2 h-auto"
 							disabled={!hasData || isLoading}
 							onClick={handleExportCsv}
 							title="Export CSV"
 						>
-							<Download className="h-3 w-3" />
-							<span className="text-xs hidden sm:inline">CSV</span>
+							<Download className="h-3.5 w-3.5" strokeWidth={1.75} />
+							<span className="mono uppercase tracking-widest font-bold">
+								CSV
+							</span>
 						</Button>
 						<Button
 							type="button"
-							size="sm"
-							className="h-7 px-2 gap-1 bg-uganda-red hover:bg-uganda-red/90"
+							className="px-4 py-2 bg-foreground text-background text-xs font-medium hover:opacity-90 rounded-sm gap-2 h-auto"
 							disabled={!hasData || isLoading}
 							onClick={handleExportExcel}
 							title="Export Excel"
 						>
-							<FileSpreadsheet className="h-3 w-3" />
-							<span className="text-xs hidden sm:inline">Excel</span>
+							<FileSpreadsheet
+								className="h-3.5 w-3.5"
+								strokeWidth={1.75}
+							/>
+							<span className="mono uppercase tracking-widest font-bold">
+								Excel
+							</span>
 						</Button>
 					</div>
-				</CardHeader>
-				<CardContent className={cn(LAYOUT.cardContent, "pt-0")}>
+				</header>
+				<div className="px-6 py-6">
 					{isLoading ? (
-						<div className="h-[260px] animate-pulse rounded-md border bg-muted/40" />
+						<div className="h-[260px] animate-pulse bg-foreground/[0.04] rounded-sm" />
 					) : !hasData ? (
-						<div className="flex h-[260px] items-center justify-center rounded-md border border-dashed bg-muted/20 text-sm text-muted-foreground">
-							No timeseries data for this selection.
+						<div className="flex h-[260px] items-center justify-center text-center">
+							<p className="mono text-[10px] uppercase tracking-widest text-muted-foreground">
+								No timeseries data for this selection.
+							</p>
 						</div>
 					) : (
 						<ChartContainer
 							config={chartConfig}
-							className="aspect-auto h-[260px] w-full min-h-[240px]"
+							className="aspect-auto h-[280px] w-full min-h-[260px]"
 						>
 							<LineChart
 								data={data}
-								margin={{ top: 12, right: 16, left: 4, bottom: 8 }}
+								margin={{
+									top: 12,
+									right: 16,
+									left: 4,
+									bottom: 8,
+								}}
 							>
 								<CartesianGrid
 									strokeDasharray="3 3"
 									vertical={false}
-									className="stroke-slate-200"
+									stroke="oklch(0.22 0.02 250 / 0.06)"
 								/>
 								<XAxis
 									dataKey="date"
 									tickLine={false}
 									axisLine={false}
-									tick={{ fontSize: 10, fill: "#64748b" }}
+									tick={{ fontSize: 10 }}
 									interval="preserveStartEnd"
 									angle={-25}
 									textAnchor="end"
@@ -143,7 +157,7 @@ export const ReportsTimeseriesChart = memo<ReportsTimeseriesChartProps>(
 									tickLine={false}
 									axisLine={false}
 									width={36}
-									tick={{ fontSize: 10, fill: "#64748b" }}
+									tick={{ fontSize: 10 }}
 									allowDecimals={false}
 									domain={[0, "auto"]}
 								/>
@@ -161,9 +175,14 @@ export const ReportsTimeseriesChart = memo<ReportsTimeseriesChartProps>(
 									dataKey="signals"
 									name="Signals"
 									stroke={SIGNALS_COLOR}
-									strokeWidth={2}
-									dot={{ r: 4, fill: SIGNALS_COLOR, strokeWidth: 0 }}
-									activeDot={{ r: 6, fill: SIGNALS_COLOR }}
+									strokeWidth={1.5}
+									dot={false}
+									activeDot={{
+										r: 4,
+										fill: "oklch(0.82 0.17 85)",
+										stroke: SIGNALS_COLOR,
+										strokeWidth: 1,
+									}}
 									connectNulls
 									isAnimationActive={false}
 								/>
@@ -172,9 +191,14 @@ export const ReportsTimeseriesChart = memo<ReportsTimeseriesChartProps>(
 									dataKey="alerts"
 									name="Alerts"
 									stroke={ALERTS_COLOR}
-									strokeWidth={2}
-									dot={{ r: 4, fill: ALERTS_COLOR, strokeWidth: 0 }}
-									activeDot={{ r: 6, fill: ALERTS_COLOR }}
+									strokeWidth={1.5}
+									dot={false}
+									activeDot={{
+										r: 4,
+										fill: "oklch(0.82 0.17 85)",
+										stroke: ALERTS_COLOR,
+										strokeWidth: 1,
+									}}
 									connectNulls
 									isAnimationActive={false}
 								/>
@@ -182,12 +206,12 @@ export const ReportsTimeseriesChart = memo<ReportsTimeseriesChartProps>(
 						</ChartContainer>
 					)}
 					{hasData && !hasValues && (
-						<p className="mt-2 text-center text-xs text-muted-foreground">
+						<p className="mt-3 text-center mono text-[10px] uppercase tracking-widest text-muted-foreground">
 							All values are zero for this date range.
 						</p>
 					)}
-				</CardContent>
-			</Card>
+				</div>
+			</section>
 		);
 	}
 );

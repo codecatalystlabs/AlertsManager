@@ -19,6 +19,8 @@ interface AlertsStats {
     dead: number;
     unknown: number;
     total: number;
+    verified: number;
+    awaitingVerification: number;
 }
 
 interface AlertsPagination {
@@ -111,6 +113,17 @@ export const useAlertsData = (): UseAlertsDataReturn => {
     const [totalPages, setTotalPages] = useState(1);
     const [uniqueDistricts, setUniqueDistricts] = useState<string[]>([]);
     const [uniqueSources, setUniqueSources] = useState<string[]>([]);
+    // Counts computed across the full alert universe, not the paginated page.
+    const [backendCounts, setBackendCounts] = useState({
+        verified: 0,
+        notVerified: 0,
+        total: 0,
+    });
+    const [statusTotals, setStatusTotals] = useState({
+        alive: 0,
+        dead: 0,
+        unknown: 0,
+    });
 
     const filtersRef = useRef(filters);
     filtersRef.current = filters;
@@ -152,13 +165,80 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         return applyClientFilters(result.data, filtersRef.current);
     }, [limit]);
 
+    /**
+     * Counts across the entire alert universe.
+     *
+     * We try the dedicated `/alerts/verified/count` endpoints first; if they
+     * exist they're the cheapest source. But the Go backend's response shape
+     * has been inconsistent (sometimes 0 even when alerts exist), so we always
+     * fall back to tallying a single unpaginated fetch — that fetch is the
+     * authoritative source for status totals too, so verified/notVerified
+     * derived from it cannot drift from what the user sees in the table.
+     */
+    const loadFullCounts = useCallback(async () => {
+        try {
+            const [countsResult, allAlerts] = await Promise.allSettled([
+                AuthService.fetchAlertCounts(),
+                fetchAlertsPage<AlertType>({ page: 1, limit: 10_000 }).then(
+                    (r) => r.data
+                ),
+            ]);
+
+            const records =
+                allAlerts.status === 'fulfilled' ? allAlerts.value : [];
+
+            // Always tally from the actual records — never trust a count
+            // endpoint that disagrees with the data itself.
+            const verifiedFromRecords = records.filter(
+                (a) => a.isVerified
+            ).length;
+            const notVerifiedFromRecords = records.length - verifiedFromRecords;
+
+            // Prefer the dedicated endpoint only when it returned something
+            // non-zero AND the totals add up; otherwise use the record tally.
+            const trustEndpoint =
+                countsResult.status === 'fulfilled' &&
+                countsResult.value.total > 0 &&
+                countsResult.value.verified +
+                    countsResult.value.notVerified ===
+                    countsResult.value.total;
+
+            const verified = trustEndpoint
+                ? countsResult.value.verified
+                : verifiedFromRecords;
+            const notVerified = trustEndpoint
+                ? countsResult.value.notVerified
+                : notVerifiedFromRecords;
+            const totalFromCounts = trustEndpoint
+                ? countsResult.value.total
+                : records.length;
+
+            setBackendCounts({
+                verified,
+                notVerified,
+                total: totalFromCounts,
+            });
+
+            setStatusTotals({
+                alive: records.filter((a) => a.status === 'Alive').length,
+                dead: records.filter((a) => a.status === 'Dead').length,
+                unknown: records.filter(
+                    (a) => a.status === 'Unknown' || a.status === 'Pending'
+                ).length,
+            });
+        } catch (err) {
+            // Leave previous counts in place; surface but don't break the page.
+            console.error('Error fetching full alert counts:', err);
+        }
+    }, []);
+
     const deleteAlert = useCallback(
         async (alertId: number) => {
             try {
                 setDeletingId(alertId);
                 await AuthService.deleteAlert(alertId);
                 invalidateAlertsCache();
-                await loadAlerts();
+                await Promise.all([loadAlerts(), loadFullCounts()]);
             } catch (err) {
                 const errorMessage =
                     err instanceof Error ? err.message : 'Failed to delete alert';
@@ -169,7 +249,7 @@ export const useAlertsData = (): UseAlertsDataReturn => {
                 setDeletingId(null);
             }
         },
-        [loadAlerts]
+        [loadAlerts, loadFullCounts]
     );
 
     const setFilters = useCallback((newFilters: Partial<AlertsFilters>) => {
@@ -195,14 +275,15 @@ export const useAlertsData = (): UseAlertsDataReturn => {
     );
 
     const stats = useMemo((): AlertsStats => {
-        const alive = alerts.filter((alert) => alert.status === 'Alive').length;
-        const dead = alerts.filter((alert) => alert.status === 'Dead').length;
-        const unknown = alerts.filter(
-            (alert) => alert.status === 'Unknown' || alert.status === 'Pending'
-        ).length;
-
-        return { alive, dead, unknown, total: total || alerts.length };
-    }, [alerts, total]);
+        return {
+            alive: statusTotals.alive,
+            dead: statusTotals.dead,
+            unknown: statusTotals.unknown,
+            total: backendCounts.total || total || alerts.length,
+            verified: backendCounts.verified,
+            awaitingVerification: backendCounts.notVerified,
+        };
+    }, [statusTotals, backendCounts, total, alerts.length]);
 
     const exportPrefix = ALERTS_CONFIG.EXPORT_FILENAME_PREFIX;
 
@@ -236,11 +317,20 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         }
     }, [loadAlertsForExport, exportPrefix]);
 
-    const refetch = useCallback(() => loadAlerts(), [loadAlerts]);
+    const refetch = useCallback(
+        () => Promise.all([loadAlerts(), loadFullCounts()]).then(() => undefined),
+        [loadAlerts, loadFullCounts]
+    );
 
     useEffect(() => {
         loadAlerts();
     }, [loadAlerts, filters.district, filters.verification]);
+
+    // Counts come from a dedicated endpoint + an unpaginated fetch, so refresh
+    // them once on mount; subsequent refreshes go through `refetch`.
+    useEffect(() => {
+        loadFullCounts();
+    }, [loadFullCounts]);
 
     useEffect(() => {
         let cancelled = false;

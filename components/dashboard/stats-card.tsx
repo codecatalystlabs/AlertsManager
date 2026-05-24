@@ -1,98 +1,121 @@
-import React, { memo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { StatCardConfig } from '@/constants/dashboard';
-import { AlertCounts } from '@/app/dashboard/types';
-import { cn } from '@/lib/utils';
+import React, { memo } from "react";
+import { StatCardConfig, StatAccent } from "@/constants/dashboard";
+import { AlertCounts } from "@/app/dashboard/types";
+import { cn } from "@/lib/utils";
 
 interface StatsCardProps {
-  config: StatCardConfig;
-  data: AlertCounts & { todayAlerts: number; todayVerified: number; verificationRate: number };
-  onClick?: () => void;
-  className?: string;
+	config: StatCardConfig;
+	data: AlertCounts & {
+		todayAlerts: number;
+		todayVerified: number;
+		verificationRate: number;
+	};
+	onClick?: () => void;
+	className?: string;
 }
 
-export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, className }) => {
-  const { title, key, icon: Icon, gradient, iconBg, textColor, isPercentage } = config;
-  
-  const getValue = (): string => {
-    const value = data[key as keyof typeof data];
-    
-    if (key === 'verificationRate') {
-      return data.total > 0 ? `${Math.round((data.verified / data.total) * 100)}%` : '0%';
-    }
-    
-    if (isPercentage) {
-      return `${value}%`;
-    }
-    
-    return value.toLocaleString();
-  };
+const accentBar: Record<StatAccent, string> = {
+	red: "bg-accent-red",
+	yellow: "bg-accent-yellow",
+	green: "bg-accent-green",
+	neutral: "bg-foreground/30",
+};
 
-  const getSubText = (): string => {
-    switch (key) {
-      case 'verified':
-        return `${data.verified} of ${data.total} alerts`;
-      case 'notVerified':
-        return `${data.notVerified} of ${data.total} alerts`;
-      case 'total':
-        return `${data.verified} verified, ${data.notVerified} pending`;
-      case 'verificationRate':
-        return `${data.verified} of ${data.total} verified`;
-      default:
-        return '';
-    }
-  };
+const accentText: Record<StatAccent, string> = {
+	red: "text-accent-red",
+	yellow: "text-foreground",
+	green: "text-accent-green",
+	neutral: "text-muted-foreground",
+};
 
-  const getSubIcon = () => {
-    switch (key) {
-      case 'verified':
-        return Icon;
-      case 'notVerified':
-        return Icon;
-      case 'total':
-      case 'verificationRate':
-        return Icon;
-      default:
-        return Icon;
-    }
-  };
+export const StatsCard = memo<StatsCardProps>(
+	({ config, data, onClick, className }) => {
+		const { title, key, icon: Icon, accent, eyebrow, isPercentage } = config;
 
-  const SubIcon = getSubIcon();
+		const getValue = (): string => {
+			const value = data[key as keyof typeof data];
+			if (key === "verificationRate") {
+				return data.total > 0
+					? `${Math.round((data.verified / data.total) * 100)}`
+					: "0";
+			}
+			if (typeof value === "number") {
+				return value.toLocaleString();
+			}
+			return String(value);
+		};
 
-  return (
-    <Card
-      className={cn(
-        `bg-gradient-to-br ${gradient} border-opacity-50 hover:shadow-lg transition-all duration-300`,
-        onClick && 'cursor-pointer',
-        className
-      )}
-      onClick={onClick}
-    >
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <p className={cn('text-sm font-medium mb-1', textColor.replace('700', '600'))}>
-              {title}
-            </p>
-            <p className={cn('text-3xl font-bold', textColor)}>
-              {getValue()}
-            </p>
-            {getSubText() && (
-              <div className="flex items-center mt-2">
-                <SubIcon className={cn('h-4 w-4 mr-1', textColor.replace('700', '600'))} />
-                <span className={cn('text-xs', textColor.replace('700', '600'))}>
-                  {getSubText()}
-                </span>
-              </div>
-            )}
-          </div>
-          <div className={cn('h-16 w-16 rounded-2xl flex items-center justify-center shadow-lg', iconBg)}>
-            <Icon className="h-8 w-8 text-white" />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-});
+		const getSubText = (): string => {
+			switch (key) {
+				case "verified":
+					return `of ${data.total.toLocaleString()} alerts`;
+				case "notVerified":
+					return `of ${data.total.toLocaleString()} alerts`;
+				case "total":
+					return `${data.verified.toLocaleString()} verified · ${data.notVerified.toLocaleString()} pending`;
+				case "verificationRate":
+					return `${data.verified.toLocaleString()} of ${data.total.toLocaleString()} verified`;
+				case "todayAlerts":
+					return "Inflow over the last 24h";
+				case "todayVerified":
+					return "Cleared in the last 24h";
+				default:
+					return "";
+			}
+		};
 
-StatsCard.displayName = 'StatsCard';
+		return (
+			<button
+				type="button"
+				onClick={onClick}
+				className={cn(
+					"group relative w-full text-left bg-card px-6 py-7 transition-colors",
+					"hover:bg-foreground/[0.02] focus:outline-none focus-visible:ring-1 focus-visible:ring-foreground",
+					onClick && "cursor-pointer",
+					className
+				)}
+				aria-label={`${title}: ${getValue()}`}
+			>
+				<span
+					className={cn(
+						"absolute left-0 top-7 bottom-7 w-[2px] rounded-full",
+						accentBar[accent]
+					)}
+					aria-hidden="true"
+				/>
+				<div className="flex items-start justify-between gap-4 mb-5">
+					<p className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground">
+						{eyebrow}
+					</p>
+					<Icon
+						className={cn("h-4 w-4 shrink-0", accentText[accent])}
+						strokeWidth={1.75}
+					/>
+				</div>
+
+				<p className="text-xs font-medium text-foreground/80 mb-3">
+					{title}
+				</p>
+
+				<div className="flex items-baseline gap-1.5">
+					<span className="mono text-4xl font-medium tracking-tighter text-foreground tabular-nums leading-none">
+						{getValue()}
+					</span>
+					{isPercentage && (
+						<span className="mono text-lg text-muted-foreground">
+							%
+						</span>
+					)}
+				</div>
+
+				{getSubText() && (
+					<p className="mt-4 mono text-[10px] uppercase tracking-tight text-muted-foreground">
+						{getSubText()}
+					</p>
+				)}
+			</button>
+		);
+	}
+);
+
+StatsCard.displayName = "StatsCard";

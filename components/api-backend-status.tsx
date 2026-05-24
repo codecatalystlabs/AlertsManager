@@ -3,11 +3,18 @@
 import { cn } from "@/lib/utils";
 import { useApiBackendStatus } from "@/hooks/use-api-backend-status";
 
-const STATUS_STYLES = {
-	checking: "bg-amber-500",
-	online: "bg-green-500",
-	offline: "bg-red-500",
-	error: "bg-amber-500",
+const STATUS_DOT = {
+	checking: "bg-accent-yellow",
+	online: "bg-accent-green",
+	offline: "bg-accent-red",
+	error: "bg-accent-yellow",
+} as const;
+
+const STATUS_TEXT = {
+	checking: "text-muted-foreground",
+	online: "text-foreground",
+	offline: "text-accent-red",
+	error: "text-foreground",
 } as const;
 
 export function ApiBackendStatus() {
@@ -15,17 +22,24 @@ export function ApiBackendStatus() {
 
 	return (
 		<div
-			className="hidden sm:flex sm:items-center sm:space-x-2"
+			className="hidden sm:flex sm:items-center gap-2"
 			title={detail}
 		>
 			<div
 				className={cn(
-					"h-2 w-2 rounded-full",
-					STATUS_STYLES[status],
-					status === "checking" && "animate-pulse"
+					"h-1.5 w-1.5 rounded-full",
+					STATUS_DOT[status],
+					status === "checking" && "animate-pulse-soft"
 				)}
 			/>
-			<span className="text-sm text-gray-700">{label}</span>
+			<span
+				className={cn(
+					"mono text-[10px] uppercase tracking-widest font-bold",
+					STATUS_TEXT[status]
+				)}
+			>
+				{label}
+			</span>
 		</div>
 	);
 }

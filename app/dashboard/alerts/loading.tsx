@@ -1,3 +1,5 @@
+import { LoadingSpinner } from "@/components/dashboard/loading-spinner";
+
 export default function Loading() {
-  return null
+	return <LoadingSpinner message="Loading alerts…" />;
 }

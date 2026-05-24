@@ -328,6 +328,77 @@ export class AuthService {
         }
     }
 
+    static async updateUser(
+        userId: number,
+        userData: {
+            username?: string
+            firstName?: string
+            lastName?: string
+            otherName?: string
+            email?: string
+            affiliation?: string
+            userType?: string
+            level?: string
+            password?: string
+        }
+    ): Promise<User> {
+        try {
+            // Strip empty optional values so we don't overwrite with blanks.
+            const payload: Record<string, string> = {}
+            for (const [k, v] of Object.entries(userData)) {
+                if (v !== undefined && v !== null && v !== '') payload[k] = v
+            }
+
+            const response = await this.makeAuthenticatedRequest(
+                `${API_BASE_URL}/users/${userId}`,
+                {
+                    method: 'PUT',
+                    body: JSON.stringify(payload),
+                }
+            )
+
+            if (!response.ok) {
+                let errorMessage = 'Failed to update user'
+                try {
+                    const errorData = await response.json()
+                    errorMessage = errorData.message || errorMessage
+                } catch {
+                    errorMessage = response.statusText || errorMessage
+                }
+                throw new Error(errorMessage)
+            }
+
+            const updated = await response.json()
+            return updated
+        } catch (error) {
+            console.error('Error updating user:', error)
+            throw error
+        }
+    }
+
+    static async deleteUser(userId: number): Promise<void> {
+        try {
+            const response = await this.makeAuthenticatedRequest(
+                `${API_BASE_URL}/users/${userId}`,
+                { method: 'DELETE' }
+            )
+
+            if (!response.ok) {
+                let errorMessage = 'Failed to delete user'
+                try {
+                    const errorData = await response.json()
+                    errorMessage = errorData.message || errorMessage
+                } catch {
+                    errorMessage = response.statusText || errorMessage
+                }
+                throw new Error(errorMessage)
+            }
+        } catch (error) {
+            console.error('Error deleting user:', error)
+            throw error
+        }
+    }
+
     // Alert Management Methods
     static async createAlert(alertData: Partial<Alert>): Promise<Alert> {
         try {

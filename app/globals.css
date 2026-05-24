@@ -2,93 +2,205 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+@layer base {
+	:root {
+		/* Editorial Public Health palette (oklch). */
+		--background: 0.985 0.008 90; /* warm paper */
+		--foreground: 0.22 0.02 250; /* near-black ink */
+		--card: 1 0 0;
+		--card-foreground: 0.22 0.02 250;
+		--popover: 1 0 0;
+		--popover-foreground: 0.22 0.02 250;
+		--primary: 0.22 0.02 250;
+		--primary-foreground: 0.985 0.008 90;
+		--secondary: 0.96 0.01 90;
+		--secondary-foreground: 0.22 0.02 250;
+		--muted: 0.96 0.01 90;
+		--muted-foreground: 0.45 0.02 250;
+		--accent: 0.96 0.01 90;
+		--accent-foreground: 0.22 0.02 250;
+		--destructive: 0.55 0.2 25;
+		--destructive-foreground: 0.985 0.008 90;
+		--border: 0.22 0.02 250;
+		--border-alpha: 0.08;
+		--input: 0.22 0.02 250;
+		--ring: 0.22 0.02 250;
+
+		--accent-red: 0.55 0.2 25;
+		--accent-yellow: 0.82 0.17 85;
+		--accent-green: 0.5 0.12 155;
+
+		--chart-1: 0.55 0.2 25;
+		--chart-2: 0.82 0.17 85;
+		--chart-3: 0.5 0.12 155;
+		--chart-4: 0.45 0.02 250;
+		--chart-5: 0.65 0.12 50;
+
+		--radius: 0.5rem;
+
+		--sidebar-background: 0.985 0.008 90;
+		--sidebar-foreground: 0.22 0.02 250;
+		--sidebar-primary: 0.22 0.02 250;
+		--sidebar-primary-foreground: 0.985 0.008 90;
+		--sidebar-accent: 0.96 0.01 90;
+		--sidebar-accent-foreground: 0.22 0.02 250;
+		--sidebar-border: 0.22 0.02 250;
+		--sidebar-ring: 0.22 0.02 250;
+	}
+
+	.dark {
+		/* Warm ink-on-paper, inverted. The background is a soft near-black
+		   with a hint of warmth so the accent palette still feels editorial. */
+		--background: 0.17 0.01 60; /* warm near-black */
+		--foreground: 0.96 0.008 90; /* warm paper text */
+		--card: 0.21 0.012 60;
+		--card-foreground: 0.96 0.008 90;
+		--popover: 0.21 0.012 60;
+		--popover-foreground: 0.96 0.008 90;
+		--primary: 0.96 0.008 90;
+		--primary-foreground: 0.17 0.01 60;
+		--secondary: 0.26 0.012 60;
+		--secondary-foreground: 0.96 0.008 90;
+		--muted: 0.26 0.012 60;
+		--muted-foreground: 0.7 0.015 80;
+		--accent: 0.26 0.012 60;
+		--accent-foreground: 0.96 0.008 90;
+		--destructive: 0.6 0.2 25;
+		--destructive-foreground: 0.96 0.008 90;
+		--border: 0.96 0.008 90;
+		--border-alpha: 0.12;
+		--input: 0.96 0.008 90;
+		--ring: 0.96 0.008 90;
+
+		/* Accent palette stays in the same hue family — slightly raised
+		   lightness so the chips read against the darker surface. */
+		--accent-red: 0.62 0.2 25;
+		--accent-yellow: 0.85 0.17 85;
+		--accent-green: 0.58 0.12 155;
+
+		--chart-1: 0.62 0.2 25;
+		--chart-2: 0.85 0.17 85;
+		--chart-3: 0.58 0.12 155;
+		--chart-4: 0.7 0.015 80;
+		--chart-5: 0.7 0.12 50;
+	}
+}
+
+@layer base {
+	html {
+		font-family: "Inter", system-ui, -apple-system, sans-serif;
+		font-feature-settings: "ss01", "cv11";
+		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizeLegibility;
+	}
+	body {
+		@apply bg-background text-foreground;
+		font-family: "Inter", system-ui, -apple-system, sans-serif;
+	}
+	* {
+		border-color: oklch(var(--border) / var(--border-alpha));
+	}
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+	.serif {
+		font-family: "Instrument Serif", "Times New Roman", Georgia, serif;
+		font-feature-settings: "liga", "kern";
+		letter-spacing: -0.01em;
+	}
+	.mono {
+		font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+		font-feature-settings: "ss01", "cv01";
+	}
+	.text-balance {
+		text-wrap: balance;
+	}
+	.text-pretty {
+		text-wrap: pretty;
+	}
+	.label-eyebrow {
+		font-size: 10px;
+		text-transform: uppercase;
+		letter-spacing: 0.14em;
+		font-weight: 700;
+		color: oklch(var(--muted-foreground));
+	}
+	.divider-hairline {
+		border-top: 1px solid oklch(var(--foreground) / 0.08);
+	}
 }
 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-  .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
+@layer components {
+	.editorial-card {
+		background-color: oklch(var(--card));
+		border: 1px solid oklch(var(--foreground) / 0.08);
+		border-radius: 0.5rem;
+	}
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+/* Subtle entrance animation used across pages. */
+@keyframes reveal {
+	from {
+		opacity: 0;
+		transform: translateY(12px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.animate-reveal {
+	animation: reveal 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes pulse-soft {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.45;
+	}
+}
+
+.animate-pulse-soft {
+	animation: pulse-soft 2.4s ease-in-out infinite;
+}
+
+/* Editorial loader bar — three accent stripes sweep through a hairline track. */
+@keyframes loader-sweep {
+	0% {
+		transform: translateX(-110%);
+	}
+	100% {
+		transform: translateX(440%);
+	}
+}
+
+.loader-bar-red {
+	animation: loader-sweep 2.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+	animation-delay: 0s;
+}
+.loader-bar-yellow {
+	animation: loader-sweep 2.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+	animation-delay: 0.35s;
+}
+.loader-bar-green {
+	animation: loader-sweep 2.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+	animation-delay: 0.7s;
+}
+
+/* Recharts axis polish. */
+.recharts-cartesian-axis-tick-value {
+	font-family: "JetBrains Mono", ui-monospace, monospace;
+	font-size: 10px;
+	letter-spacing: -0.02em;
+	fill: oklch(var(--muted-foreground));
+}
+
+.recharts-cartesian-grid line {
+	stroke: oklch(var(--foreground) / 0.06);
 }

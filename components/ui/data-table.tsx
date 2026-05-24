@@ -141,7 +141,7 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="w-full">
-      <div className="flex items-center py-2">
+      <div className="flex items-center gap-3 mb-5">
         {searchKey && (
           <Input
             placeholder={searchPlaceholder}
@@ -150,13 +150,13 @@ export function DataTable<TData, TValue>({
               table.getColumn(searchKey)?.setFilterValue(event.target.value)
               table.setPageIndex(0)
             }}
-            className="max-w-sm"
+            className="max-w-sm h-9 text-xs bg-card border border-foreground/10 rounded-sm hover:border-foreground/30 focus:border-foreground/60 focus-visible:ring-0 focus-visible:ring-offset-0"
           />
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto">
-              Columns <ChevronDown className="ml-2 h-4 w-4" />
+            <Button variant="ghost" className="ml-auto h-9 px-3 mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground hover:text-foreground hover:bg-foreground/5 border border-foreground/10 rounded-sm">
+              Columns <ChevronDown className="ml-2 h-3 w-3" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -178,7 +178,7 @@ export function DataTable<TData, TValue>({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="rounded-md border">
+      <div className="rounded-sm border border-foreground/[0.08] overflow-hidden">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -196,8 +196,19 @@ export function DataTable<TData, TValue>({
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  Loading...
+                <TableCell colSpan={columns.length} className="h-48 text-center">
+                  <div className="flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="relative h-[3px] w-40 overflow-hidden rounded-full bg-foreground/[0.06]">
+                        <span className="loader-bar-red absolute top-0 h-full w-1/3 rounded-full bg-accent-red" />
+                        <span className="loader-bar-yellow absolute top-0 h-full w-1/4 rounded-full bg-accent-yellow" />
+                        <span className="loader-bar-green absolute top-0 h-full w-1/5 rounded-full bg-accent-green" />
+                      </div>
+                      <p className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground">
+                        Loading records…
+                      </p>
+                    </div>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : pageRows.length ? (
@@ -211,18 +222,20 @@ export function DataTable<TData, TValue>({
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results.
+                  <p className="mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                    No results
+                  </p>
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
-      <div className="flex flex-col gap-2 border-t bg-muted/30 px-2 py-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">
-          Showing {startRow}–{endRow} of {filteredCount} row(s)
+      <div className="flex flex-col gap-3 mt-5 sm:flex-row sm:items-center sm:justify-between">
+        <p className="mono text-[10px] uppercase tracking-widest text-muted-foreground tabular-nums">
+          Showing {startRow}–{endRow} of {filteredCount}
           {pageCount > 0 && (
-            <span className="ml-1">
+            <span className="ml-2 text-foreground/60">
               · Page {currentPage + 1} of {pageCount}
             </span>
           )}
@@ -275,7 +288,7 @@ export function DataTable<TData, TValue>({
                   size="icon"
                   className={cn(
                     "h-8 w-8",
-                    page === currentPage && "bg-uganda-red hover:bg-uganda-red/90"
+                    page === currentPage && "bg-foreground text-background hover:opacity-90 rounded-sm mono"
                   )}
                   onClick={() => table.setPageIndex(page)}
                   aria-label={`Go to page ${page + 1}`}

@@ -7,9 +7,9 @@ import {
 	Edit,
 	Trash2,
 	Loader2,
+	Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -29,6 +29,7 @@ import {
 	AlertDialogTitle,
 	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 
 export const ALERTS_CONFIG = {
 	PAGE_TITLE: "Alerts Management",
@@ -58,95 +59,135 @@ export interface AlertsTableCallbacks {
 	deletingId: number | null;
 }
 
+function SortHeader({
+	children,
+	onClick,
+}: {
+	children: React.ReactNode;
+	onClick: () => void;
+}) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className="inline-flex items-center gap-1.5 mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground hover:text-foreground transition-colors"
+		>
+			{children}
+			<ArrowUpDown className="h-3 w-3" strokeWidth={1.75} />
+		</button>
+	);
+}
+
+function StatusChip({
+	label,
+	accent,
+}: {
+	label: string;
+	accent: "green" | "red" | "yellow" | "neutral";
+}) {
+	const dot = {
+		green: "bg-accent-green",
+		red: "bg-accent-red",
+		yellow: "bg-accent-yellow",
+		neutral: "bg-foreground/30",
+	}[accent];
+	const text = {
+		green: "text-accent-green",
+		red: "text-accent-red",
+		yellow: "text-foreground",
+		neutral: "text-muted-foreground",
+	}[accent];
+	return (
+		<span className="inline-flex items-center gap-2 whitespace-nowrap">
+			<span className={cn("h-1.5 w-1.5 rounded-full shrink-0", dot)} />
+			<span
+				className={cn(
+					"mono text-[10px] uppercase tracking-widest font-bold",
+					text
+				)}
+			>
+				{label}
+			</span>
+		</span>
+	);
+}
+
+function statusAccent(status: string): "green" | "red" | "yellow" | "neutral" {
+	switch ((status ?? "").toLowerCase()) {
+		case "alive":
+			return "green";
+		case "dead":
+			return "red";
+		case "pending":
+		case "unknown":
+			return "yellow";
+		default:
+			return "neutral";
+	}
+}
+
 export const createAlertsTableColumns = (
 	callbacks: AlertsTableCallbacks
 ): ColumnDef<AlertType>[] => [
 	{
 		accessorKey: "id",
-		header: ({ column }) => {
-			return (
-				<Button
-					variant="ghost"
-					className="hover:bg-uganda-yellow/10"
-					onClick={() =>
-						column.toggleSorting(
-							column.getIsSorted() === "asc"
-						)
-					}
-				>
-					Alert ID
-					<ArrowUpDown className="ml-2 h-4 w-4" />
-				</Button>
-			);
-		},
-		cell: ({ row }) => {
-			return (
-				<div className="font-mono text-sm">
-					ALT{String(row.getValue("id")).padStart(3, "0")}
-				</div>
-			);
-		},
+		header: ({ column }) => (
+			<SortHeader
+				onClick={() =>
+					column.toggleSorting(column.getIsSorted() === "asc")
+				}
+			>
+				Alert ID
+			</SortHeader>
+		),
+		cell: ({ row }) => (
+			<div className="mono text-[11px] tracking-tight text-foreground tabular-nums">
+				ALT{String(row.getValue("id")).padStart(3, "0")}
+			</div>
+		),
+		size: 90,
 	},
 	{
 		accessorKey: "status",
-		header: ({ column }) => {
-			return (
-				<Button
-					variant="ghost"
-					onClick={() =>
-						column.toggleSorting(
-							column.getIsSorted() === "asc"
-						)
-					}
-					className="hover:bg-uganda-yellow/10"
-				>
-					Status
-					<ArrowUpDown className="ml-2 h-4 w-4" />
-				</Button>
-			);
-		},
+		header: ({ column }) => (
+			<SortHeader
+				onClick={() =>
+					column.toggleSorting(column.getIsSorted() === "asc")
+				}
+			>
+				Status
+			</SortHeader>
+		),
 		cell: ({ row }) => {
-			const status = row.getValue("status") as string;
-			return (
-				<Badge
-					variant="secondary"
-					className={
-						status === "Alive"
-							? "bg-green-100 text-green-800 hover:bg-green-200"
-							: status === "Dead"
-							? "bg-red-100 text-red-800 hover:bg-red-200"
-							: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-					}
-				>
-					{status}
-				</Badge>
-			);
+			const status = (row.getValue("status") as string) || "—";
+			return <StatusChip label={status} accent={statusAccent(status)} />;
 		},
+		size: 110,
 	},
 	{
 		accessorKey: "date",
-		header: ({ column }) => {
-			return (
-				<Button
-					variant="ghost"
-					onClick={() =>
-						column.toggleSorting(
-							column.getIsSorted() === "asc"
-						)
-					}
-					className="hover:bg-uganda-yellow/10"
-				>
-					Date
-					<ArrowUpDown className="ml-2 h-4 w-4" />
-				</Button>
-			);
-		},
+		header: ({ column }) => (
+			<SortHeader
+				onClick={() =>
+					column.toggleSorting(column.getIsSorted() === "asc")
+				}
+			>
+				Date
+			</SortHeader>
+		),
 		cell: ({ row }) => {
 			const date = new Date(row.getValue("date"));
 			return (
-				<div className="text-sm"> {date.toLocaleDateString()} </div>
+				<div className="mono text-xs text-foreground/80 tabular-nums whitespace-nowrap">
+					{date.toLocaleDateString("en-GB", {
+						day: "2-digit",
+						month: "short",
+						year: "numeric",
+					})}
+				</div>
 			);
 		},
+		size: 110,
 	},
 	{
 		accessorKey: "time",
@@ -154,11 +195,15 @@ export const createAlertsTableColumns = (
 		cell: ({ row }) => {
 			const time = new Date(row.getValue("time"));
 			return (
-				<div className="font-mono text-sm">
-					{time.toLocaleTimeString()}
+				<div className="mono text-xs text-foreground/80 tabular-nums whitespace-nowrap">
+					{time.toLocaleTimeString([], {
+						hour: "2-digit",
+						minute: "2-digit",
+					})}
 				</div>
 			);
 		},
+		size: 80,
 	},
 	{
 		accessorKey: "personReporting",
@@ -166,26 +211,27 @@ export const createAlertsTableColumns = (
 		cell: ({ row }) => {
 			const reporter = row.getValue("personReporting") as string;
 			return (
-				<div className="font-medium">
-					{reporter || "Not specified"}
+				<div className="font-medium text-sm text-foreground truncate max-w-[180px]">
+					{reporter || (
+						<span className="text-muted-foreground/50">—</span>
+					)}
 				</div>
 			);
 		},
+		size: 180,
 	},
 	{
 		accessorKey: "sourceOfAlert",
-		header: "Source of Alert",
+		header: "Source",
 		cell: ({ row }) => {
-			const source = row.getValue("sourceOfAlert") as string;
+			const source = (row.getValue("sourceOfAlert") as string) || "—";
 			return (
-				<Badge
-					variant="outline"
-					className="border-uganda-blue text-uganda-blue"
-				>
+				<div className="text-xs text-foreground/80 whitespace-nowrap">
 					{source}
-				</Badge>
+				</div>
 			);
 		},
+		size: 140,
 	},
 	{
 		accessorKey: "alertCaseDistrict",
@@ -193,59 +239,59 @@ export const createAlertsTableColumns = (
 		cell: ({ row }) => {
 			const district = row.getValue("alertCaseDistrict") as string;
 			return (
-				<div className="text-sm">
-					{" "}
-					{district || "Not specified"}
+				<div className="text-sm text-foreground/80 whitespace-nowrap">
+					{district || (
+						<span className="text-muted-foreground/50">—</span>
+					)}
 				</div>
 			);
 		},
+		size: 120,
 	},
 	{
 		accessorKey: "contactNumber",
-		header: "Contact Number",
+		header: "Contact",
 		cell: ({ row }) => {
 			const contact = row.getValue("contactNumber") as string;
 			return (
-				<div className="font-mono text-sm">
-					{contact || "Not provided"}
+				<div className="mono text-xs text-foreground/80 tabular-nums whitespace-nowrap">
+					{contact || (
+						<span className="text-muted-foreground/50">—</span>
+					)}
 				</div>
 			);
 		},
+		size: 130,
 	},
 	{
 		accessorKey: "alertCaseName",
-		header: ({ column }) => {
-			return (
-				<Button
-					variant="ghost"
-					onClick={() =>
-						column.toggleSorting(
-							column.getIsSorted() === "asc"
-						)
-					}
-					className="hover:bg-uganda-yellow/10"
-				>
-					Alert Case Name
-					<ArrowUpDown className="ml-2 h-4 w-4" />
-				</Button>
-			);
-		},
-		cell: ({ row }) => {
-			return (
-				<div className="font-medium">
-					{row.getValue("alertCaseName")}
-				</div>
-			);
-		},
+		header: ({ column }) => (
+			<SortHeader
+				onClick={() =>
+					column.toggleSorting(column.getIsSorted() === "asc")
+				}
+			>
+				Case name
+			</SortHeader>
+		),
+		cell: ({ row }) => (
+			<div className="font-medium text-sm text-foreground truncate max-w-[200px]">
+				{row.getValue("alertCaseName") || (
+					<span className="text-muted-foreground/50">—</span>
+				)}
+			</div>
+		),
+		size: 200,
 	},
 	{
 		accessorKey: "alertCaseAge",
 		header: "Age",
 		cell: ({ row }) => (
-			<div className="text-center">
-				{row.getValue("alertCaseAge")} years
+			<div className="mono text-xs text-foreground/80 tabular-nums whitespace-nowrap">
+				{row.getValue("alertCaseAge")} <span className="text-muted-foreground">yr</span>
 			</div>
 		),
+		size: 70,
 	},
 	{
 		accessorKey: "alertCaseSex",
@@ -253,18 +299,12 @@ export const createAlertsTableColumns = (
 		cell: ({ row }) => {
 			const sex = row.getValue("alertCaseSex") as string;
 			return (
-				<Badge
-					variant="outline"
-					className={
-						sex === "Male"
-							? "bg-blue-50 text-blue-700"
-							: "bg-pink-50 text-pink-700"
-					}
-				>
-					{sex}
-				</Badge>
+				<span className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground">
+					{sex === "Male" ? "M" : sex === "Female" ? "F" : "—"}
+				</span>
 			);
 		},
+		size: 60,
 	},
 	{
 		accessorKey: "isVerified",
@@ -272,129 +312,150 @@ export const createAlertsTableColumns = (
 		cell: ({ row }) => {
 			const isVerified = row.getValue("isVerified") as boolean;
 			return (
-				<Badge
-					variant={isVerified ? "default" : "destructive"}
-					className={
-						isVerified
-							? "bg-green-100 text-green-800"
-							: "bg-yellow-100 text-yellow-800"
-					}
-				>
-					{isVerified ? "Yes" : "Pending"}
-				</Badge>
+				<StatusChip
+					label={isVerified ? "Verified" : "Pending"}
+					accent={isVerified ? "green" : "yellow"}
+				/>
 			);
 		},
+		size: 110,
 	},
 	{
 		id: "actions",
-		header: "Actions",
+		header: () => (
+			<span className="sr-only">Actions</span>
+		),
 		cell: ({ row }) => {
 			const alert = row.original;
-
 			return (
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
+				<div className="flex items-center justify-end gap-1">
+					{callbacks.onView && (
 						<Button
 							variant="ghost"
-							className="h-8 w-8 p-0 hover:bg-uganda-yellow/10"
+							size="sm"
+							onClick={() => callbacks.onView!(alert)}
+							className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-sm"
+							aria-label="View details"
+							title="View details"
 						>
-							<span className="sr-only"> Open menu </span>
-							<MoreHorizontal className="h-4 w-4" />
+							<Eye className="h-3.5 w-3.5" strokeWidth={1.75} />
 						</Button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end">
-						<DropdownMenuLabel>Actions </DropdownMenuLabel>
-						<DropdownMenuItem
-							onClick={() =>
-								navigator.clipboard.writeText(
-									alert.id?.toString() || ""
-								)
-							}
+					)}
+					{callbacks.onEdit && (
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={() => callbacks.onEdit!(alert)}
+							className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-sm"
+							aria-label="Edit alert"
+							title="Edit alert"
 						>
-							Copy Alert ID
-						</DropdownMenuItem>
-						<DropdownMenuSeparator />
-						{callbacks.onView && (
-							<DropdownMenuItem
-								className="flex items-center gap-2"
-								onClick={() => callbacks.onView!(alert)}
+							<Edit className="h-3.5 w-3.5" strokeWidth={1.75} />
+						</Button>
+					)}
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button
+								variant="ghost"
+								size="sm"
+								className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-sm"
+								aria-label="More actions"
 							>
-								<Eye className="h-4 w-4" />
-								View Details
-							</DropdownMenuItem>
-						)}
-						{callbacks.onEdit && (
+								<MoreHorizontal
+									className="h-4 w-4"
+									strokeWidth={1.75}
+								/>
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent
+							align="end"
+							className="rounded-sm w-48"
+						>
+							<DropdownMenuLabel className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground">
+								Actions
+							</DropdownMenuLabel>
+							<DropdownMenuSeparator />
 							<DropdownMenuItem
-								className="flex items-center gap-2"
-								onClick={() => callbacks.onEdit!(alert)}
+								onClick={() =>
+									navigator.clipboard.writeText(
+										alert.id?.toString() || ""
+									)
+								}
+								className="text-sm gap-2 rounded-sm"
 							>
-								<Edit className="h-4 w-4" />
-								Edit Alert
+								<Copy
+									className="h-3.5 w-3.5"
+									strokeWidth={1.75}
+								/>
+								Copy alert ID
 							</DropdownMenuItem>
-						)}
-						<DropdownMenuSeparator />
-						<AlertDialog>
-							<AlertDialogTrigger asChild>
-								<DropdownMenuItem
-									className="flex items-center gap-2 text-red-600 focus:text-red-600"
-									onSelect={(e) =>
-										e.preventDefault()
-									}
-								>
-									<Trash2 className="h-4 w-4" />
-									Delete Alert
-								</DropdownMenuItem>
-							</AlertDialogTrigger>
-							<AlertDialogContent>
-								<AlertDialogHeader>
-									<AlertDialogTitle>
-										Are you absolutely sure ?{" "}
-									</AlertDialogTitle>
-									<AlertDialogDescription>
-										This action cannot be
-										undone.This will permanently
-										delete the alert ALT
-										{String(alert.id).padStart(
-											3,
-											"0"
-										)}{" "}
-										and remove it from our
-										servers.
-									</AlertDialogDescription>
-								</AlertDialogHeader>
-								<AlertDialogFooter>
-									<AlertDialogCancel>
-										Cancel{" "}
-									</AlertDialogCancel>
-									<AlertDialogAction
-										onClick={() =>
-											alert.id &&
-											callbacks.onDelete(
-												alert.id
-											)
-										}
-										className="bg-red-600 hover:bg-red-700"
-										disabled={
-											callbacks.deletingId ===
-											alert.id
-										}
+							<DropdownMenuSeparator />
+							<AlertDialog>
+								<AlertDialogTrigger asChild>
+									<DropdownMenuItem
+										className="text-sm gap-2 rounded-sm text-accent-red focus:text-accent-red"
+										onSelect={(e) => e.preventDefault()}
 									>
-										{callbacks.deletingId ===
-										alert.id ? (
-											<>
-												<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-												Deleting...
-											</>
-										) : (
-											"Delete Alert"
-										)}
-									</AlertDialogAction>
-								</AlertDialogFooter>
-							</AlertDialogContent>
-						</AlertDialog>
-					</DropdownMenuContent>
-				</DropdownMenu>
+										<Trash2
+											className="h-3.5 w-3.5"
+											strokeWidth={1.75}
+										/>
+										Delete alert
+									</DropdownMenuItem>
+								</AlertDialogTrigger>
+								<AlertDialogContent className="rounded-sm">
+									<AlertDialogHeader>
+										<p className="mono text-[10px] uppercase tracking-widest font-bold text-accent-red mb-1">
+											Irreversible
+										</p>
+										<AlertDialogTitle className="serif text-2xl font-medium tracking-tight">
+											Delete alert ALT
+											{String(alert.id).padStart(
+												3,
+												"0"
+											)}
+											?
+										</AlertDialogTitle>
+										<AlertDialogDescription className="text-sm text-muted-foreground leading-relaxed">
+											This permanently removes the
+											alert from the surveillance
+											system. This action cannot be
+											undone.
+										</AlertDialogDescription>
+									</AlertDialogHeader>
+									<AlertDialogFooter className="gap-2 sm:gap-3">
+										<AlertDialogCancel className="text-xs mono uppercase tracking-widest font-bold rounded-sm h-9">
+											Cancel
+										</AlertDialogCancel>
+										<AlertDialogAction
+											onClick={() =>
+												alert.id &&
+												callbacks.onDelete(alert.id)
+											}
+											className="bg-accent-red text-background hover:bg-accent-red/90 text-xs mono uppercase tracking-widest font-bold rounded-sm h-9"
+											disabled={
+												callbacks.deletingId ===
+												alert.id
+											}
+										>
+											{callbacks.deletingId ===
+											alert.id ? (
+												<>
+													<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+													Deleting
+												</>
+											) : (
+												"Delete alert"
+											)}
+										</AlertDialogAction>
+									</AlertDialogFooter>
+								</AlertDialogContent>
+							</AlertDialog>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				</div>
 			);
 		},
+		size: 120,
 	},
 ];

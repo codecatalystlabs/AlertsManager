@@ -1,13 +1,11 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { AuthService } from "@/lib/auth";
 import Link from "next/link";
-import { MohLogo } from "@/components/moh-logo";
+import { MohLogo, MohBrand } from "@/components/moh-logo";
+import { ThemeToggleCompact } from "@/components/theme-toggle";
 import { useIsAuthenticated } from "@/hooks/use-auth-status";
 import {
 	Stethoscope,
@@ -22,14 +20,52 @@ import {
 	Brain,
 	LogIn,
 	Home,
+	BookOpen,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-const caseDefinitions = [
+type Accent = "red" | "yellow" | "green" | "neutral";
+
+const accentBar: Record<Accent, string> = {
+	red: "bg-accent-red",
+	yellow: "bg-accent-yellow",
+	green: "bg-accent-green",
+	neutral: "bg-foreground/30",
+};
+
+const accentText: Record<Accent, string> = {
+	red: "text-accent-red",
+	yellow: "text-foreground",
+	green: "text-accent-green",
+	neutral: "text-muted-foreground",
+};
+
+interface OrCondition {
+	condition: string;
+	signs: string[];
+}
+
+interface CaseDefinition {
+	id: string;
+	title: string;
+	icon: typeof Users;
+	accent: Accent;
+	description: string;
+	criteria: {
+		primary: string;
+		and?: string;
+		signs?: string[];
+		or?: (string | OrCondition)[];
+		tests?: string[];
+	};
+}
+
+const caseDefinitions: CaseDefinition[] = [
 	{
 		id: "community",
 		title: "Community Case Definition",
 		icon: Users,
-		color: "bg-blue-500",
+		accent: "neutral",
 		description: "Basic definition for community-level identification",
 		criteria: {
 			primary: "Illness with onset of fever and no response to treatment",
@@ -43,16 +79,17 @@ const caseDefinitions = [
 		id: "suspect",
 		title: "Suspect Case Definition",
 		icon: AlertTriangle,
-		color: "bg-yellow-500",
+		accent: "yellow",
 		description: "Detailed criteria for suspected EVD cases",
 		criteria: {
-			primary: "Illness with onset of fever and no response to treatment for usual causes of fever",
+			primary:
+				"Illness with onset of fever and no response to treatment for usual causes of fever",
 			and: "At least three of the following signs:",
 			signs: [
 				"Headache",
 				"Vomiting",
 				"Diarrhea",
-				"Anorexia/loss of appetite",
+				"Anorexia / loss of appetite",
 				"Lethargy",
 				"Stomach pain",
 				"Aching muscles or joints",
@@ -71,7 +108,7 @@ const caseDefinitions = [
 						"Bleeding into skin (purpura)",
 						"Bleeding into eyes and urine",
 						"Bleeding from the nose",
-						"Sudden/unexplained death",
+						"Sudden / unexplained death",
 					],
 				},
 				"Any person with history of contact with a probable or confirmed Ebola case and having any one sign and symptom of Ebola Virus Disease",
@@ -83,18 +120,18 @@ const caseDefinitions = [
 		id: "probable",
 		title: "Probable Case",
 		icon: Stethoscope,
-		color: "bg-orange-500",
-		description:
-			"Cases with epidemiological links but no lab confirmation",
+		accent: "red",
+		description: "Cases with epidemiological links but no lab confirmation",
 		criteria: {
-			primary: "Any person who died from a 'suspected' EVD and had an epidemiological link to a confirmed case but was not tested and did not have laboratory confirmation of the disease",
+			primary:
+				"Any person who died from a 'suspected' EVD and had an epidemiological link to a confirmed case but was not tested and did not have laboratory confirmation of the disease",
 		},
 	},
 	{
 		id: "confirmed",
 		title: "Confirmed Case",
 		icon: CheckCircle,
-		color: "bg-green-500",
+		accent: "green",
 		description: "Laboratory-confirmed EVD cases",
 		criteria: {
 			primary: "A suspected case with a positive laboratory result for either:",
@@ -107,476 +144,429 @@ const caseDefinitions = [
 	},
 ];
 
-const symptoms = [
-	{ name: "Fever", icon: Thermometer, severity: "high" },
-	{ name: "Headache", icon: Brain, severity: "high" },
-	{ name: "Bleeding", icon: Droplets, severity: "critical" },
-	{ name: "Vomiting", icon: Heart, severity: "medium" },
-	{ name: "Diarrhea", icon: Heart, severity: "medium" },
-	{ name: "Eye symptoms", icon: Eye, severity: "medium" },
-];
+const symptoms: { name: string; icon: typeof Thermometer; severity: "high" | "medium" | "critical" }[] =
+	[
+		{ name: "Fever", icon: Thermometer, severity: "high" },
+		{ name: "Headache", icon: Brain, severity: "high" },
+		{ name: "Bleeding", icon: Droplets, severity: "critical" },
+		{ name: "Vomiting", icon: Heart, severity: "medium" },
+		{ name: "Diarrhea", icon: Heart, severity: "medium" },
+		{ name: "Eye symptoms", icon: Eye, severity: "medium" },
+	];
+
+function severityAccent(severity: string): Accent {
+	if (severity === "critical") return "red";
+	if (severity === "high") return "yellow";
+	return "neutral";
+}
 
 export default function EVDDefinitionPage() {
 	const isAuthenticated = useIsAuthenticated();
 
 	return (
-		<div className="min-h-screen bg-gray-50">
+		<div className="min-h-screen bg-background text-foreground">
 			{/* Header */}
-			<div className="bg-gradient-to-r from-uganda-red to-uganda-yellow text-white shadow-lg">
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-					<div className="flex justify-between items-center py-4">
-						<div className="flex items-center space-x-3">
-							<MohLogo />
-							<div>
-								<h1 className="text-xl font-bold">
-									Uganda Health Alert System
-								</h1>
-								<p className="text-sm text-white/90">
-									Ministry of Health Uganda
-								</p>
-							</div>
-						</div>
-						<div className="flex items-center space-x-4">
-							{isAuthenticated ? (
-								<>
-									<Link href="/dashboard">
-										<Button
-											variant="secondary"
-											className="bg-white/20 text-white border-white/30 hover:bg-white/30"
-										>
-											<Home className="w-4 h-4 mr-2" />
-											Dashboard
-										</Button>
-									</Link>
+			<header className="border-b border-border bg-background/85 backdrop-blur-md sticky top-0 z-30">
+				<div className="max-w-7xl mx-auto px-6 md:px-12 h-16 flex items-center justify-between">
+					<MohBrand size="md" />
+					<nav className="flex items-center gap-2">
+						<ThemeToggleCompact className="mr-1" />
+						{isAuthenticated ? (
+							<>
+								<Link href="/dashboard">
 									<Button
-										variant="secondary"
-										className="bg-white/20 text-white border-white/30 hover:bg-white/30"
-										onClick={async () => {
-											try {
-												await AuthService.logout();
-												window.location.href =
-													"/evd-definition";
-											} catch (error) {
-												console.error(
-													"Logout error:",
-													error
-												);
-												window.location.href =
-													"/evd-definition";
-											}
-										}}
+										variant="ghost"
+										className="px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-sm gap-2 h-auto"
 									>
-										<LogIn className="w-4 h-4 mr-2 rotate-180" />
-										Logout
+										<Home
+											className="h-3.5 w-3.5"
+											strokeWidth={1.75}
+										/>
+										<span className="mono uppercase tracking-widest font-bold">
+											Dashboard
+										</span>
 									</Button>
-								</>
-							) : (
-								<>
-									<Link href="/add-alert">
-										<Button
-											variant="secondary"
-											className="bg-white/20 text-white border-white/30 hover:bg-white/30"
-										>
-											<Home className="w-4 h-4 mr-2" />
-											Report Alert
-										</Button>
-									</Link>
-									<Link href="/login">
-										<Button
-											variant="secondary"
-											className="bg-white/20 text-white border-white/30 hover:bg-white/30"
-										>
-											<LogIn className="w-4 h-4 mr-2" />
+								</Link>
+								<Button
+									variant="ghost"
+									className="px-3 py-2 text-xs text-muted-foreground hover:text-accent-red hover:bg-accent-red/5 rounded-sm gap-2 h-auto"
+									onClick={async () => {
+										try {
+											await AuthService.logout();
+										} catch {
+											/* ignore */
+										} finally {
+											window.location.href =
+												"/evd-definition";
+										}
+									}}
+								>
+									<LogIn
+										className="h-3.5 w-3.5 rotate-180"
+										strokeWidth={1.75}
+									/>
+									<span className="mono uppercase tracking-widest font-bold">
+										Logout
+									</span>
+								</Button>
+							</>
+						) : (
+							<>
+								<Link href="/add-alert">
+									<Button
+										variant="ghost"
+										className="px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-sm gap-2 h-auto"
+									>
+										<Home
+											className="h-3.5 w-3.5"
+											strokeWidth={1.75}
+										/>
+										<span className="mono uppercase tracking-widest font-bold">
+											Report alert
+										</span>
+									</Button>
+								</Link>
+								<Link href="/login">
+									<Button className="px-5 py-2.5 bg-foreground text-background text-xs font-medium hover:opacity-90 rounded-sm gap-2 h-auto">
+										<LogIn
+											className="h-3.5 w-3.5"
+											strokeWidth={1.75}
+										/>
+										<span className="mono uppercase tracking-widest font-bold">
 											Login
-										</Button>
-									</Link>
-								</>
-							)}
-						</div>
-					</div>
+										</span>
+									</Button>
+								</Link>
+							</>
+						)}
+					</nav>
 				</div>
-			</div>
+			</header>
 
-			<div className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-				<div className="space-y-8">
-					{/* Header */}
-					<div className="bg-gradient-to-r from-red-600 via-red-700 to-red-800 rounded-2xl p-8 text-white relative overflow-hidden">
-						<div className="absolute inset-0 bg-black/10"></div>
-						<div className="relative">
-							<div className="flex items-center space-x-4 mb-4">
-								<div className="h-16 w-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
-									<Stethoscope className="h-8 w-8 text-white" />
-								</div>
-								<div>
-									<h1 className="text-3xl font-bold mb-2">
-										Public Health
-									</h1>
-									<p className="text-red-100 text-lg">
-										Case Definitions and Clinical
-										Guidelines
-									</p>
-								</div>
-							</div>
-							<div className="flex items-center space-x-6 mt-6">
-								<Badge
-									variant="secondary"
-									className="bg-white/20 text-white border-white/30"
-								>
-									WHO Guidelines
-								</Badge>
-								<Badge
-									variant="secondary"
-									className="bg-white/20 text-white border-white/30"
-								>
-									Updated 2024
-								</Badge>
-								<Badge
-									variant="secondary"
-									className="bg-white/20 text-white border-white/30"
-								>
-									Ministry of Health Uganda
-								</Badge>
-							</div>
-						</div>
+			<main className="max-w-5xl mx-auto px-6 md:px-12 py-12 space-y-12">
+				{/* Hero */}
+				<section className="animate-reveal">
+					<div className="flex items-center gap-3 mb-5">
+						<span className="h-1 w-8 bg-accent-red rounded-full" />
+						<span className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground">
+							Clinical Reference · Ebola Virus Disease
+						</span>
 					</div>
+					<h1 className="serif text-5xl md:text-6xl font-medium tracking-tight leading-[1.05] text-foreground text-balance">
+						Case definitions &{" "}
+						<em className="italic text-accent-red">
+							clinical guidelines
+						</em>
+					</h1>
+					<p className="mt-5 text-base text-muted-foreground max-w-2xl leading-relaxed">
+						The four-tier case definition framework used by Uganda
+						Ministry of Health surveillance teams, aligned with WHO
+						guidance. Updated 2024.
+					</p>
+					<div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2">
+						<span className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground inline-flex items-center gap-2">
+							<span className="h-1.5 w-1.5 rounded-full bg-accent-green" />
+							WHO Guidelines
+						</span>
+						<span className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground">
+							Updated 2024
+						</span>
+						<span className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground inline-flex items-center gap-2">
+							<BookOpen
+								className="h-3 w-3"
+								strokeWidth={1.75}
+							/>
+							Ministry of Health Uganda
+						</span>
+					</div>
+				</section>
 
-					{/* Quick Reference Symptoms */}
-					<Card>
-						<CardHeader>
-							<CardTitle className="flex items-center gap-2">
-								<Microscope className="h-5 w-5 text-red-600" />
-								Key Symptoms Quick Reference
-							</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-								{symptoms.map((symptom) => (
+				{/* Quick Reference Symptoms */}
+				<section className="animate-reveal [animation-delay:100ms] editorial-card">
+					<header className="px-6 py-5 border-b border-foreground/[0.08]">
+						<p className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-2">
+							§ 01 · Quick reference
+						</p>
+						<h2 className="serif text-2xl font-medium tracking-tight text-foreground">
+							Key symptoms
+						</h2>
+					</header>
+					<div className="p-6">
+						<div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px bg-foreground/[0.08] border border-foreground/[0.08] rounded-sm overflow-hidden">
+							{symptoms.map((symptom) => {
+								const accent = severityAccent(symptom.severity);
+								return (
 									<div
 										key={symptom.name}
-										className={`p-4 rounded-lg border-2 text-center transition-all hover:shadow-md ${
-											symptom.severity ===
-											"critical"
-												? "border-red-200 bg-red-50 hover:border-red-300"
-												: symptom.severity ===
-												  "high"
-												? "border-orange-200 bg-orange-50 hover:border-orange-300"
-												: "border-yellow-200 bg-yellow-50 hover:border-yellow-300"
-										}`}
+										className="relative bg-card px-4 py-5 text-center"
 									>
-										<symptom.icon
-											className={`h-8 w-8 mx-auto mb-2 ${
-												symptom.severity ===
-												"critical"
-													? "text-red-600"
-													: symptom.severity ===
-													  "high"
-													? "text-orange-600"
-													: "text-yellow-600"
-											}`}
+										<span
+											className={cn(
+												"absolute left-0 top-5 bottom-5 w-[2px] rounded-full",
+												accentBar[accent]
+											)}
+											aria-hidden="true"
 										/>
-										<p className="text-sm font-medium text-gray-900">
+										<symptom.icon
+											className={cn(
+												"h-5 w-5 mx-auto mb-2",
+												accentText[accent]
+											)}
+											strokeWidth={1.5}
+										/>
+										<p className="text-sm font-medium text-foreground mb-1">
 											{symptom.name}
 										</p>
-										<Badge
-											variant="secondary"
-											className={`mt-1 text-xs ${
-												symptom.severity ===
-												"critical"
-													? "bg-red-100 text-red-700"
-													: symptom.severity ===
-													  "high"
-													? "bg-orange-100 text-orange-700"
-													: "bg-yellow-100 text-yellow-700"
-											}`}
+										<p
+											className={cn(
+												"mono text-[10px] uppercase tracking-widest font-bold",
+												accentText[accent]
+											)}
 										>
 											{symptom.severity}
-										</Badge>
+										</p>
 									</div>
-								))}
-							</div>
-						</CardContent>
-					</Card>
+								);
+							})}
+						</div>
+					</div>
+				</section>
 
-					{/* Case Definitions */}
-					<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-						{caseDefinitions.map((definition, index) => (
-							<Card
+				{/* Case Definitions */}
+				<section className="space-y-6 animate-reveal [animation-delay:200ms]">
+					<div>
+						<p className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-2">
+							§ 02 · Framework
+						</p>
+						<h2 className="serif text-3xl font-medium tracking-tight text-foreground">
+							The four-tier case definition
+						</h2>
+					</div>
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+						{caseDefinitions.map((definition) => (
+							<article
 								key={definition.id}
-								className="hover:shadow-lg transition-all duration-300"
+								className="editorial-card flex flex-col"
 							>
-								<CardHeader>
-									<div className="flex items-center space-x-4">
-										<div
-											className={`h-12 w-12 ${definition.color} rounded-xl flex items-center justify-center shadow-lg`}
-										>
-											<definition.icon className="h-6 w-6 text-white" />
-										</div>
+								<header className="relative px-6 py-5 border-b border-foreground/[0.08]">
+									<span
+										className={cn(
+											"absolute left-0 top-5 bottom-5 w-[2px] rounded-full",
+											accentBar[definition.accent]
+										)}
+										aria-hidden="true"
+									/>
+									<div className="flex items-start gap-4">
+										<definition.icon
+											className={cn(
+												"h-5 w-5 mt-1 shrink-0",
+												accentText[definition.accent]
+											)}
+											strokeWidth={1.75}
+										/>
 										<div>
-											<CardTitle className="text-xl">
+											<p className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-1">
+												{definition.id}
+											</p>
+											<h3 className="serif text-xl font-medium tracking-tight text-foreground">
 												{definition.title}
-											</CardTitle>
-											<p className="text-sm text-gray-600 mt-1">
-												{
-													definition.description
-												}
+											</h3>
+											<p className="mt-1 text-sm text-muted-foreground leading-relaxed">
+												{definition.description}
 											</p>
 										</div>
 									</div>
-								</CardHeader>
-								<CardContent>
-									<ScrollArea className="h-96">
-										<div className="space-y-4">
-											{/* Primary Criteria */}
-											<div className="bg-gray-50 p-4 rounded-lg">
-												<h4 className="font-semibold text-gray-900 mb-2">
-													Primary
-													Criteria:
-												</h4>
-												<p className="text-sm text-gray-700">
-													{
-														definition
-															.criteria
-															.primary
-													}
+								</header>
+								<ScrollArea className="h-96 p-6">
+									<div className="space-y-5">
+										<div>
+											<p className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-2">
+												Primary criteria
+											</p>
+											<p className="text-sm text-foreground/80 leading-relaxed">
+												{definition.criteria.primary}
+											</p>
+										</div>
+
+										{definition.criteria.and && (
+											<div className="pt-4 border-t border-foreground/[0.08]">
+												<p className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-2">
+													AND
 												</p>
-											</div>
-
-											{/* Additional Criteria */}
-											{definition.criteria
-												.and && (
-												<div>
-													<h4 className="font-semibold text-gray-900 mb-2">
-														AND{" "}
-														{
-															definition
-																.criteria
-																.and
-														}
-													</h4>
-													{definition
-														.criteria
-														.signs && (
-														<div className="grid grid-cols-1 gap-2">
-															{definition.criteria.signs.map(
-																(
-																	sign,
-																	idx
-																) => (
-																	<div
-																		key={
-																			idx
-																		}
-																		className="flex items-center space-x-2"
-																	>
-																		<div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-																		<span className="text-sm text-gray-700">
-																			{
-																				sign
-																			}
-																		</span>
-																	</div>
-																)
-															)}
-														</div>
-													)}
-												</div>
-											)}
-
-											{/* OR Criteria */}
-											{definition.criteria
-												.or && (
-												<div>
-													<Separator className="my-4" />
-													<h4 className="font-semibold text-gray-900 mb-3">
-														OR any of
-														the
-														following:
-													</h4>
-													<div className="space-y-3">
-														{definition.criteria.or.map(
-															(
-																item,
-																idx
-															) => (
-																<div
-																	key={
-																		idx
-																	}
-																	className="bg-blue-50 p-3 rounded-lg"
+												<p className="text-sm text-foreground/80 leading-relaxed mb-3">
+													{definition.criteria.and}
+												</p>
+												{definition.criteria.signs && (
+													<ul className="space-y-2">
+														{definition.criteria.signs.map(
+															(sign) => (
+																<li
+																	key={sign}
+																	className="flex items-center gap-3 text-sm text-foreground/80"
 																>
-																	{typeof item ===
-																	"string" ? (
-																		<p className="text-sm text-gray-700">
+																	<span className="h-1 w-1 rounded-full bg-accent-yellow shrink-0" />
+																	{sign}
+																</li>
+															)
+														)}
+													</ul>
+												)}
+											</div>
+										)}
+
+										{definition.criteria.or && (
+											<div className="pt-4 border-t border-foreground/[0.08]">
+												<p className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-3">
+													OR any of the following
+												</p>
+												<div className="space-y-3">
+													{definition.criteria.or.map(
+														(item, idx) => (
+															<div
+																key={idx}
+																className="border-l-2 border-accent-red/30 pl-4 py-1"
+															>
+																{typeof item ===
+																"string" ? (
+																	<p className="text-sm text-foreground/80 leading-relaxed">
+																		{item}
+																	</p>
+																) : (
+																	<>
+																		<p className="text-sm font-medium text-foreground mb-2 leading-relaxed">
 																			{
-																				item
+																				item.condition
 																			}
 																		</p>
-																	) : (
-																		<div>
-																			<p className="text-sm font-medium text-gray-900 mb-2">
-																				{
-																					item.condition
-																				}
-																			</p>
-																			<div className="grid grid-cols-1 gap-1 ml-4">
-																				{item.signs.map(
-																					(
-																						sign,
-																						signIdx
-																					) => (
-																						<div
-																							key={
-																								signIdx
-																							}
-																							className="flex items-center space-x-2"
-																						>
-																							<div className="h-1.5 w-1.5 bg-red-500 rounded-full"></div>
-																							<span className="text-xs text-gray-600">
-																								{
-																									sign
-																								}
-																							</span>
-																						</div>
-																					)
-																				)}
-																			</div>
-																		</div>
-																	)}
-																</div>
-															)
-														)}
-													</div>
+																		<ul className="space-y-1.5">
+																			{item.signs.map(
+																				(
+																					sign
+																				) => (
+																					<li
+																						key={
+																							sign
+																						}
+																						className="flex items-center gap-3 text-sm text-foreground/70"
+																					>
+																						<span className="h-1 w-1 rounded-full bg-accent-red shrink-0" />
+																						{
+																							sign
+																						}
+																					</li>
+																				)
+																			)}
+																		</ul>
+																	</>
+																)}
+															</div>
+														)
+													)}
 												</div>
-											)}
+											</div>
+										)}
 
-											{/* Laboratory Tests */}
-											{definition.criteria
-												.tests && (
-												<div>
-													<Separator className="my-4" />
-													<h4 className="font-semibold text-gray-900 mb-3">
-														Laboratory
-														Tests:
-													</h4>
-													<div className="space-y-2">
-														{definition.criteria.tests.map(
-															(
-																test,
-																idx
-															) => (
-																<div
-																	key={
-																		idx
-																	}
-																	className="flex items-center space-x-2 bg-green-50 p-2 rounded"
-																>
-																	<Microscope className="h-4 w-4 text-green-600" />
-																	<span className="text-sm text-gray-700">
-																		{
-																			test
-																		}
-																	</span>
-																</div>
-															)
-														)}
-													</div>
-												</div>
-											)}
-										</div>
-									</ScrollArea>
-								</CardContent>
-							</Card>
+										{definition.criteria.tests && (
+											<div className="pt-4 border-t border-foreground/[0.08]">
+												<p className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-3">
+													Laboratory tests
+												</p>
+												<ul className="space-y-2">
+													{definition.criteria.tests.map(
+														(test) => (
+															<li
+																key={test}
+																className="flex items-center gap-3 text-sm text-foreground/80"
+															>
+																<Microscope
+																	className="h-3.5 w-3.5 text-accent-green shrink-0"
+																	strokeWidth={1.75}
+																/>
+																{test}
+															</li>
+														)
+													)}
+												</ul>
+											</div>
+										)}
+									</div>
+								</ScrollArea>
+							</article>
 						))}
 					</div>
+				</section>
 
-					{/* Important Notes */}
-					<Card className="bg-gradient-to-r from-red-50 to-orange-50 border-red-200">
-						<CardHeader>
-							<CardTitle className="flex items-center gap-2 text-red-800">
-								<AlertTriangle className="h-5 w-5" />
-								Important Clinical Notes
-							</CardTitle>
-						</CardHeader>
-						<CardContent>
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-								<div>
-									<h4 className="font-semibold text-red-800 mb-3">
-										Immediate Actions Required:
-									</h4>
-									<ul className="space-y-2 text-sm text-red-700">
-										<li className="flex items-start space-x-2">
-											<div className="h-1.5 w-1.5 bg-red-600 rounded-full mt-2"></div>
-											<span>
-												Isolate suspected
-												cases immediately
-											</span>
-										</li>
-										<li className="flex items-start space-x-2">
-											<div className="h-1.5 w-1.5 bg-red-600 rounded-full mt-2"></div>
-											<span>
-												Use appropriate PPE
-												for all interactions
-											</span>
-										</li>
-										<li className="flex items-start space-x-2">
-											<div className="h-1.5 w-1.5 bg-red-600 rounded-full mt-2"></div>
-											<span>
-												Report to health
-												authorities within
-												24 hours
-											</span>
-										</li>
-										<li className="flex items-start space-x-2">
-											<div className="h-1.5 w-1.5 bg-red-600 rounded-full mt-2"></div>
-											<span>
-												Collect samples for
-												laboratory testing
-											</span>
-										</li>
-									</ul>
-								</div>
-								<div>
-									<h4 className="font-semibold text-red-800 mb-3">
-										Contact Tracing:
-									</h4>
-									<ul className="space-y-2 text-sm text-red-700">
-										<li className="flex items-start space-x-2">
-											<div className="h-1.5 w-1.5 bg-red-600 rounded-full mt-2"></div>
-											<span>
-												Identify all close
-												contacts in past 21
-												days
-											</span>
-										</li>
-										<li className="flex items-start space-x-2">
-											<div className="h-1.5 w-1.5 bg-red-600 rounded-full mt-2"></div>
-											<span>
-												Monitor contacts for
-												symptoms daily
-											</span>
-										</li>
-										<li className="flex items-start space-x-2">
-											<div className="h-1.5 w-1.5 bg-red-600 rounded-full mt-2"></div>
-											<span>
-												Document all contact
-												information
-											</span>
-										</li>
-										<li className="flex items-start space-x-2">
-											<div className="h-1.5 w-1.5 bg-red-600 rounded-full mt-2"></div>
-											<span>
-												Provide health
-												education to
-												contacts
-											</span>
-										</li>
-									</ul>
-								</div>
-							</div>
-						</CardContent>
-					</Card>
+				{/* Important Notes */}
+				<section className="animate-reveal [animation-delay:300ms] editorial-card border-l-2 border-l-accent-red">
+					<header className="px-6 py-5 border-b border-foreground/[0.08]">
+						<p className="mono text-[10px] uppercase tracking-widest font-bold text-accent-red mb-2">
+							§ 03 · Clinical protocol
+						</p>
+						<h2 className="serif text-2xl font-medium tracking-tight text-foreground">
+							Important clinical notes
+						</h2>
+					</header>
+					<div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+						<div>
+							<h4 className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-4">
+								Immediate actions required
+							</h4>
+							<ul className="space-y-3">
+								{[
+									"Isolate suspected cases immediately",
+									"Use appropriate PPE for all interactions",
+									"Report to health authorities within 24 hours",
+									"Collect samples for laboratory testing",
+								].map((line) => (
+									<li
+										key={line}
+										className="flex items-start gap-3 text-sm text-foreground/80 leading-relaxed"
+									>
+										<span className="h-1.5 w-1.5 rounded-full bg-accent-red shrink-0 mt-2" />
+										{line}
+									</li>
+								))}
+							</ul>
+						</div>
+						<div>
+							<h4 className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-4">
+								Contact tracing
+							</h4>
+							<ul className="space-y-3">
+								{[
+									"Identify all close contacts in past 21 days",
+									"Monitor contacts for symptoms daily",
+									"Document all contact information",
+									"Provide health education to contacts",
+								].map((line) => (
+									<li
+										key={line}
+										className="flex items-start gap-3 text-sm text-foreground/80 leading-relaxed"
+									>
+										<span className="h-1.5 w-1.5 rounded-full bg-accent-red shrink-0 mt-2" />
+										{line}
+									</li>
+								))}
+							</ul>
+						</div>
+					</div>
+				</section>
+			</main>
+
+			<footer className="border-t border-border mt-12 px-6 md:px-12 py-6">
+				<div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+					<div className="flex items-center gap-2.5">
+						<MohLogo size="xs" />
+						<p className="mono text-[10px] uppercase tracking-tighter text-muted-foreground">
+							Ministry of Health · Republic of Uganda · Clinical
+							Reference
+						</p>
+					</div>
+					<p className="mono text-[10px] uppercase tracking-tighter text-muted-foreground">
+						v.2026.05 — Editorial release
+					</p>
 				</div>
-			</div>
+			</footer>
 		</div>
 	);
 }

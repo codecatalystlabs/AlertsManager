@@ -1,101 +1,105 @@
-import { LucideIcon, CheckCircle, AlertTriangle, TrendingUp, Phone, Users } from 'lucide-react';
+import {
+	LucideIcon,
+	CheckCircle,
+	AlertTriangle,
+	Phone,
+	Users,
+	ShieldCheck,
+} from "lucide-react";
 
 export const DASHBOARD_CONFIG = {
-    REFRESH_INTERVAL: 300000, // 5 minutes
-    ANIMATION_DURATION: 300,
-    CARD_HOVER_SCALE: 1.02,
+	REFRESH_INTERVAL: 300000, // 5 minutes
+	ANIMATION_DURATION: 300,
 } as const;
 
+export type StatAccent = "red" | "yellow" | "green" | "neutral";
+
 export interface StatCardConfig {
-    id: string;
-    title: string;
-    key: keyof import('@/app/dashboard/types').AlertCounts | 'verificationRate' | 'todayAlerts' | 'todayVerified';
-    icon: LucideIcon;
-    gradient: string;
-    iconBg: string;
-    textColor: string;
-    description?: string;
-    route?: string;
-    isPercentage?: boolean;
+	id: string;
+	title: string;
+	key:
+		| keyof import("@/app/dashboard/types").AlertCounts
+		| "verificationRate"
+		| "todayAlerts"
+		| "todayVerified";
+	icon: LucideIcon;
+	accent: StatAccent;
+	eyebrow: string;
+	description?: string;
+	route?: string;
+	isPercentage?: boolean;
 }
 
 export const STAT_CARDS: StatCardConfig[] = [
-    {
-        id: 'verified',
-        title: 'Verified Alerts',
-        key: 'verified',
-        icon: CheckCircle,
-        gradient: 'from-green-50 to-green-100',
-        iconBg: 'bg-green-500',
-        textColor: 'text-green-700',
-        route: '/dashboard/alerts',
-    },
-    {
-        id: 'notVerified',
-        title: 'Not Verified Alerts',
-        key: 'notVerified',
-        icon: AlertTriangle,
-        gradient: 'from-red-50 to-red-100',
-        iconBg: 'bg-red-500',
-        textColor: 'text-red-700',
-        route: '/dashboard/alerts',
-    },
-    {
-        id: 'total',
-        title: 'Total Alerts',
-        key: 'total',
-        icon: AlertTriangle,
-        gradient: 'from-blue-50 to-blue-100',
-        iconBg: 'bg-blue-500',
-        textColor: 'text-blue-700',
-        route: '/dashboard/alerts',
-    },
-    {
-        id: 'verificationRate',
-        title: 'Verification Rate',
-        key: 'verificationRate',
-        icon: CheckCircle,
-        gradient: 'from-purple-50 to-purple-100',
-        iconBg: 'bg-purple-500',
-        textColor: 'text-purple-700',
-        route: '/dashboard/alerts',
-        isPercentage: true,
-    },
+	{
+		id: "total",
+		title: "Total Alerts",
+		eyebrow: "01 · All-time",
+		key: "total",
+		icon: AlertTriangle,
+		accent: "neutral",
+		route: "/dashboard/alerts",
+	},
+	{
+		id: "verified",
+		title: "Verified Alerts",
+		eyebrow: "02 · Confirmed",
+		key: "verified",
+		icon: ShieldCheck,
+		accent: "green",
+		route: "/dashboard/alerts",
+	},
+	{
+		id: "notVerified",
+		title: "Not Verified Alerts",
+		eyebrow: "03 · Backlog",
+		key: "notVerified",
+		icon: AlertTriangle,
+		accent: "red",
+		route: "/dashboard/alerts",
+	},
+	{
+		id: "verificationRate",
+		title: "Verification Rate",
+		eyebrow: "04 · Throughput",
+		key: "verificationRate",
+		icon: CheckCircle,
+		accent: "yellow",
+		route: "/dashboard/alerts",
+		isPercentage: true,
+	},
 ];
 
 export const ADDITIONAL_STATS: StatCardConfig[] = [
-    {
-        id: 'todayCalls',
-        title: 'Total Calls Today',
-        key: 'todayAlerts',
-        icon: Phone,
-        gradient: 'from-purple-50 to-purple-100',
-        iconBg: 'bg-purple-500',
-        textColor: 'text-purple-700',
-    },
-    {
-        id: 'pendingVerification',
-        title: 'Pending Verification',
-        key: 'notVerified',
-        icon: Users,
-        gradient: 'from-indigo-50 to-indigo-100',
-        iconBg: 'bg-indigo-500',
-        textColor: 'text-indigo-700',
-    },
-    {
-        id: 'verifiedToday',
-        title: 'Verified Today',
-        key: 'todayVerified',
-        icon: CheckCircle,
-        gradient: 'from-teal-50 to-teal-100',
-        iconBg: 'bg-teal-500',
-        textColor: 'text-teal-700',
-    },
+	{
+		id: "todayCalls",
+		title: "Filed Today",
+		eyebrow: "Today · Inflow",
+		key: "todayAlerts",
+		icon: Phone,
+		accent: "neutral",
+	},
+	{
+		id: "pendingVerification",
+		title: "Pending Review",
+		eyebrow: "Today · Queue",
+		key: "notVerified",
+		icon: Users,
+		accent: "red",
+	},
+	{
+		id: "verifiedToday",
+		title: "Verified Today",
+		eyebrow: "Today · Cleared",
+		key: "todayVerified",
+		icon: CheckCircle,
+		accent: "green",
+	},
 ];
 
 export const LOADING_MESSAGES = {
-    DASHBOARD: 'Loading dashboard data...',
-    ALERTS: 'Loading alerts...',
-    CALL_LOGS: 'Loading call logs...',
-    REFRESHING: 'Refreshing data...',
+	DASHBOARD: "Loading dashboard data…",
+	ALERTS: "Loading alerts…",
+	CALL_LOGS: "Loading call logs…",
+	REFRESHING: "Refreshing…",
 } as const;

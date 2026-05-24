@@ -1,57 +1,86 @@
-import React, { memo } from 'react';
-import { Button } from '@/components/ui/button';
-import { Clock, RefreshCw } from 'lucide-react';
+import React, { memo } from "react";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
+import { DashboardExport } from "@/components/dashboard/dashboard-export";
+import type { CallLogAlert } from "@/app/dashboard/types";
 
 interface WelcomeSectionProps {
-  onRefresh: () => void;
-  lastUpdated?: Date;
-  isRefreshing?: boolean;
+	onRefresh: () => void;
+	lastUpdated?: Date;
+	isRefreshing?: boolean;
+	/** Alerts currently visible under the active filters — used for export. */
+	exportAlerts?: CallLogAlert[];
 }
 
-export const WelcomeSection = memo<WelcomeSectionProps>(({ 
-  onRefresh, 
-  lastUpdated = new Date(), 
-  isRefreshing = false 
-}) => {
-  return (
-    <div className="bg-gradient-to-r from-uganda-red via-uganda-red to-uganda-yellow rounded-2xl p-8 text-white relative overflow-hidden">
-      <div className="absolute inset-0 bg-black/10"></div>
-      <div className="relative">
-        <div className="flex justify-between items-start">
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold mb-2">
-              Welcome to Health Alert Dashboard
-            </h1>
-            <p className="text-white/90 text-lg">
-              Monitor and manage health alerts across Uganda in real-time
-            </p>
-            <div className="mt-6 flex items-center space-x-6">
-              <div className="flex items-center space-x-2">
-                <div className="h-3 w-3 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-sm">System Active</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Clock className="h-4 w-4" />
-                <span className="text-sm">
-                  Last updated: {lastUpdated.toLocaleTimeString()}
-                </span>
-              </div>
-            </div>
-          </div>
-          <Button
-            onClick={onRefresh}
-            variant="outline"
-            className="border-white/30 text-black hover:bg-white/10 transition-colors"
-            size="sm"
-            disabled={isRefreshing}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? 'Refreshing...' : 'Refresh'}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-});
+function formatTimestamp(d: Date) {
+	const date = d.toLocaleDateString("en-GB", {
+		day: "2-digit",
+		month: "short",
+		year: "numeric",
+	});
+	const time = d.toLocaleTimeString("en-GB", {
+		hour: "2-digit",
+		minute: "2-digit",
+	});
+	return `${date} · ${time}`;
+}
 
-WelcomeSection.displayName = 'WelcomeSection';
+export const WelcomeSection = memo<WelcomeSectionProps>(
+	({
+		onRefresh,
+		lastUpdated = new Date(),
+		isRefreshing = false,
+		exportAlerts = [],
+	}) => {
+		return (
+			<section className="animate-reveal">
+				<div className="flex items-center gap-3 mb-6">
+					<span className="h-1 w-8 bg-accent-red rounded-full" />
+					<span className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground">
+						National Monitoring · {formatTimestamp(lastUpdated)}
+					</span>
+				</div>
+
+				<div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8">
+					<div className="max-w-3xl">
+						<h1 className="serif text-5xl md:text-6xl font-medium tracking-tight leading-[1.05] text-foreground text-balance">
+							Monitor the country&rsquo;s health alerts,{" "}
+							<em className="italic text-accent-red">today.</em>
+						</h1>
+					</div>
+
+					<div className="flex items-center gap-3 shrink-0">
+						<div className="hidden md:flex items-center gap-2 mr-1">
+							<span className="h-1.5 w-1.5 rounded-full bg-accent-green animate-pulse-soft" />
+							<span className="mono text-[10px] uppercase tracking-widest font-bold text-foreground">
+								Feed Active
+							</span>
+						</div>
+						<Button
+							onClick={onRefresh}
+							disabled={isRefreshing}
+							variant="ghost"
+							className="px-3 py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-sm gap-2 h-auto border border-foreground/10"
+						>
+							<RefreshCw
+								className={`h-3.5 w-3.5 ${
+									isRefreshing ? "animate-spin" : ""
+								}`}
+								strokeWidth={1.75}
+							/>
+							<span className="mono uppercase tracking-widest font-bold">
+								{isRefreshing ? "Refreshing" : "Refresh"}
+							</span>
+						</Button>
+						<DashboardExport
+							alerts={exportAlerts}
+							disabled={isRefreshing}
+						/>
+					</div>
+				</div>
+			</section>
+		);
+	}
+);
+
+WelcomeSection.displayName = "WelcomeSection";

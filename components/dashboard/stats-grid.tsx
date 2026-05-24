@@ -1,61 +1,94 @@
 "use client";
 
-import React, { memo, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import { StatsCard } from './stats-card';
-import { StatCardConfig, STAT_CARDS, ADDITIONAL_STATS } from '@/constants/dashboard';
-import { AlertCounts } from '@/app/dashboard/types';
+import React, { memo, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { StatsCard } from "./stats-card";
+import {
+	StatCardConfig,
+	STAT_CARDS,
+	ADDITIONAL_STATS,
+} from "@/constants/dashboard";
+import { AlertCounts } from "@/app/dashboard/types";
 
 interface StatsGridProps {
-  alertCounts: AlertCounts;
-  todayAlerts: number;
-  todayVerified: number;
+	alertCounts: AlertCounts;
+	todayAlerts: number;
+	todayVerified: number;
 }
 
-export const StatsGrid = memo<StatsGridProps>(({ 
-  alertCounts, 
-  todayAlerts, 
-  todayVerified 
-}) => {
-  const router = useRouter();
+export const StatsGrid = memo<StatsGridProps>(
+	({ alertCounts, todayAlerts, todayVerified }) => {
+		const router = useRouter();
 
-  const statsData = useMemo(() => ({
-    ...alertCounts,
-    todayAlerts,
-    todayVerified,
-    verificationRate: alertCounts.total > 0 
-      ? Math.round((alertCounts.verified / alertCounts.total) * 100) 
-      : 0,
-  }), [alertCounts, todayAlerts, todayVerified]);
+		const statsData = useMemo(
+			() => ({
+				...alertCounts,
+				todayAlerts,
+				todayVerified,
+				verificationRate:
+					alertCounts.total > 0
+						? Math.round(
+								(alertCounts.verified / alertCounts.total) * 100
+							)
+						: 0,
+			}),
+			[alertCounts, todayAlerts, todayVerified]
+		);
 
-  const handleCardClick = (config: StatCardConfig) => {
-    if (config.route) {
-      router.push(config.route);
-    }
-  };
+		const handleCardClick = (config: StatCardConfig) => {
+			if (config.route) router.push(config.route);
+		};
 
-  const renderStatCard = (config: StatCardConfig) => (
-    <StatsCard
-      key={config.id}
-      config={config}
-      data={statsData}
-      onClick={() => handleCardClick(config)}
-    />
-  );
+		return (
+			<section className="space-y-6">
+				<div className="flex items-baseline justify-between">
+					<div>
+						<p className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-2">
+							§ 01 · Snapshot
+						</p>
+						<h2 className="serif text-2xl font-medium tracking-tight text-foreground">
+							The state of the alert backlog
+						</h2>
+					</div>
+					
+				</div>
 
-  return (
-    <div className="space-y-6">
-      {/* Main Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {STAT_CARDS.map(renderStatCard)}
-      </div>
+				{/* Primary KPI strip — four cards joined by hairline borders */}
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-foreground/[0.08] border border-foreground/[0.08] rounded-sm overflow-hidden">
+					{STAT_CARDS.map((c, i) => (
+						<div
+							key={c.id}
+							className="animate-reveal"
+							style={{ animationDelay: `${i * 50}ms` }}
+						>
+							<StatsCard
+								config={c}
+								data={statsData}
+								onClick={() => handleCardClick(c)}
+							/>
+						</div>
+					))}
+				</div>
 
-      {/* Additional Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {ADDITIONAL_STATS.map(renderStatCard)}
-      </div>
-    </div>
-  );
-});
+				{/* Secondary "today" strip */}
+				<div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-foreground/[0.08] border border-foreground/[0.08] rounded-sm overflow-hidden">
+					{ADDITIONAL_STATS.map((c, i) => (
+						<div
+							key={c.id}
+							className="animate-reveal"
+							style={{ animationDelay: `${(i + 4) * 50}ms` }}
+						>
+							<StatsCard
+								config={c}
+								data={statsData}
+								onClick={() => handleCardClick(c)}
+							/>
+						</div>
+					))}
+				</div>
+			</section>
+		);
+	}
+);
 
-StatsGrid.displayName = 'StatsGrid';
+StatsGrid.displayName = "StatsGrid";

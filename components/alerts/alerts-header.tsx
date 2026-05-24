@@ -2,8 +2,6 @@ import React, { memo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Plus, Download, FileSpreadsheet } from "lucide-react";
-import { ALERTS_CONFIG } from "@/constants/alerts";
-import { LAYOUT } from "@/constants/layout";
 
 interface AlertsHeaderProps {
 	onRefresh: () => void;
@@ -17,57 +15,74 @@ export const AlertsHeader = memo<AlertsHeaderProps>(
 		const router = useRouter();
 
 		return (
-			<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-				<div>
-					<h1 className={LAYOUT.pageTitle}>
-						{ALERTS_CONFIG.PAGE_TITLE}
-					</h1>
-					<p className={LAYOUT.pageSubtitle}>
-						{ALERTS_CONFIG.PAGE_DESCRIPTION}
-					</p>
+			<header className="animate-reveal">
+				<div className="flex items-center gap-3 mb-5">
+					<span className="h-1 w-8 bg-accent-red rounded-full" />
+					<span className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground">
+						Surveillance · Register
+					</span>
 				</div>
-				<div className="flex flex-wrap gap-1.5">
-					<Button
-						onClick={onRefresh}
-						variant="outline"
-						size="sm"
-						className="gap-1.5 h-8"
-						disabled={isRefreshing}
-					>
-						<RefreshCw
-							className={`h-4 w-4 ${
-								isRefreshing ? "animate-spin" : ""
-							}`}
-						/>
-						{isRefreshing ? "Refreshing..." : "Refresh"}
-					</Button>
-					<Button
-						onClick={() => router.push("/add-alert")}
-						size="sm"
-						className="bg-uganda-red hover:bg-uganda-red/90 gap-1.5 h-8"
-					>
-						<Plus className="w-4 h-4" />
-						Create Alert
-					</Button>
-					<Button
-						onClick={onExportCsv}
-						variant="outline"
-						size="sm"
-						className="gap-1.5 h-8"
-					>
-						<Download className="w-4 h-4" />
-						Export CSV
-					</Button>
-					<Button
-						onClick={onExportExcel}
-						size="sm"
-						className="bg-gradient-to-r from-uganda-red to-uganda-yellow text-white hover:from-uganda-red/90 hover:to-uganda-yellow/90 gap-1.5 h-8"
-					>
-						<FileSpreadsheet className="w-4 h-4" />
-						Export Excel
-					</Button>
+				<div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+					<div className="max-w-2xl">
+						<h1 className="serif text-4xl md:text-5xl font-medium tracking-tight leading-tight text-foreground">
+							Alerts <em className="italic text-accent-red">register</em>
+						</h1>
+						<p className="mt-3 text-sm md:text-base text-muted-foreground leading-relaxed">
+							Every alert filed across Uganda&rsquo;s 135 districts —
+							filterable by status, district, source, and verification
+							state.
+						</p>
+					</div>
+					<div className="flex flex-wrap items-center gap-3 shrink-0">
+						<Button
+							onClick={onRefresh}
+							disabled={isRefreshing}
+							variant="ghost"
+							className="px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-sm gap-2 h-auto"
+						>
+							<RefreshCw
+								className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`}
+								strokeWidth={1.75}
+							/>
+							<span className="mono uppercase tracking-widest font-bold">
+								{isRefreshing ? "Refreshing" : "Refresh"}
+							</span>
+						</Button>
+						<Button
+							onClick={onExportCsv}
+							variant="ghost"
+							className="px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-sm gap-2 h-auto"
+						>
+							<Download className="h-3.5 w-3.5" strokeWidth={1.75} />
+							<span className="mono uppercase tracking-widest font-bold">
+								CSV
+							</span>
+						</Button>
+						<Button
+							onClick={onExportExcel}
+							variant="ghost"
+							className="px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-sm gap-2 h-auto"
+						>
+							<FileSpreadsheet
+								className="h-3.5 w-3.5"
+								strokeWidth={1.75}
+							/>
+							<span className="mono uppercase tracking-widest font-bold">
+								Excel
+							</span>
+						</Button>
+						<Button
+							onClick={() => router.push("/add-alert")}
+							className="px-5 py-2.5 bg-foreground text-background text-xs font-medium hover:opacity-90 rounded-sm gap-2 h-auto"
+						>
+							<Plus className="h-3.5 w-3.5" strokeWidth={1.75} />
+							<span className="mono uppercase tracking-widest font-bold">
+								New Alert
+							</span>
+						</Button>
+					</div>
 				</div>
-			</div>
+			</header>
 		);
 	}
 );

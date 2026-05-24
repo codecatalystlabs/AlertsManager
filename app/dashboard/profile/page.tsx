@@ -1,16 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthService, User } from "@/lib/auth";
+import { LoadingSpinner } from "@/components/dashboard/loading-spinner";
+import { ErrorAlert } from "@/components/dashboard/error-alert";
 import {
-	User as UserIcon,
 	Mail,
 	Building,
 	Shield,
@@ -18,9 +15,86 @@ import {
 	Edit,
 	Save,
 	X,
-	Phone,
-	MapPin,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+type Accent = "red" | "yellow" | "green" | "neutral";
+
+function levelAccent(level: string): Accent {
+	switch ((level ?? "").toLowerCase()) {
+		case "admin":
+			return "red";
+		case "district":
+			return "yellow";
+		case "reoc":
+			return "green";
+		default:
+			return "neutral";
+	}
+}
+
+const accentBar: Record<Accent, string> = {
+	red: "bg-accent-red",
+	yellow: "bg-accent-yellow",
+	green: "bg-accent-green",
+	neutral: "bg-foreground/30",
+};
+
+const accentText: Record<Accent, string> = {
+	red: "text-accent-red",
+	yellow: "text-foreground",
+	green: "text-accent-green",
+	neutral: "text-muted-foreground",
+};
+
+const inputCls =
+	"h-10 text-sm bg-card border border-foreground/10 rounded-sm hover:border-foreground/30 focus:border-foreground/60 focus-visible:ring-0 focus-visible:ring-offset-0";
+const labelCls =
+	"mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground";
+
+function formatDate(dateString: string) {
+	if (!dateString || dateString === "0001-01-01T00:00:00Z") return "—";
+	return new Date(dateString).toLocaleDateString("en-GB", {
+		day: "2-digit",
+		month: "short",
+		year: "numeric",
+	});
+}
+
+function getInitials(user: User) {
+	const first = user.firstName?.[0] || user.username[0];
+	const last = user.lastName?.[0] || user.username[1] || "";
+	return `${first}${last}`.trim().toUpperCase();
+}
+
+function getFullName(user: User) {
+	const names = [user.firstName, user.otherName, user.lastName].filter(Boolean);
+	return names.length > 0 ? names.join(" ") : user.username;
+}
+
+function Field({
+	label,
+	value,
+	mono,
+}: {
+	label: string;
+	value: React.ReactNode;
+	mono?: boolean;
+}) {
+	return (
+		<div className="space-y-1.5">
+			<p className={labelCls}>{label}</p>
+			<p
+				className={cn(
+					"text-sm text-foreground/90 leading-relaxed",
+					mono && "mono tabular-nums text-xs"
+				)}
+			>
+				{value}
+			</p>
+		</div>
+	);
+}
 
 export default function ProfilePage() {
 	const [user, setUser] = useState<User | null>(null);
@@ -28,32 +102,24 @@ export default function ProfilePage() {
 	const [error, setError] = useState<string | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
 	const [editedUser, setEditedUser] = useState<User | null>(null);
+	const [isSaving, setIsSaving] = useState(false);
 
 	useEffect(() => {
 		const fetchUserProfile = async () => {
 			try {
 				setLoading(true);
 				setError(null);
-
-				// Try to get user from localStorage first
 				const storedUser = AuthService.getUser();
-				if (storedUser) {
-					setUser(storedUser);
-				}
+				if (storedUser) setUser(storedUser);
 
-				// Fetch fresh data from API
 				const userData = await AuthService.fetchUserProfile();
 				setUser(userData);
 				setEditedUser(userData);
 			} catch (err) {
 				console.error("Error fetching user profile:", err);
 				setError(
-					err instanceof Error
-						? err.message
-						: "Failed to load profile"
+					err instanceof Error ? err.message : "Failed to load profile"
 				);
-
-				// Fallback to stored user data if API fails
 				const storedUser = AuthService.getUser();
 				if (storedUser) {
 					setUser(storedUser);
@@ -78,474 +144,450 @@ export default function ProfilePage() {
 	};
 
 	const handleSave = async () => {
-		if (!editedUser) return;
-
+		if (!editedUser || !user) return;
+		setIsSaving(true);
+		setError(null);
 		try {
-			// Here you would typically call an API to update the user
-			// For now, we'll just update the local state
-			setUser(editedUser);
+			const updated = await AuthService.updateUser(user.id, {
+				firstName: editedUser.firstName,
+				lastName: editedUser.lastName,
+				otherName: editedUser.otherName,
+				email: editedUser.email,
+				affiliation: editedUser.affiliation,
+			});
+			const merged = { ...user, ...updated };
+			setUser(merged);
+			setEditedUser(merged);
+			AuthService.setUser(merged);
 			setIsEditing(false);
-			AuthService.setUser(editedUser);
 		} catch (err) {
 			console.error("Error saving profile:", err);
-			setError("Failed to save profile changes");
-		}
-	};
-
-	const formatDate = (dateString: string) => {
-		if (!dateString || dateString === "0001-01-01T00:00:00Z") {
-			return "Not set";
-		}
-		return new Date(dateString).toLocaleDateString("en-US", {
-			year: "numeric",
-			month: "long",
-			day: "numeric",
-		});
-	};
-
-	const getInitials = (user: User) => {
-		const first = user.firstName || user.username.charAt(0);
-		const last = user.lastName || user.username.charAt(1);
-		return (first.charAt(0) + last.charAt(0)).toUpperCase();
-	};
-
-	const getFullName = (user: User) => {
-		const names = [user.firstName, user.otherName, user.lastName].filter(
-			Boolean
-		);
-		return names.length > 0 ? names.join(" ") : user.username;
-	};
-
-	const getRoleBadgeColor = (level: string) => {
-		switch (level.toLowerCase()) {
-			case "admin":
-				return "bg-red-100 text-red-800";
-			case "operator":
-				return "bg-blue-100 text-blue-800";
-			case "viewer":
-				return "bg-green-100 text-green-800";
-			default:
-				return "bg-gray-100 text-gray-800";
+			setError(
+				err instanceof Error ? err.message : "Failed to save changes"
+			);
+		} finally {
+			setIsSaving(false);
 		}
 	};
 
 	if (loading) {
-		return (
-			<div className="container mx-auto p-6">
-				<div className="flex items-center justify-center h-64">
-					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-uganda-red"></div>
-				</div>
-			</div>
-		);
-	}
-
-	if (error && !user) {
-		return (
-			<div className="container mx-auto p-6">
-				<Card>
-					<CardContent className="p-6">
-						<div className="text-center">
-							<div className="text-red-500 mb-4">
-								<UserIcon className="h-16 w-16 mx-auto" />
-							</div>
-							<h3 className="text-lg font-semibold text-gray-900 mb-2">
-								Error Loading Profile
-							</h3>
-							<p className="text-gray-600 mb-4">{error}</p>
-							<Button
-								onClick={() => window.location.reload()}
-								className="bg-uganda-red hover:bg-uganda-red/90"
-							>
-								Retry
-							</Button>
-						</div>
-					</CardContent>
-				</Card>
-			</div>
-		);
+		return <LoadingSpinner message="Loading profile…" />;
 	}
 
 	if (!user) {
 		return (
-			<div className="container mx-auto p-6">
-				<Card>
-					<CardContent className="p-6">
-						<div className="text-center text-gray-500">
-							No user data available
-						</div>
-					</CardContent>
-				</Card>
+			<div className="space-y-12">
+				<ErrorAlert
+					error={error ?? "No user data available."}
+					onRetry={() => window.location.reload()}
+				/>
 			</div>
 		);
 	}
 
-	return (
-		<div className="container mx-auto p-6 max-w-4xl">
-			<div className="mb-8">
-				<h1 className="text-3xl font-bold text-gray-900 mb-2">
-					Profile
-				</h1>
-				<p className="text-gray-600">
-					Manage your account information and settings
-				</p>
-			</div>
+	const accent = levelAccent(user.level);
 
-			{error && (
-				<Card className="mb-6 border-red-200 bg-red-50">
-					<CardContent className="p-4">
-						<div className="flex items-center text-red-700">
-							<X className="h-5 w-5 mr-2" />
-							{error}
-						</div>
-					</CardContent>
-				</Card>
+	return (
+		<div className="space-y-12">
+			{/* Header */}
+			<header className="animate-reveal">
+				<div className="flex items-center gap-3 mb-5">
+					<span className="h-1 w-8 bg-accent-red rounded-full" />
+					<span className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground">
+						Administration · Identity
+					</span>
+				</div>
+				<div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+					<div className="max-w-2xl">
+						<h1 className="serif text-4xl md:text-5xl font-medium tracking-tight leading-tight text-foreground">
+							Your <em className="italic text-accent-red">profile</em>
+						</h1>
+						<p className="mt-3 text-sm md:text-base text-muted-foreground leading-relaxed">
+							Manage your account information, contact details, and
+							access level.
+						</p>
+					</div>
+					<div className="flex items-center gap-3 shrink-0">
+						{isEditing ? (
+							<>
+								<Button
+									variant="ghost"
+									onClick={handleCancelEdit}
+									disabled={isSaving}
+									className="px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-sm gap-2 h-auto"
+								>
+									<X className="h-3.5 w-3.5" strokeWidth={1.75} />
+									<span className="mono uppercase tracking-widest font-bold">
+										Cancel
+									</span>
+								</Button>
+								<Button
+									onClick={handleSave}
+									disabled={isSaving}
+									className="px-5 py-2.5 bg-foreground text-background text-xs font-medium hover:opacity-90 rounded-sm gap-2 h-auto"
+								>
+									<Save className="h-3.5 w-3.5" strokeWidth={1.75} />
+									<span className="mono uppercase tracking-widest font-bold">
+										{isSaving ? "Saving…" : "Save changes"}
+									</span>
+								</Button>
+							</>
+						) : (
+							<Button
+								onClick={handleEdit}
+								className="px-5 py-2.5 bg-foreground text-background text-xs font-medium hover:opacity-90 rounded-sm gap-2 h-auto"
+							>
+								<Edit className="h-3.5 w-3.5" strokeWidth={1.75} />
+								<span className="mono uppercase tracking-widest font-bold">
+									Edit profile
+								</span>
+							</Button>
+						)}
+					</div>
+				</div>
+			</header>
+
+			{error && user && (
+				<ErrorAlert error={error} onRetry={() => setError(null)} />
 			)}
 
-			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-				{/* Profile Overview */}
-				<Card className="lg:col-span-1">
-					<CardHeader>
-						<CardTitle className="text-lg">
-							Profile Overview
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-6">
-						<div className="text-center">
-							<Avatar className="h-24 w-24 mx-auto mb-4">
-								<AvatarImage
-									src=""
-									alt={getFullName(user)}
-								/>
-								<AvatarFallback className="text-xl font-semibold bg-gradient-to-br from-uganda-yellow to-uganda-red text-white">
-									{getInitials(user)}
-								</AvatarFallback>
-							</Avatar>
-							<h3 className="text-xl font-semibold text-gray-900">
+			<div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+				{/* Identity card */}
+				<aside className="lg:col-span-4">
+					<section className="editorial-card animate-reveal [animation-delay:100ms]">
+						<div className="px-6 py-7 flex flex-col items-center text-center border-b border-foreground/[0.08]">
+							<div className="flex h-20 w-20 items-center justify-center rounded-sm bg-foreground text-background mono text-xl font-semibold tracking-tight mb-4">
+								{getInitials(user)}
+							</div>
+							<h2 className="serif text-2xl font-medium tracking-tight text-foreground">
 								{getFullName(user)}
-							</h3>
-							<p className="text-gray-600 mb-2">
+							</h2>
+							<p className="mt-1 mono text-[11px] uppercase tracking-tight text-muted-foreground">
 								@{user.username}
 							</p>
-							<Badge
-								className={getRoleBadgeColor(
-									user.level
-								)}
-							>
-								{user.level || "User"}
-							</Badge>
-						</div>
-
-						<Separator />
-
-						<div className="space-y-4">
-							<div className="flex items-center space-x-3">
-								<Mail className="h-5 w-5 text-gray-400" />
-								<div>
-									<p className="text-sm font-medium text-gray-900">
-										Email
-									</p>
-									<p className="text-sm text-gray-600">
-										{user.email || "Not provided"}
-									</p>
-								</div>
-							</div>
-
-							<div className="flex items-center space-x-3">
-								<Building className="h-5 w-5 text-gray-400" />
-								<div>
-									<p className="text-sm font-medium text-gray-900">
-										Affiliation
-									</p>
-									<p className="text-sm text-gray-600">
-										{user.affiliation ||
-											"Not provided"}
-									</p>
-								</div>
-							</div>
-
-							<div className="flex items-center space-x-3">
-								<Shield className="h-5 w-5 text-gray-400" />
-								<div>
-									<p className="text-sm font-medium text-gray-900">
-										User Type
-									</p>
-									<p className="text-sm text-gray-600">
-										{user.userType ||
-											"Not specified"}
-									</p>
-								</div>
-							</div>
-						</div>
-					</CardContent>
-				</Card>
-
-				{/* Profile Details */}
-				<Card className="lg:col-span-2">
-					<CardHeader className="flex flex-row items-center justify-between">
-						<CardTitle className="text-lg">
-							Profile Details
-						</CardTitle>
-						<div className="flex space-x-2">
-							{isEditing ? (
-								<>
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={handleCancelEdit}
-									>
-										<X className="h-4 w-4 mr-2" />
-										Cancel
-									</Button>
-									<Button
-										size="sm"
-										onClick={handleSave}
-										className="bg-uganda-red hover:bg-uganda-red/90"
-									>
-										<Save className="h-4 w-4 mr-2" />
-										Save
-									</Button>
-								</>
-							) : (
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={handleEdit}
+							<div className="mt-4 inline-flex items-center gap-2">
+								<span
+									className={cn(
+										"h-1.5 w-1.5 rounded-full",
+										accentBar[accent]
+									)}
+								/>
+								<span
+									className={cn(
+										"mono text-[10px] uppercase tracking-widest font-bold",
+										accentText[accent]
+									)}
 								>
-									<Edit className="h-4 w-4 mr-2" />
-									Edit
-								</Button>
-							)}
+									{user.level || "User"}
+								</span>
+							</div>
 						</div>
-					</CardHeader>
-					<CardContent className="space-y-6">
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div>
-								<Label htmlFor="firstName">
-									First Name
+
+						<ul className="px-6 py-5 space-y-5">
+							<li className="flex items-start gap-3">
+								<Mail
+									className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0"
+									strokeWidth={1.75}
+								/>
+								<div className="min-w-0">
+									<p className={labelCls}>Email</p>
+									<p className="mt-1 text-sm text-foreground/90 truncate">
+										{user.email || (
+											<span className="text-muted-foreground/60">
+												Not provided
+											</span>
+										)}
+									</p>
+								</div>
+							</li>
+							<li className="flex items-start gap-3">
+								<Building
+									className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0"
+									strokeWidth={1.75}
+								/>
+								<div className="min-w-0">
+									<p className={labelCls}>Affiliation</p>
+									<p className="mt-1 text-sm text-foreground/90">
+										{user.affiliation || (
+											<span className="text-muted-foreground/60">
+												Not provided
+											</span>
+										)}
+									</p>
+								</div>
+							</li>
+							<li className="flex items-start gap-3">
+								<Shield
+									className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0"
+									strokeWidth={1.75}
+								/>
+								<div className="min-w-0">
+									<p className={labelCls}>User type</p>
+									<p className="mt-1 text-sm text-foreground/90">
+										{user.userType || (
+											<span className="text-muted-foreground/60">
+												Not specified
+											</span>
+										)}
+									</p>
+								</div>
+							</li>
+						</ul>
+					</section>
+				</aside>
+
+				{/* Details card */}
+				<section className="lg:col-span-8 editorial-card animate-reveal [animation-delay:200ms]">
+					<header className="px-6 py-5 flex items-baseline justify-between gap-4 border-b border-foreground/[0.08]">
+						<div>
+							<p className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-2">
+								§ · Account
+							</p>
+							<h3 className="serif text-xl font-medium tracking-tight text-foreground">
+								Profile details
+							</h3>
+						</div>
+						{isEditing && (
+							<span className="mono text-[10px] uppercase tracking-widest text-accent-yellow shrink-0">
+								Editing
+							</span>
+						)}
+					</header>
+
+					<div className="p-6 space-y-8">
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
+							{/* First name */}
+							<div className="space-y-2">
+								<Label htmlFor="firstName" className={labelCls}>
+									First name
 								</Label>
 								{isEditing ? (
 									<Input
 										id="firstName"
-										value={
-											editedUser?.firstName ||
-											""
-										}
+										value={editedUser?.firstName || ""}
 										onChange={(e) =>
 											setEditedUser((prev) =>
 												prev
 													? {
 															...prev,
-															firstName:
-																e
-																	.target
-																	.value,
-													  }
+															firstName: e.target.value,
+														}
 													: null
 											)
 										}
 										placeholder="Enter first name"
+										className={inputCls}
 									/>
 								) : (
-									<p className="text-sm text-gray-900 mt-1">
-										{user.firstName ||
-											"Not provided"}
+									<p className="text-sm text-foreground/90">
+										{user.firstName || (
+											<span className="text-muted-foreground/60">
+												Not provided
+											</span>
+										)}
 									</p>
 								)}
 							</div>
 
-							<div>
-								<Label htmlFor="lastName">
-									Last Name
+							{/* Last name */}
+							<div className="space-y-2">
+								<Label htmlFor="lastName" className={labelCls}>
+									Last name
 								</Label>
 								{isEditing ? (
 									<Input
 										id="lastName"
-										value={
-											editedUser?.lastName ||
-											""
-										}
+										value={editedUser?.lastName || ""}
 										onChange={(e) =>
 											setEditedUser((prev) =>
 												prev
 													? {
 															...prev,
-															lastName:
-																e
-																	.target
-																	.value,
-													  }
+															lastName: e.target.value,
+														}
 													: null
 											)
 										}
 										placeholder="Enter last name"
+										className={inputCls}
 									/>
 								) : (
-									<p className="text-sm text-gray-900 mt-1">
-										{user.lastName ||
-											"Not provided"}
+									<p className="text-sm text-foreground/90">
+										{user.lastName || (
+											<span className="text-muted-foreground/60">
+												Not provided
+											</span>
+										)}
 									</p>
 								)}
 							</div>
 
-							<div>
-								<Label htmlFor="otherName">
-									Other Name
+							{/* Other name */}
+							<div className="space-y-2">
+								<Label htmlFor="otherName" className={labelCls}>
+									Other name
 								</Label>
 								{isEditing ? (
 									<Input
 										id="otherName"
-										value={
-											editedUser?.otherName ||
-											""
-										}
+										value={editedUser?.otherName || ""}
 										onChange={(e) =>
 											setEditedUser((prev) =>
 												prev
 													? {
 															...prev,
-															otherName:
-																e
-																	.target
-																	.value,
-													  }
+															otherName: e.target.value,
+														}
 													: null
 											)
 										}
 										placeholder="Enter other name"
+										className={inputCls}
 									/>
 								) : (
-									<p className="text-sm text-gray-900 mt-1">
-										{user.otherName ||
-											"Not provided"}
+									<p className="text-sm text-foreground/90">
+										{user.otherName || (
+											<span className="text-muted-foreground/60">
+												Not provided
+											</span>
+										)}
 									</p>
 								)}
 							</div>
 
-							<div>
-								<Label htmlFor="username">
-									Username
-								</Label>
-								<p className="text-sm text-gray-900 mt-1">
-									{user.username}
-								</p>
-							</div>
+							{/* Username (read-only) */}
+							<Field
+								label="Username"
+								value={
+									<span className="mono">@{user.username}</span>
+								}
+							/>
 
-							<div>
-								<Label htmlFor="email">
-									Email Address
+							{/* Email */}
+							<div className="space-y-2">
+								<Label htmlFor="email" className={labelCls}>
+									Email address
 								</Label>
 								{isEditing ? (
 									<Input
 										id="email"
 										type="email"
-										value={
-											editedUser?.email || ""
-										}
+										value={editedUser?.email || ""}
 										onChange={(e) =>
 											setEditedUser((prev) =>
 												prev
 													? {
 															...prev,
-															email: e
-																.target
-																.value,
-													  }
+															email: e.target.value,
+														}
 													: null
 											)
 										}
-										placeholder="Enter email address"
+										placeholder="name@health.go.ug"
+										className={inputCls}
 									/>
 								) : (
-									<p className="text-sm text-gray-900 mt-1">
-										{user.email || "Not provided"}
+									<p className="text-sm text-foreground/90 truncate">
+										{user.email || (
+											<span className="text-muted-foreground/60">
+												Not provided
+											</span>
+										)}
 									</p>
 								)}
 							</div>
 
-							<div>
-								<Label htmlFor="affiliation">
+							{/* Affiliation */}
+							<div className="space-y-2">
+								<Label htmlFor="affiliation" className={labelCls}>
 									Affiliation
 								</Label>
 								{isEditing ? (
 									<Input
 										id="affiliation"
-										value={
-											editedUser?.affiliation ||
-											""
-										}
+										value={editedUser?.affiliation || ""}
 										onChange={(e) =>
 											setEditedUser((prev) =>
 												prev
 													? {
 															...prev,
-															affiliation:
-																e
-																	.target
-																	.value,
-													  }
+															affiliation: e.target.value,
+														}
 													: null
 											)
 										}
-										placeholder="Enter affiliation"
+										placeholder="Mbarara District Health Office"
+										className={inputCls}
 									/>
 								) : (
-									<p className="text-sm text-gray-900 mt-1">
-										{user.affiliation ||
-											"Not provided"}
+									<p className="text-sm text-foreground/90">
+										{user.affiliation || (
+											<span className="text-muted-foreground/60">
+												Not provided
+											</span>
+										)}
 									</p>
 								)}
 							</div>
 
-							<div>
-								<Label htmlFor="userType">
-									User Type
-								</Label>
-								<p className="text-sm text-gray-900 mt-1">
-									{user.userType || "Not specified"}
-								</p>
-							</div>
+							{/* User type (read-only) */}
+							<Field
+								label="User type"
+								value={
+									user.userType || (
+										<span className="text-muted-foreground/60">
+											Not specified
+										</span>
+									)
+								}
+							/>
 
-							<div>
-								<Label htmlFor="level">
-									Access Level
-								</Label>
-								<div className="mt-1">
-									<Badge
-										className={getRoleBadgeColor(
-											user.level
+							{/* Access level (read-only) */}
+							<div className="space-y-2">
+								<p className={labelCls}>Access level</p>
+								<span className="inline-flex items-center gap-2">
+									<span
+										className={cn(
+											"h-1.5 w-1.5 rounded-full",
+											accentBar[accent]
+										)}
+									/>
+									<span
+										className={cn(
+											"mono text-[11px] uppercase tracking-widest font-bold",
+											accentText[accent]
 										)}
 									>
 										{user.level || "User"}
-									</Badge>
-								</div>
+									</span>
+								</span>
 							</div>
 						</div>
 
-						<Separator />
-
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div>
-								<Label>Account Created</Label>
-								<div className="flex items-center space-x-2 mt-1">
-									<Calendar className="h-4 w-4 text-gray-400" />
-									<p className="text-sm text-gray-900">
-										{formatDate(user.createdAt)}
-									</p>
-								</div>
+						<div className="pt-6 border-t border-foreground/[0.08] grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
+							<div className="space-y-2">
+								<p className={labelCls}>Account created</p>
+								<p className="flex items-center gap-2 text-sm text-foreground/90 mono tabular-nums">
+									<Calendar
+										className="h-3.5 w-3.5 text-muted-foreground"
+										strokeWidth={1.75}
+									/>
+									{formatDate(user.createdAt)}
+								</p>
 							</div>
-
-							<div>
-								<Label>Last Updated</Label>
-								<div className="flex items-center space-x-2 mt-1">
-									<Calendar className="h-4 w-4 text-gray-400" />
-									<p className="text-sm text-gray-900">
-										{formatDate(user.updatedAt)}
-									</p>
-								</div>
+							<div className="space-y-2">
+								<p className={labelCls}>Last updated</p>
+								<p className="flex items-center gap-2 text-sm text-foreground/90 mono tabular-nums">
+									<Calendar
+										className="h-3.5 w-3.5 text-muted-foreground"
+										strokeWidth={1.75}
+									/>
+									{formatDate(user.updatedAt)}
+								</p>
 							</div>
 						</div>
-					</CardContent>
-				</Card>
+					</div>
+				</section>
 			</div>
 		</div>
 	);

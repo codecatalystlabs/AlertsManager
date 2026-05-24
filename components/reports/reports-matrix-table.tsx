@@ -3,7 +3,6 @@
 import { memo, useCallback } from "react";
 import { Download, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
 	Table,
 	TableBody,
@@ -13,7 +12,6 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { LAYOUT } from "@/constants/layout";
 import type { ReportMatrix } from "@/lib/fetch-reports";
 import {
 	exportReportMatrixToCsv,
@@ -55,57 +53,70 @@ export const ReportsMatrixTable = memo<ReportsMatrixTableProps>(
 		}, [matrix, exportKey, periodLabel]);
 
 		return (
-			<Card className={cn(LAYOUT.card, "flex flex-col")}>
-				<CardHeader className={cn(LAYOUT.cardHeader, "flex-row items-start justify-between gap-2 space-y-0")}>
+			<section className="animate-reveal [animation-delay:200ms] editorial-card flex flex-col">
+				<header className="px-6 py-5 flex items-start justify-between gap-3 border-b border-foreground/[0.08]">
 					<div className="min-w-0 flex-1">
-						<CardTitle className={LAYOUT.cardTitle}>{title}</CardTitle>
-						<p className="text-xs text-muted-foreground">{periodLabel}</p>
+						<p className="mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground mb-1">
+							B · Matrix
+						</p>
+						<h2 className="serif text-2xl font-medium tracking-tight text-foreground">
+							{title}
+						</h2>
+						<p className="mt-1 mono text-[10px] uppercase tracking-widest text-muted-foreground">
+							{periodLabel}
+						</p>
 					</div>
-					<div className="flex shrink-0 gap-1">
+					<div className="flex shrink-0 gap-2">
 						<Button
 							type="button"
-							variant="outline"
-							size="sm"
-							className="h-7 px-2 gap-1"
+							variant="ghost"
+							className="px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/5 rounded-sm gap-2 h-auto"
 							disabled={!canExport || isLoading}
 							onClick={handleExportCsv}
 							title="Export CSV"
 						>
-							<Download className="h-3 w-3" />
-							<span className="text-xs hidden sm:inline">CSV</span>
+							<Download className="h-3.5 w-3.5" strokeWidth={1.75} />
+							<span className="mono uppercase tracking-widest font-bold hidden sm:inline">
+								CSV
+							</span>
 						</Button>
 						<Button
 							type="button"
-							size="sm"
-							className="h-7 px-2 gap-1 bg-uganda-red hover:bg-uganda-red/90"
+							className="px-4 py-2 bg-foreground text-background text-xs font-medium hover:opacity-90 rounded-sm gap-2 h-auto"
 							disabled={!canExport || isLoading}
 							onClick={handleExportExcel}
 							title="Export Excel"
 						>
-							<FileSpreadsheet className="h-3 w-3" />
-							<span className="text-xs hidden sm:inline">Excel</span>
+							<FileSpreadsheet
+								className="h-3.5 w-3.5"
+								strokeWidth={1.75}
+							/>
+							<span className="mono uppercase tracking-widest font-bold hidden sm:inline">
+								Excel
+							</span>
 						</Button>
 					</div>
-				</CardHeader>
-				<CardContent className={cn(LAYOUT.cardContent, "pt-0")}>
+				</header>
+
+				<div className="p-5">
 					{isLoading ? (
-						<div className="h-[240px] animate-pulse rounded-md border bg-muted/40" />
+						<div className="h-[240px] animate-pulse bg-foreground/[0.04] rounded-sm" />
 					) : !matrix?.rows?.length ? (
-						<p className="py-8 text-center text-sm text-muted-foreground">
+						<p className="py-10 text-center mono text-[10px] uppercase tracking-widest text-muted-foreground">
 							No matrix data for this date range.
 						</p>
 					) : (
-						<div className="max-h-[min(280px,45vh)] overflow-auto rounded-md border border-slate-200 bg-white shadow-sm">
+						<div className="max-h-[min(360px,50vh)] overflow-auto rounded-sm border border-foreground/[0.08]">
 							<Table className="min-w-max border-collapse text-xs">
 								<TableHeader className="sticky top-0 z-20">
-									<TableRow className="bg-slate-100 hover:bg-slate-100 border-b-2 border-slate-200">
-										<TableHead className="h-9 min-w-[5.5rem] px-2 font-semibold text-slate-800 sticky left-0 z-30 bg-slate-100 border-r border-slate-200">
+									<TableRow className="bg-background hover:bg-background border-b border-foreground/[0.08]">
+										<TableHead className="h-10 min-w-[6rem] px-3 mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground sticky left-0 z-30 bg-background border-r border-foreground/[0.08]">
 											District
 										</TableHead>
 										{matrix.columns.map((col) => (
 											<TableHead
 												key={col}
-												className="h-9 min-w-[4.5rem] px-2 text-center font-semibold text-slate-800 whitespace-nowrap border-r border-slate-100 last:border-r-0"
+												className="h-10 min-w-[4.5rem] px-3 text-center mono text-[10px] uppercase tracking-tight font-bold text-foreground whitespace-nowrap"
 											>
 												{col}
 											</TableHead>
@@ -117,26 +128,27 @@ export const ReportsMatrixTable = memo<ReportsMatrixTableProps>(
 										<TableRow
 											key={row.label}
 											className={cn(
-												"border-b border-slate-100 transition-colors",
+												"border-b border-foreground/[0.04] transition-colors",
 												rowIndex % 2 === 0
-													? "bg-white"
-													: "bg-slate-50/90",
-												"hover:bg-amber-50/60"
+													? "bg-card"
+													: "bg-foreground/[0.015]",
+												"hover:bg-accent-yellow/[0.08]"
 											)}
 										>
-											<TableCell className="h-8 px-2 font-medium text-slate-900 sticky left-0 z-10 bg-inherit border-r border-slate-200 whitespace-nowrap">
+											<TableCell className="h-9 px-3 text-xs font-medium text-foreground sticky left-0 z-10 bg-inherit border-r border-foreground/[0.08] whitespace-nowrap">
 												{row.label}
 											</TableCell>
 											{matrix.columns.map((_, colIndex) => {
-												const value = row.values[colIndex] ?? 0;
+												const value =
+													row.values[colIndex] ?? 0;
 												return (
 													<TableCell
 														key={`${row.label}-${colIndex}`}
 														className={cn(
-															"h-8 px-2 text-center tabular-nums border-r border-slate-50 last:border-r-0",
+															"h-9 px-3 text-center mono text-xs tabular-nums",
 															value > 0
-																? "text-slate-900 font-medium"
-																: "text-slate-400"
+																? "text-foreground font-medium"
+																: "text-muted-foreground/40"
 														)}
 													>
 														{value}
@@ -149,8 +161,8 @@ export const ReportsMatrixTable = memo<ReportsMatrixTableProps>(
 							</Table>
 						</div>
 					)}
-				</CardContent>
-			</Card>
+				</div>
+			</section>
 		);
 	}
 );
