@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { AlertCounts, CallLogAlert } from "@/app/dashboard/types";
 import { fetchAlertTotals, fetchAllAlerts } from "@/lib/fetch-alerts";
-import { getCachedAlerts, subscribeAlertsCache } from "@/lib/alerts-cache";
+import {
+	getCachedAlerts,
+	isCacheFresh,
+	subscribeAlertsCache,
+} from "@/lib/alerts-cache";
 
 interface DashboardData {
 	alerts: CallLogAlert[];
@@ -72,6 +76,25 @@ export const useDashboardData = (): UseDashboardDataReturn => {
 		}
 
 		setError(null);
+
+		// Fresh cache: show charts immediately; only refresh lightweight totals (3× limit=1).
+		if (!force && isCacheFresh() && cached?.data?.length) {
+			try {
+				const totalsResult = await fetchAlertTotals();
+				setAlertCounts({
+					verified: totalsResult.verified,
+					notVerified: totalsResult.notVerified,
+					total: totalsResult.total,
+				});
+			} catch (err) {
+				const errorMessage =
+					err instanceof Error ? err.message : "Failed to fetch alert data";
+				setError(errorMessage);
+			} finally {
+				setLoading(false);
+			}
+			return;
+		}
 
 		try {
 			const [totalsResult, alertsResult] = await Promise.all([

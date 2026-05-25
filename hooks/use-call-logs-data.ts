@@ -285,7 +285,7 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
 
     useEffect(() => {
         loadAlerts();
-    }, [loadAlerts, filters.verification]);
+    }, [loadAlerts, page, limit, filters.verification]);
 
     return {
         alerts,

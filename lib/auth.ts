@@ -292,6 +292,45 @@ export class AuthService {
         }
     }
 
+    static async updateUser(
+        userId: number,
+        userData: {
+            firstName?: string
+            lastName?: string
+            otherName?: string
+            email?: string
+            affiliation?: string
+            userType?: string
+            level?: string
+        }
+    ): Promise<User> {
+        try {
+            const response = await this.makeAuthenticatedRequest(
+                `${API_BASE_URL}/users/${userId}`,
+                {
+                    method: 'PUT',
+                    body: JSON.stringify(userData),
+                }
+            )
+
+            if (!response.ok) {
+                let errorMessage = 'Failed to update user'
+                try {
+                    const errorData = await response.json()
+                    errorMessage = errorData.message || errorMessage
+                } catch {
+                    errorMessage = response.statusText || errorMessage
+                }
+                throw new Error(errorMessage)
+            }
+
+            return (await response.json()) as User
+        } catch (error) {
+            console.error('Error updating user:', error)
+            throw error
+        }
+    }
+
     static async registerUser(userData: {
         username: string
         password: string

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import {
 	STAT_FILTER_PRESETS,
 	type CallLogsStatFilter,
@@ -12,10 +13,31 @@ import {
 	CallLogsTable,
 } from "@/components/call-logs";
 import { ErrorAlert } from "@/components/dashboard";
-import { AlertVerificationDialog } from "@/components/alert-verification-dialog";
-import { AlertDetailsDialog } from "@/components/alert-details-dialog";
-import { AlertEditDialog } from "@/components/alert-edit-dialog";
 import { useCallLogsData, type AlertLog } from "@/hooks/use-call-logs-data";
+
+const AlertDetailsDialog = dynamic(
+	() =>
+		import("@/components/alert-details-dialog").then((m) => ({
+			default: m.AlertDetailsDialog,
+		})),
+	{ ssr: false }
+);
+
+const AlertVerificationDialog = dynamic(
+	() =>
+		import("@/components/alert-verification-dialog").then((m) => ({
+			default: m.AlertVerificationDialog,
+		})),
+	{ ssr: false }
+);
+
+const AlertEditDialog = dynamic(
+	() =>
+		import("@/components/alert-edit-dialog").then((m) => ({
+			default: m.AlertEditDialog,
+		})),
+	{ ssr: false }
+);
 import { LAYOUT } from "@/constants/layout";
 
 /**

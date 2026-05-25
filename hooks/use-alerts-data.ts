@@ -3,7 +3,7 @@ import { AuthService, Alert as AlertType } from '@/lib/auth';
 import { exportAlertsToCsv, exportAlertsToExcel } from '@/lib/alert-export';
 import { ALERTS_CONFIG } from '@/constants/alerts';
 import { fetchAlertsPage, type AlertsListParams } from '@/lib/fetch-alerts';
-import { fetchReportOptions } from '@/lib/fetch-reports';
+import { loadReportOptions } from '@/lib/report-options-cache';
 import { invalidateAlertsCache } from '@/lib/alerts-cache';
 
 interface AlertsFilters {
@@ -240,14 +240,14 @@ export const useAlertsData = (): UseAlertsDataReturn => {
 
     useEffect(() => {
         loadAlerts();
-    }, [loadAlerts, filters.district, filters.verification]);
+    }, [loadAlerts, page, limit, filters.district, filters.verification]);
 
     useEffect(() => {
         let cancelled = false;
 
         async function loadDistrictOptions() {
             try {
-                const opts = await fetchReportOptions();
+                const opts = await loadReportOptions();
                 if (!cancelled) {
                     setUniqueDistricts(opts.districts.filter(Boolean));
                 }

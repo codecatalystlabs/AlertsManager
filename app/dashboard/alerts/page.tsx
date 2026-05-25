@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import {
 	AlertsHeader,
 	AlertsStats,
@@ -8,9 +9,23 @@ import {
 	AlertsTable,
 } from "@/components/alerts";
 import { ErrorAlert } from "@/components/dashboard";
-import { AlertDetailsDialog } from "@/components/alert-details-dialog";
-import { AlertEditDialog } from "@/components/alert-edit-dialog";
 import { useAlertsData } from "@/hooks/use-alerts-data";
+
+const AlertDetailsDialog = dynamic(
+	() =>
+		import("@/components/alert-details-dialog").then((m) => ({
+			default: m.AlertDetailsDialog,
+		})),
+	{ ssr: false }
+);
+
+const AlertEditDialog = dynamic(
+	() =>
+		import("@/components/alert-edit-dialog").then((m) => ({
+			default: m.AlertEditDialog,
+		})),
+	{ ssr: false }
+);
 import { Alert as AlertType } from "@/lib/auth";
 import { LAYOUT } from "@/constants/layout";
 

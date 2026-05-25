@@ -52,7 +52,11 @@ export default function UsersPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [searchTerm, setSearchTerm] = useState("");
 	const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+	const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+	const [editingUser, setEditingUser] = useState<User | null>(null);
 	const [isRegistering, setIsRegistering] = useState(false);
+	const [isUpdating, setIsUpdating] = useState(false);
+	const [updateError, setUpdateError] = useState<string | null>(null);
 	const [registrationError, setRegistrationError] = useState<string | null>(
 		null
 	);
@@ -154,6 +158,54 @@ export default function UsersPage() {
 			);
 		} finally {
 			setIsRegistering(false);
+		}
+	};
+
+	const handleOpenEdit = (user: User) => {
+		setEditingUser({ ...user });
+		setUpdateError(null);
+		setIsEditUserOpen(true);
+	};
+
+	const handleUpdateUser = async () => {
+		if (!editingUser) return;
+
+		if (
+			!editingUser.firstName ||
+			!editingUser.lastName ||
+			!editingUser.email ||
+			!editingUser.affiliation
+		) {
+			setUpdateError("Please fill in all required fields");
+			return;
+		}
+
+		try {
+			setIsUpdating(true);
+			setUpdateError(null);
+
+			const updatedUser = await AuthService.updateUser(editingUser.id, {
+				firstName: editingUser.firstName,
+				lastName: editingUser.lastName,
+				otherName: editingUser.otherName || undefined,
+				email: editingUser.email,
+				affiliation: editingUser.affiliation,
+				userType: editingUser.userType || undefined,
+				level: editingUser.level || undefined,
+			});
+
+			setUsers((prev) =>
+				prev.map((u) => (u.id === updatedUser.id ? updatedUser : u))
+			);
+			setIsEditUserOpen(false);
+			setEditingUser(null);
+		} catch (err) {
+			console.error("Error updating user:", err);
+			setUpdateError(
+				err instanceof Error ? err.message : "Failed to update user"
+			);
+		} finally {
+			setIsUpdating(false);
 		}
 	};
 
@@ -650,6 +702,225 @@ export default function UsersPage() {
 								</div>
 							</DialogContent>
 						</Dialog>
+
+						<Dialog
+							open={isEditUserOpen}
+							onOpenChange={(open) => {
+								setIsEditUserOpen(open);
+								if (!open) {
+									setEditingUser(null);
+									setUpdateError(null);
+								}
+							}}
+						>
+							<DialogContent className="sm:max-w-md">
+								<DialogHeader>
+									<DialogTitle>Edit User</DialogTitle>
+								</DialogHeader>
+								{editingUser && (
+									<div className="space-y-4">
+										{updateError && (
+											<Alert className="border-red-200 bg-red-50">
+												<AlertCircle className="h-4 w-4 text-red-600" />
+												<AlertDescription className="text-red-700">
+													{updateError}
+												</AlertDescription>
+											</Alert>
+										)}
+
+										<div>
+											<Label>Username</Label>
+											<Input
+												value={editingUser.username}
+												disabled
+												className="bg-gray-50"
+											/>
+										</div>
+
+										<div className="grid grid-cols-2 gap-4">
+											<div>
+												<Label htmlFor="editFirstName">
+													First Name *
+												</Label>
+												<Input
+													id="editFirstName"
+													value={editingUser.firstName}
+													onChange={(e) =>
+														setEditingUser({
+															...editingUser,
+															firstName:
+																e.target.value,
+														})
+													}
+													disabled={isUpdating}
+												/>
+											</div>
+											<div>
+												<Label htmlFor="editLastName">
+													Last Name *
+												</Label>
+												<Input
+													id="editLastName"
+													value={editingUser.lastName}
+													onChange={(e) =>
+														setEditingUser({
+															...editingUser,
+															lastName:
+																e.target.value,
+														})
+													}
+													disabled={isUpdating}
+												/>
+											</div>
+										</div>
+
+										<div>
+											<Label htmlFor="editOtherName">
+												Other Name
+											</Label>
+											<Input
+												id="editOtherName"
+												value={editingUser.otherName || ""}
+												onChange={(e) =>
+													setEditingUser({
+														...editingUser,
+														otherName: e.target.value,
+													})
+												}
+												disabled={isUpdating}
+											/>
+										</div>
+
+										<div>
+											<Label htmlFor="editEmail">
+												Email Address *
+											</Label>
+											<Input
+												id="editEmail"
+												type="email"
+												value={editingUser.email}
+												onChange={(e) =>
+													setEditingUser({
+														...editingUser,
+														email: e.target.value,
+													})
+												}
+												disabled={isUpdating}
+											/>
+										</div>
+
+										<div>
+											<Label htmlFor="editAffiliation">
+												Affiliation *
+											</Label>
+											<Input
+												id="editAffiliation"
+												value={editingUser.affiliation}
+												onChange={(e) =>
+													setEditingUser({
+														...editingUser,
+														affiliation: e.target.value,
+													})
+												}
+												disabled={isUpdating}
+											/>
+										</div>
+
+										<div className="grid grid-cols-2 gap-4">
+											<div>
+												<Label>User Type</Label>
+												<Select
+													value={editingUser.userType || ""}
+													onValueChange={(value) =>
+														setEditingUser({
+															...editingUser,
+															userType: value,
+														})
+													}
+													disabled={isUpdating}
+												>
+													<SelectTrigger>
+														<SelectValue placeholder="Select user type" />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="District">
+															District
+														</SelectItem>
+														<SelectItem value="REOC">
+															REOC
+														</SelectItem>
+														<SelectItem value="MoH">
+															MoH
+														</SelectItem>
+														<SelectItem value="Health Facility">
+															Health Facility
+														</SelectItem>
+													</SelectContent>
+												</Select>
+											</div>
+											<div>
+												<Label>Access Level</Label>
+												<Select
+													value={editingUser.level || ""}
+													onValueChange={(value) =>
+														setEditingUser({
+															...editingUser,
+															level: value,
+														})
+													}
+													disabled={isUpdating}
+												>
+													<SelectTrigger>
+														<SelectValue placeholder="Select access level" />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="Admin">
+															Admin
+														</SelectItem>
+														<SelectItem value="District">
+															District
+														</SelectItem>
+														<SelectItem value="REOC">
+															REOC
+														</SelectItem>
+														<SelectItem value="Viewer">
+															Viewer
+														</SelectItem>
+													</SelectContent>
+												</Select>
+											</div>
+										</div>
+
+										<div className="flex justify-end space-x-2">
+											<Button
+												variant="outline"
+												onClick={() => setIsEditUserOpen(false)}
+												disabled={isUpdating}
+											>
+												Cancel
+											</Button>
+											<Button
+												onClick={handleUpdateUser}
+												disabled={isUpdating}
+												className="bg-uganda-red hover:bg-uganda-red/90"
+											>
+												{isUpdating ? (
+													<>
+														<Loader2 className="w-4 h-4 mr-2 animate-spin" />
+														Saving...
+													</>
+												) : (
+													<>
+														<Edit className="w-4 h-4 mr-2" />
+														Save Changes
+													</>
+												)}
+											</Button>
+										</div>
+									</div>
+								)}
+							</DialogContent>
+						</Dialog>
 					</div>
 
 					<div className="overflow-x-auto">
@@ -730,6 +1001,10 @@ export default function UsersPage() {
 												<Button
 													size="sm"
 													variant="outline"
+													onClick={() =>
+														handleOpenEdit(user)
+													}
+													aria-label={`Edit ${user.username}`}
 												>
 													<Edit className="w-4 h-4" />
 												</Button>

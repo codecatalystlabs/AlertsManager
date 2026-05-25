@@ -3,7 +3,6 @@ import {
 	buildReportsQuery,
 	defaultReportDateRange,
 	fetchReportMatrix,
-	fetchReportOptions,
 	fetchReportTimeseries,
 	type ReportDateRange,
 	type ReportMatrix,
@@ -11,6 +10,7 @@ import {
 	type ReportScope,
 	type ReportTimeseries,
 } from "@/lib/fetch-reports";
+import { loadReportOptions } from "@/lib/report-options-cache";
 
 interface UseReportsDataReturn {
 	options: ReportOptions;
@@ -111,7 +111,7 @@ export function useReportsData(): UseReportsDataReturn {
 
 		async function loadOptions() {
 			try {
-				const opts = await fetchReportOptions();
+				const opts = await loadReportOptions();
 				if (!cancelled) setOptions(opts);
 			} catch {
 				// Defaults are sufficient for scope select
