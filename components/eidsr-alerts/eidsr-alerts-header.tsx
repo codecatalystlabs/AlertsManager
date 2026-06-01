@@ -43,7 +43,7 @@ export const EidsrAlertsHeader = memo<EidsrAlertsHeaderProps>(
 						<CloudDownload
 							className={`h-4 w-4 ${isSyncing ? "animate-pulse" : ""}`}
 						/>
-						{isSyncing ? "Updating…" : "Update from EIDSR"}
+						{isSyncing ? "Updating…" : "Update 6767 Messages"}
 					</Button>
 				</div>
 			</div>

@@ -1,7 +1,7 @@
 export const EIDSR_ALERTS_CONFIG = {
 	PAGE_TITLE: "6767 Alerts",
 	PAGE_DESCRIPTION:
-		"EIDSR events synced from the 6767 hotline program (local mirror)",
+		"EIDSR events synced from the 6767 Messages (local mirror)",
 	ITEMS_PER_PAGE: 10,
 } as const;
 
