@@ -18,6 +18,7 @@ import {
 	LogOut,
 	X,
 	Phone,
+	PhoneCall,
 	ChevronDown,
 	User,
 	PanelLeftClose,
@@ -63,6 +64,12 @@ const navigation: NavigationItem[] = [
 		href: "/dashboard/call-logs",
 		icon: Phone,
 		badge: "3",
+	},
+	{
+		name: "6767 Alerts",
+		href: "/dashboard/eidsr-alerts",
+		icon: PhoneCall,
+		badge: null,
 	},
 	{
 		name: "Summaries / Reports",
@@ -482,7 +489,7 @@ function SidebarContent({
 						))}
 
 						{collapsed ? (
-							navigation.slice(2, 6).map((item) => (
+							navigation.slice(2, 7).map((item) => (
 								<NavLink
 									key={item.name}
 									item={item}
@@ -513,7 +520,7 @@ function SidebarContent({
 									</Button>
 								</CollapsibleTrigger>
 								<CollapsibleContent className="space-y-1 ml-6 mt-1">
-									{navigation.slice(2, 6).map((item) => {
+									{navigation.slice(2, 7).map((item) => {
 										const isActive = pathname === item.href;
 										const badge = getBadgeValue(item);
 										return (
@@ -559,7 +566,7 @@ function SidebarContent({
 							</Collapsible>
 						)}
 
-						{navigation.slice(5).map((item) => (
+						{navigation.slice(7).map((item) => (
 							<NavLink
 								key={item.name}
 								item={item}

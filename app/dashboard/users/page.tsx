@@ -21,8 +21,8 @@ import {
 	DialogTrigger,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Textarea } from "@/components/ui/textarea";
-import { AuthService, User } from "@/lib/auth";
+import { Separator } from "@/components/ui/separator";
+import { AuthService, User, type UpdateUserPayload } from "@/lib/auth";
 import {
 	Plus,
 	Edit,
@@ -57,6 +57,7 @@ export default function UsersPage() {
 	const [isRegistering, setIsRegistering] = useState(false);
 	const [isUpdating, setIsUpdating] = useState(false);
 	const [updateError, setUpdateError] = useState<string | null>(null);
+	const [editPassword, setEditPassword] = useState("");
 	const [registrationError, setRegistrationError] = useState<string | null>(
 		null
 	);
@@ -163,14 +164,28 @@ export default function UsersPage() {
 
 	const handleOpenEdit = (user: User) => {
 		setEditingUser({ ...user });
+		setEditPassword("");
 		setUpdateError(null);
 		setIsEditUserOpen(true);
 	};
+
+	const buildUpdatePayload = (user: User): UpdateUserPayload => ({
+		username: user.username,
+		firstName: user.firstName,
+		lastName: user.lastName,
+		otherName: user.otherName ?? "",
+		email: user.email,
+		affiliation: user.affiliation,
+		userType: user.userType ?? "",
+		level: user.level ?? "",
+		password: editPassword,
+	});
 
 	const handleUpdateUser = async () => {
 		if (!editingUser) return;
 
 		if (
+			!editingUser.username ||
 			!editingUser.firstName ||
 			!editingUser.lastName ||
 			!editingUser.email ||
@@ -184,21 +199,17 @@ export default function UsersPage() {
 			setIsUpdating(true);
 			setUpdateError(null);
 
-			const updatedUser = await AuthService.updateUser(editingUser.id, {
-				firstName: editingUser.firstName,
-				lastName: editingUser.lastName,
-				otherName: editingUser.otherName || undefined,
-				email: editingUser.email,
-				affiliation: editingUser.affiliation,
-				userType: editingUser.userType || undefined,
-				level: editingUser.level || undefined,
-			});
+			const updatedUser = await AuthService.updateUser(
+				editingUser.id,
+				buildUpdatePayload(editingUser)
+			);
 
 			setUsers((prev) =>
 				prev.map((u) => (u.id === updatedUser.id ? updatedUser : u))
 			);
 			setIsEditUserOpen(false);
 			setEditingUser(null);
+			setEditPassword("");
 		} catch (err) {
 			console.error("Error updating user:", err);
 			setUpdateError(
@@ -710,6 +721,7 @@ export default function UsersPage() {
 								if (!open) {
 									setEditingUser(null);
 									setUpdateError(null);
+									setEditPassword("");
 								}
 							}}
 						>
@@ -729,11 +741,17 @@ export default function UsersPage() {
 										)}
 
 										<div>
-											<Label>Username</Label>
+											<Label htmlFor="editUsername">Username *</Label>
 											<Input
+												id="editUsername"
 												value={editingUser.username}
-												disabled
-												className="bg-gray-50"
+												onChange={(e) =>
+													setEditingUser({
+														...editingUser,
+														username: e.target.value,
+													})
+												}
+												disabled={isUpdating}
 											/>
 										</div>
 
@@ -889,6 +907,29 @@ export default function UsersPage() {
 													</SelectContent>
 												</Select>
 											</div>
+										</div>
+
+										<Separator />
+
+										<div>
+											<Label htmlFor="editPassword">
+												New password
+											</Label>
+											<Input
+												id="editPassword"
+												type="password"
+												autoComplete="new-password"
+												value={editPassword}
+												onChange={(e) =>
+													setEditPassword(e.target.value)
+												}
+												placeholder="Leave blank to keep current password"
+												disabled={isUpdating}
+											/>
+											<p className="text-xs text-muted-foreground mt-1">
+												Only fill in if you want to change this
+												user&apos;s password.
+											</p>
 										</div>
 
 										<div className="flex justify-end space-x-2">

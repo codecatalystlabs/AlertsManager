@@ -38,6 +38,19 @@ export interface User {
     updatedAt: string
 }
 
+export interface UpdateUserPayload {
+    username: string
+    firstName: string
+    lastName: string
+    otherName: string
+    email: string
+    affiliation: string
+    userType: string
+    level: string
+    /** Empty string leaves the password unchanged on the server */
+    password: string
+}
+
 // Alert interface to match the Go struct
 export interface Alert {
     id?: number
@@ -294,22 +307,24 @@ export class AuthService {
 
     static async updateUser(
         userId: number,
-        userData: {
-            firstName?: string
-            lastName?: string
-            otherName?: string
-            email?: string
-            affiliation?: string
-            userType?: string
-            level?: string
-        }
+        userData: UpdateUserPayload
     ): Promise<User> {
         try {
             const response = await this.makeAuthenticatedRequest(
                 `${API_BASE_URL}/users/${userId}`,
                 {
                     method: 'PUT',
-                    body: JSON.stringify(userData),
+                    body: JSON.stringify({
+                        username: userData.username,
+                        firstName: userData.firstName,
+                        lastName: userData.lastName,
+                        otherName: userData.otherName ?? '',
+                        email: userData.email,
+                        affiliation: userData.affiliation,
+                        userType: userData.userType ?? '',
+                        level: userData.level ?? '',
+                        password: userData.password ?? '',
+                    }),
                 }
             )
 
