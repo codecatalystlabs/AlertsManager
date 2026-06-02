@@ -46,6 +46,21 @@ import {
 } from "@/constants";
 import { useToast } from "@/hooks/use-toast";
 
+const DESK_VERIFICATION_OPTIONS = [
+	"Field Case Verification",
+	"Discarded",
+	"Validated for EMS Evacuation",
+	"Mortality Surveillance/Supervised Burial",
+] as const;
+
+const FIELD_VERIFICATION_OPTIONS = [
+	"SDB",
+	"Discard",
+	"Sample collection",
+	"Mortality Surveillance/Supervised Burial",
+	"Recommend for Evacuation",
+] as const;
+
 interface AlertEditDialogProps {
 	isOpen: boolean;
 	onClose: () => void;
@@ -174,6 +189,15 @@ export function AlertEditDialog({
 			setSuccess(null);
 		}
 	}, [isOpen, alert]);
+
+	useEffect(() => {
+		if (
+			formData.caseVerificationDesk !== "Field Case Verification" &&
+			formData.fieldVerificationDecision
+		) {
+			setFormData((prev) => ({ ...prev, fieldVerificationDecision: "" }));
+		}
+	}, [formData.caseVerificationDesk, formData.fieldVerificationDecision]);
 
 	const handleInputChange = (field: string, value: string) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
@@ -1159,54 +1183,91 @@ export function AlertEditDialog({
 							</div>
 						</div>
 
-						<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-							<div className="space-y-2">
-								<Label htmlFor="caseVerificationDesk" className="text-sm font-medium">
-									Desk verification
+						<div className="space-y-3 rounded-lg border bg-gray-50 p-3">
+							<Label className="text-sm font-medium">
+								Desk Verification Actions
+							</Label>
+							<RadioGroup
+								value={formData.caseVerificationDesk}
+								onValueChange={(value) =>
+									handleInputChange("caseVerificationDesk", value)
+								}
+								className="grid grid-cols-1 md:grid-cols-2 gap-2"
+							>
+								{DESK_VERIFICATION_OPTIONS.map((option) => (
+									<div
+										key={option}
+										className="flex items-center space-x-2"
+									>
+										<RadioGroupItem
+											value={option}
+											id={`edit-desk-${option
+												.toLowerCase()
+												.replace(/[^a-z0-9]/g, "-")}`}
+										/>
+										<Label
+											htmlFor={`edit-desk-${option
+												.toLowerCase()
+												.replace(/[^a-z0-9]/g, "-")}`}
+											className="text-sm"
+										>
+											{option}
+										</Label>
+									</div>
+								))}
+							</RadioGroup>
+						</div>
+
+						{formData.caseVerificationDesk === "Field Case Verification" && (
+							<div className="space-y-3 rounded-lg border bg-gray-50 p-3">
+								<Label className="text-sm font-medium">
+									Field Verification Feedback
 								</Label>
-								<Textarea
-									id="caseVerificationDesk"
-									rows={2}
-									value={formData.caseVerificationDesk}
-									onChange={(e) =>
-										handleInputChange("caseVerificationDesk", e.target.value)
-									}
-									placeholder="Desk actions / notes"
-								/>
-							</div>
-							<div className="space-y-2">
-								<Label htmlFor="fieldVerification" className="text-sm font-medium">
-									Field verification
-								</Label>
-								<Textarea
-									id="fieldVerification"
-									rows={2}
-									value={formData.fieldVerification}
-									onChange={(e) =>
-										handleInputChange("fieldVerification", e.target.value)
-									}
-									placeholder="Field notes"
-								/>
-							</div>
-							<div className="space-y-2">
-								<Label
-									htmlFor="fieldVerificationDecision"
-									className="text-sm font-medium"
-								>
-									Field decision
-								</Label>
-								<Input
-									id="fieldVerificationDecision"
+								<RadioGroup
 									value={formData.fieldVerificationDecision}
-									onChange={(e) =>
-										handleInputChange(
-											"fieldVerificationDecision",
-											e.target.value
-										)
+									onValueChange={(value) =>
+										handleInputChange("fieldVerificationDecision", value)
 									}
-									placeholder="Decision"
-								/>
+									className="grid grid-cols-1 md:grid-cols-2 gap-2"
+								>
+									{FIELD_VERIFICATION_OPTIONS.map((option) => (
+										<div
+											key={option}
+											className="flex items-center space-x-2"
+										>
+											<RadioGroupItem
+												value={option}
+												id={`edit-feedback-${option
+													.toLowerCase()
+													.replace(/[^a-z0-9]/g, "-")}`}
+											/>
+											<Label
+												htmlFor={`edit-feedback-${option
+													.toLowerCase()
+													.replace(/[^a-z0-9]/g, "-")}`}
+												className="text-sm"
+											>
+												{option}
+											</Label>
+										</div>
+									))}
+								</RadioGroup>
 							</div>
+						)}
+
+						<div className="space-y-2">
+							<Label htmlFor="fieldVerification" className="text-sm font-medium">
+								Field Verification Notes
+							</Label>
+							<Textarea
+								id="fieldVerification"
+								rows={2}
+								value={formData.fieldVerification}
+								onChange={(e) =>
+									handleInputChange("fieldVerification", e.target.value)
+								}
+								placeholder="Field notes"
+							/>
 						</div>
 
 						<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
