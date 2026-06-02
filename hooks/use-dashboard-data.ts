@@ -99,7 +99,7 @@ export const useDashboardData = (): UseDashboardDataReturn => {
 		try {
 			const [totalsResult, alertsResult] = await Promise.all([
 				fetchAlertTotals(),
-				fetchAllAlerts<CallLogAlert[]>({ force }),
+				fetchAllAlerts({ force }),
 			]);
 
 			setAlertCounts({
@@ -107,7 +107,7 @@ export const useDashboardData = (): UseDashboardDataReturn => {
 				notVerified: totalsResult.notVerified,
 				total: totalsResult.total,
 			});
-			applyAlerts(alertsResult.data);
+			applyAlerts(alertsResult.data as CallLogAlert[]);
 			setLoading(false);
 
 			if (alertsResult.revalidate) {
@@ -115,7 +115,7 @@ export const useDashboardData = (): UseDashboardDataReturn => {
 				alertsResult
 					.revalidate()
 					.then((fresh) => {
-						if (fresh) applyAlerts(fresh);
+						if (fresh) applyAlerts(fresh as CallLogAlert[]);
 					})
 					.finally(() => setIsValidating(false));
 			}

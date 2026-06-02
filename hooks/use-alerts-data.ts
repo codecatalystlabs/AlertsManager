@@ -120,11 +120,11 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         setError(null);
 
         try {
-            const result = await fetchAlertsPage<AlertType>(
+            const result = await fetchAlertsPage(
                 toApiParams(filtersRef.current, page, limit)
             );
 
-            setAlerts(result.data);
+            setAlerts(result.data as AlertType[]);
             setPageState(result.page);
             setLimitState(result.limit);
             setTotal(result.total);
@@ -144,12 +144,12 @@ export const useAlertsData = (): UseAlertsDataReturn => {
     }, [page, limit]);
 
     const loadAlertsForExport = useCallback(async (): Promise<AlertType[]> => {
-        const result = await fetchAlertsPage<AlertType>({
+        const result = await fetchAlertsPage({
             ...toApiParams(filtersRef.current, 1, limit),
             page: 1,
             limit: 10_000,
         });
-        return applyClientFilters(result.data, filtersRef.current);
+        return applyClientFilters(result.data as AlertType[], filtersRef.current);
     }, [limit]);
 
     const deleteAlert = useCallback(

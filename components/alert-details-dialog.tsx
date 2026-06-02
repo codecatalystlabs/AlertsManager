@@ -36,6 +36,18 @@ export function AlertDetailsDialog({
 }: AlertDetailsDialogProps) {
 	if (!alert) return null;
 
+	const hasVerificationInfo = Boolean(
+		alert.isVerified ||
+			alert.verifiedBy ||
+			alert.verificationDate ||
+			alert.verificationTime ||
+			alert.actions ||
+			alert.feedback ||
+			alert.caseVerificationDesk ||
+			alert.fieldVerification ||
+			alert.fieldVerificationDecision
+	);
+
 	const formatDate = (dateString: string) => {
 		return new Date(dateString).toLocaleDateString();
 	};
@@ -350,7 +362,7 @@ export function AlertDetailsDialog({
 					)}
 
 					{/* Verification Information */}
-					{alert.isVerified && (
+					{hasVerificationInfo && (
 						<>
 							<Separator />
 							<div className="space-y-4">

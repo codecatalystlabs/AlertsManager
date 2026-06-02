@@ -36,7 +36,7 @@ import {
 	HeartIcon,
 	CalendarIcon,
 } from "lucide-react";
-import { AuthService } from "@/lib/auth";
+import { AuthService, type Alert as ApiAlert } from "@/lib/auth";
 import { getLocalDateString } from "@/lib/utils";
 import {
 	alertResponse,
@@ -49,7 +49,7 @@ import { useToast } from "@/hooks/use-toast";
 interface AlertEditDialogProps {
 	isOpen: boolean;
 	onClose: () => void;
-	alert: any;
+	alert: ApiAlert;
 	onEditComplete: () => void;
 }
 
@@ -82,6 +82,23 @@ export function AlertEditDialog({
 		pointOfContactPhone: "",
 		narrative: "",
 		symptoms: [] as string[],
+		// Verification / lab / assignment (not shown in the basic form before)
+		isVerified: false,
+		verifiedBy: "",
+		verificationDate: "",
+		verificationTime: "",
+		actions: "",
+		feedback: "",
+		caseVerificationDesk: "",
+		fieldVerification: "",
+		fieldVerificationDecision: "",
+		labResult: "",
+		labResultDate: "",
+		assignedTo: "",
+		comments: "",
+		facilityType: "",
+		facility: "",
+		region: "",
 	});
 
 	console.log(alert, "Alert is here");
@@ -130,6 +147,28 @@ export function AlertEditDialog({
 				pointOfContactPhone: alert.pointOfContactPhone || "",
 				narrative: alert.narrative || "",
 				symptoms: symptomsArray,
+				isVerified: Boolean(alert.isVerified),
+				verifiedBy: alert.verifiedBy || "",
+				verificationDate: alert.verificationDate
+					? new Date(alert.verificationDate).toISOString().split("T")[0]
+					: "",
+				verificationTime: alert.verificationTime
+					? new Date(alert.verificationTime).toTimeString().slice(0, 5)
+					: "",
+				actions: alert.actions || "",
+				feedback: alert.feedback || "",
+				caseVerificationDesk: alert.caseVerificationDesk || "",
+				fieldVerification: alert.fieldVerification || "",
+				fieldVerificationDecision: alert.fieldVerificationDecision || "",
+				labResult: alert.labResult || "",
+				labResultDate: alert.labResultDate
+					? new Date(alert.labResultDate).toISOString().split("T")[0]
+					: "",
+				assignedTo: alert.assignedTo || "",
+				comments: alert.comments || "",
+				facilityType: alert.facilityType || "",
+				facility: alert.facility || "",
+				region: alert.region || "",
 			});
 			setError(null);
 			setSuccess(null);
@@ -137,6 +176,10 @@ export function AlertEditDialog({
 	}, [isOpen, alert]);
 
 	const handleInputChange = (field: string, value: string) => {
+		setFormData((prev) => ({ ...prev, [field]: value }));
+	};
+
+	const handleBoolChange = (field: string, value: boolean) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
 	};
 
@@ -193,11 +236,13 @@ export function AlertEditDialog({
 				return new Date().toISOString();
 			};
 
-			// Prepare the data to match the API structure
-			const alertData = {
+			// Merge edited fields onto the full alert object so we don't drop fields
+			// that aren't shown in the form (verification info, lab results, etc).
+			const alertData: ApiAlert = {
+				...alert,
 				date: formData.date
 					? new Date(formData.date).toISOString()
-					: new Date().toISOString(),
+					: alert.date || new Date().toISOString(),
 				time: formatTime(formData.time),
 				cifNo: formData.cifNo,
 				alertReportedBefore:
@@ -219,9 +264,31 @@ export function AlertEditDialog({
 				pointOfContactPhone: formData.pointOfContactPhone,
 				narrative: formData.narrative,
 				symptoms: formData.symptoms.join(", "),
+				isVerified: formData.isVerified,
+				verifiedBy: formData.verifiedBy,
+				verificationDate: formData.verificationDate
+					? new Date(formData.verificationDate).toISOString()
+					: alert.verificationDate ?? null,
+				verificationTime: formData.verificationTime
+					? formatTime(formData.verificationTime)
+					: alert.verificationTime ?? null,
+				actions: formData.actions,
+				feedback: formData.feedback,
+				caseVerificationDesk: formData.caseVerificationDesk,
+				fieldVerification: formData.fieldVerification,
+				fieldVerificationDecision: formData.fieldVerificationDecision,
+				labResult: formData.labResult,
+				labResultDate: formData.labResultDate
+					? new Date(formData.labResultDate).toISOString()
+					: alert.labResultDate ?? null,
+				assignedTo: formData.assignedTo,
+				comments: formData.comments,
+				facilityType: formData.facilityType,
+				facility: formData.facility,
+				region: formData.region,
 			};
 
-			await AuthService.updateAlert(alert.id, alertData);
+			await AuthService.updateAlert(alert.id as number, alertData);
 
 			setSuccess("Alert updated successfully!");
 
@@ -947,6 +1014,254 @@ export function AlertEditDialog({
 									</div>
 								</div>
 							)}
+						</div>
+					</div>
+
+					<Separator />
+
+					{/* Verification / Lab / Assignment */}
+					<div className="space-y-4">
+						<div className="flex items-center gap-3 mb-1">
+							<CheckCircleIcon className="h-5 w-5 text-uganda-red" />
+							<h3 className="text-lg font-semibold text-uganda-black">
+								Verification & Lab
+							</h3>
+						</div>
+
+						<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+							<div className="flex items-center gap-3 rounded-lg border p-3 bg-gray-50">
+								<Checkbox
+									id="isVerified"
+									checked={formData.isVerified}
+									onCheckedChange={(checked) =>
+										handleBoolChange(
+											"isVerified",
+											Boolean(checked)
+										)
+									}
+								/>
+								<Label
+									htmlFor="isVerified"
+									className="text-sm font-medium cursor-pointer"
+								>
+									Verified
+								</Label>
+							</div>
+
+							<div className="space-y-2">
+								<Label htmlFor="verifiedBy" className="text-sm font-medium">
+									Verified By
+								</Label>
+								<Input
+									id="verifiedBy"
+									value={formData.verifiedBy}
+									onChange={(e) =>
+										handleInputChange("verifiedBy", e.target.value)
+									}
+									placeholder="Verifier name"
+								/>
+							</div>
+
+							<div className="space-y-2">
+								<Label htmlFor="assignedTo" className="text-sm font-medium">
+									Assigned To
+								</Label>
+								<Input
+									id="assignedTo"
+									value={formData.assignedTo}
+									onChange={(e) =>
+										handleInputChange("assignedTo", e.target.value)
+									}
+									placeholder="Team / person"
+								/>
+							</div>
+						</div>
+
+						<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+							<div className="space-y-2">
+								<Label htmlFor="verificationDate" className="text-sm font-medium">
+									Verification Date
+								</Label>
+								<Input
+									id="verificationDate"
+									type="date"
+									value={formData.verificationDate}
+									onChange={(e) =>
+										handleInputChange("verificationDate", e.target.value)
+									}
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="verificationTime" className="text-sm font-medium">
+									Verification Time
+								</Label>
+								<Input
+									id="verificationTime"
+									type="time"
+									value={formData.verificationTime}
+									onChange={(e) =>
+										handleInputChange("verificationTime", e.target.value)
+									}
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="labResult" className="text-sm font-medium">
+									Lab Result
+								</Label>
+								<Input
+									id="labResult"
+									value={formData.labResult}
+									onChange={(e) =>
+										handleInputChange("labResult", e.target.value)
+									}
+									placeholder="e.g. Positive / Negative"
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="labResultDate" className="text-sm font-medium">
+									Lab Result Date
+								</Label>
+								<Input
+									id="labResultDate"
+									type="date"
+									value={formData.labResultDate}
+									onChange={(e) =>
+										handleInputChange("labResultDate", e.target.value)
+									}
+								/>
+							</div>
+						</div>
+
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div className="space-y-2">
+								<Label htmlFor="actions" className="text-sm font-medium">
+									Actions Taken
+								</Label>
+								<Textarea
+									id="actions"
+									rows={3}
+									value={formData.actions}
+									onChange={(e) => handleInputChange("actions", e.target.value)}
+									placeholder="Actions taken during verification / response"
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="feedback" className="text-sm font-medium">
+									Feedback
+								</Label>
+								<Textarea
+									id="feedback"
+									rows={3}
+									value={formData.feedback}
+									onChange={(e) => handleInputChange("feedback", e.target.value)}
+									placeholder="Feedback notes"
+								/>
+							</div>
+						</div>
+
+						<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+							<div className="space-y-2">
+								<Label htmlFor="caseVerificationDesk" className="text-sm font-medium">
+									Desk verification
+								</Label>
+								<Textarea
+									id="caseVerificationDesk"
+									rows={2}
+									value={formData.caseVerificationDesk}
+									onChange={(e) =>
+										handleInputChange("caseVerificationDesk", e.target.value)
+									}
+									placeholder="Desk actions / notes"
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="fieldVerification" className="text-sm font-medium">
+									Field verification
+								</Label>
+								<Textarea
+									id="fieldVerification"
+									rows={2}
+									value={formData.fieldVerification}
+									onChange={(e) =>
+										handleInputChange("fieldVerification", e.target.value)
+									}
+									placeholder="Field notes"
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label
+									htmlFor="fieldVerificationDecision"
+									className="text-sm font-medium"
+								>
+									Field decision
+								</Label>
+								<Input
+									id="fieldVerificationDecision"
+									value={formData.fieldVerificationDecision}
+									onChange={(e) =>
+										handleInputChange(
+											"fieldVerificationDecision",
+											e.target.value
+										)
+									}
+									placeholder="Decision"
+								/>
+							</div>
+						</div>
+
+						<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+							<div className="space-y-2">
+								<Label htmlFor="facilityType" className="text-sm font-medium">
+									Facility Type
+								</Label>
+								<Input
+									id="facilityType"
+									value={formData.facilityType}
+									onChange={(e) =>
+										handleInputChange("facilityType", e.target.value)
+									}
+									placeholder="Facility type"
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="facility" className="text-sm font-medium">
+									Facility
+								</Label>
+								<Input
+									id="facility"
+									value={formData.facility}
+									onChange={(e) =>
+										handleInputChange("facility", e.target.value)
+									}
+									placeholder="Facility name"
+								/>
+							</div>
+							<div className="space-y-2">
+								<Label htmlFor="region" className="text-sm font-medium">
+									Region
+								</Label>
+								<Input
+									id="region"
+									value={formData.region}
+									onChange={(e) =>
+										handleInputChange("region", e.target.value)
+									}
+									placeholder="Region"
+								/>
+							</div>
+						</div>
+
+						<div className="space-y-2">
+							<Label htmlFor="comments" className="text-sm font-medium">
+								Comments
+							</Label>
+							<Textarea
+								id="comments"
+								rows={3}
+								value={formData.comments}
+								onChange={(e) => handleInputChange("comments", e.target.value)}
+								placeholder="Additional comments"
+							/>
 						</div>
 					</div>
 

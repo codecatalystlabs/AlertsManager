@@ -26,7 +26,7 @@ const AlertEditDialog = dynamic(
 		})),
 	{ ssr: false }
 );
-import { Alert as AlertType } from "@/lib/auth";
+import { Alert as AlertType, AuthService } from "@/lib/auth";
 import { LAYOUT } from "@/constants/layout";
 
 /**
@@ -93,13 +93,25 @@ export default function AlertsPage(): JSX.Element {
 		[deleteAlert]
 	);
 
-	const handleViewAlert = useCallback((alert: AlertType) => {
-		setSelectedAlert(alert);
+	const handleViewAlert = useCallback(async (alert: AlertType) => {
+		try {
+			const fullAlert = await AuthService.fetchAlert(alert.id as number);
+			setSelectedAlert(fullAlert);
+		} catch (error) {
+			console.error("Failed to load full alert details:", error);
+			setSelectedAlert(alert);
+		}
 		setIsDetailsDialogOpen(true);
 	}, []);
 
-	const handleEditAlert = useCallback((alert: AlertType) => {
-		setSelectedAlert(alert);
+	const handleEditAlert = useCallback(async (alert: AlertType) => {
+		try {
+			const fullAlert = await AuthService.fetchAlert(alert.id as number);
+			setSelectedAlert(fullAlert);
+		} catch (error) {
+			console.error("Failed to load full alert for editing:", error);
+			setSelectedAlert(alert);
+		}
 		setIsEditDialogOpen(true);
 	}, []);
 

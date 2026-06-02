@@ -161,11 +161,11 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         setError(null);
 
         try {
-            const result = await fetchAlertsPage<AlertLog>(
+            const result = await fetchAlertsPage(
                 toApiParams(filtersRef.current, page, limit)
             );
 
-            setAlerts(result.data);
+            setAlerts(result.data as AlertLog[]);
             setPageState(result.page);
             setLimitState(result.limit);
             setTotal(result.total);
@@ -184,12 +184,12 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
     }, [page, limit]);
 
     const loadAlertsForExport = useCallback(async (): Promise<AlertLog[]> => {
-        const result = await fetchAlertsPage<AlertLog>({
+        const result = await fetchAlertsPage({
             ...toApiParams(filtersRef.current, 1, limit),
             page: 1,
             limit: 10_000,
         });
-        return applyClientFilters(result.data, filtersRef.current);
+        return applyClientFilters(result.data as AlertLog[], filtersRef.current);
     }, [limit]);
 
     const deleteAlert = useCallback(

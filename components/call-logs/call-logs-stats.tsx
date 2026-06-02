@@ -44,7 +44,6 @@ const StatCard = memo<StatCardProps>(
 		onClick,
 	}) => (
 		<Card
-			className="min-w-0"
 			role="button"
 			tabIndex={0}
 			onClick={onClick}
@@ -55,6 +54,7 @@ const StatCard = memo<StatCardProps>(
 				}
 			}}
 			className={cn(
+				"min-w-0",
 				`border-l-4 ${borderColor} cursor-pointer transition-all duration-200`,
 				"hover:shadow-md hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-uganda-red focus-visible:ring-offset-2",
 				isActive && "ring-2 ring-uganda-red shadow-md bg-muted/30"

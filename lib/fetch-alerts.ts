@@ -1,4 +1,5 @@
-import { AuthService } from "@/lib/auth";
+import { AuthService, type Alert } from "@/lib/auth";
+import { normalizeAlertsList } from "@/lib/alert-normalize";
 import { getClientApiBaseUrl } from "@/lib/api-config";
 import { formatAlertsFetchError } from "@/lib/api-errors";
 import {
@@ -77,32 +78,77 @@ function buildAlertsUrl(apiBase: string, params?: AlertsListParams): string {
 	return query ? `${apiBase}/alerts?${query}` : `${apiBase}/alerts`;
 }
 
-function parsePaginatedAlertsResponse<T>(json: unknown): PaginatedAlertsResult<T> {
-	if (Array.isArray(json)) {
-		const data = json as T[];
-		return {
-			data,
-			page: 1,
-			limit: data.length,
-			total: data.length,
-			totalPages: 1,
-		};
+function extractAlertsArrayFromResponse(json: unknown): unknown[] {
+	if (Array.isArray(json)) return json;
+
+	const body = json as Record<string, unknown> | null;
+	if (!body || typeof body !== "object") return [];
+
+	const candidates = [
+		body.data,
+		body.alerts,
+		body.items,
+		body.rows,
+		body.results,
+	];
+
+	for (const candidate of candidates) {
+		if (Array.isArray(candidate)) return candidate;
+		if (candidate && typeof candidate === "object" && !Array.isArray(candidate)) {
+			const nested = candidate as Record<string, unknown>;
+			const inner =
+				nested.data ??
+				nested.alerts ??
+				nested.items ??
+				nested.rows ??
+				nested.results;
+			if (Array.isArray(inner)) return inner;
+		}
 	}
 
-	const body = json as Record<string, unknown>;
-	const nested = body.pagination as Record<string, unknown> | undefined;
-	const data = (body.data ?? body.alerts ?? body.items ?? []) as T[];
+	return [];
+}
 
-	const page = Number(body.page ?? nested?.page ?? 1) || 1;
-	const limit = Number(
-		body.limit ?? body.page_size ?? nested?.limit ?? nested?.page_size ?? data.length
-	) || data.length;
-	const total = Number(body.total ?? nested?.total ?? data.length) || data.length;
-	const totalPages =
-		Number(body.total_pages ?? nested?.total_pages) ||
-		(limit > 0 ? Math.max(1, Math.ceil(total / limit)) : 1);
+function parsePaginatedAlertsResponse(json: unknown): PaginatedAlertsResult<Alert> {
+	let rawItems: unknown[] = [];
+	let page = 1;
+	let limit = 0;
+	let total = 0;
+	let totalPages = 1;
 
-	return { data, page, limit, total, totalPages };
+	if (Array.isArray(json)) {
+		rawItems = json;
+		limit = rawItems.length;
+		total = rawItems.length;
+	} else {
+		const body = json as Record<string, unknown>;
+		const nested = body.pagination as Record<string, unknown> | undefined;
+		rawItems = extractAlertsArrayFromResponse(json);
+
+		page = Number(body.page ?? nested?.page ?? 1) || 1;
+		limit =
+			Number(
+				body.limit ??
+					body.page_size ??
+					nested?.limit ??
+					nested?.page_size ??
+					rawItems.length
+			) || rawItems.length;
+		total = Number(body.total ?? nested?.total ?? rawItems.length) || rawItems.length;
+		totalPages =
+			Number(body.total_pages ?? nested?.total_pages) ||
+			(limit > 0 ? Math.max(1, Math.ceil(total / limit)) : 1);
+	}
+
+	const normalized = normalizeAlertsList(rawItems);
+
+	return {
+		data: normalized,
+		page,
+		limit: limit || normalized.length,
+		total: total || normalized.length,
+		totalPages,
+	};
 }
 
 async function requestAlerts<T>(url: string): Promise<T> {
@@ -156,7 +202,7 @@ export async function fetchAlertTotals(): Promise<AlertTotals> {
 }
 
 /** Bounded alerts for dashboard charts (last 90 days, max 1000 rows, parallel pages). */
-async function fetchDashboardAlertsFromApi<T>(): Promise<T[]> {
+async function fetchDashboardAlertsFromApi(): Promise<Alert[]> {
 	const range = dashboardDateRange();
 	const baseParams: AlertsListParams = {
 		page: 1,
@@ -164,7 +210,7 @@ async function fetchDashboardAlertsFromApi<T>(): Promise<T[]> {
 		...range,
 	};
 
-	const first = await fetchAlertsPage<T>(baseParams);
+	const first = await fetchAlertsPage(baseParams);
 	const maxPages = Math.min(first.totalPages, DASHBOARD_MAX_PAGES);
 
 	if (maxPages <= 1) {
@@ -173,7 +219,7 @@ async function fetchDashboardAlertsFromApi<T>(): Promise<T[]> {
 
 	const rest = await Promise.all(
 		Array.from({ length: maxPages - 1 }, (_, index) =>
-			fetchAlertsPage<T>({ ...baseParams, page: index + 2 })
+			fetchAlertsPage({ ...baseParams, page: index + 2 })
 		)
 	);
 
@@ -181,12 +227,12 @@ async function fetchDashboardAlertsFromApi<T>(): Promise<T[]> {
 }
 
 /** Paginated alerts list: GET /api/v1/alerts?page=1&limit=10&district=... */
-export async function fetchAlertsPage<T>(
+export async function fetchAlertsPage(
 	params: AlertsListParams = {}
-): Promise<PaginatedAlertsResult<T>> {
+): Promise<PaginatedAlertsResult<Alert>> {
 	const apiBase = getClientApiBaseUrl();
 	const json = await requestAlerts<unknown>(buildAlertsUrl(apiBase, params));
-	return parsePaginatedAlertsResponse<T>(json);
+	return parsePaginatedAlertsResponse(json);
 }
 
 function warnBackgroundRevalidate(error: unknown): void {
@@ -202,11 +248,11 @@ function warnBackgroundRevalidate(error: unknown): void {
  * Fetch dashboard alerts with cache (90-day window, capped pages).
  * Stats totals should use fetchAlertTotals() in parallel for accuracy.
  */
-export async function fetchAllAlerts<T>(
+export async function fetchAllAlerts(
 	options: { force?: boolean } = {}
-): Promise<FetchAlertsResult<T>> {
+): Promise<FetchAlertsResult<Alert[]>> {
 	const { force = false } = options;
-	const cached = getCachedAlerts<T>();
+	const cached = getCachedAlerts<Alert[]>();
 
 	if (!force && cached) {
 		if (isCacheFresh()) {
@@ -219,7 +265,7 @@ export async function fetchAllAlerts<T>(
 				fromCache: true,
 				revalidate: async () => {
 					try {
-						const fresh = await fetchDashboardAlertsFromApi<T>();
+						const fresh = await fetchDashboardAlertsFromApi();
 						setCachedAlerts(fresh);
 						return fresh;
 					} catch (error) {
@@ -231,7 +277,7 @@ export async function fetchAllAlerts<T>(
 		}
 	}
 
-	const data = await fetchDashboardAlertsFromApi<T>();
+	const data = await fetchDashboardAlertsFromApi();
 	setCachedAlerts(data);
 	return { data, fromCache: false };
 }

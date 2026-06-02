@@ -14,6 +14,7 @@ import {
 } from "@/components/call-logs";
 import { ErrorAlert } from "@/components/dashboard";
 import { useCallLogsData, type AlertLog } from "@/hooks/use-call-logs-data";
+import { AuthService } from "@/lib/auth";
 
 const AlertDetailsDialog = dynamic(
 	() =>
@@ -110,24 +111,42 @@ export default function CallLogsPage(): JSX.Element {
 	}, [refetch]);
 
 	const handleViewDetails = useCallback(
-		(alert: AlertLog) => {
-			setSelectedAlert(alert);
+		async (alert: AlertLog) => {
+			try {
+				const fullAlert = await AuthService.fetchAlert(alert.id);
+				setSelectedAlert(fullAlert as AlertLog);
+			} catch (error) {
+				console.error("Failed to load full alert details:", error);
+				setSelectedAlert(alert);
+			}
 			setIsDetailsDialogOpen(true);
 		},
 		[setSelectedAlert]
 	);
 
 	const handleVerifyAlert = useCallback(
-		(alert: AlertLog) => {
-			setSelectedAlert(alert);
+		async (alert: AlertLog) => {
+			try {
+				const fullAlert = await AuthService.fetchAlert(alert.id);
+				setSelectedAlert(fullAlert as AlertLog);
+			} catch (error) {
+				console.error("Failed to load full alert for verification:", error);
+				setSelectedAlert(alert);
+			}
 			setIsVerificationDialogOpen(true);
 		},
 		[setSelectedAlert]
 	);
 
 	const handleEditAlert = useCallback(
-		(alert: AlertLog) => {
-			setSelectedAlert(alert);
+		async (alert: AlertLog) => {
+			try {
+				const fullAlert = await AuthService.fetchAlert(alert.id);
+				setSelectedAlert(fullAlert as AlertLog);
+			} catch (error) {
+				console.error("Failed to load full alert for editing:", error);
+				setSelectedAlert(alert);
+			}
 			setIsEditDialogOpen(true);
 		},
 		[setSelectedAlert]

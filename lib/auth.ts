@@ -1,4 +1,5 @@
 import { invalidateAlertsCache } from '@/lib/alerts-cache'
+import { normalizeAlertFromApi } from '@/lib/alert-normalize'
 import { getClientApiBaseUrl } from '@/lib/api-config'
 import { notifyAuthStatusChange } from '@/lib/auth-events'
 
@@ -493,7 +494,7 @@ export class AuthService {
             }
 
             const alert = await response.json()
-            return alert
+            return normalizeAlertFromApi(alert)
         } catch (error) {
             console.error('Error fetching alert:', error)
             throw error
@@ -518,7 +519,7 @@ export class AuthService {
                 throw new Error(errorMessage)
             }
 
-            const updatedAlert = await response.json()
+            const updatedAlert = normalizeAlertFromApi(await response.json())
             invalidateAlertsCache()
             return updatedAlert
         } catch (error) {
