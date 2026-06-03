@@ -36,8 +36,8 @@ import {
 	alertSource,
 	alertStatus,
 	signsAndSymptoms,
-	ugandaDistricts,
 } from "@/constants";
+import { DistrictSelect } from "@/components/district-select";
 import { getLocalDateString } from "@/lib/utils";
 import { MohLogo } from "@/components/moh-logo";
 import { useIsAuthenticated } from "@/hooks/use-auth-status";
@@ -693,36 +693,17 @@ export default function PublicAddAlertPage() {
 										>
 											District *
 										</Label>
-										<Select
+										<DistrictSelect
+											id="district"
+											value={formData.district}
 											onValueChange={(value) =>
 												handleInputChange(
 													"district",
 													value
 												)
 											}
-										>
-											<SelectTrigger className="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20">
-												<SelectValue placeholder="Select District" />
-											</SelectTrigger>
-											<SelectContent>
-												{ugandaDistricts.map(
-													(district) => (
-														<SelectItem
-															key={
-																district
-															}
-															value={
-																district
-															}
-														>
-															{
-																district
-															}
-														</SelectItem>
-													)
-												)}
-											</SelectContent>
-										</Select>
+											triggerClassName="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
+										/>
 									</div>
 									<div className="space-y-2">
 										<Label

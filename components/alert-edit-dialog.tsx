@@ -42,8 +42,8 @@ import {
 	alertResponse,
 	alertStatus,
 	signsAndSymptoms,
-	ugandaDistricts,
 } from "@/constants";
+import { DistrictSelect } from "@/components/district-select";
 import { useToast } from "@/hooks/use-toast";
 
 const DESK_VERIFICATION_OPTIONS = [
@@ -702,33 +702,16 @@ export function AlertEditDialog({
 								>
 									District *
 								</Label>
-								<Select
+								<DistrictSelect
+									id="alertCaseDistrict"
+									value={formData.alertCaseDistrict}
 									onValueChange={(value) =>
 										handleInputChange(
 											"alertCaseDistrict",
 											value
 										)
 									}
-									value={formData.alertCaseDistrict}
-								>
-									<SelectTrigger>
-										<SelectValue placeholder="Select District" />
-									</SelectTrigger>
-									<SelectContent>
-										{ugandaDistricts.map(
-											(district) => (
-												<SelectItem
-													key={district}
-													value={
-														district
-													}
-												>
-													{district}
-												</SelectItem>
-											)
-										)}
-									</SelectContent>
-								</Select>
+								/>
 							</div>
 							<div className="space-y-2">
 								<Label

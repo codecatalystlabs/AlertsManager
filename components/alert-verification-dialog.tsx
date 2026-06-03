@@ -34,6 +34,7 @@ import {
 	HeartIcon,
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
+import { DistrictSelect } from "@/components/district-select";
 import { useToast } from "@/hooks/use-toast";
 
 interface AlertVerificationDialogProps {
@@ -42,121 +43,6 @@ interface AlertVerificationDialogProps {
 	alert: any;
 	onVerificationComplete: () => void;
 }
-
-const ugandaDistricts = [
-	"Abim",
-	"Adjumani",
-	"Agago",
-	"Alebtong",
-	"Amolatar",
-	"Amudat",
-	"Amuria",
-	"Amuru",
-	"Apac",
-	"Arua",
-	"Budaka",
-	"Bududa",
-	"Bugiri",
-	"Buhweju",
-	"Buikwe",
-	"Bukedea",
-	"Bukomansimbi",
-	"Bukwo",
-	"Bulambuli",
-	"Buliisa",
-	"Bundibugyo",
-	"Bushenyi",
-	"Busia",
-	"Butaleja",
-	"Butambala",
-	"Buvuma",
-	"Buyende",
-	"Dokolo",
-	"Gomba",
-	"Gulu",
-	"Hoima",
-	"Ibanda",
-	"Iganga",
-	"Isingiro",
-	"Jinja",
-	"Kaabong",
-	"Kabale",
-	"Kabarole",
-	"Kaberamaido",
-	"Kalangala",
-	"Kaliro",
-	"Kampala",
-	"Kamuli",
-	"Kamwenge",
-	"Kanungu",
-	"Kapchorwa",
-	"Kasese",
-	"Katakwi",
-	"Kayunga",
-	"Kibaale",
-	"Kiboga",
-	"Kibuku",
-	"Kiruhura",
-	"Kiryandongo",
-	"Kisoro",
-	"Kitgum",
-	"Koboko",
-	"Kole",
-	"Kotido",
-	"Kumi",
-	"Kween",
-	"Kyankwanzi",
-	"Kyegegwa",
-	"Kyenjojo",
-	"Lamwo",
-	"Lira",
-	"Luuka",
-	"Luwero",
-	"Lwengo",
-	"Lyantonde",
-	"Manafwa",
-	"Maracha",
-	"Masaka",
-	"Masindi",
-	"Mayuge",
-	"Mbale",
-	"Mbarara",
-	"Mitooma",
-	"Mityana",
-	"Mokono",
-	"Moroto",
-	"Moyo",
-	"Mpigi",
-	"Mubende",
-	"Mukono",
-	"Nakapiripirit",
-	"Nakaseke",
-	"Nakasongola",
-	"Namayingo",
-	"Namutumba",
-	"Napak",
-	"Nebbi",
-	"Ngora",
-	"Ntoroko",
-	"Ntungamo",
-	"Nwoya",
-	"Otuke",
-	"Oyam",
-	"Pader",
-	"Pallisa",
-	"Rakai",
-	"Rubirizi",
-	"Rukungiri",
-	"Sembabule",
-	"Serere",
-	"Sheema",
-	"Sironko",
-	"Soroti",
-	"Tororo",
-	"Wakiso",
-	"Yumbe",
-	"Zombo",
-];
 
 const signsAndSymptoms = [
 	"Fever (≥38°C)",
@@ -953,37 +839,16 @@ export function AlertVerificationDialog({
 									>
 										District
 									</Label>
-									<Select
-										value={
-											formData.alertCaseDistrict
-										}
+									<DistrictSelect
+										id="alertCaseDistrict"
+										value={formData.alertCaseDistrict}
 										onValueChange={(value) =>
 											handleInputChange(
 												"alertCaseDistrict",
 												value
 											)
 										}
-									>
-										<SelectTrigger>
-											<SelectValue placeholder="Select District" />
-										</SelectTrigger>
-										<SelectContent>
-											{ugandaDistricts.map(
-												(district) => (
-													<SelectItem
-														key={
-															district
-														}
-														value={
-															district
-														}
-													>
-														{district}
-													</SelectItem>
-												)
-											)}
-										</SelectContent>
-									</Select>
+									/>
 								</div>
 							</div>
 

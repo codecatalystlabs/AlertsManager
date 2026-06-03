@@ -30,7 +30,8 @@ import {
 import { AuthService } from "@/lib/auth";
 import { getLocalDateString } from "@/lib/utils";
 import Link from "next/link";
-import { signsAndSymptoms, ugandaDistricts } from "@/constants";
+import { signsAndSymptoms } from "@/constants";
+import { DistrictSelect } from "@/components/district-select";
 
 
 
@@ -530,37 +531,16 @@ export default function DashboardAddAlertPage() {
 									>
 										District *
 									</Label>
-									<Select
+									<DistrictSelect
+										id="alertCaseDistrict"
+										value={formData.alertCaseDistrict}
 										onValueChange={(value) =>
 											handleInputChange(
 												"alertCaseDistrict",
 												value
 											)
 										}
-										value={
-											formData.alertCaseDistrict
-										}
-									>
-										<SelectTrigger>
-											<SelectValue placeholder="Select District" />
-										</SelectTrigger>
-										<SelectContent>
-											{ugandaDistricts.map(
-												(district) => (
-													<SelectItem
-														key={
-															district
-														}
-														value={
-															district
-														}
-													>
-														{district}
-													</SelectItem>
-												)
-											)}
-										</SelectContent>
-									</Select>
+									/>
 								</div>
 								<div className="space-y-2">
 									<Label
