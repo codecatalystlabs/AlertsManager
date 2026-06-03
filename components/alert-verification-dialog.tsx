@@ -173,6 +173,21 @@ const signsAndSymptoms = [
 	"Lethargy/Weakness",
 ];
 
+const DEFAULT_CREATE_ACTION = "Alert reported";
+
+function resolveInitialDeskAction(alert: {
+	actions?: string;
+	caseVerificationDesk?: string;
+}): string {
+	const desk = alert.caseVerificationDesk?.trim();
+	if (desk) return desk;
+
+	const actions = alert.actions?.trim();
+	if (actions && actions !== DEFAULT_CREATE_ACTION) return actions;
+
+	return "";
+}
+
 export function AlertVerificationDialog({
 	isOpen,
 	onClose,
@@ -250,11 +265,14 @@ export function AlertVerificationDialog({
 				healthFacilityVisit: "",
 				traditionalHealerVisit: "",
 				symptoms: alert.symptoms || "",
-				actions: "",
-				feedback: "",
+				actions: resolveInitialDeskAction(alert),
+				feedback: alert.feedback || "",
 				verifiedBy: "",
-				deskVerificationActions: "",
-				fieldVerificationFeedback: "",
+				deskVerificationActions: resolveInitialDeskAction(alert),
+				fieldVerificationFeedback:
+					alert.fieldVerificationDecision ||
+					alert.fieldVerification ||
+					"",
 			});
 			setVerificationToken("");
 			setError(null);
@@ -273,6 +291,15 @@ export function AlertVerificationDialog({
 			setShowVhfForm(false);
 			setVhfCaseCode(null);
 		}
+	}, [formData.deskVerificationActions]);
+
+	// Keep legacy `actions` field in sync with desk verification radio selection
+	useEffect(() => {
+		if (!formData.deskVerificationActions) return;
+		setFormData((prev) => ({
+			...prev,
+			actions: prev.deskVerificationActions,
+		}));
 	}, [formData.deskVerificationActions]);
 
 	const generateTokenAutomatically = async () => {
@@ -375,7 +402,8 @@ export function AlertVerificationDialog({
 			!formData.alertCaseAge ||
 			!formData.alertCaseSex ||
 			!formData.history ||
-			!formData.verifiedBy
+			!formData.verifiedBy ||
+			!formData.deskVerificationActions
 		) {
 			setError("Please fill in all required fields");
 			return;
@@ -395,6 +423,9 @@ export function AlertVerificationDialog({
 				0,
 				0
 			);
+
+			const deskAction = formData.deskVerificationActions;
+			const fieldFeedback = formData.fieldVerificationFeedback;
 
 			await AuthService.verifyAlert(alert.id, {
 				token: verificationToken,
@@ -425,12 +456,15 @@ export function AlertVerificationDialog({
 				healthFacilityVisit: formData.healthFacilityVisit,
 				traditionalHealerVisit: formData.traditionalHealerVisit,
 				symptoms: formData.symptoms,
-				actions: formData.actions,
-				feedback: formData.feedback,
+				actions: deskAction,
+				feedback: formData.feedback || fieldFeedback || "",
 				verifiedBy: formData.verifiedBy,
-				deskVerificationActions: formData.deskVerificationActions,
-				fieldVerificationFeedback:
-					formData.fieldVerificationFeedback,
+				deskVerificationActions: deskAction,
+				caseVerificationDesk: deskAction,
+				fieldVerificationFeedback: fieldFeedback,
+				fieldVerification: fieldFeedback,
+				fieldVerificationDecision: fieldFeedback,
+				isVerified: true,
 				caseCode: vhfCaseCode || "",
 			});
 
@@ -1614,20 +1648,18 @@ export function AlertVerificationDialog({
 										htmlFor="actions"
 										className="text-sm font-medium"
 									>
-										Actions Taken
+										Actions (from desk verification)
 									</Label>
-									<Textarea
+									<Input
 										id="actions"
 										value={formData.actions}
-										onChange={(e) =>
-											handleInputChange(
-												"actions",
-												e.target.value
-											)
-										}
-										rows={3}
-										placeholder="Describe actions taken during verification"
+										readOnly
+										className="bg-muted/50"
 									/>
+									<p className="text-xs text-muted-foreground">
+										Updated automatically from the desk
+										verification action selected above.
+									</p>
 								</div>
 								<div className="space-y-2">
 									<Label

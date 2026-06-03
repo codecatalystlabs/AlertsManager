@@ -199,6 +199,14 @@ export function AlertEditDialog({
 		}
 	}, [formData.caseVerificationDesk, formData.fieldVerificationDecision]);
 
+	useEffect(() => {
+		if (!formData.caseVerificationDesk) return;
+		setFormData((prev) => ({
+			...prev,
+			actions: prev.caseVerificationDesk,
+		}));
+	}, [formData.caseVerificationDesk]);
+
 	const handleInputChange = (field: string, value: string) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
 	};
@@ -296,7 +304,7 @@ export function AlertEditDialog({
 				verificationTime: formData.verificationTime
 					? formatTime(formData.verificationTime)
 					: alert.verificationTime ?? null,
-				actions: formData.actions,
+				actions: formData.caseVerificationDesk || formData.actions,
 				feedback: formData.feedback,
 				caseVerificationDesk: formData.caseVerificationDesk,
 				fieldVerification: formData.fieldVerification,

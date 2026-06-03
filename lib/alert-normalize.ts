@@ -150,13 +150,30 @@ export function normalizeAlertFromApi(raw: unknown): ApiAlert {
 			body.traditionalHealerVisit ?? body.traditional_healer_visit
 		),
 		symptoms: str(body.symptoms),
-		actions: str(body.actions),
 		caseVerificationDesk: str(
-			body.caseVerificationDesk ?? body.case_verification_desk
+			body.caseVerificationDesk ??
+				body.case_verification_desk ??
+				body.deskVerificationActions ??
+				body.desk_verification_actions
 		),
-		fieldVerification: str(body.fieldVerification ?? body.field_verification),
 		fieldVerificationDecision: str(
-			body.fieldVerificationDecision ?? body.field_verification_decision
+			body.fieldVerificationDecision ??
+				body.field_verification_decision ??
+				body.fieldVerificationFeedback ??
+				body.field_verification_feedback
+		),
+		fieldVerification: str(
+			body.fieldVerification ??
+				body.field_verification ??
+				body.fieldVerificationFeedback ??
+				body.field_verification_feedback
+		),
+		actions: str(
+			body.actions ??
+				body.caseVerificationDesk ??
+				body.case_verification_desk ??
+				body.deskVerificationActions ??
+				body.desk_verification_actions
 		),
 		feedback: str(body.feedback),
 		labResult: str(body.labResult ?? body.lab_result),

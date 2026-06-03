@@ -647,6 +647,10 @@ export class AuthService {
         verifiedBy: string
         deskVerificationActions: string
         fieldVerificationFeedback: string
+        caseVerificationDesk?: string
+        fieldVerification?: string
+        fieldVerificationDecision?: string
+        isVerified?: boolean
         caseCode?: string
     }): Promise<Alert> {
         try {
