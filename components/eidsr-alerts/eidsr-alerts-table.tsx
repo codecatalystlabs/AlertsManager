@@ -3,145 +3,218 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { DataTable } from "@/components/ui/data-table";
-import type { EidsrEvent } from "@/lib/fetch-eidsr-events";
-import { getEidsrDataValue } from "@/lib/eidsr-event-fields";
+import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
 import { LAYOUT } from "@/constants/layout";
-import { Eye } from "lucide-react";
+import { Eye, Loader2, MoreHorizontal, Pencil, ShieldCheck } from "lucide-react";
 
 interface EidsrAlertsTableProps {
-	events: EidsrEvent[];
+	messages: EidsrMessage[];
 	totalCount: number;
 	page: number;
 	pageSize: number;
 	totalPages: number;
 	isLoading?: boolean;
+	verifyInProgressId?: number | null;
 	onPageChange: (page: number) => void;
 	onPageSizeChange: (pageSize: number) => void;
-	onViewEvent: (event: EidsrEvent) => void;
+	onView: (message: EidsrMessage) => void;
+	onEdit: (message: EidsrMessage) => void;
+	onVerify: (message: EidsrMessage) => void;
 }
 
-function createEidsrColumns(
-	onViewEvent: (event: EidsrEvent) => void
-): ColumnDef<EidsrEvent>[] {
+function createColumns(handlers: {
+	onView: (m: EidsrMessage) => void;
+	onEdit: (m: EidsrMessage) => void;
+	onVerify: (m: EidsrMessage) => void;
+	verifyInProgressId: number | null;
+}): ColumnDef<EidsrMessage>[] {
 	return [
 		{
 			accessorKey: "id",
-			header: "Local ID",
+			header: "ID",
 			cell: ({ row }) => (
 				<span className="font-medium">{row.original.id}</span>
 			),
 		},
 		{
-			accessorKey: "eventDate",
-			header: "Event date",
-			cell: ({ row }) => row.original.eventDate || "—",
+			accessorKey: "messageId",
+			header: "Message ID",
+			cell: ({ row }) => row.original.messageId || "—",
 		},
 		{
-			id: "message",
-			header: "Message",
-			cell: ({ row }) => {
-				const message = getEidsrDataValue(row.original, "narrative");
-				return (
-					<span
-						className="block max-w-[280px] truncate"
-						title={message || undefined}
-					>
-						{message || "—"}
-					</span>
-				);
-			},
-		},
-		{
-			id: "disease",
-			header: "Disease",
-			cell: ({ row }) => getEidsrDataValue(row.original, "disease") || "—",
-		},
-		{
-			id: "reporter",
+			accessorKey: "personReporting",
 			header: "Reporter",
-			cell: ({ row }) =>
-				getEidsrDataValue(row.original, "reporterName") || "—",
+			cell: ({ row }) => row.original.personReporting || "—",
 		},
 		{
-			id: "phone",
+			accessorKey: "contactNumber",
 			header: "Phone",
-			cell: ({ row }) => getEidsrDataValue(row.original, "phone") || "—",
+			cell: ({ row }) => row.original.contactNumber || "—",
 		},
 		{
 			id: "location",
 			header: "Location",
 			cell: ({ row }) => {
-				const location = getEidsrDataValue(row.original, "location");
+				const text = [row.original.village, row.original.alertCaseDistrict]
+					.filter(Boolean)
+					.join(", ");
 				return (
 					<span
 						className="block max-w-[200px] truncate"
-						title={location || undefined}
+						title={text || undefined}
 					>
-						{location || "—"}
+						{text || "—"}
 					</span>
 				);
 			},
 		},
 		{
-			id: "source",
-			header: "Source",
-			cell: ({ row }) => getEidsrDataValue(row.original, "source") || "—",
+			accessorKey: "messageText",
+			header: "Message",
+			cell: ({ row }) => {
+				const text = row.original.messageText || "—";
+				return (
+					<span
+						className="block max-w-[280px] truncate"
+						title={text !== "—" ? text : undefined}
+					>
+						{text}
+					</span>
+				);
+			},
 		},
 		{
 			accessorKey: "status",
 			header: "Status",
-			cell: ({ row }) => (
-				<Badge variant="secondary">{row.original.status}</Badge>
-			),
+			cell: ({ row }) =>
+				row.original.status ? (
+					<Badge variant="outline">{row.original.status}</Badge>
+				) : (
+					"—"
+				),
+		},
+		{
+			id: "inAlerts",
+			header: "In alerts",
+			cell: ({ row }) =>
+				row.original.linkedAlertId != null ? (
+					<Badge className="bg-green-600 hover:bg-green-600">
+						ALT{String(row.original.linkedAlertId).padStart(3, "0")}
+					</Badge>
+				) : (
+					<Badge variant="secondary">Not linked</Badge>
+				),
+		},
+		{
+			id: "date",
+			header: "Received",
+			cell: ({ row }) =>
+				row.original.receivedAt || row.original.createdAt || "—",
 		},
 		{
 			id: "actions",
 			header: () => <span className="sr-only">Actions</span>,
-			cell: ({ row }) => (
-				<div className="text-right">
-					<Button
-						size="sm"
-						variant="outline"
-						onClick={() => onViewEvent(row.original)}
-						aria-label={`View alert ${row.original.id}`}
-					>
-						<Eye className="h-4 w-4" />
-					</Button>
-				</div>
-			),
+			cell: ({ row }) => {
+				const m = row.original;
+				const verifying = handlers.verifyInProgressId === m.id;
+
+				return (
+					<div className="text-right">
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button
+									variant="ghost"
+									className="h-8 w-8 p-0 hover:bg-uganda-yellow/10"
+									aria-label={`Actions for 6767 message ${m.id}`}
+								>
+									<span className="sr-only">Open menu</span>
+									{verifying ? (
+										<Loader2 className="h-4 w-4 animate-spin" />
+									) : (
+										<MoreHorizontal className="h-4 w-4" />
+									)}
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end">
+								<DropdownMenuLabel>Actions</DropdownMenuLabel>
+								<DropdownMenuItem
+									className="flex items-center gap-2"
+									onClick={() => handlers.onView(m)}
+								>
+									<Eye className="h-4 w-4" />
+									View details
+								</DropdownMenuItem>
+								<DropdownMenuItem
+									className="flex items-center gap-2"
+									onClick={() => handlers.onEdit(m)}
+								>
+									<Pencil className="h-4 w-4" />
+									Edit
+								</DropdownMenuItem>
+								<DropdownMenuSeparator />
+								<DropdownMenuItem
+									className="flex items-center gap-2 text-uganda-red focus:text-uganda-red"
+									onClick={() => handlers.onVerify(m)}
+									disabled={verifying}
+								>
+									<ShieldCheck className="h-4 w-4" />
+									Verify into alerts
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
+					</div>
+				);
+			},
 		},
 	];
 }
 
 export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 	({
-		events,
+		messages,
 		totalCount,
 		page,
 		pageSize,
 		totalPages,
 		isLoading = false,
+		verifyInProgressId = null,
 		onPageChange,
 		onPageSizeChange,
-		onViewEvent,
+		onView,
+		onEdit,
+		onVerify,
 	}) => {
 		const columns = useMemo(
-			() => createEidsrColumns(onViewEvent),
-			[onViewEvent]
+			() =>
+				createColumns({
+					onView,
+					onEdit,
+					onVerify,
+					verifyInProgressId,
+				}),
+			[onView, onEdit, onVerify, verifyInProgressId]
 		);
 
 		return (
 			<Card className={LAYOUT.card}>
 				<CardHeader className={LAYOUT.cardHeader}>
 					<CardTitle className={LAYOUT.cardTitle}>
-						Events ({totalCount.toLocaleString()})
+						6767 events ({totalCount.toLocaleString()})
 					</CardTitle>
 				</CardHeader>
 				<CardContent className={LAYOUT.cardContent}>
 					<DataTable
 						columns={columns}
-						data={events}
+						data={messages}
 						pageSize={pageSize}
 						manualPagination
 						pageCount={totalPages}

@@ -1,7 +1,7 @@
 export const EIDSR_ALERTS_CONFIG = {
 	PAGE_TITLE: "6767 Alerts",
 	PAGE_DESCRIPTION:
-		"EIDSR events synced from the 6767 Messages (local mirror)",
+		"6767 EIDSR SMS messages — sync, review, and verify into alerts",
 	ITEMS_PER_PAGE: 10,
 } as const;
 
@@ -10,6 +10,8 @@ export const EIDSR_API_PATHS = {
 	events: "/eidsr/local/events",
 	eventById: (localId: number) => `/eidsr/local/events/${localId}`,
 	refresh: "/eidsr/local/refresh",
+	/** POST verify 6767 event into alerts */
+	eventVerify: (id: number) => `/eidsr/local/events/${id}/verify`,
 } as const;
 
 export const EIDSR_STATUS_FILTER_OPTIONS = [

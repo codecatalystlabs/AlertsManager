@@ -34,6 +34,8 @@ import {
 	HeartIcon,
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
+import { verifyEidsrMessage } from "@/lib/fetch-eidsr-messages";
+import { buildEidsrVerifyPayload } from "@/lib/eidsr-verify-payload";
 import { DistrictSelect } from "@/components/district-select";
 import {
 	DESK_VERIFICATION_OPTIONS,
@@ -46,6 +48,13 @@ interface AlertVerificationDialogProps {
 	onClose: () => void;
 	alert: any;
 	onVerificationComplete: () => void;
+	/** When `eidsr`, verifies via POST /eidsr/local/messages/:id/verify (JWT only, no body token). */
+	verificationMode?: "alert" | "eidsr";
+	eidsrMessageId?: number;
+	/** Local event id for POST /eidsr/local/events/:id/verify */
+	eidsrEventLocalId?: number;
+	onEidsrVerified?: (alertId: number | null) => void;
+	onVerifyingChange?: (verifying: boolean) => void;
 }
 
 const signsAndSymptoms = [
@@ -83,7 +92,13 @@ export function AlertVerificationDialog({
 	onClose,
 	alert,
 	onVerificationComplete,
+	verificationMode = "alert",
+	eidsrMessageId,
+	eidsrEventLocalId,
+	onEidsrVerified,
+	onVerifyingChange,
 }: AlertVerificationDialogProps) {
+	const isEidsrMode = verificationMode === "eidsr";
 	const { toast } = useToast();
 	const [verificationToken, setVerificationToken] = useState<string>("");
 	const [isGeneratingToken, setIsGeneratingToken] = useState(false);
@@ -130,7 +145,7 @@ export function AlertVerificationDialog({
 		if (isOpen && alert) {
 			// Reset form data when dialog opens
 			setFormData({
-				status: "",
+				status: isEidsrMode && alert.status ? String(alert.status) : "",
 				verificationDate: new Date().toISOString().split("T")[0],
 				verificationTime: new Date().toTimeString().slice(0, 5),
 				cifNo: "",
@@ -168,10 +183,13 @@ export function AlertVerificationDialog({
 			setError(null);
 			setSuccess(null);
 
-			// Automatically generate token when dialog opens
-			generateTokenAutomatically();
+			if (isEidsrMode) {
+				setVerificationToken("eidsr-jwt");
+			} else {
+				generateTokenAutomatically();
+			}
 		}
-	}, [isOpen, alert]);
+	}, [isOpen, alert, isEidsrMode]);
 
 	// Show VHF form when Field Case Verification is selected
 	useEffect(() => {
@@ -193,7 +211,7 @@ export function AlertVerificationDialog({
 	}, [formData.deskVerificationActions]);
 
 	const generateTokenAutomatically = async () => {
-		if (!alert?.id) return;
+		if (isEidsrMode || !alert?.id) return;
 
 		setIsGeneratingToken(true);
 		setError(null);
@@ -274,15 +292,21 @@ export function AlertVerificationDialog({
 	}, [showVhfForm]);
 
 	const handleVerification = async () => {
-		if (!alert?.id || !verificationToken) {
+		if (isEidsrMode) {
+			if (!eidsrMessageId) {
+				setError("EIDSR message ID is missing.");
+				return;
+			}
+			if (!formData.deskVerificationActions) {
+				setError("Please select a desk verification action.");
+				return;
+			}
+		} else if (!alert?.id || !verificationToken) {
 			setError(
 				"Verification token not available. Please close and reopen the dialog."
 			);
 			return;
-		}
-
-		// Validate required fields
-		if (
+		} else if (
 			!formData.status ||
 			!formData.cifNo ||
 			!formData.personReporting ||
@@ -300,9 +324,49 @@ export function AlertVerificationDialog({
 		}
 
 		setIsVerifying(true);
+		onVerifyingChange?.(true);
 		setError(null);
 
 		try {
+			if (isEidsrMode) {
+				const meta = alert?._eidsrMeta as
+					| {
+							signalVerified?: string;
+							triage?: string;
+							riskAssessmentLevel?: string;
+					  }
+					| undefined;
+				const result = await verifyEidsrMessage(
+					eidsrMessageId!,
+					buildEidsrVerifyPayload(
+						formData as unknown as Record<string, unknown>,
+						meta
+					),
+					eidsrEventLocalId ?? eidsrMessageId!
+				);
+				const alertId =
+					result.alertId ??
+					result.message?.linkedAlertId ??
+					null;
+
+				setSuccess("EIDSR message verified successfully.");
+				toast({
+					title: "EIDSR message verified successfully.",
+					description:
+						alertId != null
+							? `Saved as alert ALT${String(alertId).padStart(3, "0")}.`
+							: "Message verified into alerts.",
+					duration: 5000,
+				});
+
+				onEidsrVerified?.(alertId ?? null);
+				setTimeout(() => {
+					onVerificationComplete();
+					onClose();
+				}, 1500);
+				return;
+			}
+
 			// Format dates for API
 			const verificationDate = new Date(formData.verificationDate);
 			const verificationTime = new Date();
@@ -391,8 +455,12 @@ export function AlertVerificationDialog({
 			});
 		} finally {
 			setIsVerifying(false);
+			onVerifyingChange?.(false);
 		}
 	};
+
+	const showVerificationForm =
+		(verificationToken || isEidsrMode) && !isGeneratingToken;
 
 	return (
 		<Dialog
@@ -403,12 +471,19 @@ export function AlertVerificationDialog({
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						<AlertTriangleIcon className="h-5 w-5 text-uganda-red" />
-						Verify Alert - ALT
-						{String(alert?.id).padStart(3, "0")}
+						{isEidsrMode ? (
+							<>Verify 6767 SMS #{eidsrMessageId}</>
+						) : (
+							<>
+								Verify Alert - ALT
+								{String(alert?.id).padStart(3, "0")}
+							</>
+						)}
 					</DialogTitle>
 					<DialogDescription>
-						Complete the verification process for this health
-						alert
+						{isEidsrMode
+							? "Verify this SMS into the alerts table. Empty fields may be filled from the message by the server."
+							: "Complete the verification process for this health alert"}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -444,7 +519,7 @@ export function AlertVerificationDialog({
 				)}
 
 				{/* Verification Form */}
-				{verificationToken && !isGeneratingToken && (
+				{showVerificationForm && (
 					<div className="space-y-6">
 						{/* Basic Information */}
 						<div className="space-y-4">
@@ -1534,7 +1609,7 @@ export function AlertVerificationDialog({
 					>
 						Cancel
 					</Button>
-					{verificationToken && (
+					{showVerificationForm && (
 						<Button
 							onClick={handleVerification}
 							disabled={isVerifying}
@@ -1545,6 +1620,8 @@ export function AlertVerificationDialog({
 									<Loader2 className="h-4 w-4 animate-spin mr-2" />
 									Verifying...
 								</>
+							) : isEidsrMode ? (
+								"Verify into alerts"
 							) : (
 								"Verify Alert"
 							)}

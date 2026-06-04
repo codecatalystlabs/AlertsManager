@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ErrorAlert } from "@/components/dashboard";
@@ -7,16 +8,35 @@ import {
 	EidsrAlertsFilters,
 	EidsrAlertsHeader,
 	EidsrAlertsTable,
-	EidsrEventDetailsDialog,
 } from "@/components/eidsr-alerts";
+import {
+	EidsrMessageDetailsDialog,
+	EidsrMessageEditDialog,
+} from "@/components/eidsr-messages";
+import { EidsrMessagesStats } from "@/components/eidsr-messages/eidsr-messages-stats";
 import { useEidsrEventsData } from "@/hooks/use-eidsr-events-data";
-import type { EidsrEvent } from "@/lib/fetch-eidsr-events";
+import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
+import { eidsrMessageToAlertShape } from "@/lib/eidsr-message-to-alert";
+import { getEidsr6767ById } from "@/lib/fetch-eidsr-6767";
+import { resolveEidsrVerifyId } from "@/lib/eidsr-message-normalize";
+import { invalidateAlertsCache } from "@/lib/alerts-cache";
 import { LAYOUT } from "@/constants/layout";
 import { CheckCircle2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+const AlertVerificationDialog = dynamic(
+	() =>
+		import("@/components/alert-verification-dialog").then(
+			(m) => m.AlertVerificationDialog
+		),
+	{ ssr: false }
+);
 
 export default function EidsrAlertsPage() {
+	const { toast } = useToast();
 	const {
-		events,
+		messages,
+		stats,
 		filters,
 		pagination,
 		loading,
@@ -24,6 +44,8 @@ export default function EidsrAlertsPage() {
 		isValidating,
 		error,
 		syncMessage,
+		verificationFilter,
+		setVerificationFilter,
 		setFilters,
 		clearFilters,
 		applyFilters,
@@ -31,10 +53,21 @@ export default function EidsrAlertsPage() {
 		setPageSize,
 		refetch,
 		syncFromRemote,
+		updateLocalMessage,
+		markMessageLinked,
 	} = useEidsrEventsData();
 
-	const [selectedEvent, setSelectedEvent] = useState<EidsrEvent | null>(null);
-	const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+	const [selected, setSelected] = useState<EidsrMessage | null>(null);
+	const [detailsOpen, setDetailsOpen] = useState(false);
+	const [editOpen, setEditOpen] = useState(false);
+	const [verifyOpen, setVerifyOpen] = useState(false);
+	const [verifyAlertShape, setVerifyAlertShape] = useState<Record<
+		string,
+		unknown
+	> | null>(null);
+	const [verifyInProgressId, setVerifyInProgressId] = useState<number | null>(
+		null
+	);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 
 	const handleRefresh = useCallback(async () => {
@@ -46,6 +79,10 @@ export default function EidsrAlertsPage() {
 		}
 	}, [refetch]);
 
+	const handleSync = useCallback(async () => {
+		await syncFromRemote();
+	}, [syncFromRemote]);
+
 	const handleApplyFilters = useCallback(async () => {
 		await applyFilters();
 	}, [applyFilters]);
@@ -55,23 +92,71 @@ export default function EidsrAlertsPage() {
 		await applyFilters();
 	}, [clearFilters, applyFilters]);
 
-	const handleViewEvent = useCallback((event: EidsrEvent) => {
-		setSelectedEvent(event);
-		setIsDetailsOpen(true);
+	const loadMessageForAction = useCallback(
+		async (message: EidsrMessage) => {
+			try {
+				const { message: fresh } = await getEidsr6767ById(message.id);
+				return fresh;
+			} catch (err) {
+				toast({
+					title: "Could not load message",
+					description:
+						err instanceof Error
+							? err.message
+							: "GET /eidsr/local/messages/{id} failed",
+					variant: "destructive",
+				});
+				return message;
+			}
+		},
+		[toast]
+	);
+
+	const handleView = useCallback(
+		async (message: EidsrMessage) => {
+			const fresh = await loadMessageForAction(message);
+			setSelected(fresh);
+			setDetailsOpen(true);
+		},
+		[loadMessageForAction]
+	);
+
+	const handleEdit = useCallback((message: EidsrMessage) => {
+		setSelected(message);
+		setEditOpen(true);
 	}, []);
 
-	const closeDetails = useCallback(() => {
-		setIsDetailsOpen(false);
-		setSelectedEvent(null);
+	const handleVerify = useCallback((message: EidsrMessage) => {
+		setSelected(message);
+		setVerifyAlertShape(eidsrMessageToAlertShape(message));
+		setVerifyOpen(true);
 	}, []);
+
+	const handleVerificationComplete = useCallback(
+		(linkedAlertId?: number | null) => {
+			if (selected) {
+				markMessageLinked(selected.id, linkedAlertId ?? null);
+			}
+			invalidateAlertsCache();
+			void refetch();
+			setVerifyInProgressId(null);
+		},
+		[selected, markMessageLinked, refetch]
+	);
 
 	return (
 		<div className={LAYOUT.pageGap}>
 			<EidsrAlertsHeader
 				onRefresh={handleRefresh}
-				onSyncFromRemote={syncFromRemote}
+				onSyncFromRemote={handleSync}
 				isRefreshing={isRefreshing || isValidating}
 				isSyncing={isSyncing}
+			/>
+
+			<EidsrMessagesStats
+				stats={stats}
+				activeFilter={verificationFilter}
+				onFilterChange={setVerificationFilter}
 			/>
 
 			{syncMessage && (
@@ -100,22 +185,65 @@ export default function EidsrAlertsPage() {
 			/>
 
 			<EidsrAlertsTable
-				events={events}
+				messages={messages}
 				totalCount={pagination.total}
 				page={pagination.page}
 				pageSize={pagination.limit}
 				totalPages={pagination.totalPages}
 				isLoading={loading || isValidating}
+				verifyInProgressId={verifyInProgressId}
 				onPageChange={setPage}
 				onPageSizeChange={setPageSize}
-				onViewEvent={handleViewEvent}
+				onView={handleView}
+				onEdit={handleEdit}
+				onVerify={handleVerify}
 			/>
 
-			<EidsrEventDetailsDialog
-				isOpen={isDetailsOpen}
-				onClose={closeDetails}
-				event={selectedEvent}
+			<EidsrMessageDetailsDialog
+				isOpen={detailsOpen}
+				onClose={() => {
+					setDetailsOpen(false);
+					setSelected(null);
+				}}
+				message={selected}
 			/>
+
+			<EidsrMessageEditDialog
+				isOpen={editOpen}
+				onClose={() => setEditOpen(false)}
+				message={selected}
+				onSaved={(updated) => {
+					updateLocalMessage(updated);
+					setSelected(updated);
+					toast({
+						title: "Message updated",
+						description: "6767 SMS message saved.",
+					});
+				}}
+			/>
+
+			{verifyOpen && verifyAlertShape && selected && (
+				<AlertVerificationDialog
+					isOpen={verifyOpen}
+					onClose={() => {
+						setVerifyOpen(false);
+						setVerifyAlertShape(null);
+					}}
+					alert={verifyAlertShape}
+					verificationMode="eidsr"
+					eidsrMessageId={resolveEidsrVerifyId(selected)}
+					eidsrEventLocalId={selected.id}
+					onVerificationComplete={() => {}}
+					onEidsrVerified={(alertId) => {
+						handleVerificationComplete(alertId);
+						setVerifyOpen(false);
+						setVerifyAlertShape(null);
+					}}
+					onVerifyingChange={(verifying) =>
+						setVerifyInProgressId(verifying ? selected.id : null)
+					}
+				/>
+			)}
 		</div>
 	);
 }

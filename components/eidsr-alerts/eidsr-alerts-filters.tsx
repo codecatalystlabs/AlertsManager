@@ -143,9 +143,8 @@ export const EidsrAlertsFilters = memo<EidsrAlertsFiltersProps>(
 					</div>
 					{localIdActive && (
 						<p className="text-[11px] text-muted-foreground mt-2">
-							Local ID set — loads a single event via{" "}
-							<code className="text-xs">/eidsr/local/events/:id</code>.
-							Other filters are ignored.
+							Local ID set — loads a single SMS message. Other filters are
+							ignored.
 						</p>
 					)}
 				</CardContent>
