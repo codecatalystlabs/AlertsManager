@@ -29,10 +29,11 @@ export function getBackendUpstreamUrl(): string {
 	return process.env.NEXT_PUBLIC_API_DEV_UPSTREAM || "http://127.0.0.1:8089/api/v1";
 }
 
-export function formatAlertsFetchError(
+export function formatApiFetchError(
 	status: number,
 	statusText: string,
-	bodyText = ""
+	bodyText = "",
+	resourceLabel = "alerts"
 ): string {
 	if (isLikelyBackendUnreachable(status, bodyText)) {
 		const upstream = getBackendUpstreamUrl();
@@ -43,14 +44,32 @@ export function formatAlertsFetchError(
 	}
 
 	if (status >= 500) {
+		const detail = bodyText.trim().slice(0, 300);
 		return (
-			`Failed to fetch alerts: ${status} ${statusText}. ` +
+			`Failed to load ${resourceLabel}: ${status} ${statusText}. ` +
 			"The API returned a server error — check backend logs. " +
-			`For local dev, ensure the Go API is running on port 8089 and restart \`yarn dev\` after changing .env.`
+			`For local dev, ensure the Go API is running on port 8089 and restart \`yarn dev\` after changing .env.` +
+			(detail ? ` Response: ${detail}` : "")
 		);
 	}
 
 	const detail = bodyText.trim();
 	const suffix = detail ? ` ${detail.slice(0, 200)}` : "";
-	return `Failed to fetch alerts: ${status} ${statusText}.${suffix}`;
+	return `Failed to load ${resourceLabel}: ${status} ${statusText}.${suffix}`;
+}
+
+export function formatAlertsFetchError(
+	status: number,
+	statusText: string,
+	bodyText = ""
+): string {
+	return formatApiFetchError(status, statusText, bodyText, "alerts");
+}
+
+export function formatEidsrFetchError(
+	status: number,
+	statusText: string,
+	bodyText = ""
+): string {
+	return formatApiFetchError(status, statusText, bodyText, "6767 messages");
 }

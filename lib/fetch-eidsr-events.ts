@@ -1,6 +1,6 @@
 import { AuthService } from "@/lib/auth";
 import { getClientApiBaseUrl } from "@/lib/api-config";
-import { formatAlertsFetchError } from "@/lib/api-errors";
+import { formatEidsrFetchError } from "@/lib/api-errors";
 import { EIDSR_API_PATHS } from "@/constants/eidsr-alerts";
 
 class EidsrFetchError extends Error {
@@ -114,7 +114,7 @@ async function requestEidsr<T>(url: string, init?: RequestInit): Promise<T> {
 	if (!response.ok) {
 		const bodyText = await response.text().catch(() => "");
 		throw new EidsrFetchError(
-			formatAlertsFetchError(response.status, response.statusText, bodyText),
+			formatEidsrFetchError(response.status, response.statusText, bodyText),
 			response.status
 		);
 	}

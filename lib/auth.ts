@@ -622,20 +622,26 @@ export class AuthService {
             `${getClientApiBaseUrl()}/eidsr/local/refresh`,
             {
                 method: 'POST',
-                body: JSON.stringify({ fullSync }),
+                body: JSON.stringify({ fullSync, full_sync: fullSync }),
             }
         )
 
         if (!response.ok) {
-            let errorMessage = 'Failed to sync 6767 messages from EIDSR'
-            try {
-                const errorData = await response.json()
-                errorMessage =
-                    (errorData as { message?: string }).message ||
-                    (errorData as { error?: string }).error ||
-                    errorMessage
-            } catch {
-                errorMessage = response.statusText || errorMessage
+            const bodyText = await response.text().catch(() => '')
+            let errorMessage = `EIDSR sync failed (${response.status} ${response.statusText})`
+            if (bodyText.trim()) {
+                try {
+                    const errorData = JSON.parse(bodyText) as {
+                        message?: string
+                        error?: string
+                    }
+                    errorMessage =
+                        errorData.message ||
+                        errorData.error ||
+                        errorMessage
+                } catch {
+                    errorMessage = `${errorMessage}: ${bodyText.trim().slice(0, 300)}`
+                }
             }
             throw new Error(errorMessage)
         }

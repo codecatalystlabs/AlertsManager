@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { AuthService } from "@/lib/auth";
 import { getClientApiBaseUrl } from "@/lib/api-config";
 import { isLikelyBackendUnreachable } from "@/lib/api-errors";
 import { EIDSR_API_PATHS } from "@/constants/eidsr-alerts";
@@ -31,9 +32,13 @@ async function probeBackend(pathname: string | null): Promise<BackendStatusState
 	const probeUrl = getHealthProbeUrl(pathname);
 
 	try {
+		const headers: Record<string, string> = {
+			...AuthService.getAuthHeaders(),
+		};
 		const response = await fetch(probeUrl, {
 			method: "GET",
 			cache: "no-store",
+			headers,
 		});
 
 		if (response.status === 401 || response.status === 403) {

@@ -106,7 +106,7 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 			}
 		} catch (err) {
 			const message =
-				err instanceof Error ? err.message : "Failed to load 6767 alerts";
+				err instanceof Error ? err.message : "Failed to load 6767 messages";
 			setError(message);
 			setEvents([]);
 			setTotal(0);
@@ -178,7 +178,7 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 			const message =
 				err instanceof Error
 					? err.message
-					: "Failed to sync 6767 alerts from EIDSR";
+					: "Failed to sync 6767 messages from EIDSR";
 			setError(message);
 		} finally {
 			setIsSyncing(false);
