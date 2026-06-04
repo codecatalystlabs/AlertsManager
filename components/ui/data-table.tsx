@@ -5,6 +5,7 @@ import {
   type ColumnDef,
   type ColumnFiltersState,
   type PaginationState,
+  type Row,
   type SortingState,
   type VisibilityState,
   flexRender,
@@ -51,6 +52,8 @@ interface DataTableProps<TData, TValue> {
   onPageChange?: (pageIndex: number) => void
   onPageSizeChange?: (pageSize: number) => void
   isLoading?: boolean
+  /** e.g. green background for verified rows */
+  getRowClassName?: (row: Row<TData>) => string | undefined
 }
 
 export function DataTable<TData, TValue>({
@@ -66,6 +69,7 @@ export function DataTable<TData, TValue>({
   onPageChange,
   onPageSizeChange,
   isLoading = false,
+  getRowClassName,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -202,7 +206,11 @@ export function DataTable<TData, TValue>({
               </TableRow>
             ) : pageRows.length ? (
               pageRows.map((row) => (
-                <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && "selected"}
+                  className={getRowClassName?.(row)}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                   ))}

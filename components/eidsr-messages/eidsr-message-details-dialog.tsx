@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
+import { isEidsr6767Verified } from "@/lib/eidsr-verified-state";
 import { ExternalLink } from "lucide-react";
 
 interface EidsrMessageDetailsDialogProps {
@@ -39,6 +40,7 @@ export const EidsrMessageDetailsDialog = memo<EidsrMessageDetailsDialogProps>(
 		if (!message) return null;
 
 		const linkedId = message.linkedAlertId;
+		const verified = isEidsr6767Verified(message);
 
 		return (
 			<Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -55,7 +57,7 @@ export const EidsrMessageDetailsDialog = memo<EidsrMessageDetailsDialogProps>(
 					</DialogHeader>
 
 					<div className="flex flex-wrap gap-2 items-center">
-						{message.isVerified ? (
+						{verified ? (
 							<Badge className="bg-green-600 hover:bg-green-600">Verified</Badge>
 						) : (
 							<Badge variant="secondary">Unverified</Badge>

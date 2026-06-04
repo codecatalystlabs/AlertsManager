@@ -12,6 +12,7 @@ import {
 import {
 	asEidsrMessage,
 	asEidsrMessageList,
+	mergeEidsrMessages,
 	type EidsrMessage,
 } from "@/lib/eidsr-message-normalize";
 import { invalidateAlertsCache } from "@/lib/alerts-cache";
@@ -33,6 +34,7 @@ export type EidsrMessageVerifyPayload = {
 	personReporting?: string;
 	contactNumber?: string;
 	sourceOfAlert?: string;
+	response?: string;
 	alertCaseName?: string;
 	alertCaseAge?: number;
 	alertCaseSex?: string;
@@ -120,16 +122,47 @@ function apiUrl(path: string, query?: Record<string, string>): string {
 	return `${base}${path}?${search}`;
 }
 
-function unwrapMessage(json: unknown): EidsrMessage {
-	if (json && typeof json === "object" && !Array.isArray(json)) {
+function unwrapMessage(
+	json: unknown,
+	fallbackId?: number,
+	fallback?: Partial<EidsrMessage>
+): EidsrMessage {
+	const candidates: unknown[] = [];
+	if (Array.isArray(json)) {
+		candidates.push(...json);
+	} else if (json && typeof json === "object") {
 		const body = json as Record<string, unknown>;
-		const nested = body.message ?? body.data ?? body.item;
-		const msg = asEidsrMessage(nested ?? json);
+		candidates.push(
+			json,
+			body.message,
+			body.data,
+			body.item,
+			body.event,
+			body.record
+		);
+	}
+
+	for (const candidate of candidates) {
+		if (!candidate || typeof candidate !== "object") continue;
+		const msg = asEidsrMessage(candidate);
 		if (msg) return msg;
 	}
-	const msg = asEidsrMessage(json);
-	if (!msg) throw new EidsrMessagesFetchError("Invalid message response");
-	return msg;
+
+	if (fallbackId != null && fallback) {
+		const merged = asEidsrMessage({
+			id: fallbackId,
+			...fallback,
+			...(json && typeof json === "object" ? json : {}),
+		});
+		if (merged) return merged;
+	}
+
+	if (fallbackId != null) {
+		const minimal = asEidsrMessage({ id: fallbackId, ...(fallback ?? {}) });
+		if (minimal) return minimal;
+	}
+
+	throw new EidsrMessagesFetchError("Invalid message response");
 }
 
 /** POST /eidsr/local/messages/sync */
@@ -160,13 +193,14 @@ export async function getEidsrMessage(id: number): Promise<EidsrMessage> {
 	const json = await requestEidsrMessages<unknown>(
 		apiUrl(EIDSR_MESSAGES_API_PATHS.messageById(id))
 	);
-	return unwrapMessage(json);
+	return unwrapMessage(json, id);
 }
 
 /** PUT /eidsr/local/messages/:id */
 export async function updateEidsrMessage(
 	id: number,
-	payload: Record<string, unknown>
+	payload: Record<string, unknown>,
+	fallback?: EidsrMessage
 ): Promise<EidsrMessage> {
 	const json = await requestEidsrMessages<unknown>(
 		apiUrl(EIDSR_MESSAGES_API_PATHS.messageById(id)),
@@ -175,7 +209,16 @@ export async function updateEidsrMessage(
 			body: JSON.stringify(payload),
 		}
 	);
-	return unwrapMessage(json);
+	try {
+		return unwrapMessage(json, id, { ...fallback, ...payload } as Partial<EidsrMessage>);
+	} catch {
+		if (fallback) {
+			const overlay = asEidsrMessage({ id, ...payload });
+			if (overlay) return mergeEidsrMessages(fallback, overlay);
+			return mergeEidsrMessages(fallback, { ...fallback, id });
+		}
+		throw new EidsrMessagesFetchError("Invalid message response");
+	}
 }
 
 /**

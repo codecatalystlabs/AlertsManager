@@ -2,19 +2,12 @@ import type { EidsrEvent } from "@/lib/fetch-eidsr-events";
 import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
 import { enrichEidsrMessage } from "@/lib/eidsr-message-normalize";
 import { getEidsrDataValue } from "@/lib/eidsr-event-fields";
+import { resolveAlertResponseCode } from "@/lib/resolve-alert-response";
+import { pickLinkedAlertId } from "@/lib/eidsr-message-normalize";
 
 /** Map DHIS2 local event rows to the SMS message shape used by the 6767 UI. */
 export function eidsrEventToMessage(event: EidsrEvent): EidsrMessage {
-	const linkedRaw =
-		event.dataValues?.linkedAlertId ??
-		event.dataValues?.linked_alert_id;
-	const linked =
-		linkedRaw != null && linkedRaw !== ""
-			? Number(linkedRaw)
-			: null;
-	const linkedAlertId =
-		linked != null && Number.isFinite(linked) ? linked : null;
-
+	const raw = event as unknown as Record<string, unknown>;
 	const ageStr = getEidsrDataValue(event, "age");
 	const ageNum = ageStr ? Number(ageStr) : null;
 
@@ -25,8 +18,8 @@ export function eidsrEventToMessage(event: EidsrEvent): EidsrMessage {
 		contactNumber: getEidsrDataValue(event, "phone"),
 		messageText: getEidsrDataValue(event, "narrative"),
 		status: event.status || getEidsrDataValue(event, "caseStatus"),
-		isVerified: linkedAlertId != null,
-		linkedAlertId,
+		isVerified: false,
+		linkedAlertId: pickLinkedAlertId(raw),
 		createdAt: event.createdAt || event.eventDate,
 		receivedAt: event.eventDate || event.updatedAt,
 		alertCaseDistrict: getEidsrDataValue(event, "location"),
@@ -36,13 +29,16 @@ export function eidsrEventToMessage(event: EidsrEvent): EidsrMessage {
 		actions: "",
 		feedback: "",
 		sourceOfAlert: getEidsrDataValue(event, "source"),
-		alertCaseName: getEidsrDataValue(event, "disease"),
+		response: resolveAlertResponseCode(getEidsrDataValue(event, "disease")),
+		alertCaseName: "",
 		alertCaseAge:
 			ageNum != null && !Number.isNaN(ageNum) ? ageNum : null,
 		alertCaseSex: getEidsrDataValue(event, "sex"),
 		verifiedBy: "",
 		caseVerificationDesk: "",
-		signalVerified: getEidsrDataValue(event, "verifiedFlag"),
+		signalVerified:
+			getEidsrDataValue(event, "verifiedFlag") ||
+			getEidsrDataValue(event, "verificationStatus"),
 		triage: "",
 		riskAssessmentLevel: "",
 		dataValues: { ...(event.dataValues ?? {}) },

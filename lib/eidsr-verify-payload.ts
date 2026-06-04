@@ -33,6 +33,7 @@ export function buildEidsrVerifyPayload(
 		personReporting: String(formData.personReporting || "") || undefined,
 		contactNumber: String(formData.contactNumber || "") || undefined,
 		sourceOfAlert: String(formData.sourceOfAlert || "") || undefined,
+		response: String(formData.response || "") || undefined,
 		alertCaseName: String(formData.alertCaseName || "") || undefined,
 		alertCaseSex: String(formData.alertCaseSex || "") || undefined,
 		alertCaseDistrict: String(formData.alertCaseDistrict || "") || undefined,

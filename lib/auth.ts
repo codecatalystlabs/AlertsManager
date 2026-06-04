@@ -626,6 +626,7 @@ export class AuthService {
         subCounty: string
         contactNumber: string
         sourceOfAlert: string
+        response?: string
         alertCaseName: string
         alertCaseAge: number
         alertCaseSex: string

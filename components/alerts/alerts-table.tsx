@@ -8,6 +8,7 @@ import {
 	type AlertsTableCallbacks,
 } from "@/constants/alerts";
 import { LAYOUT } from "@/constants/layout";
+import { verifiedTableRowClass } from "@/lib/verified-row-style";
 
 interface AlertsTableProps {
 	alerts: AlertType[];
@@ -75,6 +76,9 @@ export const AlertsTable = memo<AlertsTableProps>(
 						onPageChange={(pageIndex) => onPageChange(pageIndex + 1)}
 						onPageSizeChange={onPageSizeChange}
 						isLoading={isLoading}
+						getRowClassName={(row) =>
+							verifiedTableRowClass(!!row.original.isVerified)
+						}
 					/>
 				</CardContent>
 			</Card>

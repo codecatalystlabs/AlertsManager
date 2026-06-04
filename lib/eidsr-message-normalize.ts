@@ -4,6 +4,8 @@ import {
 	EIDSR_DATA_VALUE_FIELDS,
 	type EidsrDataValueKey,
 } from "@/lib/eidsr-event-fields";
+import { resolveAlertResponseCode } from "@/lib/resolve-alert-response";
+import { resolveEidsrVerifiedState } from "@/lib/eidsr-verified-state";
 
 export interface EidsrMessage {
 	id: number;
@@ -23,6 +25,8 @@ export interface EidsrMessage {
 	actions: string;
 	feedback: string;
 	sourceOfAlert: string;
+	/** Disease / response type code (matches alertResponse.code). */
+	response: string;
 	alertCaseName: string;
 	alertCaseAge: number | null;
 	alertCaseSex: string;
@@ -70,7 +74,7 @@ function pickBool(obj: Record<string, unknown>, ...keys: string[]): boolean {
 	return false;
 }
 
-function pickLinkedAlertId(obj: Record<string, unknown>): number | null {
+export function pickLinkedAlertId(obj: Record<string, unknown>): number | null {
 	const v =
 		obj.linkedAlertId ??
 		obj.linked_alert_id ??
@@ -133,42 +137,62 @@ export function dataValueByProgramField(
 /** Fill display/edit fields from dataValues when top-level props are empty. */
 export function enrichEidsrMessage(message: EidsrMessage): EidsrMessage {
 	const dv = message.dataValues ?? {};
-	if (Object.keys(dv).length === 0) return message;
+	let enriched = message;
 
-	const ageFromDv = dataValueByProgramField(dv, "age");
-	const ageNum =
-		message.alertCaseAge ??
-		(ageFromDv && !Number.isNaN(Number(ageFromDv)) ? Number(ageFromDv) : null);
+	if (Object.keys(dv).length > 0) {
+		const ageFromDv = dataValueByProgramField(dv, "age");
+		const ageNum =
+			message.alertCaseAge ??
+			(ageFromDv && !Number.isNaN(Number(ageFromDv))
+				? Number(ageFromDv)
+				: null);
+
+		enriched = {
+			...message,
+			personReporting:
+				message.personReporting ||
+				dataValueByProgramField(dv, "reporterName"),
+			contactNumber:
+				message.contactNumber || dataValueByProgramField(dv, "phone"),
+			messageText:
+				message.messageText || dataValueByProgramField(dv, "narrative"),
+			status:
+				message.status || dataValueByProgramField(dv, "caseStatus"),
+			sourceOfAlert:
+				message.sourceOfAlert || dataValueByProgramField(dv, "source"),
+			response:
+				message.response ||
+				resolveAlertResponseCode(
+					dataValueByProgramField(dv, "disease")
+				),
+			alertCaseName: message.alertCaseName,
+			alertCaseAge: ageNum,
+			alertCaseSex:
+				message.alertCaseSex || dataValueByProgramField(dv, "sex"),
+			alertCaseDistrict:
+				message.alertCaseDistrict ||
+				dataValueByProgramField(dv, "location"),
+			symptoms:
+				message.symptoms ||
+				dataValueByProgramField(dv, "notes") ||
+				dataValue(dv, "symptoms"),
+			feedback: message.feedback || dataValue(dv, "feedback"),
+			signalVerified:
+				message.signalVerified ||
+				dataValueByProgramField(dv, "verifiedFlag") ||
+				dataValueByProgramField(dv, "verificationStatus"),
+		};
+	}
 
 	return {
-		...message,
-		personReporting:
-			message.personReporting ||
-			dataValueByProgramField(dv, "reporterName"),
-		contactNumber:
-			message.contactNumber || dataValueByProgramField(dv, "phone"),
-		messageText:
-			message.messageText || dataValueByProgramField(dv, "narrative"),
-		status:
-			message.status || dataValueByProgramField(dv, "caseStatus"),
-		sourceOfAlert:
-			message.sourceOfAlert || dataValueByProgramField(dv, "source"),
-		alertCaseName:
-			message.alertCaseName || dataValueByProgramField(dv, "disease"),
-		alertCaseAge: ageNum,
-		alertCaseSex:
-			message.alertCaseSex || dataValueByProgramField(dv, "sex"),
-		alertCaseDistrict:
-			message.alertCaseDistrict ||
-			dataValueByProgramField(dv, "location"),
-		symptoms:
-			message.symptoms ||
-			dataValueByProgramField(dv, "notes") ||
-			dataValue(dv, "symptoms"),
-		feedback: message.feedback || dataValue(dv, "feedback"),
-		signalVerified:
-			message.signalVerified ||
-			dataValueByProgramField(dv, "verifiedFlag"),
+		...enriched,
+		...resolveEidsrVerifiedState({
+			linkedAlertId: enriched.linkedAlertId,
+			raw: enriched.raw,
+			dataValues: enriched.dataValues,
+			signalVerified: enriched.signalVerified,
+			isVerified: enriched.isVerified,
+		}),
 	};
 }
 
@@ -196,6 +220,7 @@ export type EidsrMessageEditForm = {
 	actions: string;
 	feedback: string;
 	sourceOfAlert: string;
+	response: string;
 	alertCaseName: string;
 	alertCaseAge: string;
 	alertCaseSex: string;
@@ -215,6 +240,7 @@ export function eidsrMessageToEditForm(message: EidsrMessage): EidsrMessageEditF
 		actions: m.actions,
 		feedback: m.feedback,
 		sourceOfAlert: m.sourceOfAlert,
+		response: m.response,
 		alertCaseName: m.alertCaseName,
 		alertCaseAge: m.alertCaseAge != null ? String(m.alertCaseAge) : "",
 		alertCaseSex: m.alertCaseSex,
@@ -224,7 +250,14 @@ export function eidsrMessageToEditForm(message: EidsrMessage): EidsrMessageEditF
 export function asEidsrMessage(input: unknown): EidsrMessage | null {
 	if (!input || typeof input !== "object") return null;
 	const raw = input as Record<string, unknown>;
-	const id = Number(raw.id ?? raw.message_id ?? raw.localId);
+	const id = Number(
+		raw.id ??
+			raw.message_id ??
+			raw.messageId ??
+			raw.localId ??
+			raw.local_id ??
+			raw.eventId
+	);
 	if (!Number.isFinite(id) || id <= 0) return null;
 
 	const dataValues = normalizeDataValues(raw);
@@ -248,10 +281,6 @@ export function asEidsrMessage(input: unknown): EidsrMessage | null {
 		) ||
 		dataValue(dataValues, "narrative", "messageText", "message") ||
 		dataValueByProgramField(dataValues, "narrative");
-	const linkedAlertId = pickLinkedAlertId(raw);
-	/** Saved to alerts table (linked), not EIDSR workflow "completed" status. */
-	const isVerified = linkedAlertId != null;
-
 	return enrichEidsrMessage({
 		id,
 		messageId:
@@ -263,8 +292,8 @@ export function asEidsrMessage(input: unknown): EidsrMessage | null {
 		status:
 			pickString(raw, "status", "messageStatus", "message_status") ||
 			dataValueByProgramField(dataValues, "caseStatus"),
-		isVerified,
-		linkedAlertId,
+		isVerified: pickBool(raw, "isVerified", "is_verified"),
+		linkedAlertId: pickLinkedAlertId(raw),
 		createdAt: pickString(
 			raw,
 			"createdAt",
@@ -301,9 +330,21 @@ export function asEidsrMessage(input: unknown): EidsrMessage | null {
 		sourceOfAlert:
 			pickString(raw, "sourceOfAlert", "source_of_alert") ||
 			dataValueByProgramField(dataValues, "source"),
+		response:
+			pickString(raw, "response", "disease", "diseaseCode") ||
+			resolveAlertResponseCode(
+				pickString(raw, "alertCaseName", "alert_case_name") ||
+					dataValueByProgramField(dataValues, "disease")
+			),
 		alertCaseName:
-			pickString(raw, "alertCaseName", "alert_case_name", "caseName") ||
-			dataValueByProgramField(dataValues, "disease"),
+			pickString(
+				raw,
+				"alertCaseName",
+				"alert_case_name",
+				"caseName",
+				"patientName",
+				"patient_name"
+			) || dataValue(dataValues, "patientName", "caseName"),
 		alertCaseAge:
 			pickNumber(raw, "alertCaseAge", "alert_case_age", "age") ??
 			(() => {

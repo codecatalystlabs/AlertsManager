@@ -14,6 +14,7 @@ import {
 	type EidsrMessageOptions,
 } from "@/lib/fetch-eidsr-messages";
 import { eidsrEventToMessage } from "@/lib/eidsr-event-to-message";
+import { isEidsr6767Verified } from "@/lib/eidsr-verified-state";
 import { getClientApiBaseUrl } from "@/lib/api-config";
 import { AuthService } from "@/lib/auth";
 import { EIDSR_MESSAGES_API_PATHS } from "@/constants/eidsr-messages";
@@ -71,7 +72,7 @@ export async function getEidsr6767Stats(
 	}
 
 	const total = eventsTotal ?? messages.length;
-	const linked = messages.filter((m) => m.linkedAlertId != null).length;
+	const linked = messages.filter((m) => isEidsr6767Verified(m)).length;
 	return {
 		total,
 		totalMessages: total,

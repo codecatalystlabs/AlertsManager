@@ -18,6 +18,7 @@ import {
 } from "@/lib/fetch-eidsr-6767";
 import type { EidsrEventsListParams } from "@/lib/fetch-eidsr-events";
 import type { EidsrMessageOptions } from "@/lib/fetch-eidsr-messages";
+import { isEidsr6767Verified } from "@/lib/eidsr-verified-state";
 
 interface EidsrPagination {
 	page: number;
@@ -49,7 +50,11 @@ interface UseEidsrEventsDataReturn {
 	refetch: () => Promise<void>;
 	syncFromRemote: () => Promise<void>;
 	updateLocalMessage: (message: EidsrMessage) => void;
-	markMessageLinked: (id: number, linkedAlertId: number | null) => void;
+	markMessageLinked: (
+		id: number,
+		linkedAlertId: number | null,
+		markVerified?: boolean
+	) => void;
 }
 
 function toEventsApiParams(
@@ -81,10 +86,10 @@ function filterMessagesClient(
 	}
 
 	return messages.filter((m) => {
-		if (verificationFilter === "linked" && m.linkedAlertId == null) {
+		if (verificationFilter === "linked" && !isEidsr6767Verified(m)) {
 			return false;
 		}
-		if (verificationFilter === "unlinked" && m.linkedAlertId != null) {
+		if (verificationFilter === "unlinked" && isEidsr6767Verified(m)) {
 			return false;
 		}
 		if (filters.status && filters.status !== "all") {
@@ -282,13 +287,16 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 	}, []);
 
 	const markMessageLinked = useCallback(
-		(id: number, linkedAlertId: number | null) => {
+		(id: number, linkedAlertId: number | null, markVerified = false) => {
 			setAllMessages((prev) => {
 				const next = prev.map((m) =>
 					m.id === id
 						? {
 								...m,
-								isVerified: linkedAlertId != null,
+								isVerified:
+									markVerified ||
+									linkedAlertId != null ||
+									m.isVerified,
 								linkedAlertId: linkedAlertId ?? m.linkedAlertId,
 							}
 						: m

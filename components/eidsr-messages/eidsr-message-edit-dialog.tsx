@@ -45,6 +45,7 @@ const EMPTY_FORM: EidsrMessageEditForm = {
 	actions: "",
 	feedback: "",
 	sourceOfAlert: "",
+	response: "",
 	alertCaseName: "",
 	alertCaseAge: "",
 	alertCaseSex: "",
@@ -130,7 +131,8 @@ export function EidsrMessageEditDialog({
 
 			const updated = await updateEidsrMessage(
 				resolveEidsrVerifyId(target),
-				payload
+				payload,
+				target
 			);
 			toast({
 				title: "Message updated",

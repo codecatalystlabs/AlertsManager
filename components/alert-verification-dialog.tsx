@@ -42,6 +42,8 @@ import {
 	FIELD_VERIFICATION_OPTIONS,
 } from "@/lib/verification-options";
 import { useToast } from "@/hooks/use-toast";
+import { alertResponse } from "@/constants";
+import { resolveAlertResponseCode } from "@/lib/resolve-alert-response";
 
 interface AlertVerificationDialogProps {
 	isOpen: boolean;
@@ -118,6 +120,7 @@ export function AlertVerificationDialog({
 		subCounty: alert?.subCounty || "",
 		contactNumber: alert?.contactNumber || "",
 		sourceOfAlert: alert?.sourceOfAlert || "",
+		response: "",
 		alertCaseName: alert?.alertCaseName || "",
 		alertCaseAge: alert?.alertCaseAge || 0,
 		alertCaseSex: alert?.alertCaseSex || "",
@@ -143,6 +146,20 @@ export function AlertVerificationDialog({
 
 	useEffect(() => {
 		if (isOpen && alert) {
+			const responseCode =
+				resolveAlertResponseCode(String(alert.response || "")) ||
+				String(alert.response || "");
+			const legacyDiseaseInCaseName =
+				isEidsrMode && !responseCode && alert.alertCaseName
+					? resolveAlertResponseCode(String(alert.alertCaseName))
+					: "";
+			const resolvedResponse =
+				responseCode || legacyDiseaseInCaseName || "";
+			const caseName =
+				legacyDiseaseInCaseName && legacyDiseaseInCaseName === resolvedResponse
+					? ""
+					: String(alert.alertCaseName || "");
+
 			// Reset form data when dialog opens
 			setFormData({
 				status: isEidsrMode && alert.status ? String(alert.status) : "",
@@ -154,7 +171,8 @@ export function AlertVerificationDialog({
 				subCounty: alert.subCounty || "",
 				contactNumber: alert.contactNumber || "",
 				sourceOfAlert: alert.sourceOfAlert || "",
-				alertCaseName: alert.alertCaseName || "",
+				response: resolvedResponse,
+				alertCaseName: caseName,
 				alertCaseAge: alert.alertCaseAge || 0,
 				alertCaseSex: alert.alertCaseSex || "",
 				alertCasePregnantDuration: 0,
@@ -301,6 +319,10 @@ export function AlertVerificationDialog({
 				setError("Please select a desk verification action.");
 				return;
 			}
+			if (!formData.response) {
+				setError("Please select a response type.");
+				return;
+			}
 		} else if (!alert?.id || !verificationToken) {
 			setError(
 				"Verification token not available. Please close and reopen the dialog."
@@ -312,6 +334,7 @@ export function AlertVerificationDialog({
 			!formData.personReporting ||
 			!formData.contactNumber ||
 			!formData.sourceOfAlert ||
+			!formData.response ||
 			!formData.alertCaseName ||
 			!formData.alertCaseAge ||
 			!formData.alertCaseSex ||
@@ -392,6 +415,7 @@ export function AlertVerificationDialog({
 				subCounty: formData.subCounty,
 				contactNumber: formData.contactNumber,
 				sourceOfAlert: formData.sourceOfAlert,
+				response: formData.response,
 				alertCaseName: formData.alertCaseName,
 				alertCaseAge: formData.alertCaseAge,
 				alertCaseSex: formData.alertCaseSex,
@@ -662,6 +686,35 @@ export function AlertVerificationDialog({
 								<h3 className="text-lg font-semibold">
 									Case Information
 								</h3>
+							</div>
+
+							<div className="space-y-2">
+								<Label
+									htmlFor="response"
+									className="text-sm font-medium"
+								>
+									Response Type *
+								</Label>
+								<Select
+									value={formData.response || undefined}
+									onValueChange={(value) =>
+										handleInputChange("response", value)
+									}
+								>
+									<SelectTrigger id="response">
+										<SelectValue placeholder="Select disease" />
+									</SelectTrigger>
+									<SelectContent>
+										{alertResponse.map((disease) => (
+											<SelectItem
+												key={disease.code}
+												value={disease.code}
+											>
+												{disease.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
 							</div>
 
 							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">

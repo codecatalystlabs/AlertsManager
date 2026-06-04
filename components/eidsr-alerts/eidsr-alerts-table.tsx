@@ -14,6 +14,8 @@ import {
 import { DataTable } from "@/components/ui/data-table";
 import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
 import { LAYOUT } from "@/constants/layout";
+import { verifiedTableRowClass } from "@/lib/verified-row-style";
+import { isEidsr6767Verified } from "@/lib/eidsr-verified-state";
 import { Eye, Loader2, MoreHorizontal, Pencil, ShieldCheck } from "lucide-react";
 
 interface EidsrAlertsTableProps {
@@ -223,6 +225,9 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 						onPageChange={(pageIndex) => onPageChange(pageIndex + 1)}
 						onPageSizeChange={onPageSizeChange}
 						isLoading={isLoading}
+						getRowClassName={(row) =>
+							verifiedTableRowClass(isEidsr6767Verified(row.original))
+						}
 					/>
 				</CardContent>
 			</Card>

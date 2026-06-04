@@ -8,6 +8,7 @@ import {
 	createCallLogsTableColumns,
 	type CallLogsTableCallbacks,
 } from "@/constants/call-logs";
+import { verifiedTableRowClass } from "@/lib/verified-row-style";
 
 interface CallLogsTableProps {
 	alerts: AlertLog[];
@@ -75,6 +76,9 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 						onPageChange={(pageIndex) => onPageChange(pageIndex + 1)}
 						onPageSizeChange={onPageSizeChange}
 						isLoading={isLoading}
+						getRowClassName={(row) =>
+							verifiedTableRowClass(!!row.original.isVerified)
+						}
 					/>
 				</CardContent>
 			</Card>

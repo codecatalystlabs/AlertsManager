@@ -135,7 +135,7 @@ export default function EidsrAlertsPage() {
 	const handleVerificationComplete = useCallback(
 		(linkedAlertId?: number | null) => {
 			if (selected) {
-				markMessageLinked(selected.id, linkedAlertId ?? null);
+				markMessageLinked(selected.id, linkedAlertId ?? null, true);
 			}
 			invalidateAlertsCache();
 			void refetch();
