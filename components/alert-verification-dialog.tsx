@@ -35,6 +35,10 @@ import {
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
 import { DistrictSelect } from "@/components/district-select";
+import {
+	DESK_VERIFICATION_OPTIONS,
+	FIELD_VERIFICATION_OPTIONS,
+} from "@/lib/verification-options";
 import { useToast } from "@/hooks/use-toast";
 
 interface AlertVerificationDialogProps {
@@ -1143,57 +1147,35 @@ export function AlertVerificationDialog({
 									}
 									className="flex flex-wrap gap-6"
 								>
-									<div className="flex items-center space-x-2">
-										<RadioGroupItem
-											value="Field Case Verification"
-											id="field-case-verification"
-										/>
-										<Label
-											htmlFor="field-case-verification"
-											className="text-sm font-medium"
-										>
-											Field Case Verification
-										</Label>
-									</div>
-									<div className="flex items-center space-x-2">
-										<RadioGroupItem
-											value="Discarded"
-											id="discarded"
-										/>
-										<Label
-											htmlFor="discarded"
-											className="text-sm font-medium"
-										>
-											Discarded
-										</Label>
-									</div>
-									<div className="flex items-center space-x-2">
-										<RadioGroupItem
-											value="Validated for EMS Evacuation"
-											id="validated-ems"
-										/>
-										<Label
-											htmlFor="validated-ems"
-											className="text-sm font-medium"
-										>
-											Validated for EMS
-											Evacuation
-										</Label>
-									</div>
-									<div className="flex items-center space-x-2">
-										<RadioGroupItem
-											value="Mortality Surveillance/Supervised Burial"
-											id="mortality-surveillance"
-										/>
-										<Label
-											htmlFor="mortality-surveillance"
-											className="text-sm font-medium"
-										>
-											Mortality
-											Surveillance/Supervised
-											Burial
-										</Label>
-									</div>
+									{DESK_VERIFICATION_OPTIONS.map(
+										(option) => (
+											<div
+												key={option}
+												className="flex items-center space-x-2"
+											>
+												<RadioGroupItem
+													value={option}
+													id={`desk-${option
+														.toLowerCase()
+														.replace(
+															/[^a-z0-9]/g,
+															"-"
+														)}`}
+												/>
+												<Label
+													htmlFor={`desk-${option
+														.toLowerCase()
+														.replace(
+															/[^a-z0-9]/g,
+															"-"
+														)}`}
+													className="text-sm font-medium"
+												>
+													{option}
+												</Label>
+											</div>
+										)
+									)}
 								</RadioGroup>
 							</div>
 						</div>
@@ -1455,13 +1437,7 @@ export function AlertVerificationDialog({
 											}
 											className="flex flex-wrap gap-6"
 										>
-											{[
-												"SDB",
-												"Discard",
-												"Sample collection",
-												"Mortality Surveillance/Supervised Burial",
-												"Recommend for Evacuation",
-											].map((option) => (
+											{FIELD_VERIFICATION_OPTIONS.map((option) => (
 												<div
 													key={option}
 													className="flex items-center space-x-2"

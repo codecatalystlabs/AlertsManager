@@ -46,20 +46,10 @@ import {
 import { DistrictSelect } from "@/components/district-select";
 import { useToast } from "@/hooks/use-toast";
 
-const DESK_VERIFICATION_OPTIONS = [
-	"Field Case Verification",
-	"Discarded",
-	"Validated for EMS Evacuation",
-	"Mortality Surveillance/Supervised Burial",
-] as const;
-
-const FIELD_VERIFICATION_OPTIONS = [
-	"SDB",
-	"Discard",
-	"Sample collection",
-	"Mortality Surveillance/Supervised Burial",
-	"Recommend for Evacuation",
-] as const;
+import {
+	DESK_VERIFICATION_OPTIONS,
+	FIELD_VERIFICATION_OPTIONS,
+} from "@/lib/verification-options";
 
 interface AlertEditDialogProps {
 	isOpen: boolean;
