@@ -153,5 +153,9 @@ export async function fetchEidsrEventById(localId: number): Promise<EidsrEvent> 
 
 /** POST /eidsr/local/refresh — sync 6767 messages from EIDSR (not /alerts). */
 export async function refreshEidsrEvents(fullSync = true): Promise<void> {
-	await AuthService.syncEidsr6767Messages({ fullSync });
+	const apiBase = getClientApiBaseUrl();
+	await requestEidsr<void>(`${apiBase}${EIDSR_API_PATHS.refresh}`, {
+		method: "POST",
+		body: JSON.stringify({ fullSync }),
+	});
 }

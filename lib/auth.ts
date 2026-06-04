@@ -615,38 +615,6 @@ export class AuthService {
         }
     }
 
-    /** POST /eidsr/local/refresh — pull 6767 messages from EIDSR into local mirror. */
-    static async syncEidsr6767Messages(options: { fullSync?: boolean } = {}): Promise<void> {
-        const fullSync = options.fullSync ?? true
-        const response = await this.makeAuthenticatedRequest(
-            `${getClientApiBaseUrl()}/eidsr/local/refresh`,
-            {
-                method: 'POST',
-                body: JSON.stringify({ fullSync, full_sync: fullSync }),
-            }
-        )
-
-        if (!response.ok) {
-            const bodyText = await response.text().catch(() => '')
-            let errorMessage = `EIDSR sync failed (${response.status} ${response.statusText})`
-            if (bodyText.trim()) {
-                try {
-                    const errorData = JSON.parse(bodyText) as {
-                        message?: string
-                        error?: string
-                    }
-                    errorMessage =
-                        errorData.message ||
-                        errorData.error ||
-                        errorMessage
-                } catch {
-                    errorMessage = `${errorMessage}: ${bodyText.trim().slice(0, 300)}`
-                }
-            }
-            throw new Error(errorMessage)
-        }
-    }
-
     static async verifyAlert(alertId: number, verificationData: {
         token: string
         status: string
