@@ -172,7 +172,7 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 
 		try {
 			await refreshEidsrEvents(true);
-			setSyncMessage("6767 alerts updated from EIDSR.");
+			setSyncMessage("6767 messages updated from EIDSR.");
 			await loadEvents();
 		} catch (err) {
 			const message =

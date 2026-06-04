@@ -1,6 +1,7 @@
 import { AuthService } from "@/lib/auth";
 import { getClientApiBaseUrl } from "@/lib/api-config";
 import { formatAlertsFetchError } from "@/lib/api-errors";
+import { EIDSR_API_PATHS } from "@/constants/eidsr-alerts";
 
 class EidsrFetchError extends Error {
 	constructor(
@@ -59,9 +60,8 @@ function buildEventsUrl(apiBase: string, params?: EidsrEventsListParams): string
 	if (params?.to_date) searchParams.set("to_date", params.to_date);
 	if (params?.updated_after) searchParams.set("updated_after", params.updated_after);
 	const query = searchParams.toString();
-	return query
-		? `${apiBase}/eidsr/local/events?${query}`
-		: `${apiBase}/eidsr/local/events`;
+	const eventsPath = `${apiBase}${EIDSR_API_PATHS.events}`;
+	return query ? `${eventsPath}?${query}` : eventsPath;
 }
 
 function parsePaginatedEventsResponse(json: unknown): PaginatedEidsrEventsResult {
@@ -139,7 +139,7 @@ export async function fetchEidsrEventsPage(
 export async function fetchEidsrEventById(localId: number): Promise<EidsrEvent> {
 	const apiBase = getClientApiBaseUrl();
 	const json = await requestEidsr<unknown>(
-		`${apiBase}/eidsr/local/events/${localId}`
+		`${apiBase}${EIDSR_API_PATHS.eventById(localId)}`
 	);
 	if (json && typeof json === "object" && !Array.isArray(json)) {
 		const body = json as Record<string, unknown>;
@@ -151,11 +151,7 @@ export async function fetchEidsrEventById(localId: number): Promise<EidsrEvent> 
 	throw new EidsrFetchError("Invalid event response");
 }
 
-/** POST /eidsr/local/refresh */
+/** POST /eidsr/local/refresh — sync 6767 messages from EIDSR (not /alerts). */
 export async function refreshEidsrEvents(fullSync = true): Promise<void> {
-	const apiBase = getClientApiBaseUrl();
-	await requestEidsr<void>(`${apiBase}/eidsr/local/refresh`, {
-		method: "POST",
-		body: JSON.stringify({ fullSync }),
-	});
+	await AuthService.syncEidsr6767Messages({ fullSync });
 }

@@ -5,6 +5,13 @@ export const EIDSR_ALERTS_CONFIG = {
 	ITEMS_PER_PAGE: 10,
 } as const;
 
+/** EIDSR / 6767 messages API paths (under /api/v1). */
+export const EIDSR_API_PATHS = {
+	events: "/eidsr/local/events",
+	eventById: (localId: number) => `/eidsr/local/events/${localId}`,
+	refresh: "/eidsr/local/refresh",
+} as const;
+
 export const EIDSR_STATUS_FILTER_OPTIONS = [
 	{ value: "all", label: "All statuses" },
 	{ value: "COMPLETED", label: "Completed" },

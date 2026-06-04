@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { getClientApiBaseUrl } from "@/lib/api-config";
 import { isLikelyBackendUnreachable } from "@/lib/api-errors";
+import { EIDSR_API_PATHS } from "@/constants/eidsr-alerts";
 
 export type BackendStatus = "checking" | "online" | "offline" | "error";
 
@@ -17,11 +19,19 @@ const OFFLINE_DETAIL =
 
 const PROBE_INTERVAL_MS = 60_000;
 
-async function probeBackend(): Promise<BackendStatusState> {
+function getHealthProbeUrl(pathname: string | null): string {
 	const apiBase = getClientApiBaseUrl();
+	if (pathname?.includes("/dashboard/eidsr-alerts")) {
+		return `${apiBase}${EIDSR_API_PATHS.events}?page=1&limit=1`;
+	}
+	return `${apiBase}/alerts?page=1&limit=1`;
+}
+
+async function probeBackend(pathname: string | null): Promise<BackendStatusState> {
+	const probeUrl = getHealthProbeUrl(pathname);
 
 	try {
-		const response = await fetch(`${apiBase}/alerts?page=1&limit=1`, {
+		const response = await fetch(probeUrl, {
 			method: "GET",
 			cache: "no-store",
 		});
@@ -59,6 +69,7 @@ async function probeBackend(): Promise<BackendStatusState> {
 
 /** Dev-only probe: lightweight paginated request; skips body on success. */
 export function useApiBackendStatus(enabled = process.env.NODE_ENV === "development") {
+	const pathname = usePathname();
 	const [state, setState] = useState<BackendStatusState>({
 		status: enabled ? "checking" : "online",
 		label: enabled ? "Checking backend…" : "System online",
@@ -74,8 +85,8 @@ export function useApiBackendStatus(enabled = process.env.NODE_ENV === "developm
 				? current
 				: { status: "checking", label: "Checking backend…" }
 		);
-		setState(await probeBackend());
-	}, [enabled]);
+		setState(await probeBackend(pathname));
+	}, [enabled, pathname]);
 
 	useEffect(() => {
 		if (!enabled) return;
