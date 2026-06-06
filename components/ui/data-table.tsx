@@ -143,9 +143,13 @@ export function DataTable<TData, TValue>({
   const endRow = Math.min((currentPage + 1) * pageSizeValue, filteredCount)
   const pageRange = getPaginationRange(currentPage, pageCount)
 
+  const headerGroups = table.getHeaderGroups()
+  const leafHeaders = headerGroups[headerGroups.length - 1]?.headers ?? []
+  const headerByColumnId = new Map(leafHeaders.map((h) => [h.column.id, h]))
+
   return (
     <div className="w-full">
-      <div className="flex items-center py-2">
+      <div className="flex items-center gap-2 py-2">
         {searchKey && (
           <Input
             placeholder={searchPlaceholder}
@@ -154,13 +158,13 @@ export function DataTable<TData, TValue>({
               table.getColumn(searchKey)?.setFilterValue(event.target.value)
               table.setPageIndex(0)
             }}
-            className="max-w-sm"
+            className="h-8 max-w-xs text-xs"
           />
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto">
-              Columns <ChevronDown className="ml-2 h-4 w-4" />
+            <Button variant="outline" size="sm" className="ml-auto h-8 gap-1.5">
+              Columns <ChevronDown className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -182,14 +186,19 @@ export function DataTable<TData, TValue>({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="rounded-md border">
-        <Table>
+
+      {/* Desktop / tablet: compact table with a sticky header */}
+      <div className="hidden rounded-md border md:block">
+        <Table containerClassName="max-h-[65vh]">
           <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+            {headerGroups.map((headerGroup) => (
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead
+                      key={header.id}
+                      className="sticky top-0 z-10 h-9 whitespace-nowrap bg-muted px-3 text-[11px] font-semibold uppercase tracking-wide"
+                    >
                       {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                     </TableHead>
                   )
@@ -200,7 +209,7 @@ export function DataTable<TData, TValue>({
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell colSpan={columns.length} className="h-24 text-center text-sm text-muted-foreground">
                   Loading...
                 </TableCell>
               </TableRow>
@@ -212,13 +221,15 @@ export function DataTable<TData, TValue>({
                   className={getRowClassName?.(row)}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                    <TableCell key={cell.id} data-cell className="px-3 py-1.5 text-sm">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
                   ))}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell colSpan={columns.length} className="h-24 text-center text-sm text-muted-foreground">
                   No results.
                 </TableCell>
               </TableRow>
@@ -226,8 +237,53 @@ export function DataTable<TData, TValue>({
           </TableBody>
         </Table>
       </div>
-      <div className="flex flex-col gap-2 border-t bg-muted/30 px-2 py-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">
+
+      {/* Mobile: each row becomes a stacked label/value card */}
+      <div className="space-y-2 md:hidden">
+        {isLoading ? (
+          <div className="rounded-md border p-6 text-center text-sm text-muted-foreground">
+            Loading...
+          </div>
+        ) : pageRows.length ? (
+          pageRows.map((row) => (
+            <div
+              key={row.id}
+              className={cn(
+                "overflow-hidden rounded-lg border bg-card p-3 shadow-sm",
+                getRowClassName?.(row)
+              )}
+            >
+              {row.getVisibleCells().map((cell) => {
+                const header = headerByColumnId.get(cell.column.id)
+                const label =
+                  header && !header.isPlaceholder
+                    ? flexRender(header.column.columnDef.header, header.getContext())
+                    : null
+                return (
+                  <div
+                    key={cell.id}
+                    className="flex items-start justify-between gap-3 border-b border-border/60 py-1.5 last:border-0"
+                  >
+                    <span className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      {label}
+                    </span>
+                    <span data-cell className="min-w-0 text-right text-sm">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          ))
+        ) : (
+          <div className="rounded-md border p-6 text-center text-sm text-muted-foreground">
+            No results.
+          </div>
+        )}
+      </div>
+
+      <div className="mt-2 flex flex-col gap-2 rounded-md border bg-muted/30 px-2 py-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-muted-foreground sm:text-sm">
           Showing {startRow}–{endRow} of {filteredCount} row(s)
           {pageCount > 0 && (
             <span className="ml-1">
@@ -235,9 +291,9 @@ export function DataTable<TData, TValue>({
             </span>
           )}
         </p>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground whitespace-nowrap">Rows per page</span>
+            <span className="whitespace-nowrap text-xs text-muted-foreground sm:text-sm">Rows per page</span>
             <Select
               value={String(pageSizeValue)}
               onValueChange={(value) => {
@@ -268,31 +324,34 @@ export function DataTable<TData, TValue>({
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            {pageRange.map((page, index) =>
-              page === "ellipsis" ? (
-                <span
-                  key={`ellipsis-${index}`}
-                  className="flex h-8 w-8 items-center justify-center text-sm text-muted-foreground"
-                >
-                  …
-                </span>
-              ) : (
-                <Button
-                  key={page}
-                  variant={page === currentPage ? "default" : "outline"}
-                  size="icon"
-                  className={cn(
-                    "h-8 w-8",
-                    page === currentPage && "bg-uganda-red hover:bg-uganda-red/90"
-                  )}
-                  onClick={() => table.setPageIndex(page)}
-                  aria-label={`Go to page ${page + 1}`}
-                  aria-current={page === currentPage ? "page" : undefined}
-                >
-                  {page + 1}
-                </Button>
-              )
-            )}
+            {/* Numeric page buttons collapse to Prev/Next on small screens */}
+            <div className="hidden items-center gap-1 sm:flex">
+              {pageRange.map((page, index) =>
+                page === "ellipsis" ? (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="flex h-8 w-8 items-center justify-center text-sm text-muted-foreground"
+                  >
+                    …
+                  </span>
+                ) : (
+                  <Button
+                    key={page}
+                    variant={page === currentPage ? "default" : "outline"}
+                    size="icon"
+                    className={cn(
+                      "h-8 w-8",
+                      page === currentPage && "bg-uganda-red hover:bg-uganda-red/90"
+                    )}
+                    onClick={() => table.setPageIndex(page)}
+                    aria-label={`Go to page ${page + 1}`}
+                    aria-current={page === currentPage ? "page" : undefined}
+                  >
+                    {page + 1}
+                  </Button>
+                )
+              )}
+            </div>
             <Button
               variant="outline"
               size="icon"

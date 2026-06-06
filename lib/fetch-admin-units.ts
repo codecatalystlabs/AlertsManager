@@ -88,7 +88,7 @@ export async function fetchDistricts(): Promise<string[]> {
 	} catch (error) {
 		if (error instanceof TypeError) {
 			throw new AdminUnitsFetchError(
-				"Cannot reach the API. If developing locally, ensure the backend is running on port 8089."
+				"Cannot reach the API server. Confirm the backend is online and reachable, then retry."
 			);
 		}
 		throw error;

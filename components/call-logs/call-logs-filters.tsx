@@ -125,6 +125,42 @@ export const CallLogsFilters = memo<CallLogsFiltersProps>(
 							</Select>
 						</div>
 
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="from-date" className="text-[11px]">
+								From date
+							</Label>
+							<Input
+								id="from-date"
+								type="date"
+								max={filters.toDate || undefined}
+								value={filters.fromDate}
+								onChange={(e) =>
+									onFiltersChange({
+										fromDate: e.target.value,
+									})
+								}
+								className="h-8 text-xs w-full"
+							/>
+						</div>
+
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="to-date" className="text-[11px]">
+								To date
+							</Label>
+							<Input
+								id="to-date"
+								type="date"
+								min={filters.fromDate || undefined}
+								value={filters.toDate}
+								onChange={(e) =>
+									onFiltersChange({
+										toDate: e.target.value,
+									})
+								}
+								className="h-8 text-xs w-full"
+							/>
+						</div>
+
 						<div className="min-w-0">
 							<Button
 								variant="outline"

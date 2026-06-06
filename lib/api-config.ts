@@ -2,12 +2,12 @@
  * API URL configuration.
  *
  * - Browser: always use same-origin `/api/v1` (Next.js rewrite proxy).
- * - Server rewrite target: `API_BASE_URL` in `.env` (e.g. local Go API on :8089).
+ * - Server rewrite target: `API_BASE_URL` in `.env`, defaulting to the deployed backend.
  */
 export const CLIENT_API_BASE = "/api/v1";
 
-/** Use 127.0.0.1 — on Windows, `localhost` often resolves to ::1 while the Go API binds IPv4 only. */
-const LOCAL_API_BASE = "http://127.0.0.1:8089/api/v1";
+/** Default upstream: the deployed backend. Set `API_BASE_URL` in `.env` to use a local API. */
+export const DEFAULT_API_BASE_URL = "https://alerts.health.go.ug/api/v1";
 
 /** Strip trailing slashes and mistaken `/alerts` suffix from API base URLs. */
 export function normalizeApiBaseUrl(base: string): string {
@@ -49,5 +49,5 @@ export function getClientApiBaseUrl(): string {
 
 /** Upstream API URL for Next.js rewrites (server-only). */
 export function getServerApiBaseUrl(): string {
-	return (process.env.API_BASE_URL || LOCAL_API_BASE).replace(/\/$/, "");
+	return (process.env.API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/$/, "");
 }

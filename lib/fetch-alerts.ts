@@ -159,7 +159,7 @@ async function requestAlerts<T>(url: string): Promise<T> {
 	} catch (error) {
 		if (error instanceof TypeError) {
 			throw new AlertsFetchError(
-				"Cannot reach the API. If developing locally, ensure the backend is running on port 8089."
+				"Cannot reach the API server. Confirm the backend is online and reachable, then retry."
 			);
 		}
 		throw error;

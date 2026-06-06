@@ -11,9 +11,24 @@ interface StatsCardProps {
   className?: string;
 }
 
+// Soft tinted chip per config colour. Must be LITERAL class strings — Tailwind
+// only generates CSS for class names it can see in source (no runtime `.replace`).
+const CHIP_STYLES: Record<string, { bg: string; text: string }> = {
+  'bg-green-500': { bg: 'bg-green-100', text: 'text-green-600' },
+  'bg-red-500': { bg: 'bg-red-100', text: 'text-red-600' },
+  'bg-blue-500': { bg: 'bg-blue-100', text: 'text-blue-600' },
+  'bg-purple-500': { bg: 'bg-purple-100', text: 'text-purple-600' },
+  'bg-indigo-500': { bg: 'bg-indigo-100', text: 'text-indigo-600' },
+  'bg-teal-500': { bg: 'bg-teal-100', text: 'text-teal-600' },
+};
+
+const DEFAULT_CHIP = { bg: 'bg-gray-100', text: 'text-gray-600' };
+
 export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, className }) => {
-  const { title, key, icon: Icon, gradient, iconBg, textColor, isPercentage } = config;
-  
+  const { title, key, icon: Icon, iconBg, isPercentage } = config;
+
+  const chip = CHIP_STYLES[iconBg] ?? DEFAULT_CHIP;
+
   const getValue = (): string => {
     const value = data[key as keyof typeof data];
     
@@ -62,34 +77,33 @@ export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, classNam
   return (
     <Card
       className={cn(
-        `bg-gradient-to-br ${gradient} border-opacity-50 hover:shadow-lg transition-all duration-300`,
+        'border border-gray-200 bg-white transition-shadow hover:shadow-md',
         onClick && 'cursor-pointer',
         className
       )}
       onClick={onClick}
     >
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <p className={cn('text-sm font-medium mb-1', textColor.replace('700', '600'))}>
-              {title}
-            </p>
-            <p className={cn('text-3xl font-bold', textColor)}>
-              {getValue()}
-            </p>
-            {getSubText() && (
-              <div className="flex items-center mt-2">
-                <SubIcon className={cn('h-4 w-4 mr-1', textColor.replace('700', '600'))} />
-                <span className={cn('text-xs', textColor.replace('700', '600'))}>
-                  {getSubText()}
-                </span>
-              </div>
-            )}
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-gray-500">{title}</p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">{getValue()}</p>
           </div>
-          <div className={cn('h-16 w-16 rounded-2xl flex items-center justify-center shadow-lg', iconBg)}>
-            <Icon className="h-8 w-8 text-white" />
+          <div
+            className={cn(
+              'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
+              chip.bg
+            )}
+          >
+            <Icon className={cn('h-5 w-5', chip.text)} />
           </div>
         </div>
+        {getSubText() && (
+          <div className="mt-3 flex items-center gap-1.5 text-xs text-gray-500">
+            <SubIcon className={cn('h-3.5 w-3.5 shrink-0', chip.text)} />
+            <span className="truncate">{getSubText()}</span>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

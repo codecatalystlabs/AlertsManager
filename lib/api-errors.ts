@@ -1,7 +1,7 @@
-import { getServerApiBaseUrl } from "@/lib/api-config";
+import { DEFAULT_API_BASE_URL, getServerApiBaseUrl } from "@/lib/api-config";
 
-const LOCAL_BACKEND_HINT =
-	"Start the Go API on port 8089. This repo is frontend-only — the backend must be run separately.";
+const BACKEND_UNREACHABLE_HINT =
+	"The API server did not respond. Confirm the backend is online and that API_BASE_URL points to it, then retry.";
 
 /** Plain-text 500 from Next.js rewrites usually means the upstream refused the connection. */
 export function isLikelyBackendUnreachable(
@@ -26,7 +26,7 @@ export function getBackendUpstreamUrl(): string {
 		return getServerApiBaseUrl();
 	}
 
-	return process.env.NEXT_PUBLIC_API_DEV_UPSTREAM || "http://127.0.0.1:8089/api/v1";
+	return process.env.NEXT_PUBLIC_API_DEV_UPSTREAM || DEFAULT_API_BASE_URL;
 }
 
 export function formatApiFetchError(
@@ -38,8 +38,8 @@ export function formatApiFetchError(
 	if (isLikelyBackendUnreachable(status, bodyText)) {
 		const upstream = getBackendUpstreamUrl();
 		return (
-			`Cannot reach the backend API at ${upstream}. ${LOCAL_BACKEND_HINT} ` +
-			`(Next.js proxy returned ${status} because nothing is listening on port 8089.)`
+			`Cannot reach the backend API at ${upstream}. ${BACKEND_UNREACHABLE_HINT} ` +
+			`(Next.js proxy returned ${status}.)`
 		);
 	}
 
@@ -47,8 +47,8 @@ export function formatApiFetchError(
 		const detail = bodyText.trim().slice(0, 300);
 		return (
 			`Failed to load ${resourceLabel}: ${status} ${statusText}. ` +
-			"The API returned a server error — check backend logs. " +
-			`For local dev, ensure the Go API is running on port 8089 and restart \`yarn dev\` after changing .env.` +
+			"The API returned a server error — check the backend logs. " +
+			"If you just changed .env, restart the dev server so the new API_BASE_URL takes effect." +
 			(detail ? ` Response: ${detail}` : "")
 		);
 	}

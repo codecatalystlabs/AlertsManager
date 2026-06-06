@@ -44,14 +44,14 @@ export const StatsGrid = memo<StatsGridProps>(({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-4">
       {/* Main Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-4">
         {STAT_CARDS.map(renderStatCard)}
       </div>
 
       {/* Additional Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
         {ADDITIONAL_STATS.map(renderStatCard)}
       </div>
     </div>

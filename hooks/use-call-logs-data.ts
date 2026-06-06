@@ -113,6 +113,13 @@ function toApiParams(
         params.is_verified = false;
     }
 
+    if (filters.fromDate) {
+        params.from_date = filters.fromDate;
+    }
+    if (filters.toDate) {
+        params.to_date = filters.toDate;
+    }
+
     return params;
 }
 
@@ -184,13 +191,35 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
     }, [page, limit]);
 
     const loadAlertsForExport = useCallback(async (): Promise<AlertLog[]> => {
-        const result = await fetchAlertsPage({
-            ...toApiParams(filtersRef.current, 1, limit),
-            page: 1,
-            limit: 10_000,
-        });
-        return applyClientFilters(result.data as AlertLog[], filtersRef.current);
-    }, [limit]);
+        // Walk every page in the selected range. A single huge `limit` is
+        // unreliable because the backend caps page size (this is why exports
+        // were silently truncated to ~9 days). Page through until done.
+        const EXPORT_PAGE_LIMIT = 500;
+        const MAX_EXPORT_PAGES = 200; // safety cap → up to 100k rows
+
+        const fetchExportPage = (targetPage: number) =>
+            fetchAlertsPage(
+                toApiParams(filtersRef.current, targetPage, EXPORT_PAGE_LIMIT)
+            );
+
+        const first = await fetchExportPage(1);
+        const collected: AlertLog[] = [...(first.data as AlertLog[])];
+
+        const lastPage = Math.min(Math.max(first.totalPages, 1), MAX_EXPORT_PAGES);
+
+        if (lastPage > 1) {
+            const rest = await Promise.all(
+                Array.from({ length: lastPage - 1 }, (_, index) =>
+                    fetchExportPage(index + 2)
+                )
+            );
+            for (const pageResult of rest) {
+                collected.push(...(pageResult.data as AlertLog[]));
+            }
+        }
+
+        return applyClientFilters(collected, filtersRef.current);
+    }, []);
 
     const deleteAlert = useCallback(
         async (alertId: number) => {
@@ -285,7 +314,14 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
 
     useEffect(() => {
         loadAlerts();
-    }, [loadAlerts, page, limit, filters.verification]);
+    }, [
+        loadAlerts,
+        page,
+        limit,
+        filters.verification,
+        filters.fromDate,
+        filters.toDate,
+    ]);
 
     return {
         alerts,

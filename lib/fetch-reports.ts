@@ -136,7 +136,7 @@ async function requestReport<T>(path: string, params?: ReportsQueryParams): Prom
 	} catch (error) {
 		if (error instanceof TypeError) {
 			throw new ReportsFetchError(
-				"Cannot reach the API. If developing locally, ensure the backend is running on port 8089."
+				"Cannot reach the API server. Confirm the backend is online and reachable, then retry."
 			);
 		}
 		throw error;

@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 // Rewrite target must be an absolute upstream URL — never use NEXT_PUBLIC (/api/v1).
+// Defaults to the deployed backend; set API_BASE_URL in .env to use a local API.
 const apiBaseUrl = (
-  process.env.API_BASE_URL || "http://127.0.0.1:8089/api/v1"
+  process.env.API_BASE_URL || "https://alerts.health.go.ug/api/v1"
 ).replace(/\/$/, "")
 
 const nextConfig = {

@@ -16,7 +16,7 @@ interface BackendStatusState {
 }
 
 const OFFLINE_DETAIL =
-	"Go API not reachable on port 8089. Start the backend, then refresh.";
+	"Backend API not reachable. Confirm it is online, then refresh.";
 
 const PROBE_INTERVAL_MS = 60_000;
 

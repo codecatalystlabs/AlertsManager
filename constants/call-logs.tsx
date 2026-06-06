@@ -40,6 +40,10 @@ export interface CallLogsFilterState {
 	source: string;
 	search: string;
 	verification: string;
+	/** Inclusive start of the call date range (YYYY-MM-DD); "" means unbounded. */
+	fromDate: string;
+	/** Inclusive end of the call date range (YYYY-MM-DD); "" means unbounded. */
+	toDate: string;
 }
 
 export const CALL_LOGS_INITIAL_FILTERS: CallLogsFilterState = {
@@ -47,11 +51,15 @@ export const CALL_LOGS_INITIAL_FILTERS: CallLogsFilterState = {
 	source: "all",
 	search: "",
 	verification: "all",
+	fromDate: "",
+	toDate: "",
 };
 
+// Partial so clicking a stat card narrows status/verification without
+// resetting the user's selected date range (merged into current filters).
 export const STAT_FILTER_PRESETS: Record<
 	CallLogsStatFilter,
-	CallLogsFilterState
+	Partial<CallLogsFilterState>
 > = {
 	alive: {
 		status: "alive",
