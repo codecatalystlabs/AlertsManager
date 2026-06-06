@@ -1,3 +1,5 @@
+import { normalizeSourceOfAlert } from "@/lib/source-of-alert";
+
 /** API alert shape used across list/detail/dashboard fetches */
 export interface ApiAlert {
 	id?: number;
@@ -119,7 +121,9 @@ export function normalizeAlertFromApi(raw: unknown): ApiAlert {
 		village: str(body.village),
 		subCounty: str(body.subCounty ?? body.sub_county),
 		contactNumber: str(body.contactNumber ?? body.contact_number) ?? "",
-		sourceOfAlert: str(body.sourceOfAlert ?? body.source_of_alert) ?? "",
+		sourceOfAlert: normalizeSourceOfAlert(
+			str(body.sourceOfAlert ?? body.source_of_alert)
+		),
 		alertCaseName: str(body.alertCaseName ?? body.alert_case_name) ?? "",
 		alertCaseAge: num(body.alertCaseAge ?? body.alert_case_age) ?? 0,
 		alertCaseSex: str(body.alertCaseSex ?? body.alert_case_sex) ?? "",

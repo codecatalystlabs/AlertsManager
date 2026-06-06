@@ -34,7 +34,7 @@ import Link from "next/link";
 import {
 	alertResponse,
 	alertSource,
-	alertStatus,
+	alertEntryStatus,
 	signsAndSymptoms,
 } from "@/constants";
 import { DistrictSelect } from "@/components/district-select";
@@ -99,6 +99,7 @@ export default function PublicAddAlertPage() {
 				!formData.date ||
 				!formData.callTime ||
 				// !formData.cif_no ||
+				!formData.status ||
 				!formData.nameOfPersonReporting ||
 				!formData.numberOfPersonReporting ||
 				!formData.sourceOfAlert ||
@@ -420,7 +421,7 @@ export default function PublicAddAlertPage() {
 												<SelectValue placeholder="Select alert status" />
 											</SelectTrigger>
 											<SelectContent>
-												{alertStatus?.map(
+												{alertEntryStatus?.map(
 													(status) => (
 														<SelectItem
 															key={

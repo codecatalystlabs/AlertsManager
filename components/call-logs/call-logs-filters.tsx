@@ -17,6 +17,7 @@ import {
 	type CallLogsFilterState,
 } from "@/constants/call-logs";
 import { LAYOUT } from "@/constants/layout";
+import { useDistrictOptions } from "@/hooks/use-district-options";
 
 interface CallLogsFiltersProps {
 	filters: CallLogsFilterState;
@@ -26,6 +27,10 @@ interface CallLogsFiltersProps {
 
 export const CallLogsFilters = memo<CallLogsFiltersProps>(
 	({ filters, onFiltersChange, onClearFilters }) => {
+		const { districts, loading: districtsLoading } = useDistrictOptions(
+			filters.district === "all" ? "" : filters.district
+		);
+
 		return (
 			<Card className={LAYOUT.card}>
 				<CardContent className="p-3">
@@ -119,6 +124,45 @@ export const CallLogsFilters = memo<CallLogsFiltersProps>(
 											value={option.value}
 										>
 											{option.label}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="district-filter" className="text-[11px]">
+								District
+							</Label>
+							<Select
+								value={filters.district}
+								onValueChange={(value) =>
+									onFiltersChange({ district: value })
+								}
+								disabled={districtsLoading}
+							>
+								<SelectTrigger
+									id="district-filter"
+									className="h-8 text-xs"
+								>
+									<SelectValue
+										placeholder={
+											districtsLoading
+												? "Loading…"
+												: "All Districts"
+										}
+									/>
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="all">
+										All Districts
+									</SelectItem>
+									{districts.map((district) => (
+										<SelectItem
+											key={district}
+											value={district}
+										>
+											{district}
 										</SelectItem>
 									))}
 								</SelectContent>

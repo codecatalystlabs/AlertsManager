@@ -4,7 +4,7 @@ import {
 	defaultReportDateRange,
 	fetchReportMatrix,
 	fetchReportTimeseries,
-	type ReportDateRange,
+	type ReportsDateRange,
 	type ReportMatrix,
 	type ReportOptions,
 	type ReportScope,

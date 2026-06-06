@@ -1,6 +1,7 @@
 import { AuthService } from "@/lib/auth";
 import { getClientApiBaseUrl } from "@/lib/api-config";
 import { formatAlertsFetchError } from "@/lib/api-errors";
+import { canonicalDistrictName } from "@/lib/district-name";
 
 class ReportsFetchError extends Error {
 	constructor(
@@ -110,6 +111,38 @@ function formatMetricLabel(key: string): string {
 	return METRIC_LABELS[key] ?? key.replace(/_/g, " ");
 }
 
+/**
+ * Merge rows whose district resolves to the same canonical name (e.g. "Amuru"
+ * and "Amuru District") by summing their metric values column-by-column. The
+ * backend returns these as separate rows, which both duplicates the district
+ * and splits its counts across the two rows.
+ */
+function mergeMatrixRowsByDistrict(rows: ReportMatrixRow[]): ReportMatrixRow[] {
+	const byKey = new Map<string, ReportMatrixRow>();
+
+	for (const row of rows) {
+		const label = canonicalDistrictName(row.label);
+		const key = label.toLowerCase();
+		const existing = byKey.get(key);
+
+		if (!existing) {
+			byKey.set(key, { label, values: [...row.values] });
+		} else {
+			existing.values = existing.values.map(
+				(value, index) => value + (row.values[index] ?? 0)
+			);
+			// Absorb any extra columns the first row didn't have.
+			for (let i = existing.values.length; i < row.values.length; i++) {
+				existing.values.push(row.values[i]);
+			}
+		}
+	}
+
+	return Array.from(byKey.values()).sort((a, b) =>
+		a.label.localeCompare(b.label)
+	);
+}
+
 function formatChartDate(isoDate: string): string {
 	const iso = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
 	if (iso) {
@@ -168,10 +201,11 @@ export function parseMatrixResponse(json: unknown): ReportMatrix | null {
 	}
 
 	const columns = metricKeys.map((key) => formatMetricLabel(key));
-	const rows: ReportMatrixRow[] = districtRows.map((d) => ({
+	const rawRows: ReportMatrixRow[] = districtRows.map((d) => ({
 		label: String(d.district ?? ""),
 		values: metricKeys.map((key) => Number(d.metrics?.[key] ?? 0)),
 	}));
+	const rows = mergeMatrixRowsByDistrict(rawRows);
 
 	return {
 		title: String(body.title ?? ""),

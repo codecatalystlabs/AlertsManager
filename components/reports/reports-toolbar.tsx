@@ -15,7 +15,7 @@ import { RefreshCw } from "lucide-react";
 import { LAYOUT } from "@/constants/layout";
 import {
 	todayIsoDate,
-	type ReportDateRange,
+	type ReportsDateRange,
 	type ReportOptions,
 	type ReportScope,
 } from "@/lib/fetch-reports";

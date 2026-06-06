@@ -4,3 +4,9 @@ export { ErrorAlert } from './error-alert';
 export { LoadingSpinner } from './loading-spinner';
 export { StatsGrid } from './stats-grid';
 export { DashboardCharts } from './dashboard-charts';
+export {
+	DashboardRangePicker,
+	resolveDashboardRange,
+	DEFAULT_RANGE_PRESET,
+	type DashboardRangeValue,
+} from './dashboard-range-picker';

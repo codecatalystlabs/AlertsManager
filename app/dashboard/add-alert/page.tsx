@@ -30,7 +30,7 @@ import {
 import { AuthService } from "@/lib/auth";
 import { getLocalDateString } from "@/lib/utils";
 import Link from "next/link";
-import { signsAndSymptoms } from "@/constants";
+import { alertSource, alertEntryStatus, signsAndSymptoms } from "@/constants";
 import { DistrictSelect } from "@/components/district-select";
 
 
@@ -94,6 +94,7 @@ export default function DashboardAddAlertPage() {
 			if (
 				!formData.date ||
 				!formData.time ||
+				!formData.status ||
 				!formData.personReporting ||
 				!formData.contactNumber ||
 				!formData.sourceOfAlert ||
@@ -329,6 +330,39 @@ export default function DashboardAddAlertPage() {
 										required
 									/>
 								</div>
+								<div className="space-y-2">
+									<Label
+										htmlFor="status"
+										className="text-sm font-medium"
+									>
+										Alert Status *
+									</Label>
+									<Select
+										onValueChange={(value) =>
+											handleInputChange(
+												"status",
+												value
+											)
+										}
+										value={formData.status}
+									>
+										<SelectTrigger>
+											<SelectValue placeholder="Select alert status" />
+										</SelectTrigger>
+										<SelectContent>
+											{alertEntryStatus?.map(
+												(status) => (
+													<SelectItem
+														key={status.name}
+														value={status.name}
+													>
+														{status.name}
+													</SelectItem>
+												)
+											)}
+										</SelectContent>
+									</Select>
+								</div>
 								{/* <div className="space-y-2">
 									<Label
 										htmlFor="cif_no"
@@ -492,21 +526,14 @@ export default function DashboardAddAlertPage() {
 										<SelectValue placeholder="Select alert source" />
 									</SelectTrigger>
 									<SelectContent>
-										<SelectItem value="Community">
-											Community Member
-										</SelectItem>
-										<SelectItem value="VHT">
-											VHT (Village Health Team)
-										</SelectItem>
-										<SelectItem value="Facility">
-											Health Facility
-										</SelectItem>
-										<SelectItem value="Health Worker">
-											Health Worker
-										</SelectItem>
-										<SelectItem value="Other">
-											Other
-										</SelectItem>
+										{alertSource?.map((source) => (
+											<SelectItem
+												key={source.name}
+												value={source.name}
+											>
+												{source.name}
+											</SelectItem>
+										))}
 									</SelectContent>
 								</Select>
 							</div>

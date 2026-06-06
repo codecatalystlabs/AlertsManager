@@ -1,4 +1,5 @@
 import { Brain, Thermometer, Droplets, Eye, Heart, Users, AlertTriangle, CheckCircle, Stethoscope } from "lucide-react";
+import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
 
 const ugandaDistricts = [
     "Abim",
@@ -133,18 +134,8 @@ const signsAndSymptoms = [
 ];
 
 
-const alertSource = [
-    {
-        name: "Community Member",
-    },
-    { name: "VHT (Village Health Team)" },
-    { name: "Health Facility" },
-    { name: "Health Worker" },
-    { name: "Schools" },
-    { name: "Mass Gathering" },
-    { name: "Point Of Entry" },
-    {name:"Social Media"}
-]
+// Merged, canonical source-of-alert options (see lib/source-of-alert.ts).
+const alertSource = SOURCE_OF_ALERT_OPTIONS.map((name) => ({ name }))
 
 
 const alertResponse = [
@@ -189,6 +180,12 @@ const alertStatus = [
     { name: "Alive" },
     { name: "Dead" },
     { name: "Unknown" },
+]
+
+// Status options offered on the alert ENTRY forms (must be Alive or Dead).
+const alertEntryStatus = [
+    { name: "Alive" },
+    { name: "Dead" },
 ]
 
 const alertActions = [
@@ -296,6 +293,7 @@ export {
     alertSource,
     alertResponse,
     alertStatus,
+    alertEntryStatus,
     alertActions,
     caseDefinitions,
     symptoms

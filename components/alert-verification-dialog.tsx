@@ -42,7 +42,7 @@ import {
 	FIELD_VERIFICATION_OPTIONS,
 } from "@/lib/verification-options";
 import { useToast } from "@/hooks/use-toast";
-import { alertResponse } from "@/constants";
+import { alertResponse, alertSource } from "@/constants";
 import { resolveAlertResponseCode } from "@/lib/resolve-alert-response";
 
 interface AlertVerificationDialogProps {
@@ -895,21 +895,14 @@ export function AlertVerificationDialog({
 											<SelectValue placeholder="Select source" />
 										</SelectTrigger>
 										<SelectContent>
-											<SelectItem value="Community">
-												Community
-											</SelectItem>
-											<SelectItem value="VHT">
-												VHT
-											</SelectItem>
-											<SelectItem value="Health Facility">
-												Health Facility
-											</SelectItem>
-											<SelectItem value="Health Worker">
-												Health Worker
-											</SelectItem>
-											<SelectItem value="Other">
-												Other
-											</SelectItem>
+											{alertSource?.map((source) => (
+															<SelectItem
+																key={source.name}
+																value={source.name}
+															>
+																{source.name}
+															</SelectItem>
+														))}
 										</SelectContent>
 									</Select>
 								</div>

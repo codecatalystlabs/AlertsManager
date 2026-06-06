@@ -40,6 +40,8 @@ export interface CallLogsFilterState {
 	source: string;
 	search: string;
 	verification: string;
+	/** Selected district name, or "all" for no district filter. */
+	district: string;
 	/** Inclusive start of the call date range (YYYY-MM-DD); "" means unbounded. */
 	fromDate: string;
 	/** Inclusive end of the call date range (YYYY-MM-DD); "" means unbounded. */
@@ -51,6 +53,7 @@ export const CALL_LOGS_INITIAL_FILTERS: CallLogsFilterState = {
 	source: "all",
 	search: "",
 	verification: "all",
+	district: "all",
 	fromDate: "",
 	toDate: "",
 };
@@ -104,10 +107,15 @@ export function getActiveStatFromFilters(
 
 export const SOURCE_FILTER_OPTIONS = [
 	{ value: "all", label: "All Sources" },
-	{ value: "community", label: "Community" },
-	{ value: "facility", label: "Health Facility" },
-	{ value: "vht", label: "VHT" },
-	{ value: "other", label: "Other" },
+	{ value: "Community", label: "Community" },
+	{ value: "Call centre", label: "Call centre" },
+	{ value: "Health facility", label: "Health facility" },
+	{ value: "Health Worker", label: "Health Worker" },
+	{ value: "Point Of Entry", label: "Point Of Entry" },
+	{ value: "Schools", label: "Schools" },
+	{ value: "SMS 6767", label: "SMS 6767" },
+	{ value: "VHT", label: "VHT" },
+	{ value: "Other", label: "Other" },
 ] as const;
 
 export interface CallLogsTableCallbacks {

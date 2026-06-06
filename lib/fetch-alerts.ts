@@ -43,6 +43,16 @@ const DASHBOARD_LOOKBACK_DAYS = 90;
 const DASHBOARD_PAGE_LIMIT = 200;
 const DASHBOARD_MAX_PAGES = 5;
 
+/** Range-driven chart fetch: larger pages + higher cap so wider windows aren't truncated. */
+const CHART_PAGE_LIMIT = 500;
+const CHART_MAX_PAGES = 40; // up to 20k rows across the selected range
+
+/** A chart date window; omit a bound for "all time". */
+export interface DashboardRange {
+	from_date?: string;
+	to_date?: string;
+}
+
 export interface AlertTotals {
 	verified: number;
 	notVerified: number;
@@ -212,6 +222,36 @@ async function fetchDashboardAlertsFromApi(): Promise<Alert[]> {
 
 	const first = await fetchAlertsPage(baseParams);
 	const maxPages = Math.min(first.totalPages, DASHBOARD_MAX_PAGES);
+
+	if (maxPages <= 1) {
+		return first.data;
+	}
+
+	const rest = await Promise.all(
+		Array.from({ length: maxPages - 1 }, (_, index) =>
+			fetchAlertsPage({ ...baseParams, page: index + 2 })
+		)
+	);
+
+	return [...first.data, ...rest.flatMap((page) => page.data)];
+}
+
+/**
+ * Fetch all alerts within a date range for the dashboard charts. Pages through
+ * the result (parallel) up to a safety cap. Omitting both bounds = all time.
+ */
+export async function fetchAlertsForRange(
+	range: DashboardRange = {}
+): Promise<Alert[]> {
+	const baseParams: AlertsListParams = {
+		page: 1,
+		limit: CHART_PAGE_LIMIT,
+	};
+	if (range.from_date) baseParams.from_date = range.from_date;
+	if (range.to_date) baseParams.to_date = range.to_date;
+
+	const first = await fetchAlertsPage(baseParams);
+	const maxPages = Math.min(Math.max(first.totalPages, 1), CHART_MAX_PAGES);
 
 	if (maxPages <= 1) {
 		return first.data;

@@ -113,6 +113,10 @@ function toApiParams(
         params.is_verified = false;
     }
 
+    if (filters.district && filters.district !== 'all') {
+        params.district = filters.district;
+    }
+
     if (filters.fromDate) {
         params.from_date = filters.fromDate;
     }
@@ -319,6 +323,7 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         page,
         limit,
         filters.verification,
+        filters.district,
         filters.fromDate,
         filters.toDate,
     ]);

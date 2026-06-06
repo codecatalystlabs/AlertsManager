@@ -1,6 +1,7 @@
 import { AuthService } from "@/lib/auth";
 import { getClientApiBaseUrl } from "@/lib/api-config";
 import { formatAlertsFetchError } from "@/lib/api-errors";
+import { canonicalDistrictName } from "@/lib/district-name";
 
 class AdminUnitsFetchError extends Error {
 	constructor(
@@ -39,10 +40,21 @@ function districtLabelFromItem(item: unknown): string | null {
 	return name ? String(name).trim() : null;
 }
 
+/**
+ * Collapse duplicate district spellings onto one canonical name. The backend
+ * returns both "Bugiri" and "Bugiri District" for the same district, so we
+ * strip a trailing " District" suffix (via canonicalDistrictName) before
+ * de-duplicating.
+ */
 function dedupeSortDistricts(list: string[]): string[] {
-	return Array.from(new Set(list.filter(Boolean))).sort((a, b) =>
-		a.localeCompare(b)
-	);
+	const byKey = new Map<string, string>();
+	for (const raw of list) {
+		const name = canonicalDistrictName(raw);
+		if (!name) continue;
+		const key = name.toLowerCase();
+		if (!byKey.has(key)) byKey.set(key, name);
+	}
+	return Array.from(byKey.values()).sort((a, b) => a.localeCompare(b));
 }
 
 /** Parse GET /admin-units/districts response (array or wrapped list of units). */

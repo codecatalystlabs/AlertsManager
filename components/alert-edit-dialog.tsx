@@ -40,6 +40,7 @@ import { AuthService, type Alert as ApiAlert } from "@/lib/auth";
 import { getLocalDateString } from "@/lib/utils";
 import {
 	alertResponse,
+	alertSource,
 	alertStatus,
 	signsAndSymptoms,
 } from "@/constants";
@@ -583,21 +584,14 @@ export function AlertEditDialog({
 										<SelectValue placeholder="Select alert source" />
 									</SelectTrigger>
 									<SelectContent>
-										<SelectItem value="Community">
-											Community Member
-										</SelectItem>
-										<SelectItem value="VHT">
-											VHT (Village Health Team)
-										</SelectItem>
-										<SelectItem value="Facility">
-											Health Facility
-										</SelectItem>
-										<SelectItem value="Health Worker">
-											Health Worker
-										</SelectItem>
-										<SelectItem value="Other">
-											Other
-										</SelectItem>
+										{alertSource?.map((source) => (
+															<SelectItem
+																key={source.name}
+																value={source.name}
+															>
+																{source.name}
+															</SelectItem>
+														))}
 									</SelectContent>
 								</Select>
 							</div>
