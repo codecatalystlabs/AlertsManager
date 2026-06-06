@@ -23,6 +23,8 @@ interface UseDashboardDataReturn {
 	data: DashboardData;
 	loading: boolean;
 	chartsLoading: boolean;
+	/** True while the dedicated "today" activity query is in flight. */
+	todayLoading: boolean;
 	isValidating: boolean;
 	error: string | null;
 	refetch: () => Promise<void>;
@@ -39,6 +41,7 @@ export const useDashboardData = (): UseDashboardDataReturn => {
 	const [todayVerified, setTodayVerified] = useState(0);
 	const [loading, setLoading] = useState(true);
 	const [chartsLoading, setChartsLoading] = useState(true);
+	const [todayLoading, setTodayLoading] = useState(true);
 	const [isValidating, setIsValidating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -50,12 +53,15 @@ export const useDashboardData = (): UseDashboardDataReturn => {
 	// Today's activity comes from a dedicated createdAt-based query, kept separate
 	// from the capped 90-day dataset so a large backlog can't hide today's records.
 	const loadTodayActivity = useCallback(async () => {
+		setTodayLoading(true);
 		try {
 			const today = await fetchTodayActivity();
 			setTodayAlerts(today.calls);
 			setTodayVerified(today.verified);
 		} catch {
 			// Non-fatal: a secondary metric shouldn't break the whole dashboard.
+		} finally {
+			setTodayLoading(false);
 		}
 	}, []);
 
@@ -162,6 +168,7 @@ export const useDashboardData = (): UseDashboardDataReturn => {
 		},
 		loading,
 		chartsLoading,
+		todayLoading,
 		isValidating,
 		error,
 		refetch,

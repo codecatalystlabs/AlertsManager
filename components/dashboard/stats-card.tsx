@@ -9,6 +9,8 @@ interface StatsCardProps {
   data: AlertCounts & { todayAlerts: number; todayVerified: number; verificationRate: number };
   onClick?: () => void;
   className?: string;
+  /** Show a placeholder skeleton in place of the value while data loads. */
+  isLoading?: boolean;
 }
 
 // Soft tinted chip per config colour. Must be LITERAL class strings — Tailwind
@@ -24,7 +26,7 @@ const CHIP_STYLES: Record<string, { bg: string; text: string }> = {
 
 const DEFAULT_CHIP = { bg: 'bg-gray-100', text: 'text-gray-600' };
 
-export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, className }) => {
+export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, className, isLoading }) => {
   const { title, key, icon: Icon, iconBg, isPercentage } = config;
 
   const chip = CHIP_STYLES[iconBg] ?? DEFAULT_CHIP;
@@ -87,7 +89,11 @@ export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, classNam
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-medium text-gray-500">{title}</p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">{getValue()}</p>
+            {isLoading ? (
+              <div className="mt-2 h-7 w-20 animate-pulse rounded bg-gray-200" />
+            ) : (
+              <p className="mt-1 text-2xl font-bold text-gray-900">{getValue()}</p>
+            )}
           </div>
           <div
             className={cn(
@@ -98,11 +104,15 @@ export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, classNam
             <Icon className={cn('h-5 w-5', chip.text)} />
           </div>
         </div>
-        {getSubText() && (
-          <div className="mt-3 flex items-center gap-1.5 text-xs text-gray-500">
-            <SubIcon className={cn('h-3.5 w-3.5 shrink-0', chip.text)} />
-            <span className="truncate">{getSubText()}</span>
-          </div>
+        {isLoading ? (
+          <div className="mt-3 h-3.5 w-28 animate-pulse rounded bg-gray-100" />
+        ) : (
+          getSubText() && (
+            <div className="mt-3 flex items-center gap-1.5 text-xs text-gray-500">
+              <SubIcon className={cn('h-3.5 w-3.5 shrink-0', chip.text)} />
+              <span className="truncate">{getSubText()}</span>
+            </div>
+          )
         )}
       </CardContent>
     </Card>

@@ -31,7 +31,7 @@ const DashboardCharts = dynamic(
 );
 
 export default function DashboardPage(): JSX.Element {
-	const { data, loading, error, refetch } = useDashboardData();
+	const { data, loading, todayLoading, error, refetch } = useDashboardData();
 	const [range, setRange] = useState<DashboardRangeValue>(() =>
 		resolveDashboardRange(DEFAULT_RANGE_PRESET)
 	);
@@ -67,6 +67,9 @@ export default function DashboardPage(): JSX.Element {
 		return { total, verified, notVerified: total - verified };
 	}, [rangeAlerts]);
 	const statCounts = isUnbounded ? data.alertCounts : rangeCounts;
+	// KPI cards follow their data source: all-time totals load with the
+	// dashboard, range-scoped totals load with the chart fetch.
+	const statCountsLoading = isUnbounded ? loading : rangeLoading;
 
 	return (
 		<div className={LAYOUT.pageGap}>
@@ -112,6 +115,8 @@ export default function DashboardPage(): JSX.Element {
 				alertCounts={statCounts}
 				todayAlerts={data.todayAlerts}
 				todayVerified={data.todayVerified}
+				kpiLoading={statCountsLoading}
+				todayLoading={todayLoading}
 			/>
 
 			<h2 className="text-base font-semibold text-gray-900">
@@ -127,9 +132,16 @@ export default function DashboardPage(): JSX.Element {
 			)}
 
 			{rangeLoading ? (
-				<div className="grid gap-3 md:grid-cols-2">
-					<div className="h-56 animate-pulse rounded-lg border bg-muted/40" />
-					<div className="h-56 animate-pulse rounded-lg border bg-muted/40" />
+				<div className="space-y-6">
+					<div className="h-16 animate-pulse rounded-lg border bg-muted/40" />
+					<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+						{[0, 1, 2, 3].map((i) => (
+							<div
+								key={i}
+								className="h-[340px] animate-pulse rounded-lg border bg-muted/40"
+							/>
+						))}
+					</div>
 				</div>
 			) : (
 				<DashboardCharts alerts={rangeAlerts} />

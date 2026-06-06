@@ -10,12 +10,21 @@ interface StatsGridProps {
   alertCounts: AlertCounts;
   todayAlerts: number;
   todayVerified: number;
+  /** Loading state for the range/all-time KPI cards (Total, Verified, …). */
+  kpiLoading?: boolean;
+  /** Loading state for the two "Today" cards. */
+  todayLoading?: boolean;
 }
 
-export const StatsGrid = memo<StatsGridProps>(({ 
-  alertCounts, 
-  todayAlerts, 
-  todayVerified 
+// Keys whose loading is driven by today's activity, not the KPI counts.
+const TODAY_KEYS = new Set(['todayAlerts', 'todayVerified']);
+
+export const StatsGrid = memo<StatsGridProps>(({
+  alertCounts,
+  todayAlerts,
+  todayVerified,
+  kpiLoading = false,
+  todayLoading = false,
 }) => {
   const router = useRouter();
 
@@ -39,6 +48,7 @@ export const StatsGrid = memo<StatsGridProps>(({
       key={config.id}
       config={config}
       data={statsData}
+      isLoading={TODAY_KEYS.has(config.key) ? todayLoading : kpiLoading}
       onClick={() => handleCardClick(config)}
     />
   );
