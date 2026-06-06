@@ -126,7 +126,16 @@ function normalizeScope(value: unknown): ReportScope {
 }
 
 function formatMetricLabel(key: string): string {
-	return METRIC_LABELS[key] ?? key.replace(/_/g, " ");
+	const normalized = key.toLowerCase();
+	if (METRIC_LABELS[normalized]) return METRIC_LABELS[normalized];
+
+	const compact = normalizeMetricKey(key);
+	const labelMatch = Object.entries(METRIC_LABELS).find(
+		([metricKey]) => normalizeMetricKey(metricKey) === compact
+	);
+	if (labelMatch) return labelMatch[1];
+
+	return key.replace(/_/g, " ");
 }
 
 function normalizeMetricKey(key: string): string {

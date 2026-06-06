@@ -118,7 +118,7 @@ export function exportTimeseriesToCsv(
 		p.date,
 		String(p.signals),
 		String(p.alerts),
-		String(p.discarded),
+		String(p.discarded ?? 0),
 	]);
 	const csv = [headers, ...rows]
 		.map((row) => row.map(escapeCsvCell).join(","))
@@ -146,7 +146,7 @@ export async function exportTimeseriesToExcel(
 		Date: p.date,
 		Signals: p.signals,
 		Alerts: p.alerts,
-		Discarded: p.discarded,
+		Discarded: p.discarded ?? 0,
 	}));
 
 	const worksheet = XLSX.utils.json_to_sheet(sheetData);

@@ -51,7 +51,7 @@ export const ReportsTimeseriesChart = memo<ReportsTimeseriesChartProps>(
 					date: p.date,
 					signals: p.signals,
 					alerts: p.alerts,
-					discarded: p.discarded,
+					discarded: p.discarded ?? 0,
 				})),
 			[timeseries]
 		);
