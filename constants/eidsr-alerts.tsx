@@ -3,6 +3,9 @@ export const EIDSR_ALERTS_CONFIG = {
 	PAGE_DESCRIPTION:
 		"6767 EIDSR SMS messages — sync, review, and verify into alerts",
 	ITEMS_PER_PAGE: 10,
+	EXPORT_FILENAME_PREFIX: "6767_messages",
+	/** Max rows pulled in one request when exporting all matching messages. */
+	EXPORT_MAX_ROWS: 100000,
 } as const;
 
 /** EIDSR / 6767 messages API paths (under /api/v1). */

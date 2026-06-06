@@ -53,6 +53,9 @@ export default function EidsrAlertsPage() {
 		setPageSize,
 		refetch,
 		syncFromRemote,
+		exportToCsv,
+		exportToExcel,
+		isExporting,
 		updateLocalMessage,
 		markMessageLinked,
 	} = useEidsrEventsData();
@@ -149,8 +152,11 @@ export default function EidsrAlertsPage() {
 			<EidsrAlertsHeader
 				onRefresh={handleRefresh}
 				onSyncFromRemote={handleSync}
+				onExportCsv={exportToCsv}
+				onExportExcel={exportToExcel}
 				isRefreshing={isRefreshing || isValidating}
 				isSyncing={isSyncing}
+				isExporting={isExporting}
 			/>
 
 			<EidsrMessagesStats

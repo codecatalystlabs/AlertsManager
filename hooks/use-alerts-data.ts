@@ -189,10 +189,14 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         setPageState(1);
     }, []);
 
-    const filteredAlerts = useMemo(
-        () => applyClientFilters(alerts, filters),
-        [alerts, filters]
-    );
+    const filteredAlerts = useMemo(() => {
+        const filtered = applyClientFilters(alerts, filters);
+        // Float pending (unverified) alerts to the top of the page,
+        // preserving the server's order within each group.
+        return [...filtered].sort(
+            (a, b) => Number(!!a.isVerified) - Number(!!b.isVerified)
+        );
+    }, [alerts, filters]);
 
     const stats = useMemo((): AlertsStats => {
         const alive = alerts.filter((alert) => alert.status === 'Alive').length;

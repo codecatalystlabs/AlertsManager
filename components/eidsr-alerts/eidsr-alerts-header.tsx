@@ -1,18 +1,34 @@
 import React, { memo } from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, CloudDownload } from "lucide-react";
+import {
+	RefreshCw,
+	CloudDownload,
+	Download,
+	FileSpreadsheet,
+} from "lucide-react";
 import { EIDSR_ALERTS_CONFIG } from "@/constants/eidsr-alerts";
 import { LAYOUT } from "@/constants/layout";
 
 interface EidsrAlertsHeaderProps {
 	onRefresh: () => void;
 	onSyncFromRemote: () => void;
+	onExportCsv: () => void;
+	onExportExcel: () => void;
 	isRefreshing?: boolean;
 	isSyncing?: boolean;
+	isExporting?: boolean;
 }
 
 export const EidsrAlertsHeader = memo<EidsrAlertsHeaderProps>(
-	({ onRefresh, onSyncFromRemote, isRefreshing = false, isSyncing = false }) => {
+	({
+		onRefresh,
+		onSyncFromRemote,
+		onExportCsv,
+		onExportExcel,
+		isRefreshing = false,
+		isSyncing = false,
+		isExporting = false,
+	}) => {
 		return (
 			<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
 				<div>
@@ -33,6 +49,26 @@ export const EidsrAlertsHeader = memo<EidsrAlertsHeaderProps>(
 							className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
 						/>
 						{isRefreshing ? "Refreshing..." : "Refresh list"}
+					</Button>
+					<Button
+						onClick={onExportCsv}
+						variant="outline"
+						size="sm"
+						className="gap-1.5 h-8"
+						disabled={isExporting}
+					>
+						<Download className="h-4 w-4" />
+						{isExporting ? "Exporting…" : "Download CSV"}
+					</Button>
+					<Button
+						onClick={onExportExcel}
+						variant="outline"
+						size="sm"
+						className="gap-1.5 h-8"
+						disabled={isExporting}
+					>
+						<FileSpreadsheet className="h-4 w-4" />
+						{isExporting ? "Exporting…" : "Download Excel"}
 					</Button>
 					<Button
 						onClick={onSyncFromRemote}

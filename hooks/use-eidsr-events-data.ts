@@ -19,6 +19,10 @@ import {
 import type { EidsrEventsListParams } from "@/lib/fetch-eidsr-events";
 import type { EidsrMessageOptions } from "@/lib/fetch-eidsr-messages";
 import { isEidsr6767Verified } from "@/lib/eidsr-verified-state";
+import {
+	exportEidsrMessagesToCsv,
+	exportEidsrMessagesToExcel,
+} from "@/lib/eidsr-export";
 
 interface EidsrPagination {
 	page: number;
@@ -49,6 +53,9 @@ interface UseEidsrEventsDataReturn {
 	setPageSize: (limit: number) => void;
 	refetch: () => Promise<void>;
 	syncFromRemote: () => Promise<void>;
+	exportToCsv: () => Promise<void>;
+	exportToExcel: () => Promise<void>;
+	isExporting: boolean;
 	updateLocalMessage: (message: EidsrMessage) => void;
 	markMessageLinked: (
 		id: number,
@@ -120,6 +127,7 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 	const [serverTotalPages, setServerTotalPages] = useState(1);
 	const [loading, setLoading] = useState(true);
 	const [isSyncing, setIsSyncing] = useState(false);
+	const [isExporting, setIsExporting] = useState(false);
 	const [isValidating, setIsValidating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [syncMessage, setSyncMessage] = useState<string | null>(null);
@@ -143,15 +151,19 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 		[page, limit, serverTotal, serverTotalPages]
 	);
 
-	const messages = useMemo(
-		() =>
-			filterMessagesClient(
-				allMessages,
-				filters,
-				verificationFilter
-			),
-		[allMessages, filters, verificationFilter]
-	);
+	const messages = useMemo(() => {
+		const filtered = filterMessagesClient(
+			allMessages,
+			filters,
+			verificationFilter
+		);
+		// Float pending (unverified) messages to the top of the page,
+		// preserving the server's received-date order within each group.
+		return [...filtered].sort(
+			(a, b) =>
+				Number(isEidsr6767Verified(a)) - Number(isEidsr6767Verified(b))
+		);
+	}, [allMessages, filters, verificationFilter]);
 
 	const refreshStats = useCallback(
 		async (list: EidsrMessage[], eventsTotal: number) => {
@@ -280,6 +292,64 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 		}
 	}, [loadMessages]);
 
+	const loadMessagesForExport = useCallback(async (): Promise<
+		EidsrMessage[]
+	> => {
+		const current = filtersRef.current;
+		const pageResult = await listEidsr6767(
+			toEventsApiParams(current, 1, EIDSR_ALERTS_CONFIG.EXPORT_MAX_ROWS)
+		);
+		const loaded = pageResult.messages.map((m) => enrichEidsrMessage(m));
+		return filterMessagesClient(
+			loaded,
+			current,
+			verificationFilterRef.current
+		);
+	}, []);
+
+	const exportToCsv = useCallback(async () => {
+		setIsExporting(true);
+		try {
+			const rows = await loadMessagesForExport();
+			const exported = exportEidsrMessagesToCsv(
+				rows,
+				EIDSR_ALERTS_CONFIG.EXPORT_FILENAME_PREFIX
+			);
+			if (!exported) {
+				window.alert(
+					"No messages to export. Adjust your filters or refresh the data."
+				);
+			}
+		} catch (err) {
+			console.error("CSV export failed:", err);
+			window.alert("Failed to export CSV file. Please try again.");
+		} finally {
+			setIsExporting(false);
+		}
+	}, [loadMessagesForExport]);
+
+	const exportToExcel = useCallback(async () => {
+		setIsExporting(true);
+		try {
+			const rows = await loadMessagesForExport();
+			const exported = await exportEidsrMessagesToExcel(
+				rows,
+				EIDSR_ALERTS_CONFIG.EXPORT_FILENAME_PREFIX,
+				"6767 Messages"
+			);
+			if (!exported) {
+				window.alert(
+					"No messages to export. Adjust your filters or refresh the data."
+				);
+			}
+		} catch (err) {
+			console.error("Excel export failed:", err);
+			window.alert("Failed to export Excel file. Please try again.");
+		} finally {
+			setIsExporting(false);
+		}
+	}, [loadMessagesForExport]);
+
 	const updateLocalMessage = useCallback((updated: EidsrMessage) => {
 		setAllMessages((prev) =>
 			prev.map((m) => (m.id === updated.id ? updated : m))
@@ -347,6 +417,9 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 		setPageSize,
 		refetch,
 		syncFromRemote,
+		exportToCsv,
+		exportToExcel,
+		isExporting,
 		updateLocalMessage,
 		markMessageLinked,
 	};
