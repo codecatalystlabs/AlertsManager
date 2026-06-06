@@ -32,6 +32,7 @@ export interface ReportTimeseriesPoint {
 	date: string;
 	signals: number;
 	alerts: number;
+	discarded: number;
 }
 
 export interface ReportTimeseries {
@@ -86,10 +87,27 @@ export function buildReportsQuery(
 	};
 }
 
+/** Daily snapshot for a single day (the "Daily" tab). */
+export function buildDailyQuery(date: string): ReportsQueryParams {
+	return { date, from_date: date, to_date: date, scope: "daily" };
+}
+
+/**
+ * Cumulative totals through an as-of date (the "Cumulative" tab). No lower
+ * bound is sent so totals accumulate from the beginning up to `asOf`.
+ */
+export function buildCumulativeQuery(asOf: string): ReportsQueryParams {
+	return { date: asOf, to_date: asOf, scope: "cumulative" };
+}
+
 const METRIC_LABELS: Record<string, string> = {
+	signal: "Signals",
 	signals: "Signals",
+	alert: "Alerts",
 	alerts: "Alerts",
 	discarded: "Discarded",
+	discarded_alerts: "Discarded",
+	discarded_signals: "Discarded",
 	evacuated: "Evacuated",
 	sdb: "SDB",
 	pending_verification: "Pending verification",
@@ -109,6 +127,32 @@ function normalizeScope(value: unknown): ReportScope {
 
 function formatMetricLabel(key: string): string {
 	return METRIC_LABELS[key] ?? key.replace(/_/g, " ");
+}
+
+function normalizeMetricKey(key: string): string {
+	return key.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function readMetricValue(
+	metrics: Record<string, number> | undefined,
+	aliases: string[]
+): number | null {
+	if (!metrics) return null;
+
+	const byKey = new Map<string, number>();
+	for (const [key, value] of Object.entries(metrics)) {
+		const numeric = Number(value);
+		if (Number.isFinite(numeric)) {
+			byKey.set(normalizeMetricKey(key), numeric);
+		}
+	}
+
+	for (const alias of aliases) {
+		const value = byKey.get(normalizeMetricKey(alias));
+		if (value !== undefined) return value;
+	}
+
+	return null;
 }
 
 /**
@@ -232,10 +276,32 @@ export function parseTimeseriesResponse(json: unknown): ReportTimeseries {
 	const points: ReportTimeseriesPoint[] = Array.isArray(series)
 		? series.map((point) => {
 				const rawDate = String(point.date ?? "");
+				const alerts =
+					readMetricValue(point.metrics, ["alerts", "alert"]) ?? 0;
+				const discarded =
+					readMetricValue(point.metrics, [
+						"discarded",
+						"discarded_alerts",
+						"discardedAlerts",
+						"discarded_signals",
+						"discardedSignals",
+					]) ?? 0;
+				const explicitSignals =
+					readMetricValue(point.metrics, [
+						"signals",
+						"signal",
+						"total_signals",
+						"totalSignals",
+						"evd_signals",
+						"evdSignals",
+					]) ?? 0;
+				const derivedSignals = alerts + discarded;
+
 				return {
 					date: formatChartDate(rawDate),
-					signals: Number(point.metrics?.signals ?? 0),
-					alerts: Number(point.metrics?.alerts ?? 0),
+					signals: Math.max(explicitSignals, derivedSignals),
+					alerts,
+					discarded,
 				};
 			})
 		: [];

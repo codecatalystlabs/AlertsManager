@@ -66,6 +66,7 @@ export const AlertsTable = memo<AlertsTableProps>(
 					<DataTable
 						columns={columns}
 						data={alerts}
+						enableHeaderFilters
 						searchKey="alertCaseName"
 						searchPlaceholder="Search by case name..."
 						pageSize={pageSize}

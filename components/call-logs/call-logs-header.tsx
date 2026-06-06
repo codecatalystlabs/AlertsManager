@@ -1,6 +1,6 @@
 import React, { memo } from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Download, FileSpreadsheet } from "lucide-react";
+import { RefreshCw, Download, FileSpreadsheet, Loader2 } from "lucide-react";
 import { CALL_LOGS_CONFIG } from "@/constants/call-logs";
 import { LAYOUT } from "@/constants/layout";
 
@@ -9,6 +9,8 @@ interface CallLogsHeaderProps {
 	onExportExcel: () => void;
 	onExportCsv: () => void;
 	isRefreshing?: boolean;
+	/** Which export is in progress, if any — drives the button spinners. */
+	exporting?: "csv" | "excel" | null;
 }
 
 export const CallLogsHeader = memo<CallLogsHeaderProps>(
@@ -17,7 +19,9 @@ export const CallLogsHeader = memo<CallLogsHeaderProps>(
 		onExportExcel,
 		onExportCsv,
 		isRefreshing = false,
+		exporting = null,
 	}) => {
+		const isExporting = exporting !== null;
 		return (
 			<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
 				<div>
@@ -48,17 +52,27 @@ export const CallLogsHeader = memo<CallLogsHeaderProps>(
 						variant="outline"
 						size="sm"
 						className="gap-1.5 h-8"
+						disabled={isExporting || isRefreshing}
 					>
-						<Download className="h-4 w-4" />
-						Export CSV
+						{exporting === "csv" ? (
+							<Loader2 className="h-4 w-4 animate-spin" />
+						) : (
+							<Download className="h-4 w-4" />
+						)}
+						{exporting === "csv" ? "Exporting…" : "Export CSV"}
 					</Button>
 					<Button
 						onClick={onExportExcel}
 						size="sm"
 						className="bg-uganda-red hover:bg-uganda-red/90 gap-1.5 h-8"
+						disabled={isExporting || isRefreshing}
 					>
-						<FileSpreadsheet className="h-4 w-4" />
-						Export Excel
+						{exporting === "excel" ? (
+							<Loader2 className="h-4 w-4 animate-spin" />
+						) : (
+							<FileSpreadsheet className="h-4 w-4" />
+						)}
+						{exporting === "excel" ? "Exporting…" : "Export Excel"}
 					</Button>
 				</div>
 			</div>

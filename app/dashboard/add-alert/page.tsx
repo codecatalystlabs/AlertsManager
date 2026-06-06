@@ -106,6 +106,12 @@ export default function DashboardAddAlertPage() {
 				throw new Error("Please fill in all required fields");
 			}
 
+			if (formData.symptoms.length === 0) {
+				throw new Error(
+					"Please select at least one sign or symptom"
+				);
+			}
+
 			// Helper function to format time properly
 			const formatTime = (timeString: string): string => {
 				if (!timeString) return new Date().toISOString();
@@ -834,14 +840,15 @@ export default function DashboardAddAlertPage() {
 							<div className="flex items-center gap-3 mb-4">
 								<HeartIcon className="h-5 w-5 text-uganda-red" />
 								<h3 className="text-lg font-semibold text-uganda-black">
-									Signs and Symptoms
+									Signs and Symptoms{" "}
+									<span className="text-uganda-red">*</span>
 								</h3>
 							</div>
 
 							<div className="bg-gray-50 p-4 rounded-lg">
 								<p className="text-sm text-gray-600 mb-4">
 									Select all symptoms that apply to
-									this case:
+									this case (at least one is required):
 								</p>
 								<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
 									{signsAndSymptoms.map(

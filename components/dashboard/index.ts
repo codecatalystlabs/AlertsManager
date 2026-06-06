@@ -10,3 +10,4 @@ export {
 	DEFAULT_RANGE_PRESET,
 	type DashboardRangeValue,
 } from './dashboard-range-picker';
+export { DashboardDistrictPicker } from './dashboard-district-picker';

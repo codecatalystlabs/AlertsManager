@@ -44,6 +44,12 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { alertResponse, alertSource } from "@/constants";
 import { resolveAlertResponseCode } from "@/lib/resolve-alert-response";
+import { getLocalDateString } from "@/lib/utils";
+
+/** Current local time as HH:MM, for capping the verification time picker. */
+function currentLocalTime(): string {
+	return new Date().toTimeString().slice(0, 5);
+}
 
 interface AlertVerificationDialogProps {
 	isOpen: boolean;
@@ -112,8 +118,8 @@ export function AlertVerificationDialog({
 
 	const [formData, setFormData] = useState({
 		status: "",
-		verificationDate: new Date().toISOString().split("T")[0],
-		verificationTime: new Date().toTimeString().slice(0, 5),
+		verificationDate: getLocalDateString(),
+		verificationTime: currentLocalTime(),
 		cifNo: "",
 		personReporting: alert?.personReporting || "",
 		village: alert?.alertCaseVillage || "",
@@ -163,8 +169,8 @@ export function AlertVerificationDialog({
 			// Reset form data when dialog opens
 			setFormData({
 				status: isEidsrMode && alert.status ? String(alert.status) : "",
-				verificationDate: new Date().toISOString().split("T")[0],
-				verificationTime: new Date().toTimeString().slice(0, 5),
+				verificationDate: getLocalDateString(),
+				verificationTime: currentLocalTime(),
 				cifNo: "",
 				personReporting: alert.personReporting || "",
 				village: alert.alertCaseVillage || "",
@@ -344,6 +350,23 @@ export function AlertVerificationDialog({
 		) {
 			setError("Please fill in all required fields");
 			return;
+		}
+
+		// An alert can't be verified in the future — reject a verification
+		// date/time later than now (compared in local time).
+		if (formData.verificationDate && formData.verificationTime) {
+			const selectedWhen = new Date(
+				`${formData.verificationDate}T${formData.verificationTime}`
+			);
+			if (
+				!Number.isNaN(selectedWhen.getTime()) &&
+				selectedWhen.getTime() > Date.now()
+			) {
+				setError(
+					"Verification date and time cannot be in the future."
+				);
+				return;
+			}
 		}
 
 		setIsVerifying(true);
@@ -642,6 +665,7 @@ export function AlertVerificationDialog({
 									<Input
 										id="verificationDate"
 										type="date"
+										max={getLocalDateString()}
 										value={
 											formData.verificationDate
 										}
@@ -663,6 +687,12 @@ export function AlertVerificationDialog({
 									<Input
 										id="verificationTime"
 										type="time"
+										max={
+											formData.verificationDate ===
+											getLocalDateString()
+												? currentLocalTime()
+												: undefined
+										}
 										value={
 											formData.verificationTime
 										}

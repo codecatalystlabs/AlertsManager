@@ -1,5 +1,11 @@
 import { type ColumnDef } from "@tanstack/react-table";
 import { AlertLog } from "@/hooks/use-call-logs-data";
+import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
+import {
+	dateRangeFilter,
+	exactStringFilter,
+	textIncludesFilter,
+} from "@/components/ui/data-table";
 import { ArrowUpDown, MoreHorizontal, Eye, Edit, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -105,18 +111,13 @@ export function getActiveStatFromFilters(
 	return null;
 }
 
+// Mirror the canonical first-page source list (lib/source-of-alert.ts) so the
+// filter always offers every source the add-alert form does — and never drifts
+// out of sync (this is why Point Of Entry / Schools had gone missing).
 export const SOURCE_FILTER_OPTIONS = [
 	{ value: "all", label: "All Sources" },
-	{ value: "Community", label: "Community" },
-	{ value: "Call centre", label: "Call centre" },
-	{ value: "Health facility", label: "Health facility" },
-	{ value: "Health Worker", label: "Health Worker" },
-	{ value: "Point Of Entry", label: "Point Of Entry" },
-	{ value: "Schools", label: "Schools" },
-	{ value: "SMS 6767", label: "SMS 6767" },
-	{ value: "VHT", label: "VHT" },
-	{ value: "Other", label: "Other" },
-] as const;
+	...SOURCE_OF_ALERT_OPTIONS.map((name) => ({ value: name, label: name })),
+];
 
 export interface CallLogsTableCallbacks {
 	onViewDetails: (alert: AlertLog) => void;
@@ -130,6 +131,11 @@ export const createCallLogsTableColumns = (
 ): ColumnDef<AlertLog>[] => [
 	{
 		accessorKey: "id",
+		filterFn: textIncludesFilter,
+		meta: {
+			filterLabel: "Alert ID",
+			filterPlaceholder: "ALT number",
+		},
 		header: ({ column }) => {
 			return (
 				<Button
@@ -156,6 +162,11 @@ export const createCallLogsTableColumns = (
 	},
 	{
 		accessorKey: "date",
+		filterFn: dateRangeFilter,
+		meta: {
+			filterLabel: "Date",
+			filterVariant: "dateRange",
+		},
 		header: ({ column }) => {
 			return (
 				<Button
@@ -182,6 +193,10 @@ export const createCallLogsTableColumns = (
 	{
 		accessorKey: "time",
 		header: "Time",
+		filterFn: textIncludesFilter,
+		meta: {
+			filterPlaceholder: "Time",
+		},
 		cell: ({ row }) => {
 			const time = new Date(row.getValue("time"));
 			return (
@@ -193,6 +208,10 @@ export const createCallLogsTableColumns = (
 	},
 	{
 		accessorKey: "personReporting",
+		meta: {
+			filterLabel: "Reporter",
+			filterPlaceholder: "Reporter name",
+		},
 		header: ({ column }) => {
 			return (
 				<Button
@@ -221,6 +240,9 @@ export const createCallLogsTableColumns = (
 	{
 		accessorKey: "contactNumber",
 		header: "Contact Number",
+		meta: {
+			filterPlaceholder: "Phone number",
+		},
 		cell: ({ row }) => {
 			const contact = row.getValue("contactNumber") as string;
 			return (
@@ -233,6 +255,13 @@ export const createCallLogsTableColumns = (
 	{
 		accessorKey: "sourceOfAlert",
 		header: "Source",
+		filterFn: exactStringFilter,
+		meta: {
+			filterVariant: "select",
+			filterOptions: SOURCE_FILTER_OPTIONS.filter(
+				(option) => option.value !== "all"
+			),
+		},
 		cell: ({ row }) => {
 			const source = row.getValue("sourceOfAlert") as string;
 			return (
@@ -248,6 +277,9 @@ export const createCallLogsTableColumns = (
 	{
 		accessorKey: "alertCaseDistrict",
 		header: "District",
+		meta: {
+			filterPlaceholder: "District",
+		},
 		cell: ({ row }) => {
 			const district = row.getValue("alertCaseDistrict") as string;
 			return (
@@ -258,6 +290,22 @@ export const createCallLogsTableColumns = (
 	{
 		accessorKey: "status",
 		header: "Status",
+		filterFn: exactStringFilter,
+		meta: {
+			filterVariant: "select",
+			filterOptions: STATUS_FILTER_OPTIONS.filter(
+				(option) =>
+					option.value !== "all" && option.value !== "other"
+			).map((option) => ({
+				value:
+					option.value === "alive"
+						? "Alive"
+						: option.value === "dead"
+						? "Dead"
+						: "Unknown",
+				label: option.label,
+			})),
+		},
 		cell: ({ row }) => {
 			const status = row.getValue("status") as string;
 			return (
@@ -279,6 +327,9 @@ export const createCallLogsTableColumns = (
 	{
 		accessorKey: "response",
 		header: "Response",
+		meta: {
+			filterPlaceholder: "Response",
+		},
 		cell: ({ row }) => {
 			const response = row.getValue("response") as string;
 			return (
@@ -294,6 +345,14 @@ export const createCallLogsTableColumns = (
 	{
 		accessorKey: "isVerified",
 		header: "Verified",
+		filterFn: exactStringFilter,
+		meta: {
+			filterVariant: "select",
+			filterOptions: [
+				{ value: "true", label: "Verified" },
+				{ value: "false", label: "Pending" },
+			],
+		},
 		cell: ({ row }) => {
 			const isVerified = row.getValue("isVerified") as boolean;
 			return (
@@ -312,6 +371,7 @@ export const createCallLogsTableColumns = (
 	},
 	{
 		id: "actions",
+		enableColumnFilter: false,
 		cell: ({ row }) => {
 			const alertItem = row.original;
 

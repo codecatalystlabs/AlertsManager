@@ -1,6 +1,11 @@
 import { type ColumnDef } from "@tanstack/react-table";
 import { Alert as AlertType } from "@/lib/auth";
 import {
+	dateRangeFilter,
+	exactStringFilter,
+	textIncludesFilter,
+} from "@/components/ui/data-table";
+import {
 	ArrowUpDown,
 	MoreHorizontal,
 	Eye,
@@ -18,6 +23,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -63,6 +69,11 @@ export const createAlertsTableColumns = (
 ): ColumnDef<AlertType>[] => [
 	{
 		accessorKey: "id",
+		filterFn: textIncludesFilter,
+		meta: {
+			filterLabel: "Alert ID",
+			filterPlaceholder: "ALT number",
+		},
 		header: ({ column }) => {
 			return (
 				<Button
@@ -89,6 +100,14 @@ export const createAlertsTableColumns = (
 	},
 	{
 		accessorKey: "status",
+		filterFn: exactStringFilter,
+		meta: {
+			filterLabel: "Status",
+			filterVariant: "select",
+			filterOptions: STATUS_OPTIONS.filter(
+				(option) => option.value !== "all"
+			),
+		},
 		header: ({ column }) => {
 			return (
 				<Button
@@ -125,6 +144,11 @@ export const createAlertsTableColumns = (
 	},
 	{
 		accessorKey: "date",
+		filterFn: dateRangeFilter,
+		meta: {
+			filterLabel: "Date",
+			filterVariant: "dateRange",
+		},
 		header: ({ column }) => {
 			return (
 				<Button
@@ -151,6 +175,10 @@ export const createAlertsTableColumns = (
 	{
 		accessorKey: "time",
 		header: "Time",
+		filterFn: textIncludesFilter,
+		meta: {
+			filterPlaceholder: "Time",
+		},
 		cell: ({ row }) => {
 			const time = new Date(row.getValue("time"));
 			return (
@@ -163,6 +191,9 @@ export const createAlertsTableColumns = (
 	{
 		accessorKey: "personReporting",
 		header: "Reporter",
+		meta: {
+			filterPlaceholder: "Reporter name",
+		},
 		cell: ({ row }) => {
 			const reporter = row.getValue("personReporting") as string;
 			return (
@@ -175,6 +206,14 @@ export const createAlertsTableColumns = (
 	{
 		accessorKey: "sourceOfAlert",
 		header: "Source of Alert",
+		filterFn: exactStringFilter,
+		meta: {
+			filterVariant: "select",
+			filterOptions: SOURCE_OF_ALERT_OPTIONS.map((source) => ({
+				value: source,
+				label: source,
+			})),
+		},
 		cell: ({ row }) => {
 			const source = row.getValue("sourceOfAlert") as string;
 			return (
@@ -190,6 +229,9 @@ export const createAlertsTableColumns = (
 	{
 		accessorKey: "alertCaseDistrict",
 		header: "District",
+		meta: {
+			filterPlaceholder: "District",
+		},
 		cell: ({ row }) => {
 			const district = row.getValue("alertCaseDistrict") as string;
 			return (
@@ -203,6 +245,9 @@ export const createAlertsTableColumns = (
 	{
 		accessorKey: "contactNumber",
 		header: "Contact Number",
+		meta: {
+			filterPlaceholder: "Phone number",
+		},
 		cell: ({ row }) => {
 			const contact = row.getValue("contactNumber") as string;
 			return (
@@ -214,6 +259,10 @@ export const createAlertsTableColumns = (
 	},
 	{
 		accessorKey: "alertCaseName",
+		meta: {
+			filterLabel: "Alert Case Name",
+			filterPlaceholder: "Case name",
+		},
 		header: ({ column }) => {
 			return (
 				<Button
@@ -241,6 +290,10 @@ export const createAlertsTableColumns = (
 	{
 		accessorKey: "alertCaseAge",
 		header: "Age",
+		filterFn: textIncludesFilter,
+		meta: {
+			filterPlaceholder: "Age",
+		},
 		cell: ({ row }) => (
 			<div className="text-center">
 				{row.getValue("alertCaseAge")} years
@@ -250,6 +303,14 @@ export const createAlertsTableColumns = (
 	{
 		accessorKey: "alertCaseSex",
 		header: "Sex",
+		filterFn: exactStringFilter,
+		meta: {
+			filterVariant: "select",
+			filterOptions: [
+				{ value: "Male", label: "Male" },
+				{ value: "Female", label: "Female" },
+			],
+		},
 		cell: ({ row }) => {
 			const sex = row.getValue("alertCaseSex") as string;
 			return (
@@ -269,6 +330,14 @@ export const createAlertsTableColumns = (
 	{
 		accessorKey: "isVerified",
 		header: "Verified",
+		filterFn: exactStringFilter,
+		meta: {
+			filterVariant: "select",
+			filterOptions: [
+				{ value: "true", label: "Verified" },
+				{ value: "false", label: "Pending" },
+			],
+		},
 		cell: ({ row }) => {
 			const isVerified = row.getValue("isVerified") as boolean;
 			return (
@@ -288,6 +357,7 @@ export const createAlertsTableColumns = (
 	{
 		id: "actions",
 		header: "Actions",
+		enableColumnFilter: false,
 		cell: ({ row }) => {
 			const alert = row.original;
 

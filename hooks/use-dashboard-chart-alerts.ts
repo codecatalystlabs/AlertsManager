@@ -16,12 +16,15 @@ interface UseDashboardChartAlertsReturn {
 }
 
 /**
- * Fetches the alerts that feed the dashboard charts for a selected date range.
- * Kept separate from useDashboardData so the range picker only drives the
- * charts, not the all-time stat cards.
+ * Fetches the alerts that feed the dashboard charts for a selected date range
+ * and (optionally) a single district. Kept separate from useDashboardData so the
+ * range/district pickers only drive the charts, not the all-time stat cards.
+ *
+ * @param district Selected district name, or "all"/undefined for no district filter.
  */
 export function useDashboardChartAlerts(
-	range: ChartRange
+	range: ChartRange,
+	district?: string
 ): UseDashboardChartAlertsReturn {
 	const [alerts, setAlerts] = useState<CallLogAlert[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -34,7 +37,7 @@ export function useDashboardChartAlerts(
 			const params: DashboardRange = {};
 			if (range.from) params.from_date = range.from;
 			if (range.to) params.to_date = range.to;
-			const data = await fetchAlertsForRange(params);
+			const data = await fetchAlertsForRange(params, district);
 			setAlerts(data as CallLogAlert[]);
 		} catch (err) {
 			setError(
@@ -44,7 +47,7 @@ export function useDashboardChartAlerts(
 		} finally {
 			setLoading(false);
 		}
-	}, [range.from, range.to]);
+	}, [range.from, range.to, district]);
 
 	useEffect(() => {
 		load();

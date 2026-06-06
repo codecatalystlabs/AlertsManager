@@ -97,6 +97,8 @@ interface UseCallLogsDataReturn {
     deleteAlert: (alertId: number) => Promise<void>;
     exportToExcel: () => Promise<void>;
     exportToCSV: () => void;
+    /** Which export is currently running (drives the header's loading state). */
+    exporting: 'csv' | 'excel' | null;
     clearFilters: () => void;
 }
 
@@ -163,6 +165,7 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
     const [limit, setLimitState] = useState<number>(CALL_LOGS_CONFIG.ITEMS_PER_PAGE);
     const [total, setTotal] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
+    const [exporting, setExporting] = useState<'csv' | 'excel' | null>(null);
 
     const filtersRef = useRef(filters);
     filtersRef.current = filters;
@@ -281,9 +284,13 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
     const exportPrefix = CALL_LOGS_CONFIG.EXPORT_FILENAME_PREFIX;
 
     const exportToCSV = useCallback(async () => {
+        setExporting('csv');
         try {
             const rows = await loadAlertsForExport();
-            const exported = exportAlertsToCsv(rows, exportPrefix);
+            const exported = exportAlertsToCsv(rows, exportPrefix, {
+                from: filtersRef.current.fromDate,
+                to: filtersRef.current.toDate,
+            });
             if (!exported) {
                 window.alert(
                     'No records to export. Adjust your filters or refresh the data.'
@@ -292,16 +299,23 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         } catch (err) {
             console.error('CSV export failed:', err);
             window.alert('Failed to export CSV file. Please try again.');
+        } finally {
+            setExporting(null);
         }
     }, [loadAlertsForExport, exportPrefix]);
 
     const exportToExcel = useCallback(async () => {
+        setExporting('excel');
         try {
             const rows = await loadAlertsForExport();
             const exported = await exportAlertsToExcel(
                 rows,
                 exportPrefix,
-                'Call Logs'
+                'Call Logs',
+                {
+                    from: filtersRef.current.fromDate,
+                    to: filtersRef.current.toDate,
+                }
             );
             if (!exported) {
                 window.alert(
@@ -311,6 +325,8 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         } catch (err) {
             console.error('Excel export failed:', err);
             window.alert('Failed to export Excel file. Please try again.');
+        } finally {
+            setExporting(null);
         }
     }, [loadAlertsForExport, exportPrefix]);
 
@@ -346,6 +362,7 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         deleteAlert,
         exportToExcel,
         exportToCSV,
+        exporting,
         clearFilters,
     };
 };

@@ -11,8 +11,13 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { DataTable } from "@/components/ui/data-table";
+import {
+	DataTable,
+	dateRangeFilter,
+	exactStringFilter,
+} from "@/components/ui/data-table";
 import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
+import { EIDSR_STATUS_FILTER_OPTIONS } from "@/constants/eidsr-alerts";
 import { LAYOUT } from "@/constants/layout";
 import { verifiedTableRowClass } from "@/lib/verified-row-style";
 import { isEidsr6767Verified } from "@/lib/eidsr-verified-state";
@@ -55,16 +60,27 @@ function createColumns(handlers: {
 		{
 			accessorKey: "personReporting",
 			header: "Reporter",
+			meta: {
+				filterPlaceholder: "Reporter name",
+			},
 			cell: ({ row }) => row.original.personReporting || "—",
 		},
 		{
 			accessorKey: "contactNumber",
 			header: "Phone",
+			meta: {
+				filterPlaceholder: "Phone number",
+			},
 			cell: ({ row }) => row.original.contactNumber || "—",
 		},
 		{
 			id: "location",
+			accessorFn: (row) =>
+				[row.village, row.alertCaseDistrict].filter(Boolean).join(", "),
 			header: "Location",
+			meta: {
+				filterPlaceholder: "Village or district",
+			},
 			cell: ({ row }) => {
 				const text = [row.original.village, row.original.alertCaseDistrict]
 					.filter(Boolean)
@@ -82,6 +98,9 @@ function createColumns(handlers: {
 		{
 			accessorKey: "messageText",
 			header: "Message",
+			meta: {
+				filterPlaceholder: "Message text",
+			},
 			cell: ({ row }) => {
 				const text = row.original.messageText || "—";
 				return (
@@ -97,6 +116,13 @@ function createColumns(handlers: {
 		{
 			accessorKey: "status",
 			header: "Status",
+			filterFn: exactStringFilter,
+			meta: {
+				filterVariant: "select",
+				filterOptions: EIDSR_STATUS_FILTER_OPTIONS.filter(
+					(option) => option.value !== "all"
+				),
+			},
 			cell: ({ row }) =>
 				row.original.status ? (
 					<Badge variant="outline">{row.original.status}</Badge>
@@ -106,7 +132,17 @@ function createColumns(handlers: {
 		},
 		{
 			id: "inAlerts",
+			accessorFn: (row) =>
+				row.linkedAlertId != null ? "linked" : "unlinked",
 			header: "In alerts",
+			filterFn: exactStringFilter,
+			meta: {
+				filterVariant: "select",
+				filterOptions: [
+					{ value: "linked", label: "Linked" },
+					{ value: "unlinked", label: "Not linked" },
+				],
+			},
 			cell: ({ row }) =>
 				row.original.linkedAlertId != null ? (
 					<Badge className="bg-green-600 hover:bg-green-600">
@@ -118,13 +154,19 @@ function createColumns(handlers: {
 		},
 		{
 			id: "date",
+			accessorFn: (row) => row.receivedAt || row.createdAt || "",
 			header: "Received",
+			filterFn: dateRangeFilter,
+			meta: {
+				filterVariant: "dateRange",
+			},
 			cell: ({ row }) =>
 				row.original.receivedAt || row.original.createdAt || "—",
 		},
 		{
 			id: "actions",
 			header: () => <span className="sr-only">Actions</span>,
+			enableColumnFilter: false,
 			cell: ({ row }) => {
 				const m = row.original;
 				const verifying = handlers.verifyInProgressId === m.id;
@@ -217,6 +259,7 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 					<DataTable
 						columns={columns}
 						data={messages}
+						enableHeaderFilters
 						pageSize={pageSize}
 						manualPagination
 						pageCount={totalPages}

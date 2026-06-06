@@ -44,16 +44,10 @@ export const StatsGrid = memo<StatsGridProps>(({
   );
 
   return (
-    <div className="space-y-3 sm:space-y-4">
-      {/* Main Stats Grid */}
-      <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {STAT_CARDS.map(renderStatCard)}
-      </div>
-
-      {/* Additional Stats Grid */}
-      <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
-        {ADDITIONAL_STATS.map(renderStatCard)}
-      </div>
+    // One even grid: 6 cards lay out as 2 tidy rows of 3 on desktop (was an
+    // uneven 4-over-3 split). Falls back to 2 columns on tablet, 1 on mobile.
+    <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {[...STAT_CARDS, ...ADDITIONAL_STATS].map(renderStatCard)}
     </div>
   );
 });

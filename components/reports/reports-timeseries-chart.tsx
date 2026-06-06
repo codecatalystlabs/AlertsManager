@@ -30,10 +30,12 @@ import {
 
 const SIGNALS_COLOR = "#2563eb";
 const ALERTS_COLOR = "#ca8a04";
+const DISCARDED_COLOR = "#dc2626";
 
 const chartConfig: ChartConfig = {
 	signals: { label: "Signals", color: SIGNALS_COLOR },
 	alerts: { label: "Alerts", color: ALERTS_COLOR },
+	discarded: { label: "Discarded", color: DISCARDED_COLOR },
 };
 
 interface ReportsTimeseriesChartProps {
@@ -49,12 +51,15 @@ export const ReportsTimeseriesChart = memo<ReportsTimeseriesChartProps>(
 					date: p.date,
 					signals: p.signals,
 					alerts: p.alerts,
+					discarded: p.discarded,
 				})),
 			[timeseries]
 		);
 
 		const hasData = data.length > 0;
-		const hasValues = data.some((d) => d.signals > 0 || d.alerts > 0);
+		const hasValues = data.some(
+			(d) => d.signals > 0 || d.alerts > 0 || d.discarded > 0
+		);
 
 		const handleExportCsv = useCallback(() => {
 			if (!exportTimeseriesToCsv(timeseries, "reports_timeseries")) {
@@ -175,6 +180,17 @@ export const ReportsTimeseriesChart = memo<ReportsTimeseriesChartProps>(
 									strokeWidth={2}
 									dot={{ r: 4, fill: ALERTS_COLOR, strokeWidth: 0 }}
 									activeDot={{ r: 6, fill: ALERTS_COLOR }}
+									connectNulls
+									isAnimationActive={false}
+								/>
+								<Line
+									type="monotone"
+									dataKey="discarded"
+									name="Discarded"
+									stroke={DISCARDED_COLOR}
+									strokeWidth={2}
+									dot={{ r: 4, fill: DISCARDED_COLOR, strokeWidth: 0 }}
+									activeDot={{ r: 6, fill: DISCARDED_COLOR }}
 									connectNulls
 									isAnimationActive={false}
 								/>

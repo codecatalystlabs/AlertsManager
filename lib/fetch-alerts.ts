@@ -2,6 +2,7 @@ import { AuthService, type Alert } from "@/lib/auth";
 import { normalizeAlertsList } from "@/lib/alert-normalize";
 import { getClientApiBaseUrl } from "@/lib/api-config";
 import { formatAlertsFetchError } from "@/lib/api-errors";
+import { getLocalDateString } from "@/lib/utils";
 import {
 	getCachedAlerts,
 	setCachedAlerts,
@@ -239,9 +240,11 @@ async function fetchDashboardAlertsFromApi(): Promise<Alert[]> {
 /**
  * Fetch all alerts within a date range for the dashboard charts. Pages through
  * the result (parallel) up to a safety cap. Omitting both bounds = all time.
+ * Pass `district` to scope the charts to a single district ("all"/empty = no filter).
  */
 export async function fetchAlertsForRange(
-	range: DashboardRange = {}
+	range: DashboardRange = {},
+	district?: string
 ): Promise<Alert[]> {
 	const baseParams: AlertsListParams = {
 		page: 1,
@@ -249,6 +252,7 @@ export async function fetchAlertsForRange(
 	};
 	if (range.from_date) baseParams.from_date = range.from_date;
 	if (range.to_date) baseParams.to_date = range.to_date;
+	if (district && district !== "all") baseParams.district = district;
 
 	const first = await fetchAlertsPage(baseParams);
 	const maxPages = Math.min(Math.max(first.totalPages, 1), CHART_MAX_PAGES);
@@ -264,6 +268,51 @@ export async function fetchAlertsForRange(
 	);
 
 	return [...first.data, ...rest.flatMap((page) => page.data)];
+}
+
+/** Alerts *logged today* — counted by createdAt in local time. */
+export interface TodayActivity {
+	/** Alerts whose createdAt falls on today's local date. */
+	calls: number;
+	/** Of those, how many are already verified. */
+	verified: number;
+}
+
+/**
+ * Incident-date lookback for the "logged today" sweep. A week comfortably covers
+ * same-day entries, recently back-dated ones, and any midnight/timezone edge,
+ * while keeping the query tiny (well under fetchAlertsForRange's page cap).
+ */
+const TODAY_LOOKBACK_DAYS = 7;
+
+/**
+ * Count alerts logged today by createdAt (LOCAL date), via a dedicated recent
+ * query rather than the capped 90-day dashboard set — so today's records can't
+ * be hidden behind the row cap. Counts alerts created today regardless of their
+ * incident date, as long as that incident falls within the recent lookback.
+ */
+export async function fetchTodayActivity(): Promise<TodayActivity> {
+	const now = new Date();
+	const todayLocal = getLocalDateString(now);
+
+	const windowStart = new Date(now);
+	windowStart.setDate(windowStart.getDate() - (TODAY_LOOKBACK_DAYS - 1));
+
+	const recent = await fetchAlertsForRange({
+		from_date: getLocalDateString(windowStart),
+		to_date: todayLocal,
+	});
+
+	let calls = 0;
+	let verified = 0;
+	for (const alert of recent) {
+		if (!alert.createdAt) continue;
+		if (getLocalDateString(new Date(alert.createdAt)) !== todayLocal) continue;
+		calls += 1;
+		if (alert.isVerified) verified += 1;
+	}
+
+	return { calls, verified };
 }
 
 /** Paginated alerts list: GET /api/v1/alerts?page=1&limit=10&district=... */

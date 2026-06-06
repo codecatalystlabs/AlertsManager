@@ -18,7 +18,9 @@ export interface DashboardRangeValue {
 	to: string;
 }
 
-export const DEFAULT_RANGE_PRESET = "12m";
+// All-time by default so the dashboard's KPI cards open on the familiar
+// full totals; users narrow to a range to scope both the cards and the charts.
+export const DEFAULT_RANGE_PRESET = "all";
 
 const PRESETS = [
 	{ id: "30d", label: "Last 30 days" },

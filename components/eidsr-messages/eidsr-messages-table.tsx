@@ -3,10 +3,15 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/ui/data-table";
+import {
+	DataTable,
+	dateRangeFilter,
+	exactStringFilter,
+	textIncludesFilter,
+} from "@/components/ui/data-table";
 import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
+import { EIDSR_STATUS_FILTER_OPTIONS } from "@/constants/eidsr-alerts";
 import { Eye, Pencil, ShieldCheck, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface EidsrMessagesTableProps {
 	messages: EidsrMessage[];
@@ -27,6 +32,10 @@ function createColumns(handlers: {
 		{
 			accessorKey: "id",
 			header: "ID",
+			filterFn: textIncludesFilter,
+			meta: {
+				filterPlaceholder: "Local ID",
+			},
 			cell: ({ row }) => (
 				<span className="font-medium">{row.original.id}</span>
 			),
@@ -34,21 +43,35 @@ function createColumns(handlers: {
 		{
 			accessorKey: "messageId",
 			header: "Message ID",
+			meta: {
+				filterPlaceholder: "Message ID",
+			},
 			cell: ({ row }) => row.original.messageId || "—",
 		},
 		{
 			accessorKey: "personReporting",
 			header: "Reporter",
+			meta: {
+				filterPlaceholder: "Reporter name",
+			},
 			cell: ({ row }) => row.original.personReporting || "—",
 		},
 		{
 			accessorKey: "contactNumber",
 			header: "Phone",
+			meta: {
+				filterPlaceholder: "Phone number",
+			},
 			cell: ({ row }) => row.original.contactNumber || "—",
 		},
 		{
 			id: "location",
+			accessorFn: (row) =>
+				[row.village, row.alertCaseDistrict].filter(Boolean).join(", "),
 			header: "Location",
+			meta: {
+				filterPlaceholder: "Village or district",
+			},
 			cell: ({ row }) => {
 				const parts = [
 					row.original.village,
@@ -65,6 +88,9 @@ function createColumns(handlers: {
 		{
 			accessorKey: "messageText",
 			header: "Message",
+			meta: {
+				filterPlaceholder: "Message text",
+			},
 			cell: ({ row }) => {
 				const text = row.original.messageText || "—";
 				return (
@@ -80,6 +106,13 @@ function createColumns(handlers: {
 		{
 			accessorKey: "status",
 			header: "Status",
+			filterFn: exactStringFilter,
+			meta: {
+				filterVariant: "select",
+				filterOptions: EIDSR_STATUS_FILTER_OPTIONS.filter(
+					(option) => option.value !== "all"
+				),
+			},
 			cell: ({ row }) =>
 				row.original.status ? (
 					<Badge variant="outline">{row.original.status}</Badge>
@@ -89,7 +122,16 @@ function createColumns(handlers: {
 		},
 		{
 			id: "verification",
+			accessorFn: (row) => (row.isVerified ? "verified" : "unverified"),
 			header: "Verification",
+			filterFn: exactStringFilter,
+			meta: {
+				filterVariant: "select",
+				filterOptions: [
+					{ value: "verified", label: "Verified" },
+					{ value: "unverified", label: "Unverified" },
+				],
+			},
 			cell: ({ row }) =>
 				row.original.isVerified ? (
 					<Badge className="bg-green-600 hover:bg-green-600">Verified</Badge>
@@ -100,6 +142,10 @@ function createColumns(handlers: {
 		{
 			accessorKey: "linkedAlertId",
 			header: "Linked alert",
+			filterFn: textIncludesFilter,
+			meta: {
+				filterPlaceholder: "Alert ID",
+			},
 			cell: ({ row }) =>
 				row.original.linkedAlertId != null
 					? `ALT${String(row.original.linkedAlertId).padStart(3, "0")}`
@@ -107,13 +153,19 @@ function createColumns(handlers: {
 		},
 		{
 			id: "date",
+			accessorFn: (row) => row.receivedAt || row.createdAt || "",
 			header: "Received",
+			filterFn: dateRangeFilter,
+			meta: {
+				filterVariant: "dateRange",
+			},
 			cell: ({ row }) =>
 				row.original.receivedAt || row.original.createdAt || "—",
 		},
 		{
 			id: "actions",
 			header: "Actions",
+			enableColumnFilter: false,
 			cell: ({ row }) => {
 				const m = row.original;
 				const linked = m.linkedAlertId != null;
@@ -190,6 +242,7 @@ export const EidsrMessagesTable = memo<EidsrMessagesTableProps>(
 					<DataTable
 						columns={columns}
 						data={messages}
+						enableHeaderFilters
 						isLoading={isLoading}
 						pageSize={25}
 						searchKey="messageText"

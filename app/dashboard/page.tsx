@@ -1,18 +1,20 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
 import {
 	WelcomeSection,
 	ErrorAlert,
 	StatsGrid,
 	DashboardRangePicker,
+	DashboardDistrictPicker,
 	resolveDashboardRange,
 	DEFAULT_RANGE_PRESET,
 	type DashboardRangeValue,
 } from "@/components/dashboard";
 import { useDashboardData } from "@/hooks/use-dashboard-data";
 import { useDashboardChartAlerts } from "@/hooks/use-dashboard-chart-alerts";
+import type { AlertCounts } from "@/app/dashboard/types";
 import { LAYOUT } from "@/constants/layout";
 
 const DashboardCharts = dynamic(
@@ -30,29 +32,41 @@ const DashboardCharts = dynamic(
 
 export default function DashboardPage(): JSX.Element {
 	const { data, loading, error, refetch } = useDashboardData();
-	const [chartRange, setChartRange] = useState<DashboardRangeValue>(() =>
+	const [range, setRange] = useState<DashboardRangeValue>(() =>
 		resolveDashboardRange(DEFAULT_RANGE_PRESET)
 	);
+	const [district, setDistrict] = useState<string>("all");
 	const {
-		alerts: chartAlerts,
-		loading: chartsLoading,
-		error: chartsError,
-		refetch: refetchCharts,
-	} = useDashboardChartAlerts(chartRange);
+		alerts: rangeAlerts,
+		loading: rangeLoading,
+		error: rangeError,
+		refetch: refetchRange,
+	} = useDashboardChartAlerts(range, district);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 
 	const handleRefresh = useCallback(async () => {
 		setIsRefreshing(true);
 		try {
-			await Promise.all([refetch(), refetchCharts()]);
+			await Promise.all([refetch(), refetchRange()]);
 		} finally {
 			setIsRefreshing(false);
 		}
-	}, [refetch, refetchCharts]);
+	}, [refetch, refetchRange]);
 
 	const handleRetry = useCallback(async () => {
 		await handleRefresh();
 	}, [handleRefresh]);
+
+	// KPI cards: exact all-time totals when no range/district is applied;
+	// otherwise counts derived from the alerts fetched for the current
+	// range + district (the same set that feeds the charts — no extra fetch).
+	const isUnbounded = !range.from && !range.to && district === "all";
+	const rangeCounts = useMemo<AlertCounts>(() => {
+		const total = rangeAlerts.length;
+		const verified = rangeAlerts.filter((a) => a.isVerified).length;
+		return { total, verified, notVerified: total - verified };
+	}, [rangeAlerts]);
+	const statCounts = isUnbounded ? data.alertCounts : rangeCounts;
 
 	return (
 		<div className={LAYOUT.pageGap}>
@@ -60,6 +74,31 @@ export default function DashboardPage(): JSX.Element {
 				onRefresh={handleRefresh}
 				isRefreshing={isRefreshing || loading}
 			/>
+
+			{/* Page-level filters — scope both the KPI cards and the charts. */}
+			<div className="flex flex-wrap items-end justify-between gap-3">
+				<div className="min-w-0">
+					<h2 className="text-base font-semibold text-gray-900">
+						Overview
+					</h2>
+					<p className="text-xs text-muted-foreground">
+						{isUnbounded
+							? "Showing all-time data"
+							: "Showing data for the selected range"}
+					</p>
+				</div>
+				<div className="flex flex-wrap items-end gap-2">
+					<DashboardDistrictPicker
+						value={district}
+						onChange={setDistrict}
+						disabled={rangeLoading}
+					/>
+					<DashboardRangePicker
+						onChange={setRange}
+						disabled={rangeLoading}
+					/>
+				</div>
+			</div>
 
 			{error && (
 				<ErrorAlert
@@ -70,36 +109,30 @@ export default function DashboardPage(): JSX.Element {
 			)}
 
 			<StatsGrid
-				alertCounts={data.alertCounts}
-				todayAlerts={data.todayAlerts.length}
+				alertCounts={statCounts}
+				todayAlerts={data.todayAlerts}
 				todayVerified={data.todayVerified}
 			/>
 
-			<div className="flex flex-wrap items-end justify-between gap-3">
-				<h2 className="text-base font-semibold text-gray-900">
-					Trends &amp; breakdowns
-				</h2>
-				<DashboardRangePicker
-					onChange={setChartRange}
-					disabled={chartsLoading}
-				/>
-			</div>
+			<h2 className="text-base font-semibold text-gray-900">
+				Trends &amp; breakdowns
+			</h2>
 
-			{chartsError && (
+			{rangeError && (
 				<ErrorAlert
-					error={chartsError}
-					onRetry={refetchCharts}
-					retrying={chartsLoading}
+					error={rangeError}
+					onRetry={refetchRange}
+					retrying={rangeLoading}
 				/>
 			)}
 
-			{chartsLoading ? (
+			{rangeLoading ? (
 				<div className="grid gap-3 md:grid-cols-2">
 					<div className="h-56 animate-pulse rounded-lg border bg-muted/40" />
 					<div className="h-56 animate-pulse rounded-lg border bg-muted/40" />
 				</div>
 			) : (
-				<DashboardCharts alerts={chartAlerts} />
+				<DashboardCharts alerts={rangeAlerts} />
 			)}
 		</div>
 	);

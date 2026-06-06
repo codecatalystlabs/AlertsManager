@@ -1,4 +1,4 @@
-import { LucideIcon, CheckCircle, AlertTriangle, TrendingUp, Phone, Users } from 'lucide-react';
+import { LucideIcon, CheckCircle, AlertTriangle, Phone } from 'lucide-react';
 
 export const DASHBOARD_CONFIG = {
     REFRESH_INTERVAL: 300000, // 5 minutes
@@ -19,7 +19,20 @@ export interface StatCardConfig {
     isPercentage?: boolean;
 }
 
+// Order = precedence shown on the dashboard: Total first, then verified /
+// not-verified counts, then the verification rate. Today's activity follows
+// in ADDITIONAL_STATS.
 export const STAT_CARDS: StatCardConfig[] = [
+    {
+        id: 'total',
+        title: 'Total Alerts',
+        key: 'total',
+        icon: AlertTriangle,
+        gradient: 'from-blue-50 to-blue-100',
+        iconBg: 'bg-blue-500',
+        textColor: 'text-blue-700',
+        route: '/dashboard/alerts',
+    },
     {
         id: 'verified',
         title: 'Verified Alerts',
@@ -41,16 +54,6 @@ export const STAT_CARDS: StatCardConfig[] = [
         route: '/dashboard/alerts',
     },
     {
-        id: 'total',
-        title: 'Total Alerts',
-        key: 'total',
-        icon: AlertTriangle,
-        gradient: 'from-blue-50 to-blue-100',
-        iconBg: 'bg-blue-500',
-        textColor: 'text-blue-700',
-        route: '/dashboard/alerts',
-    },
-    {
         id: 'verificationRate',
         title: 'Verification Rate',
         key: 'verificationRate',
@@ -63,6 +66,9 @@ export const STAT_CARDS: StatCardConfig[] = [
     },
 ];
 
+// Today's activity. "Pending Verification" was intentionally dropped here — it
+// duplicated "Not Verified Alerts" exactly (same notVerified count), so it only
+// added clutter. The not-verified card already surfaces the pending backlog.
 export const ADDITIONAL_STATS: StatCardConfig[] = [
     {
         id: 'todayCalls',
@@ -72,15 +78,6 @@ export const ADDITIONAL_STATS: StatCardConfig[] = [
         gradient: 'from-purple-50 to-purple-100',
         iconBg: 'bg-purple-500',
         textColor: 'text-purple-700',
-    },
-    {
-        id: 'pendingVerification',
-        title: 'Pending Verification',
-        key: 'notVerified',
-        icon: Users,
-        gradient: 'from-indigo-50 to-indigo-100',
-        iconBg: 'bg-indigo-500',
-        textColor: 'text-indigo-700',
     },
     {
         id: 'verifiedToday',

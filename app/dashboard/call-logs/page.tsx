@@ -77,6 +77,7 @@ export default function CallLogsPage(): JSX.Element {
 		deleteAlert,
 		exportToExcel,
 		exportToCSV,
+		exporting,
 		clearFilters,
 	} = useCallLogsData();
 
@@ -185,6 +186,7 @@ export default function CallLogsPage(): JSX.Element {
 				onExportExcel={exportToExcel}
 				onExportCsv={exportToCSV}
 				isRefreshing={isRefreshing || isValidating}
+				exporting={exporting}
 			/>
 
 			{error && (

@@ -66,6 +66,7 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 					<DataTable
 						columns={columns}
 						data={alerts}
+						enableHeaderFilters
 						searchKey="personReporting"
 						searchPlaceholder="Search reporters..."
 						pageSize={pageSize}

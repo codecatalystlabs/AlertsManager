@@ -48,8 +48,38 @@ const EXPORT_COLUMNS: ExportColumn[] = [
 	{ header: "Narrative", getValue: (a) => a.narrative ?? "" },
 ];
 
+/** Date window an export covers; either bound may be empty/omitted. */
+export interface ExportRange {
+	/** Inclusive start, YYYY-MM-DD. */
+	from?: string;
+	/** Inclusive end, YYYY-MM-DD. */
+	to?: string;
+}
+
 function dateStamp(): string {
 	return new Date().toISOString().split("T")[0];
+}
+
+/**
+ * Build the download filename, encoding the selected date range so an exported
+ * file is self-describing (e.g. call_logs_export_2026-01-01_to_2026-03-31.csv).
+ * Falls back to today's stamp when no range is selected (full/all-time export).
+ */
+function buildExportFilename(
+	prefix: string,
+	extension: string,
+	range?: ExportRange
+): string {
+	const from = range?.from?.trim();
+	const to = range?.to?.trim();
+
+	let suffix: string;
+	if (from && to) suffix = `${from}_to_${to}`;
+	else if (from) suffix = `from_${from}`;
+	else if (to) suffix = `through_${to}`;
+	else suffix = dateStamp(); // no range selected → today's stamp (unchanged)
+
+	return `${prefix}_${suffix}.${extension}`;
 }
 
 function formatExportDate(dateStr: string): string {
@@ -92,7 +122,8 @@ function rowsFromAlerts(alerts: ExportableAlert[]): string[][] {
 
 export function exportAlertsToCsv(
 	alerts: ExportableAlert[],
-	filenamePrefix: string
+	filenamePrefix: string,
+	range?: ExportRange
 ): boolean {
 	if (alerts.length === 0) return false;
 
@@ -105,7 +136,7 @@ export function exportAlertsToCsv(
 		type: "text/csv;charset=utf-8;",
 	});
 
-	downloadBlob(blob, `${filenamePrefix}_${dateStamp()}.csv`);
+	downloadBlob(blob, buildExportFilename(filenamePrefix, "csv", range));
 	return true;
 }
 
@@ -123,7 +154,8 @@ function cellValue(value: string | number): string | number {
 export async function exportAlertsToExcel(
 	alerts: ExportableAlert[],
 	filenamePrefix: string,
-	sheetName = "Alerts"
+	sheetName = "Alerts",
+	range?: ExportRange
 ): Promise<boolean> {
 	if (alerts.length === 0) return false;
 	if (typeof window === "undefined") {
@@ -157,6 +189,6 @@ export async function exportAlertsToExcel(
 		type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 	});
 
-	downloadBlob(blob, `${filenamePrefix}_${dateStamp()}.xlsx`);
+	downloadBlob(blob, buildExportFilename(filenamePrefix, "xlsx", range));
 	return true;
 }

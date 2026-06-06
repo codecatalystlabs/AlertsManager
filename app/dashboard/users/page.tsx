@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { type ReactNode, useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,11 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
 import { AuthService, User, type UpdateUserPayload } from "@/lib/auth";
 import {
 	Plus,
@@ -32,6 +37,8 @@ import {
 	CheckCircle2,
 	Users,
 	Loader2,
+	ListFilter,
+	X,
 } from "lucide-react";
 
 interface NewUserData {
@@ -46,11 +53,127 @@ interface NewUserData {
 	level: string;
 }
 
+interface UserHeaderFilters {
+	username: string;
+	name: string;
+	email: string;
+	affiliation: string;
+	userType: string;
+	level: string;
+	createdFrom: string;
+	createdTo: string;
+}
+
+const INITIAL_USER_HEADER_FILTERS: UserHeaderFilters = {
+	username: "",
+	name: "",
+	email: "",
+	affiliation: "",
+	userType: "all",
+	level: "all",
+	createdFrom: "",
+	createdTo: "",
+};
+
+function textIncludes(value: string, filter: string): boolean {
+	return value.toLowerCase().includes(filter.trim().toLowerCase());
+}
+
+function matchesCreatedRange(
+	createdAt: string,
+	fromDate: string,
+	toDate: string
+): boolean {
+	if (!fromDate && !toDate) return true;
+
+	const createdTime = new Date(createdAt).getTime();
+	if (Number.isNaN(createdTime)) return false;
+
+	const fromTime = fromDate ? new Date(fromDate).getTime() : null;
+	const toTime = toDate ? new Date(`${toDate}T23:59:59`).getTime() : null;
+
+	if (fromTime !== null && createdTime < fromTime) return false;
+	if (toTime !== null && createdTime > toTime) return false;
+	return true;
+}
+
+function hasUserHeaderFilters(filters: UserHeaderFilters): boolean {
+	return (
+		filters.username.trim().length > 0 ||
+		filters.name.trim().length > 0 ||
+		filters.email.trim().length > 0 ||
+		filters.affiliation.trim().length > 0 ||
+		filters.userType !== "all" ||
+		filters.level !== "all" ||
+		Boolean(filters.createdFrom || filters.createdTo)
+	);
+}
+
+function HeaderFilter({
+	label,
+	isActive,
+	onClear,
+	children,
+}: {
+	label: string;
+	isActive: boolean;
+	onClear: () => void;
+	children: ReactNode;
+}) {
+	return (
+		<Popover>
+			<PopoverTrigger asChild>
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon"
+					className="h-6 w-6 text-white hover:bg-white/10 hover:text-white"
+					aria-label={`Filter ${label}`}
+					title={`Filter ${label}`}
+				>
+					<ListFilter
+						className={
+							isActive
+								? "h-3.5 w-3.5 text-uganda-yellow"
+								: "h-3.5 w-3.5"
+						}
+					/>
+				</Button>
+			</PopoverTrigger>
+			<PopoverContent align="start" className="w-64 p-3 text-foreground">
+				<div className="space-y-3">
+					<div className="flex items-center justify-between gap-2">
+						<p className="truncate text-xs font-semibold uppercase tracking-wide">
+							Filter {label}
+						</p>
+						{isActive && (
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								className="h-6 w-6"
+								aria-label={`Clear ${label} filter`}
+								onClick={onClear}
+							>
+								<X className="h-3.5 w-3.5" />
+							</Button>
+						)}
+					</div>
+					{children}
+				</div>
+			</PopoverContent>
+		</Popover>
+	);
+}
+
 export default function UsersPage() {
 	const [users, setUsers] = useState<User[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [searchTerm, setSearchTerm] = useState("");
+	const [headerFilters, setHeaderFilters] = useState<UserHeaderFilters>({
+		...INITIAL_USER_HEADER_FILTERS,
+	});
 	const [isAddUserOpen, setIsAddUserOpen] = useState(false);
 	const [isEditUserOpen, setIsEditUserOpen] = useState(false);
 	const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -96,12 +219,49 @@ export default function UsersPage() {
 		fetchUsers();
 	}, []);
 
-	const filteredUsers = users.filter(
-		(user) =>
-			user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			user.affiliation.toLowerCase().includes(searchTerm.toLowerCase())
+	const userTypeOptions = useMemo(
+		() =>
+			Array.from(new Set(users.map((user) => user.userType).filter(Boolean))).sort(),
+		[users]
 	);
+	const levelOptions = useMemo(
+		() =>
+			Array.from(new Set(users.map((user) => user.level).filter(Boolean))).sort(),
+		[users]
+	);
+	const hasHeaderFilters = hasUserHeaderFilters(headerFilters);
+	const updateHeaderFilter = (
+		patch: Partial<UserHeaderFilters>
+	): void => {
+		setHeaderFilters((current) => ({ ...current, ...patch }));
+	};
+
+	const filteredUsers = users.filter((user) => {
+		const displayName = getDisplayName(user);
+		const search = searchTerm.trim().toLowerCase();
+		const matchesSearch =
+			!search ||
+			user.username.toLowerCase().includes(search) ||
+			user.email.toLowerCase().includes(search) ||
+			user.affiliation.toLowerCase().includes(search);
+
+		return (
+			matchesSearch &&
+			textIncludes(user.username, headerFilters.username) &&
+			textIncludes(displayName, headerFilters.name) &&
+			textIncludes(user.email, headerFilters.email) &&
+			textIncludes(user.affiliation, headerFilters.affiliation) &&
+			(headerFilters.userType === "all" ||
+				user.userType === headerFilters.userType) &&
+			(headerFilters.level === "all" ||
+				user.level === headerFilters.level) &&
+			matchesCreatedRange(
+				user.createdAt,
+				headerFilters.createdFrom,
+				headerFilters.createdTo
+			)
+		);
+	});
 
 	const handleAddUser = async () => {
 		if (
@@ -254,12 +414,12 @@ export default function UsersPage() {
 		});
 	};
 
-	const getDisplayName = (user: User) => {
+	function getDisplayName(user: User): string {
 		const names = [user.firstName, user.otherName, user.lastName].filter(
 			Boolean
 		);
 		return names.length > 0 ? names.join(" ") : user.username;
-	};
+	}
 
 	if (loading) {
 		return (
@@ -384,16 +544,35 @@ export default function UsersPage() {
 				</CardHeader>
 				<CardContent>
 					<div className="flex justify-between items-center mb-4">
-						<div className="relative">
-							<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-							<Input
-								placeholder="Search users..."
-								value={searchTerm}
-								onChange={(e) =>
-									setSearchTerm(e.target.value)
-								}
-								className="pl-10 w-64"
-							/>
+						<div className="flex items-center gap-2">
+							<div className="relative">
+								<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+								<Input
+									placeholder="Search users..."
+									value={searchTerm}
+									onChange={(e) =>
+										setSearchTerm(e.target.value)
+									}
+									className="pl-10 w-64"
+								/>
+							</div>
+							{hasHeaderFilters && (
+								<Button
+									type="button"
+									variant="outline"
+									size="icon"
+									className="h-10 w-10"
+									aria-label="Clear table filters"
+									title="Clear table filters"
+									onClick={() =>
+										setHeaderFilters({
+											...INITIAL_USER_HEADER_FILTERS,
+										})
+									}
+								>
+									<X className="h-4 w-4" />
+								</Button>
+							)}
 						</div>
 						<Dialog
 							open={isAddUserOpen}
@@ -969,25 +1148,258 @@ export default function UsersPage() {
 							<thead>
 								<tr className="bg-uganda-red text-white">
 									<th className="px-4 py-3 text-left">
-										Username
+										<div className="flex items-center gap-1">
+											<span>Username</span>
+											<HeaderFilter
+												label="Username"
+												isActive={Boolean(
+													headerFilters.username.trim()
+												)}
+												onClear={() =>
+													updateHeaderFilter({
+														username: "",
+													})
+												}
+											>
+												<Input
+													value={
+														headerFilters.username
+													}
+													onChange={(event) =>
+														updateHeaderFilter({
+															username:
+																event.target.value,
+														})
+													}
+													placeholder="Username"
+													className="h-8 text-xs"
+												/>
+											</HeaderFilter>
+										</div>
 									</th>
 									<th className="px-4 py-3 text-left">
-										Name
+										<div className="flex items-center gap-1">
+											<span>Name</span>
+											<HeaderFilter
+												label="Name"
+												isActive={Boolean(
+													headerFilters.name.trim()
+												)}
+												onClear={() =>
+													updateHeaderFilter({
+														name: "",
+													})
+												}
+											>
+												<Input
+													value={headerFilters.name}
+													onChange={(event) =>
+														updateHeaderFilter({
+															name: event.target.value,
+														})
+													}
+													placeholder="Name"
+													className="h-8 text-xs"
+												/>
+											</HeaderFilter>
+										</div>
 									</th>
 									<th className="px-4 py-3 text-left">
-										Email
+										<div className="flex items-center gap-1">
+											<span>Email</span>
+											<HeaderFilter
+												label="Email"
+												isActive={Boolean(
+													headerFilters.email.trim()
+												)}
+												onClear={() =>
+													updateHeaderFilter({
+														email: "",
+													})
+												}
+											>
+												<Input
+													value={headerFilters.email}
+													onChange={(event) =>
+														updateHeaderFilter({
+															email: event.target.value,
+														})
+													}
+													placeholder="Email"
+													className="h-8 text-xs"
+												/>
+											</HeaderFilter>
+										</div>
 									</th>
 									<th className="px-4 py-3 text-left">
-										Affiliation
+										<div className="flex items-center gap-1">
+											<span>Affiliation</span>
+											<HeaderFilter
+												label="Affiliation"
+												isActive={Boolean(
+													headerFilters.affiliation.trim()
+												)}
+												onClear={() =>
+													updateHeaderFilter({
+														affiliation: "",
+													})
+												}
+											>
+												<Input
+													value={
+														headerFilters.affiliation
+													}
+													onChange={(event) =>
+														updateHeaderFilter({
+															affiliation:
+																event.target.value,
+														})
+													}
+													placeholder="Affiliation"
+													className="h-8 text-xs"
+												/>
+											</HeaderFilter>
+										</div>
 									</th>
 									<th className="px-4 py-3 text-left">
-										User Type
+										<div className="flex items-center gap-1">
+											<span>User Type</span>
+											<HeaderFilter
+												label="User Type"
+												isActive={
+													headerFilters.userType !==
+													"all"
+												}
+												onClear={() =>
+													updateHeaderFilter({
+														userType: "all",
+													})
+												}
+											>
+												<Select
+													value={
+														headerFilters.userType
+													}
+													onValueChange={(value) =>
+														updateHeaderFilter({
+															userType: value,
+														})
+													}
+												>
+													<SelectTrigger className="h-8 text-xs">
+														<SelectValue placeholder="All" />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="all">
+															All
+														</SelectItem>
+														{userTypeOptions.map(
+															(userType) => (
+																<SelectItem
+																	key={userType}
+																	value={userType}
+																>
+																	{userType}
+																</SelectItem>
+															)
+														)}
+													</SelectContent>
+												</Select>
+											</HeaderFilter>
+										</div>
 									</th>
 									<th className="px-4 py-3 text-left">
-										Level
+										<div className="flex items-center gap-1">
+											<span>Level</span>
+											<HeaderFilter
+												label="Level"
+												isActive={
+													headerFilters.level !== "all"
+												}
+												onClear={() =>
+													updateHeaderFilter({
+														level: "all",
+													})
+												}
+											>
+												<Select
+													value={headerFilters.level}
+													onValueChange={(value) =>
+														updateHeaderFilter({
+															level: value,
+														})
+													}
+												>
+													<SelectTrigger className="h-8 text-xs">
+														<SelectValue placeholder="All" />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="all">
+															All
+														</SelectItem>
+														{levelOptions.map(
+															(level) => (
+																<SelectItem
+																	key={level}
+																	value={level}
+																>
+																	{level}
+																</SelectItem>
+															)
+														)}
+													</SelectContent>
+												</Select>
+											</HeaderFilter>
+										</div>
 									</th>
 									<th className="px-4 py-3 text-left">
-										Created
+										<div className="flex items-center gap-1">
+											<span>Created</span>
+											<HeaderFilter
+												label="Created"
+												isActive={Boolean(
+													headerFilters.createdFrom ||
+														headerFilters.createdTo
+												)}
+												onClear={() =>
+													updateHeaderFilter({
+														createdFrom: "",
+														createdTo: "",
+													})
+												}
+											>
+												<div className="grid grid-cols-2 gap-2">
+													<Input
+														type="date"
+														value={
+															headerFilters.createdFrom
+														}
+														onChange={(event) =>
+															updateHeaderFilter({
+																createdFrom:
+																	event.target.value,
+															})
+														}
+														className="h-8 text-xs"
+														aria-label="Created from"
+													/>
+													<Input
+														type="date"
+														value={
+															headerFilters.createdTo
+														}
+														onChange={(event) =>
+															updateHeaderFilter({
+																createdTo:
+																	event.target.value,
+															})
+														}
+														className="h-8 text-xs"
+														aria-label="Created to"
+													/>
+												</div>
+											</HeaderFilter>
+										</div>
 									</th>
 									<th className="px-4 py-3 text-left">
 										Actions

@@ -1,33 +1,154 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import type { ComponentType } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+	AlertCircle,
+	AtSign,
+	Building2,
+	CalendarDays,
+	Check,
+	Edit3,
+	IdCard,
+	Loader2,
+	Mail,
+	Save,
+	ShieldCheck,
+	UserRound,
+	X,
+} from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AuthService, User } from "@/lib/auth";
-import {
-	User as UserIcon,
-	Mail,
-	Building,
-	Shield,
-	Calendar,
-	Edit,
-	Save,
-	X,
-	Phone,
-	MapPin,
-} from "lucide-react";
+import { AuthService, type UpdateUserPayload, type User } from "@/lib/auth";
+import { cn } from "@/lib/utils";
+
+type ProfileForm = Pick<
+	User,
+	"firstName" | "lastName" | "otherName" | "email" | "affiliation"
+>;
+
+const EMPTY_FORM: ProfileForm = {
+	firstName: "",
+	lastName: "",
+	otherName: "",
+	email: "",
+	affiliation: "",
+};
+
+function userToForm(user: User): ProfileForm {
+	return {
+		firstName: user.firstName ?? "",
+		lastName: user.lastName ?? "",
+		otherName: user.otherName ?? "",
+		email: user.email ?? "",
+		affiliation: user.affiliation ?? "",
+	};
+}
+
+function formatDate(dateString: string): string {
+	if (!dateString || dateString === "0001-01-01T00:00:00Z") {
+		return "Not set";
+	}
+
+	return new Date(dateString).toLocaleDateString("en-US", {
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+	});
+}
+
+function getFullName(user: User): string {
+	const names = [user.firstName, user.otherName, user.lastName].filter(Boolean);
+	return names.length > 0 ? names.join(" ") : user.username;
+}
+
+function getInitials(user: User): string {
+	const first = user.firstName || user.username.charAt(0);
+	const last = user.lastName || user.username.charAt(1);
+	return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
+}
+
+function getRoleBadgeClass(level: string): string {
+	switch (level.toLowerCase()) {
+		case "admin":
+			return "border-red-200 bg-red-50 text-red-700";
+		case "district":
+			return "border-blue-200 bg-blue-50 text-blue-700";
+		case "reoc":
+			return "border-emerald-200 bg-emerald-50 text-emerald-700";
+		default:
+			return "border-slate-200 bg-slate-50 text-slate-700";
+	}
+}
+
+function ReadOnlyField({
+	label,
+	value,
+	icon: Icon,
+}: {
+	label: string;
+	value?: string;
+	icon: ComponentType<{ className?: string }>;
+}) {
+	return (
+		<div className="flex min-w-0 gap-3 rounded-md border bg-white px-3 py-2.5">
+			<Icon className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+			<div className="min-w-0">
+				<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+					{label}
+				</p>
+				<p className="truncate text-sm font-medium text-slate-900">
+					{value || "Not provided"}
+				</p>
+			</div>
+		</div>
+	);
+}
+
+function EditableField({
+	id,
+	label,
+	value,
+	placeholder,
+	type = "text",
+	onChange,
+}: {
+	id: keyof ProfileForm;
+	label: string;
+	value: string;
+	placeholder: string;
+	type?: string;
+	onChange: (field: keyof ProfileForm, value: string) => void;
+}) {
+	return (
+		<div className="space-y-1.5">
+			<Label htmlFor={id} className="text-xs font-semibold text-slate-700">
+				{label}
+			</Label>
+			<Input
+				id={id}
+				type={type}
+				value={value}
+				onChange={(event) => onChange(id, event.target.value)}
+				placeholder={placeholder}
+				className="h-9"
+			/>
+		</div>
+	);
+}
 
 export default function ProfilePage() {
 	const [user, setUser] = useState<User | null>(null);
+	const [form, setForm] = useState<ProfileForm>(EMPTY_FORM);
 	const [loading, setLoading] = useState(true);
+	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [success, setSuccess] = useState<string | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
-	const [editedUser, setEditedUser] = useState<User | null>(null);
 
 	useEffect(() => {
 		const fetchUserProfile = async () => {
@@ -35,143 +156,129 @@ export default function ProfilePage() {
 				setLoading(true);
 				setError(null);
 
-				// Try to get user from localStorage first
 				const storedUser = AuthService.getUser();
 				if (storedUser) {
 					setUser(storedUser);
+					setForm(userToForm(storedUser));
 				}
 
-				// Fetch fresh data from API
 				const userData = await AuthService.fetchUserProfile();
 				setUser(userData);
-				setEditedUser(userData);
+				setForm(userToForm(userData));
 			} catch (err) {
 				console.error("Error fetching user profile:", err);
-				setError(
-					err instanceof Error
-						? err.message
-						: "Failed to load profile"
-				);
-
-				// Fallback to stored user data if API fails
 				const storedUser = AuthService.getUser();
 				if (storedUser) {
 					setUser(storedUser);
-					setEditedUser(storedUser);
+					setForm(userToForm(storedUser));
+					setError(
+						"Showing saved profile details. Could not refresh from the server."
+					);
+				} else {
+					setError(
+						err instanceof Error ? err.message : "Failed to load profile"
+					);
 				}
 			} finally {
 				setLoading(false);
 			}
 		};
 
-		fetchUserProfile();
+		void fetchUserProfile();
 	}, []);
 
-	const handleEdit = () => {
-		setIsEditing(true);
-		setEditedUser(user);
+	const completeness = useMemo(() => {
+		if (!user) return 0;
+		const fields = [
+			user.firstName,
+			user.lastName,
+			user.email,
+			user.affiliation,
+			user.level,
+			user.userType,
+		];
+		return Math.round((fields.filter(Boolean).length / fields.length) * 100);
+	}, [user]);
+
+	const handleFieldChange = (field: keyof ProfileForm, value: string) => {
+		setForm((current) => ({ ...current, [field]: value }));
+		setSuccess(null);
 	};
 
-	const handleCancelEdit = () => {
+	const handleEdit = () => {
+		if (!user) return;
+		setForm(userToForm(user));
+		setIsEditing(true);
+		setSuccess(null);
+	};
+
+	const handleCancel = () => {
+		if (user) setForm(userToForm(user));
 		setIsEditing(false);
-		setEditedUser(user);
+		setSuccess(null);
 	};
 
 	const handleSave = async () => {
-		if (!editedUser) return;
+		if (!user) return;
+		setSaving(true);
+		setError(null);
+		setSuccess(null);
+
+		const payload: UpdateUserPayload = {
+			username: user.username,
+			firstName: form.firstName,
+			lastName: form.lastName,
+			otherName: form.otherName,
+			email: form.email,
+			affiliation: form.affiliation,
+			userType: user.userType ?? "",
+			level: user.level ?? "",
+			password: "",
+		};
 
 		try {
-			// Here you would typically call an API to update the user
-			// For now, we'll just update the local state
-			setUser(editedUser);
+			const updatedUser = await AuthService.updateUser(user.id, payload);
+			setUser(updatedUser);
+			setForm(userToForm(updatedUser));
+			AuthService.setUser(updatedUser);
 			setIsEditing(false);
-			AuthService.setUser(editedUser);
+			setSuccess("Profile updated.");
 		} catch (err) {
 			console.error("Error saving profile:", err);
-			setError("Failed to save profile changes");
-		}
-	};
-
-	const formatDate = (dateString: string) => {
-		if (!dateString || dateString === "0001-01-01T00:00:00Z") {
-			return "Not set";
-		}
-		return new Date(dateString).toLocaleDateString("en-US", {
-			year: "numeric",
-			month: "long",
-			day: "numeric",
-		});
-	};
-
-	const getInitials = (user: User) => {
-		const first = user.firstName || user.username.charAt(0);
-		const last = user.lastName || user.username.charAt(1);
-		return (first.charAt(0) + last.charAt(0)).toUpperCase();
-	};
-
-	const getFullName = (user: User) => {
-		const names = [user.firstName, user.otherName, user.lastName].filter(
-			Boolean
-		);
-		return names.length > 0 ? names.join(" ") : user.username;
-	};
-
-	const getRoleBadgeColor = (level: string) => {
-		switch (level.toLowerCase()) {
-			case "admin":
-				return "bg-red-100 text-red-800";
-			case "operator":
-				return "bg-blue-100 text-blue-800";
-			case "viewer":
-				return "bg-green-100 text-green-800";
-			default:
-				return "bg-gray-100 text-gray-800";
+			setError(
+				err instanceof Error
+					? err.message
+					: "Failed to save profile changes"
+			);
+		} finally {
+			setSaving(false);
 		}
 	};
 
 	if (loading) {
 		return (
-			<div className="container mx-auto p-6">
-				<div className="flex items-center justify-center h-64">
-					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-uganda-red"></div>
+			<div className="mx-auto w-full max-w-6xl p-4 sm:p-6">
+				<div className="grid gap-4 lg:grid-cols-[22rem_1fr]">
+					<div className="h-64 animate-pulse rounded-md border bg-slate-100" />
+					<div className="h-64 animate-pulse rounded-md border bg-slate-100" />
 				</div>
-			</div>
-		);
-	}
-
-	if (error && !user) {
-		return (
-			<div className="container mx-auto p-6">
-				<Card>
-					<CardContent className="p-6">
-						<div className="text-center">
-							<div className="text-red-500 mb-4">
-								<UserIcon className="h-16 w-16 mx-auto" />
-							</div>
-							<h3 className="text-lg font-semibold text-gray-900 mb-2">
-								Error Loading Profile
-							</h3>
-							<p className="text-gray-600 mb-4">{error}</p>
-							<Button
-								onClick={() => window.location.reload()}
-								className="bg-uganda-red hover:bg-uganda-red/90"
-							>
-								Retry
-							</Button>
-						</div>
-					</CardContent>
-				</Card>
 			</div>
 		);
 	}
 
 	if (!user) {
 		return (
-			<div className="container mx-auto p-6">
-				<Card>
-					<CardContent className="p-6">
-						<div className="text-center text-gray-500">
-							No user data available
+			<div className="mx-auto w-full max-w-3xl p-4 sm:p-6">
+				<Card className="border-red-200 bg-red-50">
+					<CardContent className="flex items-start gap-3 p-4">
+						<AlertCircle className="mt-0.5 h-5 w-5 text-red-600" />
+						<div>
+							<h1 className="font-semibold text-red-950">
+								Profile unavailable
+							</h1>
+							<p className="text-sm text-red-800">
+								{error || "No user data is available for this session."}
+							</p>
 						</div>
 					</CardContent>
 				</Card>
@@ -179,373 +286,291 @@ export default function ProfilePage() {
 		);
 	}
 
+	const fullName = getFullName(user);
+	const level = user.level || "User";
+
 	return (
-		<div className="container mx-auto p-6 max-w-4xl">
-			<div className="mb-8">
-				<h1 className="text-3xl font-bold text-gray-900 mb-2">
-					Profile
-				</h1>
-				<p className="text-gray-600">
-					Manage your account information and settings
-				</p>
-			</div>
-
-			{error && (
-				<Card className="mb-6 border-red-200 bg-red-50">
-					<CardContent className="p-4">
-						<div className="flex items-center text-red-700">
-							<X className="h-5 w-5 mr-2" />
-							{error}
-						</div>
-					</CardContent>
-				</Card>
-			)}
-
-			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-				{/* Profile Overview */}
-				<Card className="lg:col-span-1">
-					<CardHeader>
-						<CardTitle className="text-lg">
-							Profile Overview
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="space-y-6">
-						<div className="text-center">
-							<Avatar className="h-24 w-24 mx-auto mb-4">
-								<AvatarImage
-									src=""
-									alt={getFullName(user)}
-								/>
-								<AvatarFallback className="text-xl font-semibold bg-gradient-to-br from-uganda-yellow to-uganda-red text-white">
+		<div className="mx-auto w-full max-w-6xl space-y-4 p-4 sm:p-6">
+			<section className="overflow-hidden rounded-md border bg-white shadow-sm">
+				<div className="border-b bg-slate-950 px-4 py-4 text-white sm:px-5">
+					<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+						<div className="flex min-w-0 items-center gap-4">
+							<Avatar className="h-16 w-16 border border-white/20">
+								<AvatarImage src="" alt={fullName} />
+								<AvatarFallback className="bg-uganda-yellow text-lg font-bold text-slate-950">
 									{getInitials(user)}
 								</AvatarFallback>
 							</Avatar>
-							<h3 className="text-xl font-semibold text-gray-900">
-								{getFullName(user)}
-							</h3>
-							<p className="text-gray-600 mb-2">
-								@{user.username}
-							</p>
-							<Badge
-								className={getRoleBadgeColor(
-									user.level
-								)}
-							>
-								{user.level || "User"}
-							</Badge>
-						</div>
-
-						<Separator />
-
-						<div className="space-y-4">
-							<div className="flex items-center space-x-3">
-								<Mail className="h-5 w-5 text-gray-400" />
-								<div>
-									<p className="text-sm font-medium text-gray-900">
-										Email
-									</p>
-									<p className="text-sm text-gray-600">
-										{user.email || "Not provided"}
-									</p>
+							<div className="min-w-0">
+								<div className="flex flex-wrap items-center gap-2">
+									<h1 className="truncate text-2xl font-semibold tracking-tight">
+										{fullName}
+									</h1>
+									<Badge
+										className={cn(
+											"border",
+											getRoleBadgeClass(level)
+										)}
+									>
+										{level}
+									</Badge>
 								</div>
-							</div>
-
-							<div className="flex items-center space-x-3">
-								<Building className="h-5 w-5 text-gray-400" />
-								<div>
-									<p className="text-sm font-medium text-gray-900">
-										Affiliation
-									</p>
-									<p className="text-sm text-gray-600">
-										{user.affiliation ||
-											"Not provided"}
-									</p>
-								</div>
-							</div>
-
-							<div className="flex items-center space-x-3">
-								<Shield className="h-5 w-5 text-gray-400" />
-								<div>
-									<p className="text-sm font-medium text-gray-900">
-										User Type
-									</p>
-									<p className="text-sm text-gray-600">
-										{user.userType ||
-											"Not specified"}
-									</p>
-								</div>
+								<p className="mt-1 flex items-center gap-1.5 text-sm text-slate-300">
+									<AtSign className="h-3.5 w-3.5" />
+									{user.username}
+								</p>
 							</div>
 						</div>
-					</CardContent>
-				</Card>
-
-				{/* Profile Details */}
-				<Card className="lg:col-span-2">
-					<CardHeader className="flex flex-row items-center justify-between">
-						<CardTitle className="text-lg">
-							Profile Details
-						</CardTitle>
-						<div className="flex space-x-2">
+						<div className="flex flex-wrap gap-2">
 							{isEditing ? (
 								<>
 									<Button
+										type="button"
 										variant="outline"
 										size="sm"
-										onClick={handleCancelEdit}
+										className="border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+										onClick={handleCancel}
+										disabled={saving}
 									>
-										<X className="h-4 w-4 mr-2" />
+										<X className="h-4 w-4" />
 										Cancel
 									</Button>
 									<Button
+										type="button"
 										size="sm"
+										className="bg-uganda-yellow text-slate-950 hover:bg-uganda-yellow/90"
 										onClick={handleSave}
-										className="bg-uganda-red hover:bg-uganda-red/90"
+										disabled={saving}
 									>
-										<Save className="h-4 w-4 mr-2" />
-										Save
+										{saving ? (
+											<Loader2 className="h-4 w-4 animate-spin" />
+										) : (
+											<Save className="h-4 w-4" />
+										)}
+										Save changes
 									</Button>
 								</>
 							) : (
 								<Button
-									variant="outline"
+									type="button"
 									size="sm"
+									className="bg-white text-slate-950 hover:bg-slate-100"
 									onClick={handleEdit}
 								>
-									<Edit className="h-4 w-4 mr-2" />
-									Edit
+									<Edit3 className="h-4 w-4" />
+									Edit profile
 								</Button>
 							)}
 						</div>
-					</CardHeader>
-					<CardContent className="space-y-6">
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div>
-								<Label htmlFor="firstName">
-									First Name
-								</Label>
-								{isEditing ? (
-									<Input
-										id="firstName"
-										value={
-											editedUser?.firstName ||
-											""
-										}
-										onChange={(e) =>
-											setEditedUser((prev) =>
-												prev
-													? {
-															...prev,
-															firstName:
-																e
-																	.target
-																	.value,
-													  }
-													: null
-											)
-										}
-										placeholder="Enter first name"
-									/>
-								) : (
-									<p className="text-sm text-gray-900 mt-1">
-										{user.firstName ||
-											"Not provided"}
-									</p>
-								)}
-							</div>
+					</div>
+				</div>
 
-							<div>
-								<Label htmlFor="lastName">
-									Last Name
-								</Label>
-								{isEditing ? (
-									<Input
-										id="lastName"
-										value={
-											editedUser?.lastName ||
-											""
-										}
-										onChange={(e) =>
-											setEditedUser((prev) =>
-												prev
-													? {
-															...prev,
-															lastName:
-																e
-																	.target
-																	.value,
-													  }
-													: null
-											)
-										}
-										placeholder="Enter last name"
-									/>
-								) : (
-									<p className="text-sm text-gray-900 mt-1">
-										{user.lastName ||
-											"Not provided"}
-									</p>
-								)}
-							</div>
+				<div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+					<ReadOnlyField label="Email" value={user.email} icon={Mail} />
+					<ReadOnlyField
+						label="Affiliation"
+						value={user.affiliation}
+						icon={Building2}
+					/>
+					<ReadOnlyField
+						label="User type"
+						value={user.userType || "Not specified"}
+						icon={IdCard}
+					/>
+					<ReadOnlyField
+						label="Account created"
+						value={formatDate(user.createdAt)}
+						icon={CalendarDays}
+					/>
+				</div>
+			</section>
 
-							<div>
-								<Label htmlFor="otherName">
-									Other Name
-								</Label>
-								{isEditing ? (
-									<Input
-										id="otherName"
-										value={
-											editedUser?.otherName ||
-											""
-										}
-										onChange={(e) =>
-											setEditedUser((prev) =>
-												prev
-													? {
-															...prev,
-															otherName:
-																e
-																	.target
-																	.value,
-													  }
-													: null
-											)
-										}
-										placeholder="Enter other name"
-									/>
-								) : (
-									<p className="text-sm text-gray-900 mt-1">
-										{user.otherName ||
-											"Not provided"}
-									</p>
-								)}
-							</div>
+			{(error || success) && (
+				<div
+					className={cn(
+						"flex items-start gap-2 rounded-md border px-3 py-2 text-sm",
+						error
+							? "border-red-200 bg-red-50 text-red-800"
+							: "border-emerald-200 bg-emerald-50 text-emerald-800"
+					)}
+				>
+					{error ? (
+						<AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+					) : (
+						<Check className="mt-0.5 h-4 w-4 shrink-0" />
+					)}
+					<span>{error || success}</span>
+				</div>
+			)}
 
+			<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+				<Card className="shadow-sm">
+					<CardContent className="p-4 sm:p-5">
+						<div className="mb-4 flex items-center justify-between gap-3">
 							<div>
-								<Label htmlFor="username">
-									Username
-								</Label>
-								<p className="text-sm text-gray-900 mt-1">
-									{user.username}
+								<h2 className="text-base font-semibold text-slate-950">
+									Personal Information
+								</h2>
+								<p className="text-sm text-slate-500">
+									Name, contact, and organizational details.
 								</p>
 							</div>
-
-							<div>
-								<Label htmlFor="email">
-									Email Address
-								</Label>
-								{isEditing ? (
-									<Input
-										id="email"
-										type="email"
-										value={
-											editedUser?.email || ""
-										}
-										onChange={(e) =>
-											setEditedUser((prev) =>
-												prev
-													? {
-															...prev,
-															email: e
-																.target
-																.value,
-													  }
-													: null
-											)
-										}
-										placeholder="Enter email address"
-									/>
-								) : (
-									<p className="text-sm text-gray-900 mt-1">
-										{user.email || "Not provided"}
-									</p>
-								)}
-							</div>
-
-							<div>
-								<Label htmlFor="affiliation">
-									Affiliation
-								</Label>
-								{isEditing ? (
-									<Input
-										id="affiliation"
-										value={
-											editedUser?.affiliation ||
-											""
-										}
-										onChange={(e) =>
-											setEditedUser((prev) =>
-												prev
-													? {
-															...prev,
-															affiliation:
-																e
-																	.target
-																	.value,
-													  }
-													: null
-											)
-										}
-										placeholder="Enter affiliation"
-									/>
-								) : (
-									<p className="text-sm text-gray-900 mt-1">
-										{user.affiliation ||
-											"Not provided"}
-									</p>
-								)}
-							</div>
-
-							<div>
-								<Label htmlFor="userType">
-									User Type
-								</Label>
-								<p className="text-sm text-gray-900 mt-1">
-									{user.userType || "Not specified"}
-								</p>
-							</div>
-
-							<div>
-								<Label htmlFor="level">
-									Access Level
-								</Label>
-								<div className="mt-1">
-									<Badge
-										className={getRoleBadgeColor(
-											user.level
-										)}
-									>
-										{user.level || "User"}
-									</Badge>
-								</div>
-							</div>
+							{!isEditing && (
+								<Badge
+									variant="outline"
+									className="hidden sm:inline-flex"
+								>
+									Read-only
+								</Badge>
+							)}
 						</div>
 
-						<Separator />
-
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div>
-								<Label>Account Created</Label>
-								<div className="flex items-center space-x-2 mt-1">
-									<Calendar className="h-4 w-4 text-gray-400" />
-									<p className="text-sm text-gray-900">
-										{formatDate(user.createdAt)}
-									</p>
-								</div>
-							</div>
-
-							<div>
-								<Label>Last Updated</Label>
-								<div className="flex items-center space-x-2 mt-1">
-									<Calendar className="h-4 w-4 text-gray-400" />
-									<p className="text-sm text-gray-900">
-										{formatDate(user.updatedAt)}
-									</p>
-								</div>
-							</div>
+						<div className="grid gap-4 sm:grid-cols-2">
+							{isEditing ? (
+								<>
+									<EditableField
+										id="firstName"
+										label="First name"
+										value={form.firstName}
+										placeholder="First name"
+										onChange={handleFieldChange}
+									/>
+									<EditableField
+										id="lastName"
+										label="Last name"
+										value={form.lastName}
+										placeholder="Last name"
+										onChange={handleFieldChange}
+									/>
+									<EditableField
+										id="otherName"
+										label="Other name"
+										value={form.otherName}
+										placeholder="Other name"
+										onChange={handleFieldChange}
+									/>
+									<EditableField
+										id="email"
+										label="Email address"
+										type="email"
+										value={form.email}
+										placeholder="Email address"
+										onChange={handleFieldChange}
+									/>
+									<div className="sm:col-span-2">
+										<EditableField
+											id="affiliation"
+											label="Affiliation"
+											value={form.affiliation}
+											placeholder="Affiliation"
+											onChange={handleFieldChange}
+										/>
+									</div>
+								</>
+							) : (
+								<>
+									<ReadOnlyField
+										label="First name"
+										value={user.firstName}
+										icon={UserRound}
+									/>
+									<ReadOnlyField
+										label="Last name"
+										value={user.lastName}
+										icon={UserRound}
+									/>
+									<ReadOnlyField
+										label="Other name"
+										value={user.otherName}
+										icon={UserRound}
+									/>
+									<ReadOnlyField
+										label="Email address"
+										value={user.email}
+										icon={Mail}
+									/>
+									<div className="sm:col-span-2">
+										<ReadOnlyField
+											label="Affiliation"
+											value={user.affiliation}
+											icon={Building2}
+										/>
+									</div>
+								</>
+							)}
 						</div>
 					</CardContent>
 				</Card>
+
+				<div className="space-y-4">
+					<Card className="shadow-sm">
+						<CardContent className="p-4">
+							<div className="mb-3 flex items-center gap-2">
+								<ShieldCheck className="h-4 w-4 text-emerald-600" />
+								<h2 className="text-sm font-semibold text-slate-950">
+									Access Summary
+								</h2>
+							</div>
+							<div className="space-y-3">
+								<div>
+									<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+										Access level
+									</p>
+									<Badge
+										className={cn(
+											"mt-1 border",
+											getRoleBadgeClass(level)
+										)}
+									>
+										{level}
+									</Badge>
+								</div>
+								<div>
+									<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+										User type
+									</p>
+									<p className="mt-1 text-sm font-medium text-slate-900">
+										{user.userType || "Not specified"}
+									</p>
+								</div>
+								<div>
+									<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+										Profile completeness
+									</p>
+									<div className="mt-2 h-2 rounded-full bg-slate-100">
+										<div
+											className="h-2 rounded-full bg-emerald-500"
+											style={{ width: `${completeness}%` }}
+										/>
+									</div>
+									<p className="mt-1 text-xs text-slate-500">
+										{completeness}% complete
+									</p>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
+
+					<Card className="shadow-sm">
+						<CardContent className="p-4">
+							<h2 className="mb-3 text-sm font-semibold text-slate-950">
+								Account Timeline
+							</h2>
+							<div className="space-y-3">
+								<ReadOnlyField
+									label="Created"
+									value={formatDate(user.createdAt)}
+									icon={CalendarDays}
+								/>
+								<ReadOnlyField
+									label="Last updated"
+									value={formatDate(user.updatedAt)}
+									icon={CalendarDays}
+								/>
+							</div>
+						</CardContent>
+					</Card>
+				</div>
 			</div>
 		</div>
 	);

@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { AlertCounts, CallLogAlert } from "@/app/dashboard/types";
-import { fetchAlertTotals, fetchAllAlerts } from "@/lib/fetch-alerts";
+import {
+	fetchAlertTotals,
+	fetchAllAlerts,
+	fetchTodayActivity,
+} from "@/lib/fetch-alerts";
 import {
 	getCachedAlerts,
 	isCacheFresh,
@@ -10,7 +14,8 @@ import {
 interface DashboardData {
 	alerts: CallLogAlert[];
 	alertCounts: AlertCounts;
-	todayAlerts: CallLogAlert[];
+	/** Count of alerts logged today (by createdAt, local time). */
+	todayAlerts: number;
 	todayVerified: number;
 }
 
@@ -23,19 +28,6 @@ interface UseDashboardDataReturn {
 	refetch: () => Promise<void>;
 }
 
-function computeTodayMetrics(alertsData: CallLogAlert[]) {
-	const today = new Date().toISOString().split("T")[0];
-
-	const todayAlerts = alertsData.filter((alert) => {
-		const alertDate = new Date(alert.date).toISOString().split("T")[0];
-		return alertDate === today;
-	});
-
-	const todayVerified = todayAlerts.filter((alert) => alert.isVerified).length;
-
-	return { todayAlerts, todayVerified };
-}
-
 export const useDashboardData = (): UseDashboardDataReturn => {
 	const [alerts, setAlerts] = useState<CallLogAlert[]>([]);
 	const [alertCounts, setAlertCounts] = useState<AlertCounts>({
@@ -43,7 +35,7 @@ export const useDashboardData = (): UseDashboardDataReturn => {
 		notVerified: 0,
 		total: 0,
 	});
-	const [todayAlerts, setTodayAlerts] = useState<CallLogAlert[]>([]);
+	const [todayAlerts, setTodayAlerts] = useState(0);
 	const [todayVerified, setTodayVerified] = useState(0);
 	const [loading, setLoading] = useState(true);
 	const [chartsLoading, setChartsLoading] = useState(true);
@@ -52,10 +44,19 @@ export const useDashboardData = (): UseDashboardDataReturn => {
 
 	const applyAlerts = useCallback((alertsData: CallLogAlert[]) => {
 		setAlerts(alertsData);
-		const today = computeTodayMetrics(alertsData);
-		setTodayAlerts(today.todayAlerts);
-		setTodayVerified(today.todayVerified);
 		setChartsLoading(false);
+	}, []);
+
+	// Today's activity comes from a dedicated createdAt-based query, kept separate
+	// from the capped 90-day dataset so a large backlog can't hide today's records.
+	const loadTodayActivity = useCallback(async () => {
+		try {
+			const today = await fetchTodayActivity();
+			setTodayAlerts(today.calls);
+			setTodayVerified(today.verified);
+		} catch {
+			// Non-fatal: a secondary metric shouldn't break the whole dashboard.
+		}
 	}, []);
 
 	const loadAlerts = useCallback(async (options?: { force?: boolean }) => {
@@ -126,7 +127,7 @@ export const useDashboardData = (): UseDashboardDataReturn => {
 			if (!cached) {
 				setAlerts([]);
 				setAlertCounts({ verified: 0, notVerified: 0, total: 0 });
-				setTodayAlerts([]);
+				setTodayAlerts(0);
 				setTodayVerified(0);
 				setChartsLoading(false);
 			}
@@ -135,11 +136,15 @@ export const useDashboardData = (): UseDashboardDataReturn => {
 		}
 	}, [applyAlerts]);
 
-	const refetch = useCallback(() => loadAlerts({ force: true }), [loadAlerts]);
+	const refetch = useCallback(
+		() => Promise.all([loadAlerts({ force: true }), loadTodayActivity()]).then(() => undefined),
+		[loadAlerts, loadTodayActivity]
+	);
 
 	useEffect(() => {
 		loadAlerts();
-	}, [loadAlerts]);
+		loadTodayActivity();
+	}, [loadAlerts, loadTodayActivity]);
 
 	useEffect(() => {
 		const unsubscribe = subscribeAlertsCache<CallLogAlert[]>((data) => {
