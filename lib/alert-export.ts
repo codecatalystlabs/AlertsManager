@@ -1,5 +1,7 @@
 /** Shared export helpers for alert / call-log data */
 
+import { deriveAlertOutcome } from "./alert-outcome";
+
 export interface ExportableAlert {
 	id?: number;
 	status: string;
@@ -16,6 +18,10 @@ export interface ExportableAlert {
 	isVerified?: boolean;
 	callTaker?: string;
 	narrative?: string;
+	// Verification-outcome sources (see deriveAlertOutcome for precedence).
+	caseVerificationDesk?: string | null;
+	fieldVerificationDecision?: string | null;
+	actions?: string | null;
 }
 
 type ExportColumn = {
@@ -44,15 +50,17 @@ const EXPORT_COLUMNS: ExportColumn[] = [
 		header: "Verified",
 		getValue: (a) => (a.isVerified ? "Yes" : "Pending"),
 	},
+	{
+		header: "Verification Outcome",
+		getValue: (a) => deriveAlertOutcome(a),
+	},
 	{ header: "Call Taker", getValue: (a) => a.callTaker ?? "" },
 	{ header: "Narrative", getValue: (a) => a.narrative ?? "" },
 ];
 
 /** Date window an export covers; either bound may be empty/omitted. */
 export interface ExportRange {
-	/** Inclusive start, YYYY-MM-DD. */
 	from?: string;
-	/** Inclusive end, YYYY-MM-DD. */
 	to?: string;
 }
 
