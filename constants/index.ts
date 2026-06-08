@@ -149,7 +149,7 @@ const alertResponse = [
     { code: "Dysentry", name: "Dysentry" },
     { code: "Guinea Worm", name: "Guinea Worm" },
     { code: "Hepatitis", name: "Hepatitis" },
-    { code: "IBVPD", name: "IBVPD" },
+    { code: "IBVPD", name: "IB-VPD (Invasive Bacterial Vaccine-Preventable Diseases)" },
     { code: "Maternal Death", name: "Maternal Death" },
     { code: "mDRTB", name: "mDRTB" },
     { code: "Polio", name: "Polio (AFP)" },

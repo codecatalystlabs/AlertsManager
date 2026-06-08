@@ -28,7 +28,11 @@ import {
 	ArrowLeft,
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
-import { getLocalDateString } from "@/lib/utils";
+import {
+	getLocalDateString,
+	getLocalDateTimeIsoString,
+	getLocalTimeString,
+} from "@/lib/utils";
 import Link from "next/link";
 import { alertSource, alertEntryStatus, signsAndSymptoms } from "@/constants";
 import { DistrictSelect } from "@/components/district-select";
@@ -39,7 +43,7 @@ export default function DashboardAddAlertPage() {
 	const router = useRouter();
 	const [formData, setFormData] = useState({
 		date: "",
-		time: "",
+		time: getLocalTimeString(),
 		callTaker: "",
 		// cif_no: "",
 		alertReportedBefore: "",
@@ -112,31 +116,15 @@ export default function DashboardAddAlertPage() {
 				);
 			}
 
-			// Helper function to format time properly
-			const formatTime = (timeString: string): string => {
-				if (!timeString) return new Date().toISOString();
-
-				if (timeString.match(/^\d{2}:\d{2}$/)) {
-					const today = new Date();
-					const [hours, minutes] = timeString.split(":");
-					today.setHours(
-						parseInt(hours, 10),
-						parseInt(minutes, 10),
-						0,
-						0
-					);
-					return today.toISOString();
-				}
-
-				return new Date().toISOString();
-			};
-
 			// Prepare the data to match the API structure
 			const alertData = {
 				date: formData.date
 					? new Date(formData.date).toISOString()
 					: new Date().toISOString(),
-				time: formatTime(formData.time),
+				time: getLocalDateTimeIsoString(
+					formData.date,
+					formData.time
+				),
 				callTaker: formData.callTaker || "",
 				// cifNo: formData.cif_no || "",
 				alertReportedBefore:
@@ -179,7 +167,7 @@ export default function DashboardAddAlertPage() {
 			// Reset form after successful submission
 			setFormData({
 				date: "",
-				time: "",
+				time: getLocalTimeString(),
 				callTaker: "",
 				// cif_no: "",
 				alertReportedBefore: "",
