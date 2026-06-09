@@ -18,7 +18,10 @@ import {
 } from "@/lib/fetch-eidsr-6767";
 import type { EidsrEventsListParams } from "@/lib/fetch-eidsr-events";
 import type { EidsrMessageOptions } from "@/lib/fetch-eidsr-messages";
-import { isEidsr6767Verified } from "@/lib/eidsr-verified-state";
+import {
+	isEidsr6767LinkedToAlert,
+	isEidsr6767Verified,
+} from "@/lib/eidsr-verified-state";
 import {
 	exportEidsrMessagesToCsv,
 	exportEidsrMessagesToExcel,
@@ -30,6 +33,8 @@ interface EidsrPagination {
 	total: number;
 	totalPages: number;
 }
+
+type EidsrLinkFilter = "all" | "linked" | "unlinked";
 
 interface UseEidsrEventsDataReturn {
 	messages: EidsrMessage[];
@@ -44,8 +49,8 @@ interface UseEidsrEventsDataReturn {
 	isValidating: boolean;
 	error: string | null;
 	syncMessage: string | null;
-	verificationFilter: "all" | "linked" | "unlinked";
-	setVerificationFilter: (f: "all" | "linked" | "unlinked") => void;
+	verificationFilter: EidsrLinkFilter;
+	setVerificationFilter: (f: EidsrLinkFilter) => void;
 	setFilters: (patch: Partial<EidsrAlertsFilterState>) => void;
 	clearFilters: () => void;
 	applyFilters: () => Promise<void>;
@@ -82,7 +87,7 @@ function toEventsApiParams(
 function filterMessagesClient(
 	messages: EidsrMessage[],
 	filters: EidsrAlertsFilterState,
-	verificationFilter: "all" | "linked" | "unlinked"
+	verificationFilter: EidsrLinkFilter
 ): EidsrMessage[] {
 	const localId = filters.localId.trim();
 	if (localId) {
@@ -93,10 +98,10 @@ function filterMessagesClient(
 	}
 
 	return messages.filter((m) => {
-		if (verificationFilter === "linked" && !isEidsr6767Verified(m)) {
+		if (verificationFilter === "linked" && !isEidsr6767LinkedToAlert(m)) {
 			return false;
 		}
-		if (verificationFilter === "unlinked" && isEidsr6767Verified(m)) {
+		if (verificationFilter === "unlinked" && isEidsr6767LinkedToAlert(m)) {
 			return false;
 		}
 		if (filters.status && filters.status !== "all") {
@@ -108,6 +113,52 @@ function filterMessagesClient(
 	});
 }
 
+function paginateMessages(
+	messages: EidsrMessage[],
+	page: number,
+	limit: number
+): EidsrMessage[] {
+	const start = Math.max(0, page - 1) * limit;
+	return messages.slice(start, start + limit);
+}
+
+function totalPagesFor(total: number, limit: number): number {
+	return limit > 0 ? Math.max(1, Math.ceil(total / limit)) : 1;
+}
+
+async function listMessagesForLinkFilter(
+	filters: EidsrAlertsFilterState
+): Promise<{ messages: EidsrMessage[]; total: number }> {
+	const maxRows = EIDSR_ALERTS_CONFIG.EXPORT_MAX_ROWS;
+	const firstPage = await listEidsr6767(toEventsApiParams(filters, 1, maxRows));
+	const messages = firstPage.messages.map((m) => enrichEidsrMessage(m));
+	const total = firstPage.pagination.total;
+	const cappedTotal = Math.min(total, maxRows);
+	const pageLimit = firstPage.pagination.limit || messages.length;
+
+	if (
+		pageLimit <= 0 ||
+		messages.length >= cappedTotal ||
+		firstPage.pagination.totalPages <= 1
+	) {
+		return { messages, total };
+	}
+
+	for (
+		let page = 2;
+		page <= firstPage.pagination.totalPages && messages.length < cappedTotal;
+		page += 1
+	) {
+		const remaining = maxRows - messages.length;
+		const nextPage = await listEidsr6767(
+			toEventsApiParams(filters, page, Math.min(pageLimit, remaining))
+		);
+		messages.push(...nextPage.messages.map((m) => enrichEidsrMessage(m)));
+	}
+
+	return { messages, total };
+}
+
 export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 	const [allMessages, setAllMessages] = useState<EidsrMessage[]>([]);
 	const [supportsSmsApi, setSupportsSmsApi] = useState(false);
@@ -116,9 +167,8 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 	const [filters, setFiltersState] = useState<EidsrAlertsFilterState>({
 		...EIDSR_INITIAL_FILTERS,
 	});
-	const [verificationFilter, setVerificationFilter] = useState<
-		"all" | "linked" | "unlinked"
-	>("all");
+	const [verificationFilter, setVerificationFilterState] =
+		useState<EidsrLinkFilter>("all");
 	const [page, setPageState] = useState(1);
 	const [limit, setLimitState] = useState<number>(
 		EIDSR_ALERTS_CONFIG.ITEMS_PER_PAGE
@@ -159,11 +209,15 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 		);
 		// Float pending (unverified) messages to the top of the page,
 		// preserving the server's received-date order within each group.
-		return [...filtered].sort(
+		const sorted = [...filtered].sort(
 			(a, b) =>
 				Number(isEidsr6767Verified(a)) - Number(isEidsr6767Verified(b))
 		);
-	}, [allMessages, filters, verificationFilter]);
+
+		return verificationFilter === "all"
+			? sorted
+			: paginateMessages(sorted, page, limit);
+	}, [allMessages, filters, verificationFilter, page, limit]);
 
 	const refreshStats = useCallback(
 		async (list: EidsrMessage[], eventsTotal: number) => {
@@ -182,6 +236,7 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 
 		try {
 			const current = filtersRef.current;
+			const currentVerificationFilter = verificationFilterRef.current;
 			const localId = current.localId.trim();
 
 			if (localId) {
@@ -197,22 +252,41 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 				setPageState(1);
 				await refreshStats([enriched], 1);
 			} else {
-				const pageResult = await listEidsr6767(
-					toEventsApiParams(
-						current,
-						pageRef.current,
-						limitRef.current
-					)
+				if (currentVerificationFilter === "all") {
+					const pageResult = await listEidsr6767(
+						toEventsApiParams(current, pageRef.current, limitRef.current)
+					);
+					const loaded = pageResult.messages.map((m) =>
+						enrichEidsrMessage(m)
+					);
+					setAllMessages(loaded);
+					setServerTotal(pageResult.pagination.total);
+					setServerTotalPages(pageResult.pagination.totalPages);
+					setPageState(pageResult.pagination.page);
+					setLimitState(pageResult.pagination.limit);
+					await refreshStats(loaded, pageResult.pagination.total);
+					return;
+				}
+
+				const { messages: loaded, total } =
+					await listMessagesForLinkFilter(current);
+				const filtered = filterMessagesClient(
+					loaded,
+					current,
+					currentVerificationFilter
 				);
-				const loaded = pageResult.messages.map((m) =>
-					enrichEidsrMessage(m)
+				const requestedPage = pageRef.current;
+				const nextTotalPages = totalPagesFor(
+					filtered.length,
+					limitRef.current
 				);
-				setAllMessages(loaded);
-				setServerTotal(pageResult.pagination.total);
-				setServerTotalPages(pageResult.pagination.totalPages);
-				setPageState(pageResult.pagination.page);
-				setLimitState(pageResult.pagination.limit);
-				await refreshStats(loaded, pageResult.pagination.total);
+				const nextPage = Math.min(requestedPage, nextTotalPages);
+				setAllMessages(filtered);
+				setServerTotal(filtered.length);
+				setServerTotalPages(nextTotalPages);
+				setPageState(nextPage);
+				pageRef.current = nextPage;
+				await refreshStats(loaded, total);
 			}
 		} catch (err) {
 			const message =
@@ -237,11 +311,19 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 		pageRef.current = 1;
 	}, []);
 
+	const setVerificationFilter = useCallback((filter: EidsrLinkFilter) => {
+		setVerificationFilterState(filter);
+		verificationFilterRef.current = filter;
+		setPageState(1);
+		pageRef.current = 1;
+	}, []);
+
 	const clearFilters = useCallback(() => {
 		const reset = { ...EIDSR_INITIAL_FILTERS };
 		filtersRef.current = reset;
 		setFiltersState(reset);
-		setVerificationFilter("all");
+		setVerificationFilterState("all");
+		verificationFilterRef.current = "all";
 		setPageState(1);
 		pageRef.current = 1;
 	}, []);
@@ -393,7 +475,7 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 
 	useEffect(() => {
 		void loadMessages();
-	}, [loadMessages, page, limit]);
+	}, [loadMessages, page, limit, verificationFilter]);
 
 	return {
 		messages,

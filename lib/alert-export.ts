@@ -58,7 +58,6 @@ const EXPORT_COLUMNS: ExportColumn[] = [
 	{ header: "Narrative", getValue: (a) => a.narrative ?? "" },
 ];
 
-/** Date window an export covers; either bound may be empty/omitted. */
 export interface ExportRange {
 	from?: string;
 	to?: string;
@@ -68,11 +67,7 @@ function dateStamp(): string {
 	return new Date().toISOString().split("T")[0];
 }
 
-/**
- * Build the download filename, encoding the selected date range so an exported
- * file is self-describing (e.g. call_logs_export_2026-01-01_to_2026-03-31.csv).
- * Falls back to today's stamp when no range is selected (full/all-time export).
- */
+
 function buildExportFilename(
 	prefix: string,
 	extension: string,

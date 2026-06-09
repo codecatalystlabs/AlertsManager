@@ -82,7 +82,7 @@ export function pickLinkedAlertId(obj: Record<string, unknown>): number | null {
 		obj.alert_id;
 	if (v == null || v === "") return null;
 	const n = Number(v);
-	return Number.isFinite(n) ? n : null;
+	return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 function normalizeDataValues(

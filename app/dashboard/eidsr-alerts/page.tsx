@@ -200,6 +200,7 @@ export default function EidsrAlertsPage() {
 				verifyInProgressId={verifyInProgressId}
 				onPageChange={setPage}
 				onPageSizeChange={setPageSize}
+				onInAlertsFilterChange={setVerificationFilter}
 				onView={handleView}
 				onEdit={handleEdit}
 				onVerify={handleVerify}

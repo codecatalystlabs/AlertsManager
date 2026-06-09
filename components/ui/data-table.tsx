@@ -135,6 +135,7 @@ interface DataTableProps<TData, TValue> {
   pageIndex?: number
   onPageChange?: (pageIndex: number) => void
   onPageSizeChange?: (pageSize: number) => void
+  onColumnFiltersChange?: (filters: ColumnFiltersState) => void
   isLoading?: boolean
   /** e.g. green background for verified rows */
   getRowClassName?: (row: Row<TData>) => string | undefined
@@ -346,6 +347,7 @@ export function DataTable<TData, TValue>({
   pageIndex: controlledPageIndex,
   onPageChange,
   onPageSizeChange,
+  onColumnFiltersChange,
   isLoading = false,
   getRowClassName,
 }: DataTableProps<TData, TValue>) {
@@ -367,6 +369,10 @@ export function DataTable<TData, TValue>({
       setPagination((prev) => ({ ...prev, pageIndex: controlledPageIndex }))
     }
   }, [controlledPageIndex])
+
+  React.useEffect(() => {
+    onColumnFiltersChange?.(columnFilters)
+  }, [columnFilters, onColumnFiltersChange])
 
   const table = useReactTable({
     data,

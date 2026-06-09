@@ -1,5 +1,5 @@
-import React, { memo, useMemo } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
+import React, { memo, useCallback, useMemo } from "react";
+import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ interface EidsrAlertsTableProps {
 	verifyInProgressId?: number | null;
 	onPageChange: (page: number) => void;
 	onPageSizeChange: (pageSize: number) => void;
+	onInAlertsFilterChange?: (filter: "all" | "linked" | "unlinked") => void;
 	onView: (message: EidsrMessage) => void;
 	onEdit: (message: EidsrMessage) => void;
 	onVerify: (message: EidsrMessage) => void;
@@ -233,6 +234,7 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 		verifyInProgressId = null,
 		onPageChange,
 		onPageSizeChange,
+		onInAlertsFilterChange,
 		onView,
 		onEdit,
 		onVerify,
@@ -246,6 +248,18 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 					verifyInProgressId,
 				}),
 			[onView, onEdit, onVerify, verifyInProgressId]
+		);
+		const handleColumnFiltersChange = useCallback(
+			(filters: ColumnFiltersState) => {
+				if (!onInAlertsFilterChange) return;
+
+				const value = filters.find((filter) => filter.id === "inAlerts")
+					?.value;
+				onInAlertsFilterChange(
+					value === "linked" || value === "unlinked" ? value : "all"
+				);
+			},
+			[onInAlertsFilterChange]
 		);
 
 		return (
@@ -267,6 +281,7 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 						pageIndex={page - 1}
 						onPageChange={(pageIndex) => onPageChange(pageIndex + 1)}
 						onPageSizeChange={onPageSizeChange}
+						onColumnFiltersChange={handleColumnFiltersChange}
 						isLoading={isLoading}
 						getRowClassName={(row) =>
 							verifiedTableRowClass(isEidsr6767Verified(row.original))

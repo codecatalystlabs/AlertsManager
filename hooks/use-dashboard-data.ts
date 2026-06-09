@@ -14,7 +14,7 @@ import {
 interface DashboardData {
 	alerts: CallLogAlert[];
 	alertCounts: AlertCounts;
-	/** Count of alerts logged today (by createdAt, local time). */
+	/** Count of alerts for today's alert date (local date). */
 	todayAlerts: number;
 	todayVerified: number;
 }
@@ -50,8 +50,8 @@ export const useDashboardData = (): UseDashboardDataReturn => {
 		setChartsLoading(false);
 	}, []);
 
-	// Today's activity comes from a dedicated createdAt-based query, kept separate
-	// from the capped 90-day dataset so a large backlog can't hide today's records.
+	// Today's activity comes from tiny count queries, kept separate from the
+	// capped 90-day dataset so a large backlog can't slow down these cards.
 	const loadTodayActivity = useCallback(async () => {
 		setTodayLoading(true);
 		try {

@@ -89,3 +89,14 @@ export function isEidsr6767Verified(message: EidsrMessage): boolean {
 		isVerified: message.isVerified,
 	}).isVerified;
 }
+
+/** Whether a 6767 row is linked to a concrete alert row. */
+export function isEidsr6767LinkedToAlert(message: EidsrMessage): boolean {
+	return (
+		resolveEidsrVerifiedState({
+			linkedAlertId: message.linkedAlertId,
+			raw: message.raw,
+			dataValues: message.dataValues,
+		}).linkedAlertId != null
+	);
+}
