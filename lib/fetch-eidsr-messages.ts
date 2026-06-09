@@ -15,7 +15,7 @@ import {
 	mergeEidsrMessages,
 	type EidsrMessage,
 } from "@/lib/eidsr-message-normalize";
-import { invalidateAlertsCache } from "@/lib/alerts-cache";
+import { notifyAlertsChanged } from "@/lib/alerts-events";
 
 export class EidsrMessagesFetchError extends Error {
 	constructor(
@@ -261,7 +261,7 @@ export async function verifyEidsrMessage(
 
 		if (response.ok) {
 			const json = (await response.json()) as EidsrMessageVerifyResult;
-			invalidateAlertsCache();
+			notifyAlertsChanged();
 			return json ?? {};
 		}
 

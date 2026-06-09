@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import useSWR from "swr";
 import {
 	buildCumulativeQuery,
 	buildDailyQuery,
 	buildReportsQuery,
 	defaultReportDateRange,
 	fetchReportMatrix,
+	fetchReportOptions,
 	fetchReportTimeseries,
 	todayIsoDate,
 	type ReportsDateRange,
@@ -13,7 +15,6 @@ import {
 	type ReportScope,
 	type ReportTimeseries,
 } from "@/lib/fetch-reports";
-import { loadReportOptions } from "@/lib/report-options-cache";
 
 interface UseReportsDataReturn {
 	options: ReportOptions;
@@ -48,6 +49,15 @@ interface UseReportsDataReturn {
 
 const DEFAULT_CHART_SCOPE: ReportScope = "cumulative";
 
+const DEFAULT_OPTIONS: ReportOptions = {
+	metrics: [],
+	districts: [],
+	scopes: [
+		{ value: "daily", label: "Daily" },
+		{ value: "cumulative", label: "Cumulative" },
+	],
+};
+
 function clampRange(range: ReportsDateRange): ReportsDateRange {
 	let { fromDate, toDate } = range;
 	if (fromDate && toDate && fromDate > toDate) {
@@ -56,161 +66,94 @@ function clampRange(range: ReportsDateRange): ReportsDateRange {
 	return { fromDate, toDate };
 }
 
-function errorMessage(err: unknown, fallback: string): string {
+function toMessage(err: unknown, fallback: string): string | null {
+	if (!err) return null;
 	return err instanceof Error ? err.message : fallback;
 }
 
 /**
- * Each report view (chart / cumulative / daily) owns its own filter and fetch:
- * the chart is driven by a date range + scope, while the cumulative and daily
- * tables are each driven by a single "as of" date. This keeps the three tabs
- * independent — changing one tab's date never refetches the others.
+ * Each report view (chart / cumulative / daily) owns its own filter and SWR
+ * query: the chart is driven by a date range + scope, while the cumulative and
+ * daily tables are each driven by a single "as of" date. SWR caches each by key,
+ * so revisiting a date paints instantly and changing one tab never refetches the
+ * others.
  */
 export function useReportsData(): UseReportsDataReturn {
-	const [options, setOptions] = useState<ReportOptions>({
-		metrics: [],
-		districts: [],
-		scopes: [
-			{ value: "daily", label: "Daily" },
-			{ value: "cumulative", label: "Cumulative" },
-		],
-	});
-	const [optionsLoading, setOptionsLoading] = useState(true);
-
 	// Chart tab.
 	const [chartRange, setChartRangeState] = useState<ReportsDateRange>(() =>
 		defaultReportDateRange()
 	);
 	const [chartScope, setChartScope] = useState<ReportScope>(DEFAULT_CHART_SCOPE);
-	const [timeseries, setTimeseries] = useState<ReportTimeseries | null>(null);
-	const [timeseriesLoading, setTimeseriesLoading] = useState(true);
-	const [timeseriesError, setTimeseriesError] = useState<string | null>(null);
 
 	// Cumulative tab.
 	const [cumulativeDate, setCumulativeDate] = useState<string>(() => todayIsoDate());
-	const [cumulativeMatrix, setCumulativeMatrix] = useState<ReportMatrix | null>(null);
-	const [cumulativeLoading, setCumulativeLoading] = useState(true);
-	const [cumulativeError, setCumulativeError] = useState<string | null>(null);
 
 	// Daily tab.
 	const [dailyDate, setDailyDate] = useState<string>(() => todayIsoDate());
-	const [dailyMatrix, setDailyMatrix] = useState<ReportMatrix | null>(null);
-	const [dailyLoading, setDailyLoading] = useState(true);
-	const [dailyError, setDailyError] = useState<string | null>(null);
 
-	const loadTimeseries = useCallback(async () => {
-		const range = clampRange(chartRange);
-		if (!range.fromDate || !range.toDate) return;
+	const optionsQuery = useSWR("report-options", fetchReportOptions, {
+		fallbackData: DEFAULT_OPTIONS,
+	});
 
-		setTimeseriesLoading(true);
-		setTimeseriesError(null);
-		try {
-			const series = await fetchReportTimeseries(
-				buildReportsQuery(range, chartScope)
-			);
-			setTimeseries(series);
-		} catch (err) {
-			setTimeseriesError(errorMessage(err, "Failed to load chart data"));
-		} finally {
-			setTimeseriesLoading(false);
-		}
-	}, [chartRange, chartScope]);
+	const range = clampRange(chartRange);
+	const timeseriesQuery = useSWR(
+		range.fromDate && range.toDate
+			? ["report-timeseries", range.fromDate, range.toDate, chartScope]
+			: null,
+		([, fromDate, toDate, scope]) =>
+			fetchReportTimeseries(
+				buildReportsQuery({ fromDate, toDate }, scope as ReportScope)
+			)
+	);
 
-	const loadCumulative = useCallback(async () => {
-		if (!cumulativeDate) return;
+	const cumulativeQuery = useSWR(
+		cumulativeDate ? ["report-cumulative", cumulativeDate] : null,
+		([, date]) => fetchReportMatrix(buildCumulativeQuery(date))
+	);
 
-		setCumulativeLoading(true);
-		setCumulativeError(null);
-		try {
-			const matrix = await fetchReportMatrix(
-				buildCumulativeQuery(cumulativeDate)
-			);
-			setCumulativeMatrix(matrix);
-		} catch (err) {
-			setCumulativeError(
-				errorMessage(err, "Failed to load cumulative report")
-			);
-		} finally {
-			setCumulativeLoading(false);
-		}
-	}, [cumulativeDate]);
-
-	const loadDaily = useCallback(async () => {
-		if (!dailyDate) return;
-
-		setDailyLoading(true);
-		setDailyError(null);
-		try {
-			const matrix = await fetchReportMatrix(buildDailyQuery(dailyDate));
-			setDailyMatrix(matrix);
-		} catch (err) {
-			setDailyError(errorMessage(err, "Failed to load daily report"));
-		} finally {
-			setDailyLoading(false);
-		}
-	}, [dailyDate]);
+	const dailyQuery = useSWR(
+		dailyDate ? ["report-daily", dailyDate] : null,
+		([, date]) => fetchReportMatrix(buildDailyQuery(date))
+	);
 
 	const setChartRange = useCallback((patch: Partial<ReportsDateRange>) => {
 		setChartRangeState((prev) => clampRange({ ...prev, ...patch }));
 	}, []);
 
-	useEffect(() => {
-		let cancelled = false;
-
-		async function loadOptions() {
-			try {
-				const opts = await loadReportOptions();
-				if (!cancelled) setOptions(opts);
-			} catch {
-				// Defaults are sufficient for the scope select.
-			} finally {
-				if (!cancelled) setOptionsLoading(false);
-			}
-		}
-
-		loadOptions();
-		return () => {
-			cancelled = true;
-		};
-	}, []);
-
-	useEffect(() => {
-		loadTimeseries();
-	}, [loadTimeseries]);
-
-	useEffect(() => {
-		loadCumulative();
-	}, [loadCumulative]);
-
-	useEffect(() => {
-		loadDaily();
-	}, [loadDaily]);
-
 	return {
-		options,
-		optionsLoading,
+		options: optionsQuery.data ?? DEFAULT_OPTIONS,
+		optionsLoading: optionsQuery.isLoading,
 
 		chartRange,
 		chartScope,
-		timeseries,
-		timeseriesLoading,
-		timeseriesError,
+		timeseries: timeseriesQuery.data ?? null,
+		timeseriesLoading: timeseriesQuery.isLoading,
+		timeseriesError: toMessage(timeseriesQuery.error, "Failed to load chart data"),
 		setChartRange,
 		setChartScope,
-		refetchTimeseries: loadTimeseries,
+		refetchTimeseries: async () => {
+			await timeseriesQuery.mutate();
+		},
 
 		cumulativeDate,
-		cumulativeMatrix,
-		cumulativeLoading,
-		cumulativeError,
+		cumulativeMatrix: cumulativeQuery.data ?? null,
+		cumulativeLoading: cumulativeQuery.isLoading,
+		cumulativeError: toMessage(
+			cumulativeQuery.error,
+			"Failed to load cumulative report"
+		),
 		setCumulativeDate,
-		refetchCumulative: loadCumulative,
+		refetchCumulative: async () => {
+			await cumulativeQuery.mutate();
+		},
 
 		dailyDate,
-		dailyMatrix,
-		dailyLoading,
-		dailyError,
+		dailyMatrix: dailyQuery.data ?? null,
+		dailyLoading: dailyQuery.isLoading,
+		dailyError: toMessage(dailyQuery.error, "Failed to load daily report"),
 		setDailyDate,
-		refetchDaily: loadDaily,
+		refetchDaily: async () => {
+			await dailyQuery.mutate();
+		},
 	};
 }

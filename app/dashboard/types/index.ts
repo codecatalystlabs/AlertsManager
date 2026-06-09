@@ -22,6 +22,8 @@ interface DashboardAlert {
 interface AlertCounts {
     verified: number;
     notVerified: number;
+    discarded: number;
+    alerts: number;
     total: number;
 }
 

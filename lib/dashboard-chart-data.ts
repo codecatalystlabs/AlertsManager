@@ -3,20 +3,22 @@
  *
  * Critical analysis (data semantics & limitations):
  * - Verification counts use `isVerified` (boolean), not the string `verified` field.
- * - "Total Calls Today" on the dashboard counts alerts whose `date` equals today (UTC
- *   slice via toISOString), not telephony call-log records — label is misleading.
- * - "Pending Verification" duplicates "Not Verified Alerts" (same notVerified key).
+ * - Dashboard KPI wording treats rows as signals; actionable alerts are derived
+ *   from verified signals after removing discarded outcomes.
  * - Sidebar "Call Logs" badge is hardcoded ("3") and does not reflect live call-log data.
  * - Zero "today" metrics can mean no alerts filed today OR timezone skew (UTC vs EAT).
  * - Status breakdown treats Unknown/Pending together; other statuses roll into "Other".
  */
 
 import { CallLogAlert } from '@/app/dashboard/types';
+import { deriveAlertOutcome } from '@/lib/alert-outcome';
+import { DESK_VERIFICATION_OPTIONS } from '@/lib/verification-options';
 
 export interface ChartCountItem {
 	key: string;
 	label: string;
 	count: number;
+	color?: string;
 }
 
 export interface TimelineItem {
@@ -35,6 +37,24 @@ const MONTH_NAMES = [
 	'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ];
 
+const OTHER_OUTCOMES_LABEL = "Others";
+
+const OUTCOME_COLORS: Record<string, string> = {
+	"Field Case Verification": "#0066CC",
+	Discarded: "#D90000",
+	"Validated for EMS Evacuation": "#7c3aed",
+	"Mortality Surveillance/Supervised Burial": "#111827",
+	"Sample Collected": "#16a34a",
+	[OTHER_OUTCOMES_LABEL]: "#6b7280",
+};
+
+function keyFromLabel(label: string): string {
+	return label
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-|-$/g, "");
+}
+
 function parseAlertDate(alert: CallLogAlert): Date | null {
 	const d = new Date(alert.date);
 	return Number.isNaN(d.getTime()) ? null : d;
@@ -49,8 +69,8 @@ export function getVerificationBreakdown(alerts: CallLogAlert[]): ChartCountItem
 	const notVerified = alerts.filter((a) => a.isVerified === false).length;
 
 	return [
-		{ key: 'verified', label: 'Verified', count: verified },
-		{ key: 'notVerified', label: 'Not Verified', count: notVerified },
+		{ key: 'verified', label: 'Verified Signals', count: verified },
+		{ key: 'notVerified', label: 'Unverified Signals', count: notVerified },
 	];
 }
 
@@ -74,6 +94,34 @@ export function getStatusDistribution(alerts: CallLogAlert[]): ChartCountItem[] 
 	}
 
 	return items.filter((item) => item.count > 0);
+}
+
+export function getVerificationOutcomeBreakdown(
+	alerts: CallLogAlert[]
+): ChartCountItem[] {
+	const counts = new Map<string, number>();
+	const allowedOutcomes = new Set<string>(DESK_VERIFICATION_OPTIONS);
+
+	for (const option of DESK_VERIFICATION_OPTIONS) {
+		counts.set(option, 0);
+	}
+	counts.set(OTHER_OUTCOMES_LABEL, 0);
+
+	for (const alert of alerts) {
+		if (!alert.isVerified) continue;
+
+		const outcome = deriveAlertOutcome(alert);
+		const label = allowedOutcomes.has(outcome) ? outcome : OTHER_OUTCOMES_LABEL;
+		counts.set(label, (counts.get(label) ?? 0) + 1);
+	}
+
+	return Array.from(counts.entries())
+		.map(([label, count]) => ({
+			key: keyFromLabel(label),
+			label,
+			count,
+			color: OUTCOME_COLORS[label] ?? "#475569",
+		}));
 }
 
 export function getAlertsOverTime(alerts: CallLogAlert[]): TimelineItem[] {

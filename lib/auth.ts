@@ -1,7 +1,8 @@
-import { invalidateAlertsCache } from '@/lib/alerts-cache'
 import { normalizeAlertFromApi } from '@/lib/alert-normalize'
 import { getClientApiBaseUrl } from '@/lib/api-config'
 import { notifyAuthStatusChange } from '@/lib/auth-events'
+import { notifyAlertsChanged } from '@/lib/alerts-events'
+import { clearPersistedSwrCache } from '@/lib/swr-cache-provider'
 
 const API_BASE_URL = getClientApiBaseUrl()
 
@@ -210,6 +211,8 @@ export class AuthService {
         } catch {
             /* private mode / storage disabled */
         }
+        // Drop the persisted SWR cache so a new login never sees the prior user's data.
+        clearPersistedSwrCache()
         notifyAuthStatusChange()
     }
 
@@ -451,7 +454,7 @@ export class AuthService {
 
             const newAlert = await response.json()
             console.log("Alert created successfully:", newAlert); // Debug log
-            invalidateAlertsCache()
+            notifyAlertsChanged()
             return newAlert
         } catch (error) {
             console.error('Error creating alert:', error)
@@ -476,7 +479,7 @@ export class AuthService {
                 throw new Error(errorMessage)
             }
 
-            invalidateAlertsCache()
+            notifyAlertsChanged()
         } catch (error) {
             console.error('Error deleting alert:', error)
             throw error
@@ -520,7 +523,7 @@ export class AuthService {
             }
 
             const updatedAlert = normalizeAlertFromApi(await response.json())
-            invalidateAlertsCache()
+            notifyAlertsChanged()
             return updatedAlert
         } catch (error) {
             console.error('Error updating alert:', error)
@@ -675,7 +678,7 @@ export class AuthService {
             }
 
             const data = await response.json()
-            invalidateAlertsCache()
+            notifyAlertsChanged()
             return data.alert
         } catch (error) {
             console.error('Error verifying alert:', error)

@@ -19,7 +19,7 @@ import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
 import { eidsrMessageToAlertShape } from "@/lib/eidsr-message-to-alert";
 import { getEidsr6767ById } from "@/lib/fetch-eidsr-6767";
 import { resolveEidsrVerifyId } from "@/lib/eidsr-message-normalize";
-import { invalidateAlertsCache } from "@/lib/alerts-cache";
+import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
 import { LAYOUT } from "@/constants/layout";
 import { CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -59,6 +59,8 @@ export default function EidsrAlertsPage() {
 		updateLocalMessage,
 		markMessageLinked,
 	} = useEidsrEventsData();
+
+	const invalidateAlerts = useInvalidateAlerts();
 
 	const [selected, setSelected] = useState<EidsrMessage | null>(null);
 	const [detailsOpen, setDetailsOpen] = useState(false);
@@ -140,11 +142,11 @@ export default function EidsrAlertsPage() {
 			if (selected) {
 				markMessageLinked(selected.id, linkedAlertId ?? null, true);
 			}
-			invalidateAlertsCache();
+			void invalidateAlerts();
 			void refetch();
 			setVerifyInProgressId(null);
 		},
-		[selected, markMessageLinked, refetch]
+		[selected, markMessageLinked, refetch, invalidateAlerts]
 	);
 
 	return (

@@ -3,39 +3,22 @@
 import React, { memo, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { StatsCard } from './stats-card';
-import { StatCardConfig, STAT_CARDS, ADDITIONAL_STATS } from '@/constants/dashboard';
+import { StatCardConfig, STAT_CARDS } from '@/constants/dashboard';
 import { AlertCounts } from '@/app/dashboard/types';
 
 interface StatsGridProps {
   alertCounts: AlertCounts;
-  todayAlerts: number;
-  todayVerified: number;
   /** Loading state for the range/all-time KPI cards (Total, Verified, …). */
   kpiLoading?: boolean;
-  /** Loading state for the two "Today" cards. */
-  todayLoading?: boolean;
 }
-
-// Keys whose loading is driven by today's activity, not the KPI counts.
-const TODAY_KEYS = new Set(['todayAlerts', 'todayVerified']);
 
 export const StatsGrid = memo<StatsGridProps>(({
   alertCounts,
-  todayAlerts,
-  todayVerified,
   kpiLoading = false,
-  todayLoading = false,
 }) => {
   const router = useRouter();
 
-  const statsData = useMemo(() => ({
-    ...alertCounts,
-    todayAlerts,
-    todayVerified,
-    verificationRate: alertCounts.total > 0 
-      ? Math.round((alertCounts.verified / alertCounts.total) * 100) 
-      : 0,
-  }), [alertCounts, todayAlerts, todayVerified]);
+  const statsData = useMemo(() => alertCounts, [alertCounts]);
 
   const handleCardClick = (config: StatCardConfig) => {
     if (config.route) {
@@ -48,16 +31,15 @@ export const StatsGrid = memo<StatsGridProps>(({
       key={config.id}
       config={config}
       data={statsData}
-      isLoading={TODAY_KEYS.has(config.key) ? todayLoading : kpiLoading}
+      isLoading={kpiLoading}
       onClick={() => handleCardClick(config)}
     />
   );
 
   return (
-    // One even grid: 6 cards lay out as 2 tidy rows of 3 on desktop (was an
-    // uneven 4-over-3 split). Falls back to 2 columns on tablet, 1 on mobile.
+    // Five workflow cards: signals first, actionable alerts last.
     <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {[...STAT_CARDS, ...ADDITIONAL_STATS].map(renderStatCard)}
+      {STAT_CARDS.map(renderStatCard)}
     </div>
   );
 });

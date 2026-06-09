@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
+import useSWR from 'swr';
 import { AuthService } from '@/lib/auth';
 import { exportAlertsToCsv, exportAlertsToExcel } from '@/lib/alert-export';
 import {
@@ -7,7 +8,7 @@ import {
     type CallLogsFilterState,
 } from '@/constants/call-logs';
 import { fetchAlertsPage, type AlertsListParams } from '@/lib/fetch-alerts';
-import { invalidateAlertsCache } from '@/lib/alerts-cache';
+import { useInvalidateAlerts } from '@/hooks/use-invalidate-alerts';
 
 export interface AlertLog {
     id: number;
@@ -126,6 +127,22 @@ function toApiParams(
         params.to_date = filters.toDate;
     }
 
+    // Map concrete statuses to the server `status` param so they filter the
+    // whole dataset. "other" (= any status that isn't Alive) has no single
+    // server value, so it stays a client-side page filter via applyClientFilters.
+    const statusMap: Record<string, string> = {
+        alive: 'Alive',
+        dead: 'Dead',
+        unknown: 'Unknown',
+    };
+    if (filters.status && statusMap[filters.status]) {
+        params.status = statusMap[filters.status];
+    }
+
+    if (filters.source && filters.source !== 'all') {
+        params.source = filters.source;
+    }
+
     return params;
 }
 
@@ -153,49 +170,41 @@ function applyClientFilters(alerts: AlertLog[], filters: CallLogsFilters): Alert
 }
 
 export const useCallLogsData = (): UseCallLogsDataReturn => {
-    const [alerts, setAlerts] = useState<AlertLog[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [isValidating, setIsValidating] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [filters, setFiltersState] = useState<CallLogsFilters>({
         ...CALL_LOGS_INITIAL_FILTERS,
     });
     const [selectedAlert, setSelectedAlert] = useState<AlertLog | null>(null);
     const [page, setPageState] = useState(1);
     const [limit, setLimitState] = useState<number>(CALL_LOGS_CONFIG.ITEMS_PER_PAGE);
-    const [total, setTotal] = useState(0);
-    const [totalPages, setTotalPages] = useState(1);
     const [exporting, setExporting] = useState<'csv' | 'excel' | null>(null);
 
     const filtersRef = useRef(filters);
     filtersRef.current = filters;
 
-    const loadAlerts = useCallback(async () => {
-        setIsValidating(true);
-        setError(null);
+    const invalidateAlerts = useInvalidateAlerts();
 
-        try {
-            const result = await fetchAlertsPage(
-                toApiParams(filtersRef.current, page, limit)
-            );
+    // Shares the ["alerts", …] key space with the alerts page, so identical
+    // requests dedupe and an alert mutation invalidates both views at once.
+    const { data, error: swrError, isLoading, isValidating, mutate } = useSWR(
+        ['alerts', toApiParams(filters, page, limit)] as const,
+        ([, params]) => fetchAlertsPage(params),
+        { keepPreviousData: true }
+    );
 
-            setAlerts(result.data as AlertLog[]);
-            setPageState(result.page);
-            setLimitState(result.limit);
-            setTotal(result.total);
-            setTotalPages(result.totalPages);
-        } catch (err) {
-            const errorMessage =
-                err instanceof Error ? err.message : 'Failed to fetch call logs';
-            setError(errorMessage);
-            setAlerts([]);
-            setTotal(0);
-            setTotalPages(1);
-        } finally {
-            setLoading(false);
-            setIsValidating(false);
-        }
-    }, [page, limit]);
+    const alerts = useMemo(() => (data?.data ?? []) as AlertLog[], [data]);
+
+    const pagination: CallLogsPagination = {
+        page: data?.page ?? page,
+        limit: data?.limit ?? limit,
+        total: data?.total ?? 0,
+        totalPages: data?.totalPages ?? 1,
+    };
+
+    const error = swrError
+        ? swrError instanceof Error
+            ? swrError.message
+            : 'Failed to fetch call logs'
+        : null;
 
     const loadAlertsForExport = useCallback(async (): Promise<AlertLog[]> => {
         // Walk every page in the selected range. A single huge `limit` is
@@ -238,14 +247,13 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
 
             try {
                 await AuthService.deleteAlert(alertId);
-                invalidateAlertsCache();
-                await loadAlerts();
+                await invalidateAlerts();
             } catch (err) {
-                setError('Failed to delete alert. Please try again.');
+                console.error('Failed to delete alert:', err);
                 throw err;
             }
         },
-        [loadAlerts]
+        [invalidateAlerts]
     );
 
     const setFilters = useCallback((newFilters: Partial<CallLogsFilters>) => {
@@ -330,27 +338,17 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         }
     }, [loadAlertsForExport, exportPrefix]);
 
-    const refetch = useCallback(() => loadAlerts(), [loadAlerts]);
-
-    useEffect(() => {
-        loadAlerts();
-    }, [
-        loadAlerts,
-        page,
-        limit,
-        filters.verification,
-        filters.district,
-        filters.fromDate,
-        filters.toDate,
-    ]);
+    const refetch = useCallback(async () => {
+        await mutate();
+    }, [mutate]);
 
     return {
         alerts,
         filteredAlerts,
         stats,
         filters,
-        pagination: { page, limit, total, totalPages },
-        loading,
+        pagination,
+        loading: isLoading,
         isValidating,
         error,
         selectedAlert,

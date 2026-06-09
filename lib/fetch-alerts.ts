@@ -2,14 +2,6 @@ import { AuthService, type Alert } from "@/lib/auth";
 import { normalizeAlertsList } from "@/lib/alert-normalize";
 import { getClientApiBaseUrl } from "@/lib/api-config";
 import { formatAlertsFetchError } from "@/lib/api-errors";
-import { getLocalDateString } from "@/lib/utils";
-import {
-	getCachedAlerts,
-	setCachedAlerts,
-	isCacheFresh,
-	isCacheUsable,
-	type FetchAlertsResult,
-} from "@/lib/alerts-cache";
 
 class AlertsFetchError extends Error {
 	constructor(
@@ -29,6 +21,8 @@ export interface AlertsListParams {
 	from_date?: string;
 	to_date?: string;
 	status?: string;
+	/** Sent as `source_of_alert` — matches the field name in the API response. */
+	source?: string;
 }
 
 export interface PaginatedAlertsResult<T> {
@@ -57,6 +51,8 @@ export interface DashboardRange {
 export interface AlertTotals {
 	verified: number;
 	notVerified: number;
+	discarded: number;
+	alerts: number;
 	total: number;
 }
 
@@ -83,6 +79,9 @@ function buildAlertsUrl(apiBase: string, params?: AlertsListParams): string {
 	}
 	if (params?.status) {
 		searchParams.set("status", params.status);
+	}
+	if (params?.source) {
+		searchParams.set("source_of_alert", params.source);
 	}
 
 	const query = searchParams.toString();
@@ -209,11 +208,13 @@ export async function fetchAlertTotals(): Promise<AlertTotals> {
 		total: all.total,
 		verified: verified.total,
 		notVerified: notVerified.total,
+		discarded: 0,
+		alerts: verified.total,
 	};
 }
 
 /** Bounded alerts for dashboard charts (last 90 days, max 1000 rows, parallel pages). */
-async function fetchDashboardAlertsFromApi(): Promise<Alert[]> {
+export async function fetchDashboardAlerts(): Promise<Alert[]> {
 	const range = dashboardDateRange();
 	const baseParams: AlertsListParams = {
 		page: 1,
@@ -270,38 +271,6 @@ export async function fetchAlertsForRange(
 	return [...first.data, ...rest.flatMap((page) => page.data)];
 }
 
-/** Alerts for today's alert date, counted from pagination metadata. */
-export interface TodayActivity {
-	/** Alerts whose alert date is today's local date. */
-	calls: number;
-	/** Of those, how many are already verified. */
-	verified: number;
-}
-
-/**
- * Count today's activity with two tiny metadata requests instead of downloading
- * and scanning recent alert rows in the browser.
- */
-export async function fetchTodayActivity(): Promise<TodayActivity> {
-	const todayLocal = getLocalDateString();
-	const todayRange = {
-		from_date: todayLocal,
-		to_date: todayLocal,
-	};
-
-	const [allToday, verifiedToday] = await Promise.all([
-		fetchAlertsPage({ ...todayRange, page: 1, limit: 1 }),
-		fetchAlertsPage({
-			...todayRange,
-			page: 1,
-			limit: 1,
-			is_verified: true,
-		}),
-	]);
-
-	return { calls: allToday.total, verified: verifiedToday.total };
-}
-
 /** Paginated alerts list: GET /api/v1/alerts?page=1&limit=10&district=... */
 export async function fetchAlertsPage(
 	params: AlertsListParams = {}
@@ -309,51 +278,4 @@ export async function fetchAlertsPage(
 	const apiBase = getClientApiBaseUrl();
 	const json = await requestAlerts<unknown>(buildAlertsUrl(apiBase, params));
 	return parsePaginatedAlertsResponse(json);
-}
-
-function warnBackgroundRevalidate(error: unknown): void {
-	if (process.env.NODE_ENV === "development") {
-		console.warn(
-			"[alerts] Background refresh failed; continuing with cached data.",
-			error instanceof Error ? error.message : error
-		);
-	}
-}
-
-/**
- * Fetch dashboard alerts with cache (90-day window, capped pages).
- * Stats totals should use fetchAlertTotals() in parallel for accuracy.
- */
-export async function fetchAllAlerts(
-	options: { force?: boolean } = {}
-): Promise<FetchAlertsResult<Alert[]>> {
-	const { force = false } = options;
-	const cached = getCachedAlerts<Alert[]>();
-
-	if (!force && cached) {
-		if (isCacheFresh()) {
-			return { data: cached.data, fromCache: true };
-		}
-
-		if (isCacheUsable()) {
-			return {
-				data: cached.data,
-				fromCache: true,
-				revalidate: async () => {
-					try {
-						const fresh = await fetchDashboardAlertsFromApi();
-						setCachedAlerts(fresh);
-						return fresh;
-					} catch (error) {
-						warnBackgroundRevalidate(error);
-						return null;
-					}
-				},
-			};
-		}
-	}
-
-	const data = await fetchDashboardAlertsFromApi();
-	setCachedAlerts(data);
-	return { data, fromCache: false };
 }

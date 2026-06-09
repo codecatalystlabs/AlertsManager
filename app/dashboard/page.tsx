@@ -16,6 +16,7 @@ import { useDashboardData } from "@/hooks/use-dashboard-data";
 import { useDashboardChartAlerts } from "@/hooks/use-dashboard-chart-alerts";
 import type { AlertCounts } from "@/app/dashboard/types";
 import { LAYOUT } from "@/constants/layout";
+import { deriveAlertOutcome } from "@/lib/alert-outcome";
 
 const DashboardCharts = dynamic(
 	() =>
@@ -31,7 +32,7 @@ const DashboardCharts = dynamic(
 );
 
 export default function DashboardPage(): JSX.Element {
-	const { data, loading, todayLoading, error, refetch } = useDashboardData();
+	const { data, loading, error, refetch } = useDashboardData();
 	const [range, setRange] = useState<DashboardRangeValue>(() =>
 		resolveDashboardRange(DEFAULT_RANGE_PRESET)
 	);
@@ -57,16 +58,32 @@ export default function DashboardPage(): JSX.Element {
 		await handleRefresh();
 	}, [handleRefresh]);
 
-	// KPI cards: exact all-time totals when no range/district is applied;
-	// otherwise counts derived from the alerts fetched for the current
-	// range + district (the same set that feeds the charts — no extra fetch).
+	// KPI cards: total/verified/unverified use exact all-time metadata when no
+	// range/district is applied. Discarded/actionable alerts are derived from
+	// the loaded signal rows because the lightweight totals API has no discarded
+	// outcome count.
 	const isUnbounded = !range.from && !range.to && district === "all";
 	const rangeCounts = useMemo<AlertCounts>(() => {
 		const total = rangeAlerts.length;
 		const verified = rangeAlerts.filter((a) => a.isVerified).length;
-		return { total, verified, notVerified: total - verified };
+		const discarded = rangeAlerts.filter(
+			(a) => a.isVerified && deriveAlertOutcome(a) === "Discarded"
+		).length;
+		return {
+			total,
+			verified,
+			notVerified: total - verified,
+			discarded,
+			alerts: Math.max(0, verified - discarded),
+		};
 	}, [rangeAlerts]);
-	const statCounts = isUnbounded ? data.alertCounts : rangeCounts;
+	const statCounts = isUnbounded
+		? {
+				...data.alertCounts,
+				discarded: rangeCounts.discarded,
+				alerts: Math.max(0, data.alertCounts.verified - rangeCounts.discarded),
+			}
+		: rangeCounts;
 	// KPI cards follow their data source: all-time totals load with the
 	// dashboard, range-scoped totals load with the chart fetch.
 	const statCountsLoading = isUnbounded ? loading : rangeLoading;
@@ -113,10 +130,7 @@ export default function DashboardPage(): JSX.Element {
 
 			<StatsGrid
 				alertCounts={statCounts}
-				todayAlerts={data.todayAlerts}
-				todayVerified={data.todayVerified}
-				kpiLoading={statCountsLoading}
-				todayLoading={todayLoading}
+				kpiLoading={statCountsLoading || (isUnbounded && rangeLoading)}
 			/>
 
 			<h2 className="text-base font-semibold text-gray-900">

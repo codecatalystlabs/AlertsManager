@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 
 interface StatsCardProps {
   config: StatCardConfig;
-  data: AlertCounts & { todayAlerts: number; todayVerified: number; verificationRate: number };
+  data: AlertCounts;
   onClick?: () => void;
   className?: string;
   /** Show a placeholder skeleton in place of the value while data loads. */
@@ -27,20 +27,12 @@ const CHIP_STYLES: Record<string, { bg: string; text: string }> = {
 const DEFAULT_CHIP = { bg: 'bg-gray-100', text: 'text-gray-600' };
 
 export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, className, isLoading }) => {
-  const { title, key, icon: Icon, iconBg, isPercentage } = config;
+  const { title, key, icon: Icon, iconBg } = config;
 
   const chip = CHIP_STYLES[iconBg] ?? DEFAULT_CHIP;
 
   const getValue = (): string => {
     const value = data[key as keyof typeof data];
-    
-    if (key === 'verificationRate') {
-      return data.total > 0 ? `${Math.round((data.verified / data.total) * 100)}%` : '0%';
-    }
-    
-    if (isPercentage) {
-      return `${value}%`;
-    }
     
     return value.toLocaleString();
   };
@@ -48,33 +40,21 @@ export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, classNam
   const getSubText = (): string => {
     switch (key) {
       case 'verified':
-        return `${data.verified} of ${data.total} alerts`;
+        return `${data.verified} of ${data.total} signals verified`;
       case 'notVerified':
-        return `${data.notVerified} of ${data.total} alerts`;
+        return `${data.notVerified} signals pending triage`;
+      case 'discarded':
+        return `${data.discarded} verified signals discarded`;
+      case 'alerts':
+        return `${data.verified} verified minus ${data.discarded} discarded`;
       case 'total':
-        return `${data.verified} verified, ${data.notVerified} pending`;
-      case 'verificationRate':
-        return `${data.verified} of ${data.total} verified`;
+        return `${data.verified} verified, ${data.notVerified} unverified`;
       default:
         return '';
     }
   };
 
-  const getSubIcon = () => {
-    switch (key) {
-      case 'verified':
-        return Icon;
-      case 'notVerified':
-        return Icon;
-      case 'total':
-      case 'verificationRate':
-        return Icon;
-      default:
-        return Icon;
-    }
-  };
-
-  const SubIcon = getSubIcon();
+  const SubIcon = Icon;
 
   return (
     <Card

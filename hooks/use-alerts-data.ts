@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import useSWR from 'swr';
 import { AuthService, Alert as AlertType } from '@/lib/auth';
 import { exportAlertsToCsv, exportAlertsToExcel } from '@/lib/alert-export';
 import { ALERTS_CONFIG } from '@/constants/alerts';
 import { fetchAlertsPage, type AlertsListParams } from '@/lib/fetch-alerts';
-import { loadReportOptions } from '@/lib/report-options-cache';
-import { invalidateAlertsCache } from '@/lib/alerts-cache';
+import { fetchReportOptions } from '@/lib/fetch-reports';
+import { useInvalidateAlerts } from '@/hooks/use-invalidate-alerts';
 
 interface AlertsFilters {
     status: string;
@@ -74,6 +75,22 @@ function toApiParams(
         params.is_verified = false;
     }
 
+    // Status, source and date are sent to the server so they filter the whole
+    // dataset, not just the loaded page. applyClientFilters() below still runs
+    // as a fallback in case the backend ignores a param.
+    if (filters.status && filters.status !== 'all') {
+        params.status = filters.status;
+    }
+
+    if (filters.source && filters.source !== 'all') {
+        params.source = filters.source;
+    }
+
+    if (filters.date) {
+        params.from_date = filters.date;
+        params.to_date = filters.date;
+    }
+
     return params;
 }
 
@@ -99,49 +116,51 @@ function applyClientFilters(alerts: AlertType[], filters: AlertsFilters): AlertT
 }
 
 export const useAlertsData = (): UseAlertsDataReturn => {
-    const [alerts, setAlerts] = useState<AlertType[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [isValidating, setIsValidating] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [deletingId, setDeletingId] = useState<number | null>(null);
     const [filters, setFiltersState] = useState<AlertsFilters>(initialFilters);
     const [page, setPageState] = useState(1);
     const [limit, setLimitState] = useState<number>(ALERTS_CONFIG.ITEMS_PER_PAGE);
-    const [total, setTotal] = useState(0);
-    const [totalPages, setTotalPages] = useState(1);
-    const [uniqueDistricts, setUniqueDistricts] = useState<string[]>([]);
+    const [deletingId, setDeletingId] = useState<number | null>(null);
     const [uniqueSources, setUniqueSources] = useState<string[]>([]);
 
     const filtersRef = useRef(filters);
     filtersRef.current = filters;
 
-    const loadAlerts = useCallback(async () => {
-        setIsValidating(true);
-        setError(null);
+    const invalidateAlerts = useInvalidateAlerts();
 
-        try {
-            const result = await fetchAlertsPage(
-                toApiParams(filtersRef.current, page, limit)
-            );
+    const {
+        data,
+        error: swrError,
+        isLoading,
+        isValidating,
+        mutate,
+    } = useSWR(
+        ['alerts', toApiParams(filters, page, limit)] as const,
+        ([, params]) => fetchAlertsPage(params),
+        { keepPreviousData: true }
+    );
 
-            setAlerts(result.data as AlertType[]);
-            setPageState(result.page);
-            setLimitState(result.limit);
-            setTotal(result.total);
-            setTotalPages(result.totalPages);
-        } catch (err) {
-            const errorMessage =
-                err instanceof Error ? err.message : 'Failed to fetch alerts';
-            console.error('Error fetching alerts:', err);
-            setError(errorMessage);
-            setAlerts([]);
-            setTotal(0);
-            setTotalPages(1);
-        } finally {
-            setLoading(false);
-            setIsValidating(false);
-        }
-    }, [page, limit]);
+    // District options share the reports endpoint; cached app-wide under one key.
+    const { data: reportOptions } = useSWR('report-options', fetchReportOptions);
+
+    const alerts = useMemo(() => (data?.data ?? []) as AlertType[], [data]);
+
+    const uniqueDistricts = useMemo(
+        () => (reportOptions?.districts ?? []).filter(Boolean),
+        [reportOptions]
+    );
+
+    const pagination: AlertsPagination = {
+        page: data?.page ?? page,
+        limit: data?.limit ?? limit,
+        total: data?.total ?? 0,
+        totalPages: data?.totalPages ?? 1,
+    };
+
+    const error = swrError
+        ? swrError instanceof Error
+            ? swrError.message
+            : 'Failed to fetch alerts'
+        : null;
 
     const loadAlertsForExport = useCallback(async (): Promise<AlertType[]> => {
         const result = await fetchAlertsPage({
@@ -157,19 +176,15 @@ export const useAlertsData = (): UseAlertsDataReturn => {
             try {
                 setDeletingId(alertId);
                 await AuthService.deleteAlert(alertId);
-                invalidateAlertsCache();
-                await loadAlerts();
+                await invalidateAlerts();
             } catch (err) {
-                const errorMessage =
-                    err instanceof Error ? err.message : 'Failed to delete alert';
                 console.error('Error deleting alert:', err);
-                setError(errorMessage);
                 throw err;
             } finally {
                 setDeletingId(null);
             }
         },
-        [loadAlerts]
+        [invalidateAlerts]
     );
 
     const setFilters = useCallback((newFilters: Partial<AlertsFilters>) => {
@@ -205,8 +220,8 @@ export const useAlertsData = (): UseAlertsDataReturn => {
             (alert) => alert.status === 'Unknown' || alert.status === 'Pending'
         ).length;
 
-        return { alive, dead, unknown, total: total || alerts.length };
-    }, [alerts, total]);
+        return { alive, dead, unknown, total: pagination.total || alerts.length };
+    }, [alerts, pagination.total]);
 
     const exportPrefix = ALERTS_CONFIG.EXPORT_FILENAME_PREFIX;
 
@@ -240,61 +255,42 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         }
     }, [loadAlertsForExport, exportPrefix]);
 
-    const refetch = useCallback(() => loadAlerts(), [loadAlerts]);
+    const refetch = useCallback(async () => {
+        await mutate();
+    }, [mutate]);
 
-    useEffect(() => {
-        loadAlerts();
-    }, [loadAlerts, page, limit, filters.district, filters.verification]);
+    // Accumulate the distinct alert sources seen across visited pages, so the
+    // source filter keeps options even after the user pages away from them.
+    const fromPage = useMemo(
+        () =>
+            Array.from(
+                new Set(
+                    alerts
+                        .map((alert) => alert.sourceOfAlert)
+                        .filter(Boolean) as string[]
+                )
+            ),
+        [alerts]
+    );
 
-    useEffect(() => {
-        let cancelled = false;
-
-        async function loadDistrictOptions() {
-            try {
-                const opts = await loadReportOptions();
-                if (!cancelled) {
-                    setUniqueDistricts(opts.districts.filter(Boolean));
-                }
-            } catch {
-                // District filter can stay empty if options fail
-            }
+    if (fromPage.length) {
+        const merged = Array.from(new Set([...uniqueSources, ...fromPage])).sort();
+        if (
+            merged.length !== uniqueSources.length ||
+            merged.some((value, index) => value !== uniqueSources[index])
+        ) {
+            // Safe state update during render (React bails out if unchanged).
+            setUniqueSources(merged);
         }
-
-        loadDistrictOptions();
-        return () => {
-            cancelled = true;
-        };
-    }, []);
-
-    useEffect(() => {
-        const fromPage = Array.from(
-            new Set(
-                alerts
-                    .map((alert) => alert.sourceOfAlert)
-                    .filter(Boolean) as string[]
-            )
-        );
-        if (!fromPage.length) return;
-
-        setUniqueSources((prev) => {
-            const merged = Array.from(new Set([...prev, ...fromPage])).sort();
-            if (
-                merged.length === prev.length &&
-                merged.every((value, index) => value === prev[index])
-            ) {
-                return prev;
-            }
-            return merged;
-        });
-    }, [alerts]);
+    }
 
     return {
         alerts,
         filteredAlerts,
         stats,
         filters,
-        pagination: { page, limit, total, totalPages },
-        loading,
+        pagination,
+        loading: isLoading,
         isValidating,
         error,
         deletingId,

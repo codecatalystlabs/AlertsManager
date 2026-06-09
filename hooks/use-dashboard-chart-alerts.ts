@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback } from "react";
+import useSWR from "swr";
 import { CallLogAlert } from "@/app/dashboard/types";
 import { fetchAlertsForRange, type DashboardRange } from "@/lib/fetch-alerts";
 
@@ -20,38 +21,36 @@ interface UseDashboardChartAlertsReturn {
  * and (optionally) a single district. Kept separate from useDashboardData so the
  * range/district pickers only drive the charts, not the all-time stat cards.
  *
+ * `keepPreviousData` keeps the current chart on screen while the next range loads,
+ * so changing the picker never flashes an empty chart.
+ *
  * @param district Selected district name, or "all"/undefined for no district filter.
  */
 export function useDashboardChartAlerts(
 	range: ChartRange,
 	district?: string
 ): UseDashboardChartAlertsReturn {
-	const [alerts, setAlerts] = useState<CallLogAlert[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
-
-	const load = useCallback(async () => {
-		setLoading(true);
-		setError(null);
-		try {
+	const { data, error: swrError, isLoading, mutate } = useSWR(
+		["dashboard-chart-alerts", range.from, range.to, district ?? "all"] as const,
+		([, from, to, dist]) => {
 			const params: DashboardRange = {};
-			if (range.from) params.from_date = range.from;
-			if (range.to) params.to_date = range.to;
-			const data = await fetchAlertsForRange(params, district);
-			setAlerts(data as CallLogAlert[]);
-		} catch (err) {
-			setError(
-				err instanceof Error ? err.message : "Failed to load chart data"
-			);
-			setAlerts([]);
-		} finally {
-			setLoading(false);
-		}
-	}, [range.from, range.to, district]);
+			if (from) params.from_date = from;
+			if (to) params.to_date = to;
+			return fetchAlertsForRange(params, dist);
+		},
+		{ keepPreviousData: true }
+	);
 
-	useEffect(() => {
-		load();
-	}, [load]);
+	const alerts = (data ?? []) as CallLogAlert[];
+	const error = swrError
+		? swrError instanceof Error
+			? swrError.message
+			: "Failed to load chart data"
+		: null;
 
-	return { alerts, loading, error, refetch: load };
+	const refetch = useCallback(async () => {
+		await mutate();
+	}, [mutate]);
+
+	return { alerts, loading: isLoading, error, refetch };
 }

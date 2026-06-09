@@ -1,41 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { loadDistrictOptions } from "@/lib/district-options-cache";
+import { useMemo } from "react";
+import useSWR from "swr";
+import { fetchDistricts } from "@/lib/fetch-admin-units";
 
 export function useDistrictOptions(currentValue?: string) {
-	const [districts, setDistricts] = useState<string[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+	const {
+		data,
+		error: swrError,
+		isLoading,
+	} = useSWR("district-options", fetchDistricts);
 
-	useEffect(() => {
-		let cancelled = false;
-
-		setLoading(true);
-		setError(null);
-
-		loadDistrictOptions()
-			.then((list) => {
-				if (cancelled) return;
-				setDistricts(list);
-			})
-			.catch((err) => {
-				if (cancelled) return;
-				setError(
-					err instanceof Error
-						? err.message
-						: "Failed to load districts"
-				);
-				setDistricts([]);
-			})
-			.finally(() => {
-				if (!cancelled) setLoading(false);
-			});
-
-		return () => {
-			cancelled = true;
-		};
-	}, []);
+	const districts = useMemo(() => data ?? [], [data]);
 
 	const options = useMemo(() => {
 		const trimmed = currentValue?.trim();
@@ -44,5 +20,11 @@ export function useDistrictOptions(currentValue?: string) {
 		return [trimmed, ...districts].sort((a, b) => a.localeCompare(b));
 	}, [districts, currentValue]);
 
-	return { districts: options, loading, error };
+	const error = swrError
+		? swrError instanceof Error
+			? swrError.message
+			: "Failed to load districts"
+		: null;
+
+	return { districts: options, loading: isLoading, error };
 }

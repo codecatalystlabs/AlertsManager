@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import useSWR from "swr";
 import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
 import {
 	deleteEidsrMessage,
@@ -13,60 +14,38 @@ import {
 } from "@/lib/fetch-eidsr-messages";
 
 export function useEidsrMessagesData() {
-	const [messages, setMessages] = useState<EidsrMessage[]>([]);
-	const [stats, setStats] = useState<Record<string, number>>({});
-	const [options, setOptions] = useState<EidsrMessageOptions>({});
-	const [loading, setLoading] = useState(true);
 	const [isSyncing, setIsSyncing] = useState(false);
-	const [error, setError] = useState<string | null>(null);
 	const [verificationFilter, setVerificationFilter] = useState<
 		"all" | "linked" | "unlinked"
 	>("all");
 
-	const loadStats = useCallback(async () => {
-		try {
-			const data = await getEidsrMessageStats();
-			setStats(data);
-		} catch {
-			// Stats are supplementary; do not block the page
-		}
-	}, []);
+	const listQuery = useSWR("eidsr-messages", () =>
+		getEidsrMessages({ all: true })
+	);
+	const statsQuery = useSWR("eidsr-messages-stats", getEidsrMessageStats);
+	const optionsQuery = useSWR("eidsr-messages-options", getEidsrMessageOptions);
 
-	const loadOptions = useCallback(async () => {
-		try {
-			const data = await getEidsrMessageOptions();
-			setOptions(data);
-		} catch {
-			// Options fall back to static lists in forms
-		}
-	}, []);
+	const messages = useMemo(() => listQuery.data ?? [], [listQuery.data]);
+	const stats = statsQuery.data ?? {};
+	const options: EidsrMessageOptions = optionsQuery.data ?? {};
+
+	const error = listQuery.error
+		? listQuery.error instanceof Error
+			? listQuery.error.message
+			: "Failed to load EIDSR messages"
+		: null;
+
+	/** Revalidate the stats panel (exposed for callers that mutate elsewhere). */
+	const loadStats = useCallback(async () => {
+		await statsQuery.mutate();
+	}, [statsQuery]);
 
 	const refetch = useCallback(async () => {
-		setLoading(true);
-		setError(null);
-		try {
-			const [list] = await Promise.all([
-				getEidsrMessages({ all: true }),
-				loadStats(),
-			]);
-			setMessages(list);
-		} catch (err) {
-			setError(
-				err instanceof Error ? err.message : "Failed to load EIDSR messages"
-			);
-		} finally {
-			setLoading(false);
-		}
-	}, [loadStats]);
-
-	useEffect(() => {
-		void loadOptions();
-		void refetch();
-	}, [refetch, loadOptions]);
+		await Promise.all([listQuery.mutate(), statsQuery.mutate()]);
+	}, [listQuery, statsQuery]);
 
 	const syncFromRemote = useCallback(async () => {
 		setIsSyncing(true);
-		setError(null);
 		try {
 			await syncEidsrMessages();
 			await refetch();
@@ -74,7 +53,6 @@ export function useEidsrMessagesData() {
 		} catch (err) {
 			const message =
 				err instanceof Error ? err.message : "Failed to sync EIDSR messages";
-			setError(message);
 			return { ok: false as const, message };
 		} finally {
 			setIsSyncing(false);
@@ -84,48 +62,65 @@ export function useEidsrMessagesData() {
 	const removeMessage = useCallback(
 		async (id: number) => {
 			await deleteEidsrMessage(id);
-			setMessages((prev) => prev.filter((m) => m.id !== id));
-			await loadStats();
+			await listQuery.mutate(
+				(prev) => (prev ?? []).filter((m) => m.id !== id),
+				{ revalidate: false }
+			);
+			await statsQuery.mutate();
 		},
-		[loadStats]
+		[listQuery, statsQuery]
 	);
 
-	const refreshMessage = useCallback(async (id: number) => {
-		const updated = await getEidsrMessage(id);
-		setMessages((prev) =>
-			prev.map((m) => (m.id === id ? updated : m))
-		);
-		return updated;
-	}, []);
+	const refreshMessage = useCallback(
+		async (id: number) => {
+			const updated = await getEidsrMessage(id);
+			await listQuery.mutate(
+				(prev) => (prev ?? []).map((m) => (m.id === id ? updated : m)),
+				{ revalidate: false }
+			);
+			return updated;
+		},
+		[listQuery]
+	);
 
-	const filteredMessages = messages.filter((m) => {
-		if (verificationFilter === "linked") return m.linkedAlertId != null;
-		if (verificationFilter === "unlinked") return m.linkedAlertId == null;
-		return true;
-	});
-
-	const updateLocalMessage = useCallback((updated: EidsrMessage) => {
-		setMessages((prev) =>
-			prev.map((m) => (m.id === updated.id ? updated : m))
-		);
-	}, []);
+	const updateLocalMessage = useCallback(
+		(updated: EidsrMessage) => {
+			void listQuery.mutate(
+				(prev) => (prev ?? []).map((m) => (m.id === updated.id ? updated : m)),
+				{ revalidate: false }
+			);
+		},
+		[listQuery]
+	);
 
 	const markMessageVerified = useCallback(
 		(id: number, linkedAlertId: number | null) => {
-			setMessages((prev) =>
-				prev.map((m) =>
-					m.id === id
-						? {
-								...m,
-								isVerified: true,
-								linkedAlertId: linkedAlertId ?? m.linkedAlertId,
-							}
-						: m
-				)
+			void listQuery.mutate(
+				(prev) =>
+					(prev ?? []).map((m) =>
+						m.id === id
+							? {
+									...m,
+									isVerified: true,
+									linkedAlertId: linkedAlertId ?? m.linkedAlertId,
+								}
+							: m
+					),
+				{ revalidate: false }
 			);
-			void loadStats();
+			void statsQuery.mutate();
 		},
-		[loadStats]
+		[listQuery, statsQuery]
+	);
+
+	const filteredMessages = useMemo(
+		() =>
+			messages.filter((m) => {
+				if (verificationFilter === "linked") return m.linkedAlertId != null;
+				if (verificationFilter === "unlinked") return m.linkedAlertId == null;
+				return true;
+			}),
+		[messages, verificationFilter]
 	);
 
 	return {
@@ -133,7 +128,7 @@ export function useEidsrMessagesData() {
 		allMessages: messages,
 		stats,
 		options,
-		loading,
+		loading: listQuery.isLoading,
 		isSyncing,
 		error,
 		verificationFilter,

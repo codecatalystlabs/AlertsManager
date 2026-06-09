@@ -6,6 +6,7 @@
  */
 
 import { CallLogAlert, AlertCounts } from '@/app/dashboard/types';
+import { deriveAlertOutcome } from '@/lib/alert-outcome';
 
 /**
  * Calculates alert statistics from raw alert data
@@ -19,6 +20,7 @@ export const calculateAlertStatistics = (alerts: CallLogAlert[]): AlertCounts & 
 } => {
     const verified = alerts.filter(alert => alert.isVerified === true).length;
     const notVerified = alerts.filter(alert => alert.isVerified === false).length;
+    const discarded = alerts.filter(alert => alert.isVerified && deriveAlertOutcome(alert) === 'Discarded').length;
     const total = alerts.length;
 
     const today = new Date().toISOString().split('T')[0];
@@ -33,6 +35,8 @@ export const calculateAlertStatistics = (alerts: CallLogAlert[]): AlertCounts & 
     return {
         verified,
         notVerified,
+        discarded,
+        alerts: Math.max(0, verified - discarded),
         total,
         verificationRate,
         totalToday: todayAlerts.length,
