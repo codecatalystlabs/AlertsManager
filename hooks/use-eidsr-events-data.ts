@@ -152,19 +152,32 @@ async function listMessagesForLinkFilter(
 		return { messages, total };
 	}
 
-	for (
-		let page = 2;
-		page <= firstPage.pagination.totalPages && messages.length < cappedTotal;
-		page += 1
-	) {
-		const remaining = maxRows - messages.length;
-		const nextPage = await listEidsr6767(
-			toEventsApiParams(filters, page, Math.min(pageLimit, remaining))
+	// Remaining pages needed to reach the cap. Fetched in bounded-concurrency
+	// batches rather than strictly one-at-a-time, so a backend that caps page
+	// size doesn't turn this into a long serial chain of round-trips.
+	const lastPage = Math.min(
+		firstPage.pagination.totalPages,
+		Math.ceil(cappedTotal / pageLimit)
+	);
+	const pageNumbers = Array.from(
+		{ length: lastPage - 1 },
+		(_, index) => index + 2
+	);
+	const CONCURRENCY = 6;
+	for (let i = 0; i < pageNumbers.length; i += CONCURRENCY) {
+		const batch = pageNumbers.slice(i, i + CONCURRENCY);
+		const results = await Promise.all(
+			batch.map((page) =>
+				listEidsr6767(toEventsApiParams(filters, page, pageLimit))
+			)
 		);
-		messages.push(...nextPage.messages.map((m) => enrichEidsrMessage(m)));
+		for (const result of results) {
+			messages.push(...result.messages.map((m) => enrichEidsrMessage(m)));
+		}
+		if (messages.length >= cappedTotal) break;
 	}
 
-	return { messages, total };
+	return { messages: messages.slice(0, cappedTotal), total };
 }
 
 /** Stats are supplementary — never let them fail the whole fetch. */

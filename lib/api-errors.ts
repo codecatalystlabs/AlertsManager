@@ -3,19 +3,15 @@ import { DEFAULT_API_BASE_URL, getServerApiBaseUrl } from "@/lib/api-config";
 const BACKEND_UNREACHABLE_HINT =
 	"The API server did not respond. Confirm the backend is online and that API_BASE_URL points to it, then retry.";
 
-/** Plain-text 500 from Next.js rewrites usually means the upstream refused the connection. */
+/** Network/proxy failures should be reported separately from upstream 500s. */
 export function isLikelyBackendUnreachable(
 	status: number,
 	bodyText: string
 ): boolean {
 	if (status < 500) return false;
 
-	const body = bodyText.trim();
-	if (!body) return true;
-
-	const normalized = body.toLowerCase();
+	const normalized = bodyText.trim().toLowerCase();
 	return (
-		normalized === "internal server error" ||
 		normalized.includes("econnrefused") ||
 		normalized.includes("failed to proxy")
 	);

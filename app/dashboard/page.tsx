@@ -31,7 +31,7 @@ const DashboardCharts = dynamic(
 	}
 );
 
-export default function DashboardPage(): JSX.Element {
+export default function DashboardPage(): React.JSX.Element {
 	const { data, loading, error, refetch } = useDashboardData();
 	const [range, setRange] = useState<DashboardRangeValue>(() =>
 		resolveDashboardRange(DEFAULT_RANGE_PRESET)

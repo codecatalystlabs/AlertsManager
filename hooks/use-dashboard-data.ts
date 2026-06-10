@@ -1,18 +1,16 @@
 import { useCallback, useMemo } from "react";
 import useSWR from "swr";
-import { AlertCounts, CallLogAlert } from "@/app/dashboard/types";
-import { fetchAlertTotals, fetchDashboardAlerts } from "@/lib/fetch-alerts";
+import { AlertCounts } from "@/app/dashboard/types";
+import { fetchAlertTotals } from "@/lib/fetch-alerts";
 import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
 
 interface DashboardData {
-	alerts: CallLogAlert[];
 	alertCounts: AlertCounts;
 }
 
 interface UseDashboardDataReturn {
 	data: DashboardData;
 	loading: boolean;
-	chartsLoading: boolean;
 	isValidating: boolean;
 	error: string | null;
 	refetch: () => Promise<void>;
@@ -27,11 +25,13 @@ const EMPTY_COUNTS: AlertCounts = {
 };
 
 export const useDashboardData = (): UseDashboardDataReturn => {
-	// Revalidate the cards/charts whenever an alert is created/deleted/verified.
+	// Revalidate the cards whenever an alert is created/deleted/verified.
 	useInvalidateAlerts();
 
+	// All-time KPI counts come from lightweight pagination metadata (3 tiny
+	// requests). The chart rows are fetched separately by useDashboardChartAlerts,
+	// so the dashboard no longer eagerly pulls ~1000 alert rows it never renders.
 	const totals = useSWR("alert-totals", fetchAlertTotals);
-	const dashboardAlerts = useSWR("dashboard-alerts", fetchDashboardAlerts);
 
 	const alertCounts = useMemo<AlertCounts>(
 		() =>
@@ -47,27 +47,20 @@ export const useDashboardData = (): UseDashboardDataReturn => {
 		[totals.data]
 	);
 
-	const alerts = useMemo(
-		() => (dashboardAlerts.data ?? []) as CallLogAlert[],
-		[dashboardAlerts.data]
-	);
-
-	const failure = totals.error ?? dashboardAlerts.error;
-	const error = failure
-		? failure instanceof Error
-			? failure.message
+	const error = totals.error
+		? totals.error instanceof Error
+			? totals.error.message
 			: "Failed to fetch alert data"
 		: null;
 
 	const refetch = useCallback(async () => {
-		await Promise.all([totals.mutate(), dashboardAlerts.mutate()]);
-	}, [totals, dashboardAlerts]);
+		await totals.mutate();
+	}, [totals]);
 
 	return {
-		data: { alerts, alertCounts },
+		data: { alertCounts },
 		loading: totals.isLoading,
-		chartsLoading: dashboardAlerts.isLoading,
-		isValidating: totals.isValidating || dashboardAlerts.isValidating,
+		isValidating: totals.isValidating,
 		error,
 		refetch,
 	};

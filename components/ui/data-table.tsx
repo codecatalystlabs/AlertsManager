@@ -359,16 +359,49 @@ export function DataTable<TData, TValue>({
     pageIndex: controlledPageIndex ?? 0,
     pageSize,
   })
+  const pendingManualPaginationRef = React.useRef<PaginationState | null>(null)
 
   React.useEffect(() => {
-    setPagination((prev) => ({ ...prev, pageSize }))
+    setPagination((prev) =>
+      prev.pageSize === pageSize ? prev : { ...prev, pageSize }
+    )
   }, [pageSize])
 
   React.useEffect(() => {
     if (controlledPageIndex !== undefined) {
-      setPagination((prev) => ({ ...prev, pageIndex: controlledPageIndex }))
+      setPagination((prev) =>
+        prev.pageIndex === controlledPageIndex
+          ? prev
+          : { ...prev, pageIndex: controlledPageIndex }
+      )
     }
   }, [controlledPageIndex])
+
+  React.useEffect(() => {
+    if (!manualPagination) {
+      pendingManualPaginationRef.current = null
+      return
+    }
+
+    const next = pendingManualPaginationRef.current
+    if (!next) return
+
+    pendingManualPaginationRef.current = null
+
+    if (next.pageIndex !== controlledPageIndex) {
+      onPageChange?.(next.pageIndex)
+    }
+    if (next.pageSize !== pageSize) {
+      onPageSizeChange?.(next.pageSize)
+    }
+  }, [
+    controlledPageIndex,
+    manualPagination,
+    onPageChange,
+    onPageSizeChange,
+    pageSize,
+    pagination,
+  ])
 
   React.useEffect(() => {
     onColumnFiltersChange?.(columnFilters)
@@ -385,11 +418,11 @@ export function DataTable<TData, TValue>({
       setPagination((prev) => {
         const next = typeof updater === "function" ? updater(prev) : updater
         if (manualPagination) {
-          if (next.pageIndex !== prev.pageIndex) {
-            onPageChange?.(next.pageIndex)
-          }
-          if (next.pageSize !== prev.pageSize) {
-            onPageSizeChange?.(next.pageSize)
+          if (
+            next.pageIndex !== prev.pageIndex ||
+            next.pageSize !== prev.pageSize
+          ) {
+            pendingManualPaginationRef.current = next
           }
         }
         return next

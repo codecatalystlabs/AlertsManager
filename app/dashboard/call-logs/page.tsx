@@ -59,7 +59,7 @@ import { LAYOUT } from "@/constants/layout";
  *
  * @returns {JSX.Element} The call logs page component
  */
-export default function CallLogsPage(): JSX.Element {
+export default function CallLogsPage(): React.JSX.Element {
 	const {
 		filteredAlerts,
 		stats,

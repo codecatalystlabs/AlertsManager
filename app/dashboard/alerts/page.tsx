@@ -46,7 +46,7 @@ import { LAYOUT } from "@/constants/layout";
  *
  * @returns {JSX.Element} The alerts page component
  */
-export default function AlertsPage(): JSX.Element {
+export default function AlertsPage(): React.JSX.Element {
 	const {
 		filteredAlerts,
 		stats,

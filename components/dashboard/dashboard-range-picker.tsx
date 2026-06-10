@@ -18,9 +18,11 @@ export interface DashboardRangeValue {
 	to: string;
 }
 
-// All-time by default so the dashboard's KPI cards open on the familiar
-// full totals; users narrow to a range to scope both the cards and the charts.
-export const DEFAULT_RANGE_PRESET = "all";
+// Last 90 days by default: a dashboard should open on recent activity, and an
+// all-time default forced the chart fetch to page through up to CHART_MAX_PAGES
+// (20k rows) on every load — the main cause of slow dashboard loads. Users can
+// still pick "All time" to scope both the cards and the charts to the full set.
+export const DEFAULT_RANGE_PRESET = "90d";
 
 const PRESETS = [
 	{ id: "30d", label: "Last 30 days" },
