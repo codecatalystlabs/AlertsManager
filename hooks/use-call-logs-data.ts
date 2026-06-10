@@ -103,17 +103,24 @@ interface UseCallLogsDataReturn {
     clearFilters: () => void;
 }
 
+const CLIENT_FILTER_PAGE_LIMIT = 500;
+const CLIENT_FILTER_SCAN_PAGES = 8;
+let useClientVerificationFallback = false;
+
 function toApiParams(
     filters: CallLogsFilters,
     page: number,
-    limit: number
+    limit: number,
+    options: { includeVerification?: boolean } = {}
 ): AlertsListParams {
     const params: AlertsListParams = { page, limit };
 
-    if (filters.verification === 'verified') {
-        params.is_verified = true;
-    } else if (filters.verification === 'pending') {
-        params.is_verified = false;
+    if (options.includeVerification) {
+        if (filters.verification === 'verified') {
+            params.is_verified = true;
+        } else if (filters.verification === 'pending') {
+            params.is_verified = false;
+        }
     }
 
     if (filters.district && filters.district !== 'all') {
@@ -148,6 +155,11 @@ function toApiParams(
 
 function applyClientFilters(alerts: AlertLog[], filters: CallLogsFilters): AlertLog[] {
     return alerts.filter((alert) => {
+        const matchesVerification =
+            filters.verification === 'all' ||
+            (filters.verification === 'verified' && alert.isVerified) ||
+            (filters.verification === 'pending' && !alert.isVerified);
+
         const matchesStatus =
             filters.status === 'all' ||
             (filters.status === 'other' && alert.status !== 'Alive') ||
@@ -165,8 +177,111 @@ function applyClientFilters(alerts: AlertLog[], filters: CallLogsFilters): Alert
             (alert.alertCaseDistrict ?? '').toLowerCase().includes(search) ||
             (alert.id?.toString() ?? '').includes(filters.search);
 
-        return matchesStatus && matchesSource && matchesSearch;
+        return matchesVerification && matchesStatus && matchesSource && matchesSearch;
     });
+}
+
+function paginateAlerts(
+    alerts: AlertLog[],
+    page: number,
+    limit: number
+): AlertLog[] {
+    const start = Math.max(0, page - 1) * limit;
+    return alerts.slice(start, start + limit);
+}
+
+function totalPagesFor(total: number, limit: number): number {
+    return limit > 0 ? Math.max(1, Math.ceil(total / limit)) : 1;
+}
+
+function getFetchStatus(error: unknown): number | undefined {
+    if (!error || typeof error !== 'object' || !('status' in error)) {
+        return undefined;
+    }
+
+    const status = (error as { status?: unknown }).status;
+    return typeof status === 'number' ? status : undefined;
+}
+
+async function fetchClientFilteredCallLogsPage(
+    filters: CallLogsFilters,
+    page: number,
+    limit: number
+): Promise<CallLogsPagination & { data: AlertLog[] }> {
+    const fetchPage = (targetPage: number) =>
+        fetchAlertsPage(
+            toApiParams(filters, targetPage, CLIENT_FILTER_PAGE_LIMIT)
+        );
+
+    const first = await fetchPage(1);
+    const collected: AlertLog[] = [...(first.data as AlertLog[])];
+    const lastPage = Math.min(
+        Math.max(first.totalPages, 1),
+        Math.max(
+            CLIENT_FILTER_SCAN_PAGES,
+            Math.ceil((page * limit) / CLIENT_FILTER_PAGE_LIMIT)
+        )
+    );
+
+    for (let nextPage = 2; nextPage <= lastPage; nextPage += 1) {
+        const filteredCount = applyClientFilters(collected, filters).length;
+        if (filteredCount >= page * limit) {
+            break;
+        }
+
+        const pageResult = await fetchPage(nextPage);
+        collected.push(...(pageResult.data as AlertLog[]));
+    }
+
+    const filtered = applyClientFilters(collected, filters);
+    const data = paginateAlerts(filtered, page, limit);
+    const scannedAll = lastPage >= first.totalPages;
+    const knownTotal =
+        !scannedAll && data.length === limit ? page * limit + 1 : filtered.length;
+
+    return {
+        data,
+        page,
+        limit,
+        total: knownTotal,
+        totalPages: totalPagesFor(knownTotal, limit),
+    };
+}
+
+async function fetchCallLogsPage(
+    filters: CallLogsFilters,
+    page: number,
+    limit: number
+): Promise<CallLogsPagination & { data: AlertLog[] }> {
+    if (filters.verification !== 'all') {
+        if (useClientVerificationFallback) {
+            return fetchClientFilteredCallLogsPage(filters, page, limit);
+        }
+
+        try {
+            const result = await fetchAlertsPage(
+                toApiParams(filters, page, limit, { includeVerification: true })
+            );
+            return {
+                ...result,
+                data: result.data as AlertLog[],
+            };
+        } catch (error) {
+            const status = getFetchStatus(error);
+            if (status === undefined || status < 500) {
+                throw error;
+            }
+
+            useClientVerificationFallback = true;
+            return fetchClientFilteredCallLogsPage(filters, page, limit);
+        }
+    }
+
+    const result = await fetchAlertsPage(toApiParams(filters, page, limit));
+    return {
+        ...result,
+        data: result.data as AlertLog[],
+    };
 }
 
 export const useCallLogsData = (): UseCallLogsDataReturn => {
@@ -183,11 +298,11 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
 
     const invalidateAlerts = useInvalidateAlerts();
 
-    // Shares the ["alerts", …] key space with the alerts page, so identical
-    // requests dedupe and an alert mutation invalidates both views at once.
+    // Keep the "alerts" root so alert mutations invalidate this view too.
     const { data, error: swrError, isLoading, isValidating, mutate } = useSWR(
-        ['alerts', toApiParams(filters, page, limit)] as const,
-        ([, params]) => fetchAlertsPage(params),
+        ['alerts', 'call-logs', filters, page, limit] as const,
+        ([, , currentFilters, currentPage, currentLimit]) =>
+            fetchCallLogsPage(currentFilters, currentPage, currentLimit),
         { keepPreviousData: true }
     );
 

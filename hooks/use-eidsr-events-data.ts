@@ -134,52 +134,6 @@ function receivedTimestamp(m: EidsrMessage): number {
 	return Number.isNaN(t) ? 0 : t;
 }
 
-async function listMessagesForLinkFilter(
-	filters: EidsrAlertsFilterState
-): Promise<{ messages: EidsrMessage[]; total: number }> {
-	const maxRows = EIDSR_ALERTS_CONFIG.EXPORT_MAX_ROWS;
-	const firstPage = await listEidsr6767(toEventsApiParams(filters, 1, maxRows));
-	const messages = firstPage.messages.map((m) => enrichEidsrMessage(m));
-	const total = firstPage.pagination.total;
-	const cappedTotal = Math.min(total, maxRows);
-	const pageLimit = firstPage.pagination.limit || messages.length;
-
-	if (
-		pageLimit <= 0 ||
-		messages.length >= cappedTotal ||
-		firstPage.pagination.totalPages <= 1
-	) {
-		return { messages, total };
-	}
-
-	// Remaining pages needed to reach the cap. Fetched in bounded-concurrency
-	// batches rather than strictly one-at-a-time, so a backend that caps page
-	// size doesn't turn this into a long serial chain of round-trips.
-	const lastPage = Math.min(
-		firstPage.pagination.totalPages,
-		Math.ceil(cappedTotal / pageLimit)
-	);
-	const pageNumbers = Array.from(
-		{ length: lastPage - 1 },
-		(_, index) => index + 2
-	);
-	const CONCURRENCY = 6;
-	for (let i = 0; i < pageNumbers.length; i += CONCURRENCY) {
-		const batch = pageNumbers.slice(i, i + CONCURRENCY);
-		const results = await Promise.all(
-			batch.map((page) =>
-				listEidsr6767(toEventsApiParams(filters, page, pageLimit))
-			)
-		);
-		for (const result of results) {
-			messages.push(...result.messages.map((m) => enrichEidsrMessage(m)));
-		}
-		if (messages.length >= cappedTotal) break;
-	}
-
-	return { messages: messages.slice(0, cappedTotal), total };
-}
-
 /** Stats are supplementary — never let them fail the whole fetch. */
 async function safeStats(
 	list: EidsrMessage[],
@@ -201,11 +155,61 @@ interface EidsrFetchResult {
 	stats: Record<string, number>;
 }
 
+const LINK_FILTER_PAGE_LIMIT = 500;
+const LINK_FILTER_SCAN_PAGES = 8;
+
+async function fetchLinkedFilterPage(
+	filters: EidsrAlertsFilterState,
+	verificationFilter: Exclude<EidsrLinkFilter, "all">,
+	page: number,
+	limit: number
+): Promise<EidsrFetchResult> {
+	const fetchPage = (targetPage: number) =>
+		listEidsr6767(toEventsApiParams(filters, targetPage, LINK_FILTER_PAGE_LIMIT));
+
+	const first = await fetchPage(1);
+	const loaded = first.messages.map((m) => enrichEidsrMessage(m));
+	const scanThroughPage = Math.ceil((page * limit) / LINK_FILTER_PAGE_LIMIT);
+	const lastPage = Math.min(
+		first.pagination.totalPages,
+		Math.max(LINK_FILTER_SCAN_PAGES, scanThroughPage)
+	);
+
+	for (let nextPage = 2; nextPage <= lastPage; nextPage += 1) {
+		const filteredCount = filterMessagesClient(
+			loaded,
+			filters,
+			verificationFilter
+		).length;
+		if (filteredCount >= page * limit) break;
+
+		const result = await fetchPage(nextPage);
+		loaded.push(...result.messages.map((m) => enrichEidsrMessage(m)));
+	}
+
+	const filtered = filterMessagesClient(loaded, filters, verificationFilter);
+	const pageMessages = paginateMessages(filtered, page, limit);
+	const scannedAll = lastPage >= first.pagination.totalPages;
+	const knownTotal =
+		!scannedAll && pageMessages.length === limit
+			? page * limit + 1
+			: filtered.length;
+
+	return {
+		allMessages: pageMessages,
+		total: knownTotal,
+		totalPages: totalPagesFor(knownTotal, limit),
+		page,
+		limit,
+		stats: await safeStats(loaded, first.pagination.total),
+	};
+}
+
 /**
  * Single fetcher for the 6767 list. Branches on mode:
  * - `localId` set → fetch that one event.
  * - `verificationFilter === "all"` → server-paginated page.
- * - linked/unlinked → load all (capped), client-filter; the hook paginates.
+ * - linked/unlinked → bounded client-filtered scan; backend has no link filter.
  */
 async function fetchEidsr6767(
 	filters: EidsrAlertsFilterState,
@@ -247,16 +251,7 @@ async function fetchEidsr6767(
 		};
 	}
 
-	const { messages: loaded, total } = await listMessagesForLinkFilter(filters);
-	const filtered = filterMessagesClient(loaded, filters, verificationFilter);
-	return {
-		allMessages: filtered,
-		total: filtered.length,
-		totalPages: totalPagesFor(filtered.length, limit),
-		page,
-		limit,
-		stats: await safeStats(loaded, total),
-	};
+	return fetchLinkedFilterPage(filters, verificationFilter, page, limit);
 }
 
 export function useEidsrEventsData(): UseEidsrEventsDataReturn {
@@ -334,9 +329,7 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 			return receivedTimestamp(b) - receivedTimestamp(a);
 		});
 
-		if (verificationFilter === "all") return sorted;
-		const effectivePage = Math.min(page, totalPagesFor(sorted.length, limit));
-		return paginateMessages(sorted, effectivePage, limit);
+		return sorted;
 	}, [allMessages, filters, verificationFilter, page, limit]);
 
 	const setFilters = useCallback((patch: Partial<EidsrAlertsFilterState>) => {

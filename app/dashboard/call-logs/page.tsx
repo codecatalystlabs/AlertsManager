@@ -10,6 +10,7 @@ import {
 	CallLogsHeader,
 	CallLogsStats,
 	CallLogsFilters,
+	CallLogsVerificationTabs,
 	CallLogsTable,
 } from "@/components/call-logs";
 import { ErrorAlert } from "@/components/dashboard";
@@ -209,21 +210,26 @@ export default function CallLogsPage(): React.JSX.Element {
 				onClearFilters={clearFilters}
 			/>
 
-			<div ref={tableSectionRef}>
-			<CallLogsTable
-				alerts={filteredAlerts}
-				totalCount={pagination.total}
-				page={pagination.page}
-				pageSize={pagination.limit}
-				totalPages={pagination.totalPages}
-				isLoading={loading || isValidating}
-				onPageChange={setPage}
-				onPageSizeChange={setPageSize}
-				onViewDetails={handleViewDetails}
-				onEditAlert={handleEditAlert}
-				onVerifyAlert={handleVerifyAlert}
-				onDeleteAlert={handleDeleteAlert}
+			<CallLogsVerificationTabs
+				value={filters.verification}
+				onChange={(verification) => setFilters({ verification })}
 			/>
+
+			<div ref={tableSectionRef}>
+				<CallLogsTable
+					alerts={filteredAlerts}
+					totalCount={pagination.total}
+					page={pagination.page}
+					pageSize={pagination.limit}
+					totalPages={pagination.totalPages}
+					isLoading={loading || isValidating}
+					onPageChange={setPage}
+					onPageSizeChange={setPageSize}
+					onViewDetails={handleViewDetails}
+					onEditAlert={handleEditAlert}
+					onVerifyAlert={handleVerifyAlert}
+					onDeleteAlert={handleDeleteAlert}
+				/>
 			</div>
 
 			{/* Dialogs */}

@@ -7,6 +7,7 @@ import { ErrorAlert } from "@/components/dashboard";
 import {
 	EidsrAlertsFilters,
 	EidsrAlertsHeader,
+	EidsrLinkedTabs,
 	EidsrAlertsTable,
 } from "@/components/eidsr-alerts";
 import {
@@ -189,6 +190,11 @@ export default function EidsrAlertsPage() {
 				onApply={handleApplyFilters}
 				onClear={handleClearFilters}
 				isLoading={loading || isSyncing}
+			/>
+
+			<EidsrLinkedTabs
+				value={verificationFilter}
+				onChange={setVerificationFilter}
 			/>
 
 			<EidsrAlertsTable
