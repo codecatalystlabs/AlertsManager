@@ -280,8 +280,12 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 		([, f, vf, p, l]) => fetchEidsr6767(f, vf, p, l),
 		{
 			keepPreviousData: true,
-			// Always pull the latest 6767 signals when the user returns to the tab.
-			revalidateOnFocus: true,
+			// Poll while the page is visible instead of refreshing on every
+			// window-focus event, which can disrupt table review and dialogs.
+			refreshInterval: EIDSR_ALERTS_CONFIG.AUTO_REFRESH_INTERVAL_MS,
+			refreshWhenHidden: false,
+			refreshWhenOffline: false,
+			revalidateOnFocus: false,
 			revalidateOnReconnect: true,
 		}
 	);

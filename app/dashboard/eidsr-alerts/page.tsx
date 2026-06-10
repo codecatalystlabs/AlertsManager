@@ -41,7 +41,6 @@ export default function EidsrAlertsPage() {
 		pagination,
 		loading,
 		isSyncing,
-		isValidating,
 		error,
 		syncMessage,
 		verificationFilter,
@@ -156,7 +155,7 @@ export default function EidsrAlertsPage() {
 				onSyncFromRemote={handleSync}
 				onExportCsv={exportToCsv}
 				onExportExcel={exportToExcel}
-				isRefreshing={isRefreshing || isValidating}
+				isRefreshing={isRefreshing}
 				isSyncing={isSyncing}
 				isExporting={isExporting}
 			/>
@@ -189,7 +188,7 @@ export default function EidsrAlertsPage() {
 				onFiltersChange={setFilters}
 				onApply={handleApplyFilters}
 				onClear={handleClearFilters}
-				isLoading={loading || isValidating || isSyncing}
+				isLoading={loading || isSyncing}
 			/>
 
 			<EidsrAlertsTable
@@ -198,7 +197,7 @@ export default function EidsrAlertsPage() {
 				page={pagination.page}
 				pageSize={pagination.limit}
 				totalPages={pagination.totalPages}
-				isLoading={loading || isValidating}
+				isLoading={loading}
 				verifyInProgressId={verifyInProgressId}
 				onPageChange={setPage}
 				onPageSizeChange={setPageSize}

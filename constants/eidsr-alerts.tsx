@@ -4,6 +4,8 @@ export const EIDSR_ALERTS_CONFIG = {
 		"6767 EIDSR SMS messages — sync, review, and verify into alerts",
 	ITEMS_PER_PAGE: 10,
 	EXPORT_FILENAME_PREFIX: "6767_messages",
+	/** Background refresh cadence for the 6767 table while the page is open. */
+	AUTO_REFRESH_INTERVAL_MS: 60_000,
 	/** Max rows pulled in one request when exporting all matching messages. */
 	EXPORT_MAX_ROWS: 100000,
 } as const;
