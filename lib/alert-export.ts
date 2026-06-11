@@ -11,6 +11,7 @@ export interface ExportableAlert {
 	contactNumber: string;
 	sourceOfAlert: string;
 	alertCaseDistrict?: string;
+	subCounty?: string;
 	alertCaseName?: string;
 	alertCaseAge?: number;
 	alertCaseSex?: string;
@@ -56,6 +57,12 @@ const EXPORT_COLUMNS: ExportColumn[] = [
 	},
 	{ header: "Call Taker", getValue: (a) => a.callTaker ?? "" },
 	{ header: "Narrative", getValue: (a) => a.narrative ?? "" },
+];
+
+const EXCEL_COLUMNS: ExportColumn[] = [
+	...EXPORT_COLUMNS.slice(0, 8),
+	{ header: "Subcounty", getValue: (a) => a.subCounty ?? "" },
+	...EXPORT_COLUMNS.slice(8),
 ];
 
 export interface ExportRange {
@@ -168,7 +175,7 @@ export async function exportAlertsToExcel(
 	const XLSX = await import("xlsx");
 	const sheetData = alerts.map((alert) => {
 		const row: Record<string, string | number> = {};
-		for (const col of EXPORT_COLUMNS) {
+		for (const col of EXCEL_COLUMNS) {
 			row[col.header] = cellValue(col.getValue(alert));
 		}
 		return row;
