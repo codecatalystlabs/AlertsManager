@@ -1,10 +1,7 @@
 /** @type {import('next').NextConfig} */
-// Rewrite target must be an absolute upstream URL — never use NEXT_PUBLIC (/api/v1).
-// Defaults to the deployed backend; set API_BASE_URL in .env to use a local API.
-const apiBaseUrl = (
-  process.env.API_BASE_URL || "https://alerts.health.go.ug/api/v1"
-).replace(/\/$/, "")
-
+// /api/v1/* is proxied by app/api/v1/[...path]/route.ts (which forwards only an
+// allowlist of headers); a rewrite here would shadow nothing but, if it ever
+// fired, would forward the full browser header set and re-trigger 431 errors.
 const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
@@ -22,14 +19,6 @@ const nextConfig = {
       path: { browser: "./lib/empty-module.ts" },
       crypto: { browser: "./lib/empty-module.ts" },
     },
-  },
-  async rewrites() {
-    return [
-      {
-        source: "/api/v1/:path*",
-        destination: `${apiBaseUrl}/:path*`,
-      },
-    ]
   },
 }
 

@@ -131,6 +131,7 @@ export class AuthService {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(credentials),
+                credentials: 'omit',
             })
 
             if (!response.ok) {
@@ -191,6 +192,7 @@ export class AuthService {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${token}`,
                         },
+                        credentials: 'omit',
                     })
                     // Note: We don't throw errors here because we want to clear local storage regardless
                 } catch (error) {
@@ -664,6 +666,7 @@ export class AuthService {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(verificationData),
+                credentials: 'omit',
             })
 
             if (!response.ok) {
@@ -723,6 +726,10 @@ export class AuthService {
         const response = await fetch(url, {
             ...options,
             headers,
+            // Auth uses the Bearer token above, not cookies. Omitting credentials
+            // keeps the (shared, often huge) localhost cookie jar out of API
+            // requests, which otherwise triggers 431 Request Header Fields Too Large.
+            credentials: 'omit',
         })
 
         // If we get a 401, the token might be expired

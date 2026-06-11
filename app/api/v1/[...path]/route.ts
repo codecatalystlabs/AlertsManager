@@ -4,17 +4,17 @@ import { getServerApiBaseUrl } from "@/lib/api-config";
 
 export const dynamic = "force-dynamic";
 
-const HOP_BY_HOP_REQUEST_HEADERS = [
-	"connection",
-	"content-length",
-	"host",
-	"keep-alive",
-	"proxy-authenticate",
-	"proxy-authorization",
-	"te",
-	"trailer",
-	"transfer-encoding",
-	"upgrade",
+/**
+ * Only forward the headers the upstream API actually consumes. Forwarding the
+ * whole browser header set leaks the localhost cookie jar (shared across every
+ * dev app on localhost) and trips 431 Request Header Fields Too Large on the
+ * upstream. Auth is a Bearer token, so cookies are never needed.
+ */
+const FORWARDED_REQUEST_HEADERS = [
+	"accept",
+	"accept-language",
+	"authorization",
+	"content-type",
 ];
 
 const HOP_BY_HOP_RESPONSE_HEADERS = [
@@ -41,9 +41,10 @@ function buildUpstreamUrl(path: string[], search: string): string {
 }
 
 function getRequestHeaders(request: NextRequest): Headers {
-	const headers = new Headers(request.headers);
-	for (const header of HOP_BY_HOP_REQUEST_HEADERS) {
-		headers.delete(header);
+	const headers = new Headers();
+	for (const header of FORWARDED_REQUEST_HEADERS) {
+		const value = request.headers.get(header);
+		if (value) headers.set(header, value);
 	}
 	return headers;
 }
