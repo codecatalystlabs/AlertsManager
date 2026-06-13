@@ -22,7 +22,7 @@ import { getEidsr6767ById } from "@/lib/fetch-eidsr-6767";
 import { resolveEidsrVerifyId } from "@/lib/eidsr-message-normalize";
 import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
 import { LAYOUT } from "@/constants/layout";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, CloudDownload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const AlertVerificationDialog = dynamic(
@@ -44,6 +44,7 @@ export default function EidsrAlertsPage() {
 		isSyncing,
 		error,
 		syncMessage,
+		syncProgress,
 		verificationFilter,
 		setVerificationFilter,
 		setFilters,
@@ -167,7 +168,30 @@ export default function EidsrAlertsPage() {
 				onFilterChange={setVerificationFilter}
 			/>
 
-			{syncMessage && (
+			{isSyncing && (
+				<Alert className="border-blue-200 bg-blue-50">
+					<CloudDownload className="h-4 w-4 text-blue-600 animate-pulse" />
+					<AlertDescription className="text-blue-700">
+						{!syncProgress || syncProgress.phase === "starting"
+							? "Starting sync…"
+							: `Syncing ${
+									syncProgress.incremental
+										? "(incremental)"
+										: "(full re-scan)"
+							  } — ${
+									syncProgress.pageCount > 0
+										? `page ${syncProgress.page}/${syncProgress.pageCount}, `
+										: ""
+							  }scanned ${syncProgress.scanned.toLocaleString()}${
+									syncProgress.remoteTotal
+										? ` of ${syncProgress.remoteTotal.toLocaleString()}`
+										: ""
+							  } · ${syncProgress.imported.toLocaleString()} new`}
+					</AlertDescription>
+				</Alert>
+			)}
+
+			{!isSyncing && syncMessage && (
 				<Alert className="border-green-200 bg-green-50">
 					<CheckCircle2 className="h-4 w-4 text-green-600" />
 					<AlertDescription className="text-green-700">

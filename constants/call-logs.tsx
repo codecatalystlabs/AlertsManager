@@ -39,6 +39,12 @@ export const VERIFICATION_FILTER_OPTIONS = [
 	{ value: "pending", label: "Pending Verification" },
 ] as const;
 
+export const SEX_FILTER_OPTIONS = [
+	{ value: "all", label: "All Sexes" },
+	{ value: "Male", label: "Male" },
+	{ value: "Female", label: "Female" },
+] as const;
+
 export type CallLogsStatFilter = "alive" | "other" | "verified" | "pending";
 
 export interface CallLogsFilterState {
@@ -46,12 +52,28 @@ export interface CallLogsFilterState {
 	source: string;
 	search: string;
 	verification: string;
+	/** Selected region name, or "all" for no region filter. */
+	region: string;
 	/** Selected district name, or "all" for no district filter. */
 	district: string;
+	/** Selected division/subcounty name, or "all" for no division filter. */
+	division: string;
 	/** Inclusive start of the call date range (YYYY-MM-DD); "" means unbounded. */
 	fromDate: string;
 	/** Inclusive end of the call date range (YYYY-MM-DD); "" means unbounded. */
 	toDate: string;
+	/** Case sex ("all" | "Male" | "Female"). */
+	sex: string;
+	/** Inclusive minimum case age, or "" for unbounded. */
+	ageMin: string;
+	/** Inclusive maximum case age, or "" for unbounded. */
+	ageMax: string;
+	/** Partial match on the call taker; "" means no filter. */
+	callTaker: string;
+	/** Partial match on the assigned user; "" means no filter. */
+	assignedTo: string;
+	/** Partial match on the verifying user; "" means no filter. */
+	verifiedBy: string;
 }
 
 export const CALL_LOGS_INITIAL_FILTERS: CallLogsFilterState = {
@@ -59,47 +81,60 @@ export const CALL_LOGS_INITIAL_FILTERS: CallLogsFilterState = {
 	source: "all",
 	search: "",
 	verification: "all",
+	region: "all",
 	district: "all",
+	division: "all",
 	fromDate: "",
 	toDate: "",
+	sex: "all",
+	ageMin: "",
+	ageMax: "",
+	callTaker: "",
+	assignedTo: "",
+	verifiedBy: "",
 };
 
-// Partial so clicking a stat card narrows status/verification without
-// resetting the user's selected date range (merged into current filters).
+// Clicking a stat card resets the non-date filters (source, search, and the
+// advanced demographic/staff filters) so the card shows a clean slice, while
+// the user's selected date range is preserved (presets are merged into the
+// current filters).
+const STAT_PRESET_RESET: Partial<CallLogsFilterState> = {
+	source: "all",
+	search: "",
+	sex: "all",
+	ageMin: "",
+	ageMax: "",
+	callTaker: "",
+	assignedTo: "",
+	verifiedBy: "",
+};
+
 export const STAT_FILTER_PRESETS: Record<
 	CallLogsStatFilter,
 	Partial<CallLogsFilterState>
 > = {
-	alive: {
-		status: "alive",
-		source: "all",
-		search: "",
-		verification: "all",
-	},
-	other: {
-		status: "other",
-		source: "all",
-		search: "",
-		verification: "all",
-	},
-	verified: {
-		status: "all",
-		source: "all",
-		search: "",
-		verification: "verified",
-	},
-	pending: {
-		status: "all",
-		source: "all",
-		search: "",
-		verification: "pending",
-	},
+	alive: { ...STAT_PRESET_RESET, status: "alive", verification: "all" },
+	other: { ...STAT_PRESET_RESET, status: "other", verification: "all" },
+	verified: { ...STAT_PRESET_RESET, status: "all", verification: "verified" },
+	pending: { ...STAT_PRESET_RESET, status: "all", verification: "pending" },
 };
 
 export function getActiveStatFromFilters(
 	filters: CallLogsFilterState
 ): CallLogsStatFilter | null {
-	if (filters.search || filters.source !== "all") return null;
+	// Any advanced filter being active means the view no longer matches a
+	// single stat card, so none should be highlighted.
+	if (
+		filters.search ||
+		filters.source !== "all" ||
+		filters.sex !== "all" ||
+		filters.ageMin ||
+		filters.ageMax ||
+		filters.callTaker ||
+		filters.assignedTo ||
+		filters.verifiedBy
+	)
+		return null;
 	if (filters.status === "alive" && filters.verification === "all")
 		return "alive";
 	if (filters.status === "other" && filters.verification === "all")

@@ -7,8 +7,22 @@ import {
     CALL_LOGS_INITIAL_FILTERS,
     type CallLogsFilterState,
 } from '@/constants/call-logs';
-import { fetchAlertsPage, type AlertsListParams } from '@/lib/fetch-alerts';
+import {
+    fetchAlertsPage,
+    fetchAlertsStats,
+    type AlertsListParams,
+} from '@/lib/fetch-alerts';
+import { sourceFilterValues } from '@/lib/source-of-alert';
 import { useInvalidateAlerts } from '@/hooks/use-invalidate-alerts';
+
+/** Server-side sort selection for the call-logs list. */
+export interface CallLogsSort {
+    /** Sort column key understood by the API; "" = server default (newest first). */
+    by: string;
+    order: 'asc' | 'desc';
+}
+
+export const CALL_LOGS_DEFAULT_SORT: CallLogsSort = { by: '', order: 'desc' };
 
 export interface AlertLog {
     id: number;
@@ -85,12 +99,14 @@ interface UseCallLogsDataReturn {
     filteredAlerts: AlertLog[];
     stats: CallLogsStats;
     filters: CallLogsFilters;
+    sort: CallLogsSort;
     pagination: CallLogsPagination;
     loading: boolean;
     isValidating: boolean;
     error: string | null;
     selectedAlert: AlertLog | null;
     setFilters: (filters: Partial<CallLogsFilters>) => void;
+    setSort: (sort: CallLogsSort) => void;
     setSelectedAlert: (alert: AlertLog | null) => void;
     setPage: (page: number) => void;
     setPageSize: (limit: number) => void;
@@ -103,28 +119,32 @@ interface UseCallLogsDataReturn {
     clearFilters: () => void;
 }
 
-const CLIENT_FILTER_PAGE_LIMIT = 500;
-const CLIENT_FILTER_SCAN_PAGES = 8;
-let useClientVerificationFallback = false;
-
 function toApiParams(
     filters: CallLogsFilters,
     page: number,
     limit: number,
-    options: { includeVerification?: boolean } = {}
+    options: { sort?: CallLogsSort } = {}
 ): AlertsListParams {
     const params: AlertsListParams = { page, limit };
 
-    if (options.includeVerification) {
-        if (filters.verification === 'verified') {
-            params.is_verified = true;
-        } else if (filters.verification === 'pending') {
-            params.is_verified = false;
-        }
+    // Verified status is a first-class server filter: "verified" -> is_verified=1
+    // (desk verification done), "pending" -> is_verified=0, "all" -> unfiltered.
+    if (filters.verification === 'verified') {
+        params.is_verified = true;
+    } else if (filters.verification === 'pending') {
+        params.is_verified = false;
+    }
+
+    if (filters.region && filters.region !== 'all') {
+        params.region = filters.region;
     }
 
     if (filters.district && filters.district !== 'all') {
         params.district = filters.district;
+    }
+
+    if (filters.division && filters.division !== 'all') {
+        params.division = filters.division;
     }
 
     if (filters.fromDate) {
@@ -146,14 +166,59 @@ function toApiParams(
         params.status = statusMap[filters.status];
     }
 
+    // Source: expand the canonical label to every raw alias it merges, so the
+    // server IN-filter also matches legacy stored values (e.g. "Community
+    // Member" for "Community"). Mirrors normalizeSourceOfAlert on the client.
     if (filters.source && filters.source !== 'all') {
-        params.source = filters.source;
+        params.source = sourceFilterValues(filters.source).join(',');
+    }
+
+    // Free-text search now runs server-side (scans the whole dataset, not just
+    // the current page).
+    const search = filters.search.trim();
+    if (search) {
+        params.search = search;
+    }
+
+    if (filters.sex && filters.sex !== 'all') {
+        params.sex = filters.sex;
+    }
+
+    const ageMin = parseInt(filters.ageMin, 10);
+    if (!Number.isNaN(ageMin)) {
+        params.age_min = ageMin;
+    }
+    const ageMax = parseInt(filters.ageMax, 10);
+    if (!Number.isNaN(ageMax)) {
+        params.age_max = ageMax;
+    }
+
+    if (filters.callTaker.trim()) {
+        params.call_taker = filters.callTaker.trim();
+    }
+    if (filters.assignedTo.trim()) {
+        params.assigned_to = filters.assignedTo.trim();
+    }
+    if (filters.verifiedBy.trim()) {
+        params.verified_by = filters.verifiedBy.trim();
+    }
+
+    if (options.sort?.by) {
+        params.sort_by = options.sort.by;
+        params.order = options.sort.order;
     }
 
     return params;
 }
 
 function applyClientFilters(alerts: AlertLog[], filters: CallLogsFilters): AlertLog[] {
+    const search = filters.search.trim().toLowerCase();
+    const callTaker = filters.callTaker.trim().toLowerCase();
+    const assignedTo = filters.assignedTo.trim().toLowerCase();
+    const verifiedBy = filters.verifiedBy.trim().toLowerCase();
+    const ageMin = parseInt(filters.ageMin, 10);
+    const ageMax = parseInt(filters.ageMax, 10);
+
     return alerts.filter((alert) => {
         const matchesVerification =
             filters.verification === 'all' ||
@@ -169,115 +234,88 @@ function applyClientFilters(alerts: AlertLog[], filters: CallLogsFilters): Alert
             filters.source === 'all' ||
             (alert.sourceOfAlert ?? '').toLowerCase() === filters.source.toLowerCase();
 
-        const search = filters.search.toLowerCase();
+        // Mirrors the server-side search columns so a row the API matched is
+        // never wrongly dropped when this page-level filter re-runs.
         const matchesSearch =
-            filters.search === '' ||
+            search === '' ||
             (alert.personReporting ?? '').toLowerCase().includes(search) ||
-            (alert.contactNumber ?? '').includes(filters.search) ||
+            (alert.alertCaseName ?? '').toLowerCase().includes(search) ||
+            (alert.cifNo ?? '').toLowerCase().includes(search) ||
+            (alert.contactNumber ?? '').toLowerCase().includes(search) ||
             (alert.alertCaseDistrict ?? '').toLowerCase().includes(search) ||
-            (alert.id?.toString() ?? '').includes(filters.search);
+            (alert.id?.toString() ?? '').includes(search);
 
-        return matchesVerification && matchesStatus && matchesSource && matchesSearch;
+        const matchesSex =
+            filters.sex === 'all' ||
+            (alert.alertCaseSex ?? '').toLowerCase() === filters.sex.toLowerCase();
+
+        const age =
+            typeof alert.alertCaseAge === 'number' ? alert.alertCaseAge : NaN;
+        const matchesAgeMin =
+            Number.isNaN(ageMin) || (!Number.isNaN(age) && age >= ageMin);
+        const matchesAgeMax =
+            Number.isNaN(ageMax) || (!Number.isNaN(age) && age <= ageMax);
+
+        const matchesCallTaker =
+            callTaker === '' ||
+            (alert.callTaker ?? '').toLowerCase().includes(callTaker);
+        const matchesAssignedTo =
+            assignedTo === '' ||
+            (alert.assignedTo ?? '').toLowerCase().includes(assignedTo);
+        const matchesVerifiedBy =
+            verifiedBy === '' ||
+            (alert.verifiedBy ?? '').toLowerCase().includes(verifiedBy);
+
+        return (
+            matchesVerification &&
+            matchesStatus &&
+            matchesSource &&
+            matchesSearch &&
+            matchesSex &&
+            matchesAgeMin &&
+            matchesAgeMax &&
+            matchesCallTaker &&
+            matchesAssignedTo &&
+            matchesVerifiedBy
+        );
     });
 }
 
-function paginateAlerts(
-    alerts: AlertLog[],
-    page: number,
-    limit: number
-): AlertLog[] {
-    const start = Math.max(0, page - 1) * limit;
-    return alerts.slice(start, start + limit);
-}
-
-function totalPagesFor(total: number, limit: number): number {
-    return limit > 0 ? Math.max(1, Math.ceil(total / limit)) : 1;
-}
-
-function getFetchStatus(error: unknown): number | undefined {
-    if (!error || typeof error !== 'object' || !('status' in error)) {
-        return undefined;
+/**
+ * Human-readable tokens describing the active filters, woven into the export
+ * filename so a downloaded file says what it contains (e.g.
+ * call_logs_export_Kampala_Central_verified_2026-01-01_to_2026-03-31.csv).
+ * Free-text filters (search, staff names) are omitted to keep names clean.
+ */
+function buildExportFilterTokens(filters: CallLogsFilters): string[] {
+    const tokens: string[] = [];
+    if (filters.region && filters.region !== 'all') tokens.push(filters.region);
+    if (filters.district && filters.district !== 'all') tokens.push(filters.district);
+    if (filters.division && filters.division !== 'all') tokens.push(filters.division);
+    if (filters.status && filters.status !== 'all') tokens.push(filters.status);
+    if (filters.verification && filters.verification !== 'all') {
+        tokens.push(filters.verification);
     }
-
-    const status = (error as { status?: unknown }).status;
-    return typeof status === 'number' ? status : undefined;
-}
-
-async function fetchClientFilteredCallLogsPage(
-    filters: CallLogsFilters,
-    page: number,
-    limit: number
-): Promise<CallLogsPagination & { data: AlertLog[] }> {
-    const fetchPage = (targetPage: number) =>
-        fetchAlertsPage(
-            toApiParams(filters, targetPage, CLIENT_FILTER_PAGE_LIMIT)
-        );
-
-    const first = await fetchPage(1);
-    const collected: AlertLog[] = [...(first.data as AlertLog[])];
-    const lastPage = Math.min(
-        Math.max(first.totalPages, 1),
-        Math.max(
-            CLIENT_FILTER_SCAN_PAGES,
-            Math.ceil((page * limit) / CLIENT_FILTER_PAGE_LIMIT)
-        )
-    );
-
-    for (let nextPage = 2; nextPage <= lastPage; nextPage += 1) {
-        const filteredCount = applyClientFilters(collected, filters).length;
-        if (filteredCount >= page * limit) {
-            break;
-        }
-
-        const pageResult = await fetchPage(nextPage);
-        collected.push(...(pageResult.data as AlertLog[]));
+    if (filters.source && filters.source !== 'all') tokens.push(filters.source);
+    if (filters.sex && filters.sex !== 'all') tokens.push(filters.sex);
+    if (filters.ageMin || filters.ageMax) {
+        tokens.push(`age${filters.ageMin || '0'}-${filters.ageMax || 'max'}`);
     }
-
-    const filtered = applyClientFilters(collected, filters);
-    const data = paginateAlerts(filtered, page, limit);
-    const scannedAll = lastPage >= first.totalPages;
-    const knownTotal =
-        !scannedAll && data.length === limit ? page * limit + 1 : filtered.length;
-
-    return {
-        data,
-        page,
-        limit,
-        total: knownTotal,
-        totalPages: totalPagesFor(knownTotal, limit),
-    };
+    return tokens;
 }
 
 async function fetchCallLogsPage(
     filters: CallLogsFilters,
+    sort: CallLogsSort,
     page: number,
     limit: number
 ): Promise<CallLogsPagination & { data: AlertLog[] }> {
-    if (filters.verification !== 'all') {
-        if (useClientVerificationFallback) {
-            return fetchClientFilteredCallLogsPage(filters, page, limit);
-        }
-
-        try {
-            const result = await fetchAlertsPage(
-                toApiParams(filters, page, limit, { includeVerification: true })
-            );
-            return {
-                ...result,
-                data: result.data as AlertLog[],
-            };
-        } catch (error) {
-            const status = getFetchStatus(error);
-            if (status === undefined || status < 500) {
-                throw error;
-            }
-
-            useClientVerificationFallback = true;
-            return fetchClientFilteredCallLogsPage(filters, page, limit);
-        }
-    }
-
-    const result = await fetchAlertsPage(toApiParams(filters, page, limit));
+    // Every filter (verified status included) is applied server-side, so a
+    // single page request is enough — the returned pagination total already
+    // reflects the active filters.
+    const result = await fetchAlertsPage(
+        toApiParams(filters, page, limit, { sort })
+    );
     return {
         ...result,
         data: result.data as AlertLog[],
@@ -288,6 +326,9 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
     const [filters, setFiltersState] = useState<CallLogsFilters>({
         ...CALL_LOGS_INITIAL_FILTERS,
     });
+    const [sort, setSortState] = useState<CallLogsSort>({
+        ...CALL_LOGS_DEFAULT_SORT,
+    });
     const [selectedAlert, setSelectedAlert] = useState<AlertLog | null>(null);
     const [page, setPageState] = useState(1);
     const [limit, setLimitState] = useState<number>(CALL_LOGS_CONFIG.ITEMS_PER_PAGE);
@@ -295,14 +336,27 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
 
     const filtersRef = useRef(filters);
     filtersRef.current = filters;
+    const sortRef = useRef(sort);
+    sortRef.current = sort;
 
     const invalidateAlerts = useInvalidateAlerts();
 
     // Keep the "alerts" root so alert mutations invalidate this view too.
     const { data, error: swrError, isLoading, isValidating, mutate } = useSWR(
-        ['alerts', 'call-logs', filters, page, limit] as const,
-        ([, , currentFilters, currentPage, currentLimit]) =>
-            fetchCallLogsPage(currentFilters, currentPage, currentLimit),
+        ['alerts', 'call-logs', filters, sort, page, limit] as const,
+        ([, , currentFilters, currentSort, currentPage, currentLimit]) =>
+            fetchCallLogsPage(currentFilters, currentSort, currentPage, currentLimit),
+        { keepPreviousData: true }
+    );
+
+    // Summary cards count the whole filtered dataset (server-side aggregate),
+    // not just the current page. Keyed on filters only — page/limit/sort don't
+    // change the totals, so paging the table doesn't refetch the stats. Shares
+    // the "alerts" root so alert mutations revalidate the cards too.
+    const { data: statsData } = useSWR(
+        ['alerts', 'call-logs-stats', filters] as const,
+        ([, , currentFilters]) =>
+            fetchAlertsStats(toApiParams(currentFilters, 1, 1)),
         { keepPreviousData: true }
     );
 
@@ -330,7 +384,9 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
 
         const fetchExportPage = (targetPage: number) =>
             fetchAlertsPage(
-                toApiParams(filtersRef.current, targetPage, EXPORT_PAGE_LIMIT)
+                toApiParams(filtersRef.current, targetPage, EXPORT_PAGE_LIMIT, {
+                    sort: sortRef.current,
+                })
             );
 
         const first = await fetchExportPage(1);
@@ -376,8 +432,14 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         setPageState(1);
     }, []);
 
+    const setSort = useCallback((nextSort: CallLogsSort) => {
+        setSortState(nextSort);
+        setPageState(1);
+    }, []);
+
     const clearFilters = useCallback(() => {
         setFiltersState({ ...CALL_LOGS_INITIAL_FILTERS });
+        setSortState({ ...CALL_LOGS_DEFAULT_SORT });
         setPageState(1);
     }, []);
 
@@ -395,14 +457,15 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         [alerts, filters]
     );
 
-    const stats = useMemo((): CallLogsStats => {
-        const alive = alerts.filter((alert) => alert.status === 'Alive').length;
-        const other = alerts.filter((alert) => alert.status !== 'Alive').length;
-        const verified = alerts.filter((alert) => alert.isVerified).length;
-        const pending = alerts.filter((alert) => !alert.isVerified).length;
-
-        return { alive, other, verified, pending };
-    }, [alerts]);
+    const stats = useMemo(
+        (): CallLogsStats => ({
+            alive: statsData?.alive ?? 0,
+            other: statsData?.other ?? 0,
+            verified: statsData?.verified ?? 0,
+            pending: statsData?.pending ?? 0,
+        }),
+        [statsData]
+    );
 
     const exportPrefix = CALL_LOGS_CONFIG.EXPORT_FILENAME_PREFIX;
 
@@ -411,8 +474,11 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         try {
             const rows = await loadAlertsForExport();
             const exported = exportAlertsToCsv(rows, exportPrefix, {
-                from: filtersRef.current.fromDate,
-                to: filtersRef.current.toDate,
+                range: {
+                    from: filtersRef.current.fromDate,
+                    to: filtersRef.current.toDate,
+                },
+                tokens: buildExportFilterTokens(filtersRef.current),
             });
             if (!exported) {
                 window.alert(
@@ -436,8 +502,11 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
                 exportPrefix,
                 'Call Logs',
                 {
-                    from: filtersRef.current.fromDate,
-                    to: filtersRef.current.toDate,
+                    range: {
+                        from: filtersRef.current.fromDate,
+                        to: filtersRef.current.toDate,
+                    },
+                    tokens: buildExportFilterTokens(filtersRef.current),
                 }
             );
             if (!exported) {
@@ -462,12 +531,14 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         filteredAlerts,
         stats,
         filters,
+        sort,
         pagination,
         loading: isLoading,
         isValidating,
         error,
         selectedAlert,
         setFilters,
+        setSort,
         setSelectedAlert,
         setPage,
         setPageSize,

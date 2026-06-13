@@ -37,7 +37,7 @@ import {
 	alertEntryStatus,
 	signsAndSymptoms,
 } from "@/constants";
-import { DistrictSelect } from "@/components/district-select";
+import { CaseLocationSelect } from "@/components/case-location-select";
 import {
 	getLocalDateString,
 	getLocalDateTimeIsoString,
@@ -57,6 +57,7 @@ export default function PublicAddAlertPage() {
 		numberOfPersonReporting: "",
 		status: "",
 		response: "",
+		region: "",
 		district: "",
 		subcounty: "",
 		village: "",
@@ -107,6 +108,9 @@ export default function PublicAddAlertPage() {
 				!formData.nameOfPersonReporting ||
 				!formData.numberOfPersonReporting ||
 				!formData.sourceOfAlert ||
+				!formData.region ||
+				!formData.district ||
+				!formData.subcounty ||
 				!formData.caseName ||
 				!formData.caseAge ||
 				!formData.caseSex ||
@@ -138,6 +142,7 @@ export default function PublicAddAlertPage() {
 				contactNumber: formData.numberOfPersonReporting,
 				status: formData.status || "Pending",
 				response: formData.response || "Routine",
+				region: formData.region,
 				alertCaseDistrict: formData.district,
 				subCounty: formData.subcounty || "",
 				alertCaseVillage: formData.village || "",
@@ -212,6 +217,7 @@ export default function PublicAddAlertPage() {
 				numberOfPersonReporting: "",
 				status: "",
 				response: "",
+				region: "",
 				district: "",
 				subcounty: "",
 				village: "",
@@ -243,11 +249,11 @@ export default function PublicAddAlertPage() {
 		<div className="min-h-screen bg-gray-50">
 			{/* Header */}
 			<div className="bg-gradient-to-r from-uganda-red to-uganda-yellow text-white shadow-lg">
-				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-					<div className="flex justify-between items-center py-4">
-						<div className="flex items-center space-x-3">
+				<div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+					<div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+						<div className="flex min-w-0 items-center space-x-3">
 							<MohLogo />
-							<div>
+							<div className="min-w-0">
 								<h1 className="text-xl font-bold">
 									Uganda Health Alert System
 								</h1>
@@ -256,7 +262,7 @@ export default function PublicAddAlertPage() {
 								</p>
 							</div>
 						</div>
-						<div className="flex items-center space-x-4">
+						<div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
 							{isAuthenticated ? (
 								<>
 									<Link href="/dashboard">
@@ -320,35 +326,36 @@ export default function PublicAddAlertPage() {
 				</div>
 			</div>
 
-			<div className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+			<div className="mx-auto max-w-[1440px] px-4 py-5 pb-28 sm:px-6 lg:px-8">
 				{/* Main Form */}
-				<Card className="shadow-xl border-0">
-					<CardHeader className="bg-gradient-to-r from-uganda-red to-uganda-yellow text-white rounded-t-lg">
-						<CardTitle className="text-2xl font-bold flex items-center gap-3">
-							<AlertTriangleIcon className="h-8 w-8" />
+				<Card className="border-0 shadow-xl">
+					<CardHeader className="rounded-t-lg bg-gradient-to-r from-uganda-red to-uganda-yellow px-5 py-4 text-white sm:px-6">
+						<CardTitle className="flex items-center gap-3 text-2xl font-bold">
+							<AlertTriangleIcon className="h-7 w-7" />
 							Report Health Alert
 						</CardTitle>
-						<p className="text-white/90">
+						<p className="text-sm text-white/90">
 							{isAuthenticated
 								? "Submit a health alert to the Ministry of Health surveillance system"
 								: "Anyone can report a health alert. Help us protect public health by reporting suspected cases."}
 						</p>
 					</CardHeader>
-					<CardContent className="p-8">
+					<CardContent className="p-4 sm:p-5 lg:p-6">
 						<form
+							id="health-alert-form"
 							onSubmit={handleSubmit}
-							className="space-y-8"
+							className="space-y-5"
 						>
 							{/* Basic Information */}
-							<div className="space-y-6">
-								<div className="flex items-center gap-3 mb-6">
-									<CalendarIcon className="h-6 w-6 text-uganda-red" />
-									<h3 className="text-xl font-semibold text-uganda-black">
+							<div className="space-y-4">
+								<div className="flex items-center gap-2">
+									<CalendarIcon className="h-5 w-5 text-uganda-red" />
+									<h3 className="text-lg font-semibold text-uganda-black">
 										Basic Information
 									</h3>
 								</div>
 
-								<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
 									<div className="space-y-2">
 										<Label
 											htmlFor="date"
@@ -432,36 +439,15 @@ export default function PublicAddAlertPage() {
 											</SelectContent>
 										</Select>
 									</div>
-									{/* <div className="space-y-2">
-										<Label
-											htmlFor="cif_no"
-											className="text-sm font-medium text-gray-700"
-										>
-											CIF Number *
-										</Label>
-										<Input
-											id="cif_no"
-											value={formData.cif_no}
-											onChange={(e) =>
-												handleInputChange(
-													"cif_no",
-													e.target.value
-												)
-											}
-											required
-											placeholder="Enter CIF number"
-											className="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
-										/>
-									</div> */}
-								</div>
-
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-									<div className="space-y-2">
+										<div className="space-y-2">
 										<Label
 											htmlFor="call_taker"
-											className="text-sm font-medium text-gray-700"
+											className="text-sm font-medium text-gray-600"
 										>
-											Call Taker Name
+											Call Taker Name{" "}
+											<span className="font-normal text-gray-400">
+												(optional)
+											</span>
 										</Label>
 										<Input
 											id="call_taker"
@@ -479,8 +465,11 @@ export default function PublicAddAlertPage() {
 										/>
 									</div>
 									<div className="space-y-2">
-										<Label className="text-sm font-medium text-gray-700">
-											Alert reported before? *
+										<Label className="text-sm font-medium text-gray-600">
+											Alert reported before?{" "}
+											<span className="font-normal text-gray-400">
+												(optional)
+											</span>
 										</Label>
 										<RadioGroup
 											value={
@@ -492,7 +481,7 @@ export default function PublicAddAlertPage() {
 													value
 												)
 											}
-											className="flex gap-6 mt-2"
+											className="flex min-h-10 items-center gap-4"
 										>
 											<div className="flex items-center space-x-2">
 												<RadioGroupItem
@@ -525,18 +514,18 @@ export default function PublicAddAlertPage() {
 								</div>
 							</div>
 
-							<Separator className="my-8" />
+							<Separator />
 
 							{/* Reporter Information */}
-							<div className="space-y-6">
-								<div className="flex items-center gap-3 mb-6">
-									<UserIcon className="h-6 w-6 text-uganda-red" />
-									<h3 className="text-xl font-semibold text-uganda-black">
+							<div className="space-y-4">
+								<div className="flex items-center gap-2">
+									<UserIcon className="h-5 w-5 text-uganda-red" />
+									<h3 className="text-lg font-semibold text-uganda-black">
 										Reporter Information
 									</h3>
 								</div>
 
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
 									<div className="space-y-2">
 										<Label
 											htmlFor="nameOfPersonReporting"
@@ -583,8 +572,6 @@ export default function PublicAddAlertPage() {
 											className="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
 										/>
 									</div>
-								</div>
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 									<div className="space-y-2">
 										<Label
 											htmlFor="sourceOfAlert"
@@ -628,9 +615,12 @@ export default function PublicAddAlertPage() {
 									<div className="space-y-2">
 										<Label
 											htmlFor="response"
-											className="text-sm font-medium"
+											className="text-sm font-medium text-gray-600"
 										>
-											Response *
+											Response{" "}
+											<span className="font-normal text-gray-400">
+												(optional)
+											</span>
 										</Label>
 										<Select
 											onValueChange={(value) =>
@@ -667,65 +657,43 @@ export default function PublicAddAlertPage() {
 								</div>
 							</div>
 
-							<Separator className="my-8" />
+							<Separator />
 
 							{/* Location Information */}
-							<div className="space-y-6">
-								<div className="flex items-center gap-3 mb-6">
-									<MapPinIcon className="h-6 w-6 text-uganda-red" />
-									<h3 className="text-xl font-semibold text-uganda-black">
+							<div className="space-y-4">
+								<div className="flex items-center gap-2">
+									<MapPinIcon className="h-5 w-5 text-uganda-red" />
+									<h3 className="text-lg font-semibold text-uganda-black">
 										Case Location
 									</h3>
 								</div>
 
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-									<div className="space-y-2">
-										<Label
-											htmlFor="district"
-											className="text-sm font-medium text-gray-700"
-										>
-											District *
-										</Label>
-										<DistrictSelect
-											id="district"
-											value={formData.district}
-											onValueChange={(value) =>
-												handleInputChange(
-													"district",
-													value
-												)
-											}
-											triggerClassName="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
-										/>
-									</div>
-									<div className="space-y-2">
-										<Label
-											htmlFor="subcounty"
-											className="text-sm font-medium text-gray-700"
-										>
-											Subcounty/Division
-										</Label>
-										<Input
-											id="subcounty"
-											value={
-												formData.subcounty
-											}
-											onChange={(e) =>
-												handleInputChange(
-													"subcounty",
-													e.target.value
-												)
-											}
-											placeholder="Enter subcounty or division"
-											className="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
-										/>
-									</div>
+								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+									<CaseLocationSelect
+										value={{
+											region: formData.region,
+											district: formData.district,
+											subcounty: formData.subcounty,
+										}}
+										onChange={(loc) =>
+											setFormData((prev) => ({
+												...prev,
+												region: loc.region,
+												district: loc.district,
+												subcounty: loc.subcounty,
+											}))
+										}
+										triggerClassName="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
+									/>
 									<div className="space-y-2">
 										<Label
 											htmlFor="village"
-											className="text-sm font-medium text-gray-700"
+											className="text-sm font-medium text-gray-600"
 										>
-											Village
+											Village{" "}
+											<span className="font-normal text-gray-400">
+												(optional)
+											</span>
 										</Label>
 										<Input
 											id="village"
@@ -743,9 +711,12 @@ export default function PublicAddAlertPage() {
 									<div className="space-y-2">
 										<Label
 											htmlFor="parish"
-											className="text-sm font-medium text-gray-700"
+											className="text-sm font-medium text-gray-600"
 										>
-											Parish
+											Parish{" "}
+											<span className="font-normal text-gray-400">
+												(optional)
+											</span>
 										</Label>
 										<Input
 											id="parish"
@@ -763,18 +734,18 @@ export default function PublicAddAlertPage() {
 								</div>
 							</div>
 
-							<Separator className="my-8" />
+							<Separator />
 
 							{/* Case Information */}
-							<div className="space-y-6">
-								<div className="flex items-center gap-3 mb-6">
-									<AlertTriangleIcon className="h-6 w-6 text-uganda-red" />
-									<h3 className="text-xl font-semibold text-uganda-black">
+							<div className="space-y-4">
+								<div className="flex items-center gap-2">
+									<AlertTriangleIcon className="h-5 w-5 text-uganda-red" />
+									<h3 className="text-lg font-semibold text-uganda-black">
 										Case Information
 									</h3>
 								</div>
 
-								<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
 									<div className="space-y-2">
 										<Label
 											htmlFor="caseName"
@@ -832,7 +803,7 @@ export default function PublicAddAlertPage() {
 													value
 												)
 											}
-											className="flex gap-6 mt-2"
+											className="flex min-h-10 items-center gap-4"
 										>
 											<div className="flex items-center space-x-2">
 												<RadioGroupItem
@@ -862,15 +833,15 @@ export default function PublicAddAlertPage() {
 											</div>
 										</RadioGroup>
 									</div>
-								</div>
-
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 									<div className="space-y-2">
 										<Label
 											htmlFor="nameOfNextOfKin"
-											className="text-sm font-medium text-gray-700"
+											className="text-sm font-medium text-gray-600"
 										>
-											Next of Kin Name
+											Next of Kin Name{" "}
+											<span className="font-normal text-gray-400">
+												(optional)
+											</span>
 										</Label>
 										<Input
 											id="nameOfNextOfKin"
@@ -890,9 +861,12 @@ export default function PublicAddAlertPage() {
 									<div className="space-y-2">
 										<Label
 											htmlFor="nextOfKinPhoneNumber"
-											className="text-sm font-medium text-gray-700"
+											className="text-sm font-medium text-gray-600"
 										>
-											Next of Kin Phone
+											Next of Kin Phone{" "}
+											<span className="font-normal text-gray-400">
+												(optional)
+											</span>
 										</Label>
 										<Input
 											id="nextOfKinPhoneNumber"
@@ -911,74 +885,79 @@ export default function PublicAddAlertPage() {
 									</div>
 								</div>
 
-								<div className="space-y-2">
-									<Label
-										htmlFor="caseAlertDescription"
-										className="text-sm font-medium text-gray-700"
-									>
-										Case Description *
-									</Label>
-									<Textarea
-										id="caseAlertDescription"
-										value={
-											formData.caseAlertDescription
-										}
-										onChange={(e) =>
-											handleInputChange(
-												"caseAlertDescription",
-												e.target.value
-											)
-										}
-										required
-										rows={3}
-										placeholder="Describe what happened, when it started, and any relevant details"
-										className="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
-									/>
-								</div>
-
-								<div className="space-y-2">
-									<Label
-										htmlFor="narrative"
-										className="text-sm font-medium text-gray-700"
-									>
-										Additional Notes
-									</Label>
-									<Textarea
-										id="narrative"
-										placeholder="Any additional information that might be helpful"
-										value={formData.narrative}
-										onChange={(e) =>
-											handleInputChange(
-												"narrative",
-												e.target.value
-											)
-										}
-										maxLength={250}
-										rows={3}
-										className="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
-									/>
-									<div className="flex justify-between text-xs text-gray-500">
-										<span>
-											Maximum 250 characters
-										</span>
-										<span>
-											{
-												formData.narrative
-													.length
+								<div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+									<div className="space-y-2">
+										<Label
+											htmlFor="caseAlertDescription"
+											className="text-sm font-medium text-gray-700"
+										>
+											Case Description *
+										</Label>
+										<Textarea
+											id="caseAlertDescription"
+											value={
+												formData.caseAlertDescription
 											}
-											/250
-										</span>
+											onChange={(e) =>
+												handleInputChange(
+													"caseAlertDescription",
+													e.target.value
+												)
+											}
+											required
+											rows={3}
+											placeholder="Describe what happened, when it started, and any relevant details"
+											className="min-h-24 border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
+										/>
+									</div>
+
+									<div className="space-y-2">
+										<Label
+											htmlFor="narrative"
+											className="text-sm font-medium text-gray-600"
+										>
+											Additional Notes{" "}
+											<span className="font-normal text-gray-400">
+												(optional)
+											</span>
+										</Label>
+										<Textarea
+											id="narrative"
+											placeholder="Any additional information that might be helpful"
+											value={formData.narrative}
+											onChange={(e) =>
+												handleInputChange(
+													"narrative",
+													e.target.value
+												)
+											}
+											maxLength={250}
+											rows={3}
+											className="min-h-24 border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
+										/>
+										<div className="flex justify-between text-xs text-gray-500">
+											<span>
+												Maximum 250 characters
+											</span>
+											<span>
+												{
+													formData.narrative
+														.length
+												}
+												/250
+											</span>
+										</div>
 									</div>
 								</div>
 							</div>
 
-							<Separator className="my-8" />
+							<Separator />
 
 							{/* Signs and Symptoms */}
-							<div className="space-y-6">
-								<div className="flex items-center gap-3 mb-6">
-									<HeartIcon className="h-6 w-6 text-uganda-red" />
-									<h3 className="text-xl font-semibold text-uganda-black">
+							<div className="space-y-4">
+								<div className="flex items-center gap-2">
+									<HeartIcon className="h-5 w-5 text-uganda-red" />
+									<h3 className="text-lg font-semibold text-uganda-black">
 										Signs and Symptoms{" "}
 										<span className="text-uganda-red">
 											*
@@ -986,18 +965,18 @@ export default function PublicAddAlertPage() {
 									</h3>
 								</div>
 
-								<div className="bg-gray-50 p-6 rounded-lg">
-									<p className="text-sm text-gray-600 mb-4">
+								<div className="rounded-lg bg-gray-50 p-3 sm:p-4">
+									<p className="mb-3 text-sm text-gray-600">
 										Select all symptoms that apply
 										to this case (at least one is
 										required):
 									</p>
-									<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+									<div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 										{signsAndSymptoms.map(
 											(symptom) => (
 												<div
 													key={symptom}
-													className="flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-200 hover:border-uganda-yellow/50 transition-colors"
+													className="flex min-h-10 items-center space-x-2 rounded border border-gray-200 bg-white px-3 py-2 transition-colors hover:border-uganda-yellow/50"
 												>
 													<Checkbox
 														id={
@@ -1020,7 +999,7 @@ export default function PublicAddAlertPage() {
 														htmlFor={
 															symptom
 														}
-														className="text-sm font-medium cursor-pointer"
+														className="cursor-pointer text-sm font-medium leading-tight"
 													>
 														{symptom}
 													</Label>
@@ -1030,8 +1009,8 @@ export default function PublicAddAlertPage() {
 									</div>
 									{formData.signsAndSymptoms.length >
 										0 && (
-										<div className="mt-4">
-											<p className="text-sm font-medium text-gray-700 mb-2">
+										<div className="mt-3">
+											<p className="mb-2 text-sm font-medium text-gray-700">
 												Selected symptoms:
 											</p>
 											<div className="flex flex-wrap gap-2">
@@ -1056,23 +1035,11 @@ export default function PublicAddAlertPage() {
 								</div>
 							</div>
 
-							{/* Submit Section */}
-							<div className="flex justify-end space-x-4 pt-8 border-t">
-								<Button
-									type="submit"
-									disabled={isSubmitting}
-									className="bg-gradient-to-r from-uganda-red to-uganda-yellow hover:from-uganda-red/90 hover:to-uganda-yellow/90 text-white px-8 py-2 font-semibold"
-								>
-									{isSubmitting
-										? "Submitting Alert..."
-										: "Submit Health Alert"}
-								</Button>
-							</div>
 						</form>
 
 						{/* Status Messages */}
 						{submitStatus.type && (
-							<div className="my-6">
+							<div className="mt-5">
 								<Alert
 									className={
 										submitStatus.type ===
@@ -1106,21 +1073,35 @@ export default function PublicAddAlertPage() {
 				</Card>
 
 				{/* Emergency Contact */}
-				<Card className="mt-6 bg-red-50 border-red-200">
-					<CardContent className="p-6">
-						<h3 className="text-lg font-semibold text-red-800 mb-2">
-							Emergency Contact
-						</h3>
-						<p className="text-red-700 text-sm">
-							For immediate medical emergencies, please
-							call <strong>0800-100-066</strong>, SMS{" "}
-							<strong>6767</strong>, or visit the nearest
-							health facility. This form is for reporting
-							suspected disease outbreaks and public
-							health concerns.
-						</p>
-					</CardContent>
-				</Card>
+				<Alert className="mt-4 border-red-200 bg-red-50">
+					<AlertTriangleIcon className="h-4 w-4 text-red-700" />
+					<AlertDescription className="text-sm text-red-800">
+						<strong>Emergency Contact:</strong>{" "}
+						For immediate medical emergencies, please call{" "}
+						<strong>0800-100-066</strong>, SMS <strong>6767</strong>, or visit
+						the nearest health facility. This form is for reporting suspected
+						disease outbreaks and public health concerns.
+					</AlertDescription>
+				</Alert>
+			</div>
+
+			<div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur">
+				<div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+					<p className="text-xs text-gray-600">
+						Required fields are marked with{" "}
+						<span className="font-semibold text-uganda-red">*</span>.
+					</p>
+					<Button
+						type="submit"
+						form="health-alert-form"
+						disabled={isSubmitting}
+						className="w-full bg-gradient-to-r from-uganda-red to-uganda-yellow px-8 font-semibold text-white hover:from-uganda-red/90 hover:to-uganda-yellow/90 sm:w-auto"
+					>
+						{isSubmitting
+							? "Submitting Alert..."
+							: "Submit Health Alert"}
+					</Button>
+				</div>
 			</div>
 		</div>
 	);

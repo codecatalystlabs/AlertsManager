@@ -3,12 +3,16 @@ import useSWR from 'swr';
 import { AuthService, Alert as AlertType } from '@/lib/auth';
 import { exportAlertsToCsv, exportAlertsToExcel } from '@/lib/alert-export';
 import { ALERTS_CONFIG } from '@/constants/alerts';
-import { fetchAlertsPage, type AlertsListParams } from '@/lib/fetch-alerts';
-import { fetchReportOptions } from '@/lib/fetch-reports';
+import {
+    fetchAlertsPage,
+    fetchAlertsStats,
+    type AlertsListParams,
+} from '@/lib/fetch-alerts';
 import { useInvalidateAlerts } from '@/hooks/use-invalidate-alerts';
 
 interface AlertsFilters {
     status: string;
+    region: string;
     district: string;
     source: string;
     date: string;
@@ -39,7 +43,6 @@ interface UseAlertsDataReturn {
     isValidating: boolean;
     error: string | null;
     deletingId: number | null;
-    uniqueDistricts: string[];
     uniqueSources: string[];
     setFilters: (filters: Partial<AlertsFilters>) => void;
     setPage: (page: number) => void;
@@ -52,6 +55,7 @@ interface UseAlertsDataReturn {
 
 const initialFilters: AlertsFilters = {
     status: '',
+    region: '',
     district: '',
     source: '',
     date: '',
@@ -65,6 +69,10 @@ function toApiParams(
 ): AlertsListParams {
     const params: AlertsListParams = { page, limit };
 
+    if (filters.region && filters.region !== 'all') {
+        params.region = filters.region;
+    }
+
     if (filters.district && filters.district !== 'all') {
         params.district = filters.district;
     }
@@ -75,9 +83,8 @@ function toApiParams(
         params.is_verified = false;
     }
 
-    // Status, source and date are sent to the server so they filter the whole
-    // dataset, not just the loaded page. applyClientFilters() below still runs
-    // as a fallback in case the backend ignores a param.
+    // Status, source and date are filtered server-side so they scope the whole
+    // dataset (and the summary cards), not just the loaded page.
     if (filters.status && filters.status !== 'all') {
         params.status = filters.status;
     }
@@ -92,27 +99,6 @@ function toApiParams(
     }
 
     return params;
-}
-
-function applyClientFilters(alerts: AlertType[], filters: AlertsFilters): AlertType[] {
-    return alerts.filter((alert) => {
-        const matchesStatus =
-            !filters.status ||
-            filters.status === 'all' ||
-            alert.status === filters.status;
-        const matchesSource =
-            !filters.source ||
-            filters.source === 'all' ||
-            alert.sourceOfAlert === filters.source;
-
-        let matchesDate = true;
-        if (filters.date) {
-            const alertDate = new Date(alert.date).toISOString().split('T')[0];
-            matchesDate = alertDate === filters.date;
-        }
-
-        return matchesStatus && matchesSource && matchesDate;
-    });
 }
 
 export const useAlertsData = (): UseAlertsDataReturn => {
@@ -139,15 +125,18 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         { keepPreviousData: true }
     );
 
-    // District options share the reports endpoint; cached app-wide under one key.
-    const { data: reportOptions } = useSWR('report-options', fetchReportOptions);
+    // Summary cards count the whole filtered dataset (server-side aggregate),
+    // not just the current page. Keyed on filters only — page/limit don't change
+    // the totals, so paging the table never refetches the stats. Shares the
+    // "alerts" root so alert create/verify/delete revalidates the cards too.
+    const { data: statsData } = useSWR(
+        ['alerts', 'alerts-stats', filters] as const,
+        ([, , currentFilters]) =>
+            fetchAlertsStats(toApiParams(currentFilters, 1, 1)),
+        { keepPreviousData: true }
+    );
 
     const alerts = useMemo(() => (data?.data ?? []) as AlertType[], [data]);
-
-    const uniqueDistricts = useMemo(
-        () => (reportOptions?.districts ?? []).filter(Boolean),
-        [reportOptions]
-    );
 
     const pagination: AlertsPagination = {
         page: data?.page ?? page,
@@ -163,12 +152,14 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         : null;
 
     const loadAlertsForExport = useCallback(async (): Promise<AlertType[]> => {
+        // Same server-side filters as the table, just unpaginated, so the export
+        // covers the whole filtered dataset rather than the current page.
         const result = await fetchAlertsPage({
             ...toApiParams(filtersRef.current, 1, limit),
             page: 1,
             limit: 10_000,
         });
-        return applyClientFilters(result.data as AlertType[], filtersRef.current);
+        return result.data as AlertType[];
     }, [limit]);
 
     const deleteAlert = useCallback(
@@ -205,23 +196,23 @@ export const useAlertsData = (): UseAlertsDataReturn => {
     }, []);
 
     const filteredAlerts = useMemo(() => {
-        const filtered = applyClientFilters(alerts, filters);
-        // Float pending (unverified) alerts to the top of the page,
-        // preserving the server's order within each group.
-        return [...filtered].sort(
+        // Filtering and pagination are server-side (see toApiParams), so the page
+        // is already the correct slice. Just float pending (unverified) alerts to
+        // the top, preserving the server's order within each group.
+        return [...alerts].sort(
             (a, b) => Number(!!a.isVerified) - Number(!!b.isVerified)
         );
-    }, [alerts, filters]);
+    }, [alerts]);
 
-    const stats = useMemo((): AlertsStats => {
-        const alive = alerts.filter((alert) => alert.status === 'Alive').length;
-        const dead = alerts.filter((alert) => alert.status === 'Dead').length;
-        const unknown = alerts.filter(
-            (alert) => alert.status === 'Unknown' || alert.status === 'Pending'
-        ).length;
-
-        return { alive, dead, unknown, total: pagination.total || alerts.length };
-    }, [alerts, pagination.total]);
+    const stats = useMemo(
+        (): AlertsStats => ({
+            alive: statsData?.alive ?? 0,
+            dead: statsData?.dead ?? 0,
+            unknown: statsData?.unknown ?? 0,
+            total: statsData?.total ?? pagination.total,
+        }),
+        [statsData, pagination.total]
+    );
 
     const exportPrefix = ALERTS_CONFIG.EXPORT_FILENAME_PREFIX;
 
@@ -294,7 +285,6 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         isValidating,
         error,
         deletingId,
-        uniqueDistricts,
         uniqueSources,
         setFilters,
         setPage,

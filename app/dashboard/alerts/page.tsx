@@ -56,7 +56,6 @@ export default function AlertsPage(): React.JSX.Element {
 		isValidating,
 		error,
 		deletingId,
-		uniqueDistricts,
 		uniqueSources,
 		setFilters,
 		setPage,
@@ -151,7 +150,6 @@ export default function AlertsPage(): React.JSX.Element {
 			<AlertsFilters
 				filters={filters}
 				onFiltersChange={setFilters}
-				uniqueDistricts={uniqueDistricts}
 				uniqueSources={uniqueSources}
 			/>
 

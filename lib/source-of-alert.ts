@@ -51,3 +51,20 @@ export function normalizeSourceOfAlert(raw: string | null | undefined): string {
 	const key = raw.trim().toLowerCase();
 	return SOURCE_ALIASES[key] ?? raw.trim();
 }
+
+/**
+ * Every raw stored value that normalizes to the given canonical source label.
+ * Used to build a server-side `source_of_alert` IN-filter so selecting e.g.
+ * "Community" also matches legacy rows stored as "Community Member" /
+ * "Mass gathering". MySQL compares case-insensitively, so the lowercased alias
+ * keys still match the mixed-case values in the database.
+ */
+export function sourceFilterValues(canonical: string): string[] {
+	const values = new Set<string>([canonical]);
+	for (const [raw, mapped] of Object.entries(SOURCE_ALIASES)) {
+		if (mapped === canonical) {
+			values.add(raw);
+		}
+	}
+	return Array.from(values);
+}

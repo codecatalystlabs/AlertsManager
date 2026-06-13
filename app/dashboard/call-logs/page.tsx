@@ -65,12 +65,14 @@ export default function CallLogsPage(): React.JSX.Element {
 		filteredAlerts,
 		stats,
 		filters,
+		sort,
 		pagination,
 		loading,
 		isValidating,
 		error,
 		selectedAlert,
 		setFilters,
+		setSort,
 		setSelectedAlert,
 		setPage,
 		setPageSize,
@@ -222,6 +224,8 @@ export default function CallLogsPage(): React.JSX.Element {
 					page={pagination.page}
 					pageSize={pagination.limit}
 					totalPages={pagination.totalPages}
+					sort={sort}
+					onSortChange={setSort}
 					isLoading={loading || isValidating}
 					onPageChange={setPage}
 					onPageSizeChange={setPageSize}

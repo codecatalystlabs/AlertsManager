@@ -36,7 +36,7 @@ import {
 import { AuthService } from "@/lib/auth";
 import { verifyEidsrMessage } from "@/lib/fetch-eidsr-messages";
 import { buildEidsrVerifyPayload } from "@/lib/eidsr-verify-payload";
-import { DistrictSelect } from "@/components/district-select";
+import { CaseLocationSelect } from "@/components/case-location-select";
 import {
 	DESK_VERIFICATION_OPTIONS,
 	FIELD_VERIFICATION_OPTIONS,
@@ -135,6 +135,7 @@ export function AlertVerificationDialog({
 		alertCaseParish: alert?.alertCaseParish || "",
 		alertCaseSubCounty: alert?.alertCaseSubCounty || "",
 		alertCaseDistrict: alert?.alertCaseDistrict || "",
+		region: alert?.region || "",
 		alertCaseNationality: alert?.alertCaseNationality || "",
 		pointOfContactName: alert?.pointOfContactName || "",
 		pointOfContactRelationship: "",
@@ -186,6 +187,7 @@ export function AlertVerificationDialog({
 				alertCaseParish: alert.alertCaseParish || "",
 				alertCaseSubCounty: alert.alertCaseSubCounty || "",
 				alertCaseDistrict: alert.alertCaseDistrict || "",
+				region: alert.region || "",
 				alertCaseNationality: alert.alertCaseNationality || "",
 				pointOfContactName: alert.pointOfContactName || "",
 				pointOfContactRelationship: "",
@@ -448,6 +450,7 @@ export function AlertVerificationDialog({
 				alertCaseParish: formData.alertCaseParish,
 				alertCaseSubCounty: formData.alertCaseSubCounty,
 				alertCaseDistrict: formData.alertCaseDistrict,
+				region: formData.region,
 				alertCaseNationality: formData.alertCaseNationality,
 				pointOfContactName: formData.pointOfContactName,
 				pointOfContactRelationship:
@@ -952,143 +955,75 @@ export function AlertVerificationDialog({
 
 							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 								<div className="space-y-2">
-									<Label
-										htmlFor="village"
-										className="text-sm font-medium"
-									>
+									<Label htmlFor="village" className="text-sm font-medium">
 										Village (Reporter)
 									</Label>
 									<Input
 										id="village"
 										value={formData.village}
-										onChange={(e) =>
-											handleInputChange(
-												"village",
-												e.target.value
-											)
-										}
+										onChange={(e) => handleInputChange("village", e.target.value)}
 									/>
 								</div>
 								<div className="space-y-2">
-									<Label
-										htmlFor="subCounty"
-										className="text-sm font-medium"
-									>
-										Sub County
+									<Label htmlFor="subCounty" className="text-sm font-medium">
+										Sub County (Reporter)
 									</Label>
 									<Input
 										id="subCounty"
 										value={formData.subCounty}
-										onChange={(e) =>
-											handleInputChange(
-												"subCounty",
-												e.target.value
-											)
-										}
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label
-										htmlFor="alertCaseDistrict"
-										className="text-sm font-medium"
-									>
-										District
-									</Label>
-									<DistrictSelect
-										id="alertCaseDistrict"
-										value={formData.alertCaseDistrict}
-										onValueChange={(value) =>
-											handleInputChange(
-												"alertCaseDistrict",
-												value
-											)
-										}
+										onChange={(e) => handleInputChange("subCounty", e.target.value)}
 									/>
 								</div>
 							</div>
-
+							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+								<CaseLocationSelect
+									value={{
+										region: formData.region,
+										district: formData.alertCaseDistrict,
+										subcounty: formData.alertCaseSubCounty,
+									}}
+									onChange={(loc) =>
+										setFormData((prev) => ({
+											...prev,
+											region: loc.region,
+											alertCaseDistrict: loc.district,
+											alertCaseSubCounty: loc.subcounty,
+										}))
+									}
+									labelClassName="text-sm font-medium"
+								/>
+							</div>
 							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 								<div className="space-y-2">
-									<Label
-										htmlFor="alertCaseVillage"
-										className="text-sm font-medium"
-									>
+									<Label htmlFor="alertCaseVillage" className="text-sm font-medium">
 										Case Village
 									</Label>
 									<Input
 										id="alertCaseVillage"
-										value={
-											formData.alertCaseVillage
-										}
-										onChange={(e) =>
-											handleInputChange(
-												"alertCaseVillage",
-												e.target.value
-											)
-										}
+										value={formData.alertCaseVillage}
+										onChange={(e) => handleInputChange("alertCaseVillage", e.target.value)}
 									/>
 								</div>
 								<div className="space-y-2">
-									<Label
-										htmlFor="alertCaseParish"
-										className="text-sm font-medium"
-									>
+									<Label htmlFor="alertCaseParish" className="text-sm font-medium">
 										Case Parish
 									</Label>
 									<Input
 										id="alertCaseParish"
-										value={
-											formData.alertCaseParish
-										}
-										onChange={(e) =>
-											handleInputChange(
-												"alertCaseParish",
-												e.target.value
-											)
-										}
+										value={formData.alertCaseParish}
+										onChange={(e) => handleInputChange("alertCaseParish", e.target.value)}
 									/>
 								</div>
 								<div className="space-y-2">
-									<Label
-										htmlFor="alertCaseSubCounty"
-										className="text-sm font-medium"
-									>
-										Case Sub County
+									<Label htmlFor="alertCaseNationality" className="text-sm font-medium">
+										Case Nationality
 									</Label>
 									<Input
-										id="alertCaseSubCounty"
-										value={
-											formData.alertCaseSubCounty
-										}
-										onChange={(e) =>
-											handleInputChange(
-												"alertCaseSubCounty",
-												e.target.value
-											)
-										}
+										id="alertCaseNationality"
+										value={formData.alertCaseNationality}
+										onChange={(e) => handleInputChange("alertCaseNationality", e.target.value)}
 									/>
 								</div>
-							</div>
-
-							<div className="space-y-2">
-								<Label
-									htmlFor="alertCaseNationality"
-									className="text-sm font-medium"
-								>
-									Case Nationality
-								</Label>
-								<Input
-									id="alertCaseNationality"
-									value={
-										formData.alertCaseNationality
-									}
-									onChange={(e) =>
-										handleInputChange(
-											"alertCaseNationality",
-											e.target.value
-										)
-									}
-								/>
 							</div>
 						</div>
 

@@ -70,26 +70,47 @@ export interface ExportRange {
 	to?: string;
 }
 
+/** Filename descriptor: a date range plus human-readable active-filter tokens. */
+export interface ExportNameOptions {
+	range?: ExportRange;
+	/** Active filter labels woven into the name, e.g. ["Kampala", "verified"]. */
+	tokens?: string[];
+}
+
 function dateStamp(): string {
 	return new Date().toISOString().split("T")[0];
 }
 
+/** Make a token filesystem-safe: keep alphanumerics, collapse the rest to "-". */
+function sanitizeToken(value: string): string {
+	return value
+		.trim()
+		.replace(/[^A-Za-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "");
+}
 
 function buildExportFilename(
 	prefix: string,
 	extension: string,
-	range?: ExportRange
+	options?: ExportNameOptions
 ): string {
-	const from = range?.from?.trim();
-	const to = range?.to?.trim();
+	const tokens = (options?.tokens ?? []).map(sanitizeToken).filter(Boolean);
 
-	let suffix: string;
-	if (from && to) suffix = `${from}_to_${to}`;
-	else if (from) suffix = `from_${from}`;
-	else if (to) suffix = `through_${to}`;
-	else suffix = dateStamp(); // no range selected → today's stamp (unchanged)
+	const from = options?.range?.from?.trim();
+	const to = options?.range?.to?.trim();
 
-	return `${prefix}_${suffix}.${extension}`;
+	let rangePart: string;
+	if (from && to) rangePart = `${from}_to_${to}`;
+	else if (from) rangePart = `from_${from}`;
+	else if (to) rangePart = `through_${to}`;
+	else rangePart = dateStamp(); // no range selected → timestamp the export
+
+	const parts = [prefix, ...tokens, rangePart];
+	let name = parts.join("_");
+	// Guard against unwieldy names when many filters are active.
+	if (name.length > 180) name = name.slice(0, 180).replace(/_+$/, "");
+
+	return `${name}.${extension}`;
 }
 
 function formatExportDate(dateStr: string): string {
@@ -133,7 +154,7 @@ function rowsFromAlerts(alerts: ExportableAlert[]): string[][] {
 export function exportAlertsToCsv(
 	alerts: ExportableAlert[],
 	filenamePrefix: string,
-	range?: ExportRange
+	options?: ExportNameOptions
 ): boolean {
 	if (alerts.length === 0) return false;
 
@@ -146,7 +167,7 @@ export function exportAlertsToCsv(
 		type: "text/csv;charset=utf-8;",
 	});
 
-	downloadBlob(blob, buildExportFilename(filenamePrefix, "csv", range));
+	downloadBlob(blob, buildExportFilename(filenamePrefix, "csv", options));
 	return true;
 }
 
@@ -165,7 +186,7 @@ export async function exportAlertsToExcel(
 	alerts: ExportableAlert[],
 	filenamePrefix: string,
 	sheetName = "Alerts",
-	range?: ExportRange
+	options?: ExportNameOptions
 ): Promise<boolean> {
 	if (alerts.length === 0) return false;
 	if (typeof window === "undefined") {
@@ -199,6 +220,6 @@ export async function exportAlertsToExcel(
 		type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 	});
 
-	downloadBlob(blob, buildExportFilename(filenamePrefix, "xlsx", range));
+	downloadBlob(blob, buildExportFilename(filenamePrefix, "xlsx", options));
 	return true;
 }

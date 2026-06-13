@@ -16,13 +16,34 @@ class AlertsFetchError extends Error {
 export interface AlertsListParams {
 	page?: number;
 	limit?: number;
+	region?: string;
 	district?: string;
+	/** Division/subcounty name; matched against alert_case_sub_county or sub_county. */
+	division?: string;
 	is_verified?: boolean;
 	from_date?: string;
 	to_date?: string;
 	status?: string;
-	/** Sent as `source_of_alert` — matches the field name in the API response. */
+	/** Sent as `source_of_alert` — comma-separated list for an IN match. */
 	source?: string;
+	/** Free-text search across reporter, case name, contact, CIF, district, id. */
+	search?: string;
+	/** Case sex (e.g. "Male", "Female"). */
+	sex?: string;
+	/** Inclusive minimum case age. */
+	age_min?: number;
+	/** Inclusive maximum case age. */
+	age_max?: number;
+	/** Partial match on the call taker. */
+	call_taker?: string;
+	/** Partial match on the assigned user. */
+	assigned_to?: string;
+	/** Partial match on the verifying user. */
+	verified_by?: string;
+	/** Sort column: date | created_at | id | name | district | status | reporter. */
+	sort_by?: string;
+	/** Sort direction. */
+	order?: "asc" | "desc";
 }
 
 export interface PaginatedAlertsResult<T> {
@@ -33,22 +54,61 @@ export interface PaginatedAlertsResult<T> {
 	totalPages: number;
 }
 
-/** Range-driven chart fetch: larger pages + higher cap so wider windows aren't truncated. */
-const CHART_PAGE_LIMIT = 500;
-const CHART_MAX_PAGES = 40; // up to 20k rows across the selected range
-
-/** A chart date window; omit a bound for "all time". */
-export interface DashboardRange {
-	from_date?: string;
-	to_date?: string;
-}
-
-export interface AlertTotals {
-	verified: number;
-	notVerified: number;
-	discarded: number;
-	alerts: number;
-	total: number;
+/**
+ * Set every dataset filter (region/district/division, dates, status,
+ * verification, source, search, demographics, staff) on `searchParams`.
+ * Pagination (page/limit) and sort are intentionally excluded so this can be
+ * shared by both the list and the /alerts/stats endpoints.
+ */
+function appendAlertFilterParams(
+	searchParams: URLSearchParams,
+	params: AlertsListParams
+): void {
+	if (params.region) {
+		searchParams.set("region", params.region);
+	}
+	if (params.district) {
+		searchParams.set("district", params.district);
+	}
+	if (params.division) {
+		searchParams.set("division", params.division);
+	}
+	if (params.is_verified !== undefined) {
+		searchParams.set("is_verified", String(params.is_verified));
+	}
+	if (params.from_date) {
+		searchParams.set("from_date", params.from_date);
+	}
+	if (params.to_date) {
+		searchParams.set("to_date", params.to_date);
+	}
+	if (params.status) {
+		searchParams.set("status", params.status);
+	}
+	if (params.source) {
+		searchParams.set("source_of_alert", params.source);
+	}
+	if (params.search) {
+		searchParams.set("search", params.search);
+	}
+	if (params.sex) {
+		searchParams.set("sex", params.sex);
+	}
+	if (params.age_min !== undefined) {
+		searchParams.set("age_min", String(params.age_min));
+	}
+	if (params.age_max !== undefined) {
+		searchParams.set("age_max", String(params.age_max));
+	}
+	if (params.call_taker) {
+		searchParams.set("call_taker", params.call_taker);
+	}
+	if (params.assigned_to) {
+		searchParams.set("assigned_to", params.assigned_to);
+	}
+	if (params.verified_by) {
+		searchParams.set("verified_by", params.verified_by);
+	}
 }
 
 function buildAlertsUrl(apiBase: string, params?: AlertsListParams): string {
@@ -60,27 +120,27 @@ function buildAlertsUrl(apiBase: string, params?: AlertsListParams): string {
 	if (params?.limit !== undefined) {
 		searchParams.set("limit", String(params.limit));
 	}
-	if (params?.district) {
-		searchParams.set("district", params.district);
+	if (params) {
+		appendAlertFilterParams(searchParams, params);
 	}
-	if (params?.is_verified !== undefined) {
-		searchParams.set("is_verified", String(params.is_verified));
+	if (params?.sort_by) {
+		searchParams.set("sort_by", params.sort_by);
 	}
-	if (params?.from_date) {
-		searchParams.set("from_date", params.from_date);
-	}
-	if (params?.to_date) {
-		searchParams.set("to_date", params.to_date);
-	}
-	if (params?.status) {
-		searchParams.set("status", params.status);
-	}
-	if (params?.source) {
-		searchParams.set("source_of_alert", params.source);
+	if (params?.order) {
+		searchParams.set("order", params.order);
 	}
 
 	const query = searchParams.toString();
 	return query ? `${apiBase}/alerts?${query}` : `${apiBase}/alerts`;
+}
+
+function buildAlertsStatsUrl(apiBase: string, params?: AlertsListParams): string {
+	const searchParams = new URLSearchParams();
+	if (params) {
+		appendAlertFilterParams(searchParams, params);
+	}
+	const query = searchParams.toString();
+	return query ? `${apiBase}/alerts/stats?${query}` : `${apiBase}/alerts/stats`;
 }
 
 function extractAlertsArrayFromResponse(json: unknown): unknown[] {
@@ -181,56 +241,6 @@ async function requestAlerts<T>(url: string): Promise<T> {
 	return response.json() as Promise<T>;
 }
 
-/** Lightweight totals via pagination metadata (3 tiny requests). */
-export async function fetchAlertTotals(): Promise<AlertTotals> {
-	const [all, verified, notVerified] = await Promise.all([
-		fetchAlertsPage({ page: 1, limit: 1 }),
-		fetchAlertsPage({ page: 1, limit: 1, is_verified: true }),
-		fetchAlertsPage({ page: 1, limit: 1, is_verified: false }),
-	]);
-
-	return {
-		total: all.total,
-		verified: verified.total,
-		notVerified: notVerified.total,
-		discarded: 0,
-		alerts: verified.total,
-	};
-}
-
-/**
- * Fetch all alerts within a date range for the dashboard charts. Pages through
- * the result (parallel) up to a safety cap. Omitting both bounds = all time.
- * Pass `district` to scope the charts to a single district ("all"/empty = no filter).
- */
-export async function fetchAlertsForRange(
-	range: DashboardRange = {},
-	district?: string
-): Promise<Alert[]> {
-	const baseParams: AlertsListParams = {
-		page: 1,
-		limit: CHART_PAGE_LIMIT,
-	};
-	if (range.from_date) baseParams.from_date = range.from_date;
-	if (range.to_date) baseParams.to_date = range.to_date;
-	if (district && district !== "all") baseParams.district = district;
-
-	const first = await fetchAlertsPage(baseParams);
-	const maxPages = Math.min(Math.max(first.totalPages, 1), CHART_MAX_PAGES);
-
-	if (maxPages <= 1) {
-		return first.data;
-	}
-
-	const rest = await Promise.all(
-		Array.from({ length: maxPages - 1 }, (_, index) =>
-			fetchAlertsPage({ ...baseParams, page: index + 2 })
-		)
-	);
-
-	return [...first.data, ...rest.flatMap((page) => page.data)];
-}
-
 /** Paginated alerts list: GET /api/v1/alerts?page=1&limit=10&district=... */
 export async function fetchAlertsPage(
 	params: AlertsListParams = {}
@@ -238,4 +248,45 @@ export async function fetchAlertsPage(
 	const apiBase = getClientApiBaseUrl();
 	const json = await requestAlerts<unknown>(buildAlertsUrl(apiBase, params));
 	return parsePaginatedAlertsResponse(json);
+}
+
+/** Dataset-wide summary counts for the alerts / call-logs cards. */
+export interface AlertsStats {
+	total: number;
+	alive: number;
+	/** status = 'Dead' (Alerts Management card). */
+	dead: number;
+	/** status IN ('Unknown','Pending') (Alerts Management card). */
+	unknown: number;
+	other: number;
+	verified: number;
+	pending: number;
+}
+
+/**
+ * GET /api/v1/alerts/stats — alive / dead / unknown / other / verified / pending
+ * counts across every alert matching the given filters (the same filters the
+ * list honours), so the summary cards reflect the whole dataset rather than the
+ * current page. Pagination/sort fields on `params` are ignored.
+ */
+export async function fetchAlertsStats(
+	params: AlertsListParams = {}
+): Promise<AlertsStats> {
+	const apiBase = getClientApiBaseUrl();
+	const json = await requestAlerts<Record<string, unknown>>(
+		buildAlertsStatsUrl(apiBase, params)
+	);
+	const num = (v: unknown): number => {
+		const n = Number(v);
+		return Number.isFinite(n) ? n : 0;
+	};
+	return {
+		total: num(json.total),
+		alive: num(json.alive),
+		dead: num(json.dead),
+		unknown: num(json.unknown),
+		other: num(json.other),
+		verified: num(json.verified),
+		pending: num(json.pending),
+	};
 }

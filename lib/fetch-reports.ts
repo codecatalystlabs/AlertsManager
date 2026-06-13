@@ -43,7 +43,9 @@ export interface ReportTimeseries {
 
 export interface ReportOptions {
 	metrics: string[];
+	regions: string[];
 	districts: string[];
+	divisions: string[];
 	scopes: { value: ReportScope; label: string }[];
 }
 
@@ -58,6 +60,12 @@ export interface ReportsQueryParams {
 	from_date?: string;
 	to_date?: string;
 	scope?: ReportScope;
+	/** Comma-separated region names (scopes the options district list). */
+	regions?: string;
+	/** Comma-separated districts (scopes the options division list). */
+	districts?: string;
+	/** Disease filter: "all" for every disease, else comma-separated values. */
+	response?: string;
 }
 
 export function todayIsoDate(): string {
@@ -211,6 +219,9 @@ async function requestReport<T>(path: string, params?: ReportsQueryParams): Prom
 	if (params?.from_date) searchParams.set("from_date", params.from_date);
 	if (params?.to_date) searchParams.set("to_date", params.to_date);
 	if (params?.scope) searchParams.set("scope", params.scope);
+	if (params?.regions) searchParams.set("regions", params.regions);
+	if (params?.districts) searchParams.set("districts", params.districts);
+	if (params?.response) searchParams.set("response", params.response);
 	const query = searchParams.toString();
 	const url = query
 		? `${apiBase}/reports/${path}?${query}`
@@ -326,7 +337,9 @@ export function parseOptionsResponse(json: unknown): ReportOptions {
 	const body = asRecord(json);
 	const defaults: ReportOptions = {
 		metrics: [],
+		regions: [],
 		districts: [],
+		divisions: [],
 		scopes: [
 			{ value: "daily", label: "Daily" },
 			{ value: "cumulative", label: "Cumulative" },
@@ -336,7 +349,9 @@ export function parseOptionsResponse(json: unknown): ReportOptions {
 	if (!body) return defaults;
 
 	const metrics = body.metrics as string[] | undefined;
+	const regions = body.regions as string[] | undefined;
 	const districts = body.districts as string[] | undefined;
+	const divisions = body.divisions as string[] | undefined;
 	const scopesRaw = body.scopes as string[] | undefined;
 
 	let scopes = defaults.scopes;
@@ -349,7 +364,9 @@ export function parseOptionsResponse(json: unknown): ReportOptions {
 
 	return {
 		metrics: Array.isArray(metrics) ? metrics.map(String) : [],
+		regions: Array.isArray(regions) ? regions.map(String) : [],
 		districts: Array.isArray(districts) ? districts.map(String) : [],
+		divisions: Array.isArray(divisions) ? divisions.map(String) : [],
 		scopes,
 	};
 }
@@ -357,6 +374,53 @@ export function parseOptionsResponse(json: unknown): ReportOptions {
 export async function fetchReportOptions(): Promise<ReportOptions> {
 	const json = await requestReport<unknown>("options");
 	return parseOptionsResponse(json);
+}
+
+/**
+ * District values exactly as stored on alerts (`alert_case_district`), verbatim
+ * — keeping the " District"/" City" suffixes and every spelling variant the
+ * database actually contains. This is the single source for district *filter /
+ * edit* dropdowns, so a selected option always matches rows on an exact compare
+ * (the list/stats backend filters with `alert_case_district = ?`).
+ *
+ * `response=all` spans every disease (not just the EVD/VHF report default);
+ * pass a region name to scope the list to that region (Region → District
+ * cascade). The data-entry geography picker (CaseLocationSelect) deliberately
+ * keeps using the clean admin-units list instead.
+ */
+export async function fetchAlertDistrictNames(
+	regionName?: string
+): Promise<string[]> {
+	const params: ReportsQueryParams = { response: "all" };
+	if (regionName && regionName !== "all") params.regions = regionName;
+	const json = await requestReport<unknown>("options", params);
+	return parseOptionsResponse(json).districts;
+}
+
+/**
+ * Region values exactly as stored on alerts (`region`), verbatim — the single
+ * source for the Region filter dropdown so options match what the data can be
+ * filtered on. `response=all` spans every disease.
+ */
+export async function fetchAlertRegionNames(): Promise<string[]> {
+	const json = await requestReport<unknown>("options", { response: "all" });
+	return parseOptionsResponse(json).regions;
+}
+
+/**
+ * Division/subcounty values stored on alerts (verbatim, drawn from both the
+ * alert_case_sub_county and sub_county columns) for the chosen district —
+ * the source for the Division filter dropdown. Returns [] without a district.
+ */
+export async function fetchAlertDivisionNames(
+	districtName?: string
+): Promise<string[]> {
+	if (!districtName || districtName === "all") return [];
+	const json = await requestReport<unknown>("options", {
+		response: "all",
+		districts: districtName,
+	});
+	return parseOptionsResponse(json).divisions;
 }
 
 export async function fetchReportMatrix(

@@ -35,7 +35,7 @@ import {
 } from "@/lib/utils";
 import Link from "next/link";
 import { alertSource, alertEntryStatus, signsAndSymptoms } from "@/constants";
-import { DistrictSelect } from "@/components/district-select";
+import { CaseLocationSelect } from "@/components/case-location-select";
 
 
 
@@ -52,6 +52,7 @@ export default function DashboardAddAlertPage() {
 		contactNumber: "",
 		status: "",
 		response: "",
+		region: "",
 		alertCaseDistrict: "",
 		subCounty: "",
 		alertCaseVillage: "",
@@ -102,6 +103,9 @@ export default function DashboardAddAlertPage() {
 				!formData.personReporting ||
 				!formData.contactNumber ||
 				!formData.sourceOfAlert ||
+				!formData.region ||
+				!formData.alertCaseDistrict ||
+				!formData.subCounty ||
 				!formData.alertCaseName ||
 				!formData.alertCaseAge ||
 				!formData.alertCaseSex ||
@@ -134,6 +138,7 @@ export default function DashboardAddAlertPage() {
 				contactNumber: formData.contactNumber,
 				status: formData.status || "Pending",
 				response: formData.response || "Routine",
+				region: formData.region,
 				alertCaseDistrict: formData.alertCaseDistrict,
 				subCounty: formData.subCounty || "",
 				alertCaseVillage: formData.alertCaseVillage || "",
@@ -176,6 +181,7 @@ export default function DashboardAddAlertPage() {
 				contactNumber: "",
 				status: "",
 				response: "",
+				region: "",
 				alertCaseDistrict: "",
 				subCounty: "",
 				alertCaseVillage: "",
@@ -545,43 +551,22 @@ export default function DashboardAddAlertPage() {
 							</div>
 
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-								<div className="space-y-2">
-									<Label
-										htmlFor="alertCaseDistrict"
-										className="text-sm font-medium"
-									>
-										District *
-									</Label>
-									<DistrictSelect
-										id="alertCaseDistrict"
-										value={formData.alertCaseDistrict}
-										onValueChange={(value) =>
-											handleInputChange(
-												"alertCaseDistrict",
-												value
-											)
-										}
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label
-										htmlFor="subCounty"
-										className="text-sm font-medium"
-									>
-										Subcounty/Division
-									</Label>
-									<Input
-										id="subCounty"
-										value={formData.subCounty}
-										onChange={(e) =>
-											handleInputChange(
-												"subCounty",
-												e.target.value
-											)
-										}
-										placeholder="Enter subcounty or division"
-									/>
-								</div>
+								<CaseLocationSelect
+									value={{
+										region: formData.region,
+										district: formData.alertCaseDistrict,
+										subcounty: formData.subCounty,
+									}}
+									onChange={(loc) =>
+										setFormData((prev) => ({
+											...prev,
+											region: loc.region,
+											alertCaseDistrict: loc.district,
+											subCounty: loc.subcounty,
+										}))
+									}
+									labelClassName="text-sm font-medium"
+								/>
 								<div className="space-y-2">
 									<Label
 										htmlFor="alertCaseVillage"

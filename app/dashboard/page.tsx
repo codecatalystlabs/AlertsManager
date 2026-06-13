@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import {
 	WelcomeSection,
@@ -12,11 +12,9 @@ import {
 	DEFAULT_RANGE_PRESET,
 	type DashboardRangeValue,
 } from "@/components/dashboard";
-import { useDashboardData } from "@/hooks/use-dashboard-data";
-import { useDashboardChartAlerts } from "@/hooks/use-dashboard-chart-alerts";
+import { useDashboardSummary } from "@/hooks/use-dashboard-summary";
 import type { AlertCounts } from "@/app/dashboard/types";
 import { LAYOUT } from "@/constants/layout";
-import { deriveAlertOutcome } from "@/lib/alert-outcome";
 
 const DashboardCharts = dynamic(
 	() =>
@@ -31,62 +29,47 @@ const DashboardCharts = dynamic(
 	}
 );
 
+const EMPTY_COUNTS: AlertCounts = {
+	verified: 0,
+	notVerified: 0,
+	discarded: 0,
+	alerts: 0,
+	total: 0,
+};
+
 export default function DashboardPage(): React.JSX.Element {
-	const { data, loading, error, refetch } = useDashboardData();
 	const [range, setRange] = useState<DashboardRangeValue>(() =>
 		resolveDashboardRange(DEFAULT_RANGE_PRESET)
 	);
 	const [district, setDistrict] = useState<string>("all");
-	const {
-		alerts: rangeAlerts,
-		loading: rangeLoading,
-		error: rangeError,
-		refetch: refetchRange,
-	} = useDashboardChartAlerts(range, district);
+	const { summary, loading, error, refetch } = useDashboardSummary(
+		range,
+		district
+	);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 
 	const handleRefresh = useCallback(async () => {
 		setIsRefreshing(true);
 		try {
-			await Promise.all([refetch(), refetchRange()]);
+			await refetch();
 		} finally {
 			setIsRefreshing(false);
 		}
-	}, [refetch, refetchRange]);
+	}, [refetch]);
 
-	const handleRetry = useCallback(async () => {
-		await handleRefresh();
-	}, [handleRefresh]);
-
-	// KPI cards: total/verified/unverified use exact all-time metadata when no
-	// range/district is applied. Discarded/actionable alerts are derived from
-	// the loaded signal rows because the lightweight totals API has no discarded
-	// outcome count.
 	const isUnbounded = !range.from && !range.to && district === "all";
-	const rangeCounts = useMemo<AlertCounts>(() => {
-		const total = rangeAlerts.length;
-		const verified = rangeAlerts.filter((a) => a.isVerified).length;
-		const discarded = rangeAlerts.filter(
-			(a) => a.isVerified && deriveAlertOutcome(a) === "Discarded"
-		).length;
-		return {
-			total,
-			verified,
-			notVerified: total - verified,
-			discarded,
-			alerts: Math.max(0, verified - discarded),
-		};
-	}, [rangeAlerts]);
-	const statCounts = isUnbounded
+
+	// Every KPI card now comes from one server-side aggregate, scoped to the
+	// selected range + district.
+	const statCounts: AlertCounts = summary
 		? {
-				...data.alertCounts,
-				discarded: rangeCounts.discarded,
-				alerts: Math.max(0, data.alertCounts.verified - rangeCounts.discarded),
+				verified: summary.verified,
+				notVerified: summary.notVerified,
+				discarded: summary.discarded,
+				alerts: summary.alerts,
+				total: summary.total,
 			}
-		: rangeCounts;
-	// KPI cards follow their data source: all-time totals load with the
-	// dashboard, range-scoped totals load with the chart fetch.
-	const statCountsLoading = isUnbounded ? loading : rangeLoading;
+		: EMPTY_COUNTS;
 
 	return (
 		<div className={LAYOUT.pageGap}>
@@ -111,41 +94,30 @@ export default function DashboardPage(): React.JSX.Element {
 					<DashboardDistrictPicker
 						value={district}
 						onChange={setDistrict}
-						disabled={rangeLoading}
+						disabled={loading}
 					/>
-					<DashboardRangePicker
-						onChange={setRange}
-						disabled={rangeLoading}
-					/>
+					<DashboardRangePicker onChange={setRange} disabled={loading} />
 				</div>
 			</div>
 
 			{error && (
 				<ErrorAlert
 					error={error}
-					onRetry={handleRetry}
+					onRetry={handleRefresh}
 					retrying={isRefreshing}
 				/>
 			)}
 
 			<StatsGrid
 				alertCounts={statCounts}
-				kpiLoading={statCountsLoading || (isUnbounded && rangeLoading)}
+				kpiLoading={loading && !summary}
 			/>
 
 			<h2 className="text-base font-semibold text-gray-900">
 				Trends &amp; breakdowns
 			</h2>
 
-			{rangeError && (
-				<ErrorAlert
-					error={rangeError}
-					onRetry={refetchRange}
-					retrying={rangeLoading}
-				/>
-			)}
-
-			{rangeLoading ? (
+			{loading && !summary ? (
 				<div className="space-y-6">
 					<div className="h-16 animate-pulse rounded-lg border bg-muted/40" />
 					<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -157,9 +129,9 @@ export default function DashboardPage(): React.JSX.Element {
 						))}
 					</div>
 				</div>
-			) : (
-				<DashboardCharts alerts={rangeAlerts} />
-			)}
+			) : summary ? (
+				<DashboardCharts summary={summary} />
+			) : null}
 		</div>
 	);
 }

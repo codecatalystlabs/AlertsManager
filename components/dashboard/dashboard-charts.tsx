@@ -26,27 +26,40 @@ import {
 	ChartTooltipContent,
 	type ChartConfig,
 } from "@/components/ui/chart";
-import type { CallLogAlert } from "@/app/dashboard/types";
-import {
-	getAlertsOverTime,
-	getStatusDistribution,
-	getTimelineGranularity,
-	getTopDistricts,
-	getVerificationBreakdown,
-	getVerificationOutcomeBreakdown,
-	type ChartCountItem,
-} from "@/lib/dashboard-chart-data";
+import type { DashboardSummary } from "@/lib/fetch-dashboard";
 import {
 	BarChart3,
 	ListChecks,
 	MapPin,
+	Megaphone,
 	PieChart as PieChartIcon,
+	Stethoscope,
 	TrendingUp,
+	Users,
+	UserCircle,
 } from "lucide-react";
 
-interface DashboardChartsProps {
-	alerts: CallLogAlert[];
+interface ChartCountItem {
+	key: string;
+	label: string;
+	count: number;
+	color?: string;
 }
+
+interface DashboardChartsProps {
+	summary: DashboardSummary;
+}
+
+/** Bar colours for the verification-outcome breakdown (presentation only — the
+ * API returns raw counts, the dashboard owns the palette). */
+const OUTCOME_COLORS: Record<string, string> = {
+	"Field Case Verification": "#0066CC",
+	Discarded: "#D90000",
+	"Validated for EMS Evacuation": "#7c3aed",
+	"Mortality Surveillance/Supervised Burial": "#111827",
+	"Sample Collected": "#16a34a",
+	Others: "#6b7280",
+};
 
 const verificationColors: Record<string, string> = {
 	verified: "#16a34a",
@@ -75,6 +88,29 @@ const timelineConfig: ChartConfig = {
 const districtConfig: ChartConfig = {
 	count: { label: "Signals", color: "#0066CC" },
 };
+
+const diseaseConfig: ChartConfig = {
+	count: { label: "Alerts", color: "#D90000" },
+};
+
+const sourceConfig: ChartConfig = {
+	count: { label: "Alerts", color: "#0066CC" },
+};
+
+const ageConfig: ChartConfig = {
+	count: { label: "Cases", color: "#7c3aed" },
+};
+
+const sexConfig: ChartConfig = {
+	male: { label: "Male", color: "#0066CC" },
+	female: { label: "Female", color: "#D90000" },
+	unknown: { label: "Unknown", color: "#9ca3af" },
+};
+
+/** Keep long category labels (e.g. disease names) readable on a bar axis. */
+function truncateLabel(value: string, max = 22): string {
+	return value.length > max ? `${value.slice(0, max - 1)}…` : value;
+}
 
 function ChartEmptyState({ message }: { message: string }) {
 	return (
@@ -132,25 +168,30 @@ function OutcomeBreakdownCard({ items }: { items: ChartCountItem[] }) {
 	);
 }
 
-export const DashboardCharts = memo<DashboardChartsProps>(({ alerts }) => {
-	const outcomeData = useMemo(
-		() => getVerificationOutcomeBreakdown(alerts),
-		[alerts]
+export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
+	const outcomeData = useMemo<ChartCountItem[]>(
+		() =>
+			summary.outcomes.map((item) => ({
+				...item,
+				color: OUTCOME_COLORS[item.label] ?? "#475569",
+			})),
+		[summary.outcomes]
 	);
-	const verificationData = useMemo(
-		() => getVerificationBreakdown(alerts),
-		[alerts]
+	const verificationData = summary.verification;
+	const statusData = summary.status;
+	const timelineData = summary.timeline;
+	const districtData = useMemo(
+		() =>
+			summary.topDistricts.map((item) => ({
+				district: item.label,
+				count: item.count,
+			})),
+		[summary.topDistricts]
 	);
-	const statusData = useMemo(() => getStatusDistribution(alerts), [alerts]);
-	const timelineData = useMemo(() => getAlertsOverTime(alerts), [alerts]);
-	const districtData = useMemo(() => getTopDistricts(alerts, 8), [alerts]);
-	const timelineGranularity = useMemo(
-		() => getTimelineGranularity(alerts),
-		[alerts]
-	);
+	const timelineGranularity = summary.granularity;
 
 	const verificationTotal = verificationData.reduce((sum, d) => sum + d.count, 0);
-	const hasSignals = alerts.length > 0;
+	const hasSignals = summary.total > 0;
 
 	return (
 		<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -352,6 +393,179 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ alerts }) => {
 									barSize={24}
 								/>
 							</BarChart>
+						</ChartContainer>
+					)}
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader className="pb-2">
+					<div className="flex items-center gap-2">
+						<Stethoscope className="h-5 w-5 text-uganda-red" />
+						<CardTitle className="text-lg">Alerts by Disease</CardTitle>
+					</div>
+					<CardDescription>
+						Top suspected diseases / syndromes
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{summary.diseases.length === 0 ? (
+						<ChartEmptyState message="No disease data available in signals." />
+					) : (
+						<ChartContainer config={diseaseConfig} className="h-[280px] w-full">
+							<BarChart
+								data={summary.diseases}
+								layout="vertical"
+								margin={{ left: 8, right: 16, top: 8, bottom: 8 }}
+							>
+								<CartesianGrid horizontal={false} strokeDasharray="3 3" />
+								<XAxis type="number" tickLine={false} axisLine={false} />
+								<YAxis
+									type="category"
+									dataKey="label"
+									width={150}
+									tickLine={false}
+									axisLine={false}
+									tick={{ fontSize: 10 }}
+									tickFormatter={(value) => truncateLabel(String(value))}
+								/>
+								<ChartTooltip content={<ChartTooltipContent hideLabel />} />
+								<Bar
+									dataKey="count"
+									fill="var(--color-count)"
+									radius={[0, 4, 4, 0]}
+									barSize={18}
+								/>
+							</BarChart>
+						</ChartContainer>
+					)}
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader className="pb-2">
+					<div className="flex items-center gap-2">
+						<Megaphone className="h-5 w-5 text-uganda-red" />
+						<CardTitle className="text-lg">Alerts by Source</CardTitle>
+					</div>
+					<CardDescription>
+						How alerts reach the system
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{summary.sources.length === 0 ? (
+						<ChartEmptyState message="No source data available in signals." />
+					) : (
+						<ChartContainer config={sourceConfig} className="h-[280px] w-full">
+							<BarChart
+								data={summary.sources}
+								layout="vertical"
+								margin={{ left: 8, right: 16, top: 8, bottom: 8 }}
+							>
+								<CartesianGrid horizontal={false} strokeDasharray="3 3" />
+								<XAxis type="number" tickLine={false} axisLine={false} />
+								<YAxis
+									type="category"
+									dataKey="label"
+									width={150}
+									tickLine={false}
+									axisLine={false}
+									tick={{ fontSize: 10 }}
+									tickFormatter={(value) => truncateLabel(String(value))}
+								/>
+								<ChartTooltip content={<ChartTooltipContent hideLabel />} />
+								<Bar
+									dataKey="count"
+									fill="var(--color-count)"
+									radius={[0, 4, 4, 0]}
+									barSize={18}
+								/>
+							</BarChart>
+						</ChartContainer>
+					)}
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader className="pb-2">
+					<div className="flex items-center gap-2">
+						<Users className="h-5 w-5 text-uganda-red" />
+						<CardTitle className="text-lg">Age Distribution</CardTitle>
+					</div>
+					<CardDescription>Case age groups (years)</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{summary.age.length === 0 ? (
+						<ChartEmptyState message="No age data available in signals." />
+					) : (
+						<ChartContainer config={ageConfig} className="h-[280px] w-full">
+							<BarChart
+								data={summary.age}
+								margin={{ left: 0, right: 8, top: 8, bottom: 0 }}
+							>
+								<CartesianGrid vertical={false} strokeDasharray="3 3" />
+								<XAxis
+									dataKey="label"
+									tickLine={false}
+									axisLine={false}
+									tick={{ fontSize: 11 }}
+								/>
+								<YAxis
+									tickLine={false}
+									axisLine={false}
+									width={40}
+									tick={{ fontSize: 11 }}
+								/>
+								<ChartTooltip content={<ChartTooltipContent hideLabel />} />
+								<Bar
+									dataKey="count"
+									fill="var(--color-count)"
+									radius={[4, 4, 0, 0]}
+									barSize={28}
+								/>
+							</BarChart>
+						</ChartContainer>
+					)}
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader className="pb-2">
+					<div className="flex items-center gap-2">
+						<UserCircle className="h-5 w-5 text-uganda-red" />
+						<CardTitle className="text-lg">Sex Breakdown</CardTitle>
+					</div>
+					<CardDescription>Case sex distribution</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{summary.sex.length === 0 ? (
+						<ChartEmptyState message="No sex data available in signals." />
+					) : (
+						<ChartContainer
+							config={sexConfig}
+							className="mx-auto aspect-square max-h-[280px]"
+						>
+							<PieChart>
+								<ChartTooltip
+									content={<ChartTooltipContent nameKey="key" hideLabel />}
+								/>
+								<Pie
+									data={summary.sex}
+									dataKey="count"
+									nameKey="key"
+									innerRadius={55}
+									outerRadius={90}
+									paddingAngle={2}
+									strokeWidth={2}
+								>
+									{summary.sex.map((entry) => (
+										<Cell
+											key={entry.key}
+											fill={`var(--color-${entry.key})`}
+										/>
+									))}
+								</Pie>
+							</PieChart>
 						</ChartContainer>
 					)}
 				</CardContent>

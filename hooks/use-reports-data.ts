@@ -51,7 +51,9 @@ const DEFAULT_CHART_SCOPE: ReportScope = "cumulative";
 
 const DEFAULT_OPTIONS: ReportOptions = {
 	metrics: [],
+	regions: [],
 	districts: [],
+	divisions: [],
 	scopes: [
 		{ value: "daily", label: "Daily" },
 		{ value: "cumulative", label: "Cumulative" },

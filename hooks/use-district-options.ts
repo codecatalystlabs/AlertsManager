@@ -2,14 +2,27 @@
 
 import { useMemo } from "react";
 import useSWR from "swr";
-import { fetchDistricts } from "@/lib/fetch-admin-units";
+import {
+	fetchDistricts,
+	fetchDistrictNamesByRegion,
+} from "@/lib/fetch-admin-units";
 
-export function useDistrictOptions(currentValue?: string) {
+/**
+ * District names for a select, sourced from the official admin-units hierarchy
+ * (GET /admin-units/...) and kept verbatim (with " District"/" City"). When
+ * `regionId` is supplied the list is scoped to that region's districts (drives
+ * the Region → District cascade); otherwise every district is returned.
+ * `currentValue` is kept selectable even if it isn't in the list.
+ */
+export function useDistrictOptions(currentValue?: string, regionId?: number) {
 	const {
 		data,
 		error: swrError,
 		isLoading,
-	} = useSWR("district-options", fetchDistricts);
+	} = useSWR(
+		regionId ? ["district-options", regionId] : "district-options",
+		regionId ? () => fetchDistrictNamesByRegion(regionId) : fetchDistricts
+	);
 
 	const districts = useMemo(() => data ?? [], [data]);
 

@@ -136,6 +136,10 @@ interface DataTableProps<TData, TValue> {
   onPageChange?: (pageIndex: number) => void
   onPageSizeChange?: (pageSize: number) => void
   onColumnFiltersChange?: (filters: ColumnFiltersState) => void
+  /** Server-driven sorting: parent owns sort state and re-fetches sorted pages. */
+  manualSorting?: boolean
+  sorting?: SortingState
+  onSortingChange?: (sorting: SortingState) => void
   isLoading?: boolean
   /** e.g. green background for verified rows */
   getRowClassName?: (row: Row<TData>) => string | undefined
@@ -348,10 +352,14 @@ export function DataTable<TData, TValue>({
   onPageChange,
   onPageSizeChange,
   onColumnFiltersChange,
+  manualSorting = false,
+  sorting: controlledSorting,
+  onSortingChange,
   isLoading = false,
   getRowClassName,
 }: DataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = React.useState<SortingState>([])
+  const [internalSorting, setInternalSorting] = React.useState<SortingState>([])
+  const sorting = controlledSorting ?? internalSorting
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = React.useState({})
@@ -411,8 +419,17 @@ export function DataTable<TData, TValue>({
     data,
     columns,
     manualPagination,
+    manualSorting,
     pageCount: manualPagination ? controlledPageCount : undefined,
-    onSortingChange: setSorting,
+    onSortingChange: (updater) => {
+      const next =
+        typeof updater === "function" ? updater(sorting) : updater
+      if (onSortingChange) {
+        onSortingChange(next)
+      } else {
+        setInternalSorting(next)
+      }
+    },
     onColumnFiltersChange: setColumnFilters,
     onPaginationChange: (updater) => {
       setPagination((prev) => {
@@ -432,7 +449,7 @@ export function DataTable<TData, TValue>({
     ...(manualPagination
       ? {}
       : { getPaginationRowModel: getPaginationRowModel() }),
-    getSortedRowModel: getSortedRowModel(),
+    ...(manualSorting ? {} : { getSortedRowModel: getSortedRowModel() }),
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,

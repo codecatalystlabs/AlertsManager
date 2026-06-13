@@ -37,6 +37,18 @@ export interface EidsrEventsListParams {
 	from_date?: string;
 	to_date?: string;
 	updated_after?: string;
+	/** true = linked to an alert, false = not linked. Omit for no link filter. */
+	linked?: boolean;
+	/** Free-text search across tracked entity and any data value. */
+	search?: string;
+	/** Substring match on the suspected disease/syndrome data value. */
+	disease?: string;
+	/** Substring match on the location/district data value. */
+	district?: string;
+	/** Exact (case-insensitive) match on the sex data value. */
+	sex?: string;
+	/** Comma-separated source-of-alert values; matches any (exact, case-insensitive). */
+	source?: string;
 }
 
 export interface PaginatedEidsrEventsResult {
@@ -59,6 +71,12 @@ function buildEventsUrl(apiBase: string, params?: EidsrEventsListParams): string
 	if (params?.from_date) searchParams.set("from_date", params.from_date);
 	if (params?.to_date) searchParams.set("to_date", params.to_date);
 	if (params?.updated_after) searchParams.set("updated_after", params.updated_after);
+	if (params?.linked !== undefined) searchParams.set("linked", String(params.linked));
+	if (params?.search) searchParams.set("search", params.search);
+	if (params?.disease) searchParams.set("disease", params.disease);
+	if (params?.district) searchParams.set("district", params.district);
+	if (params?.sex) searchParams.set("sex", params.sex);
+	if (params?.source) searchParams.set("source", params.source);
 	const query = searchParams.toString();
 	const eventsPath = `${apiBase}${EIDSR_API_PATHS.events}`;
 	return query ? `${eventsPath}?${query}` : eventsPath;
@@ -151,11 +169,54 @@ export async function fetchEidsrEventById(localId: number): Promise<EidsrEvent> 
 	throw new EidsrFetchError("Invalid event response");
 }
 
-/** POST /eidsr/local/refresh — sync 6767 messages from EIDSR (not /alerts). */
-export async function refreshEidsrEvents(fullSync = true): Promise<void> {
+/** Live progress of an EIDSR sync (mirrors the Go services.SyncProgress). */
+export interface EidsrSyncProgress {
+	running: boolean;
+	/** idle | starting | fetching | done | error */
+	phase: string;
+	incremental: boolean;
+	page: number;
+	pageCount: number;
+	remoteTotal: number;
+	/** remote events examined so far */
+	scanned: number;
+	/** NEW alert messages imported this run */
+	imported: number;
+	updated: number;
+	skipped: number;
+	excluded: number;
+	startedAt: string | null;
+	endedAt: string | null;
+	error: string;
+	message: string;
+}
+
+/** Response from starting a sync (POST /eidsr/local/refresh). */
+export interface EidsrSyncStart {
+	started: boolean;
+	running: boolean;
+	progress: EidsrSyncProgress;
+	message: string;
+}
+
+/**
+ * POST /eidsr/local/refresh — start a 6767 sync from EIDSR. Returns immediately
+ * (the sync runs in the background on the API); poll getEidsrSyncStatus for
+ * progress. Incremental by default (only events updated since the last sync);
+ * pass fullSync=true to re-scan the entire program.
+ */
+export async function refreshEidsrEvents(fullSync = false): Promise<EidsrSyncStart> {
 	const apiBase = getClientApiBaseUrl();
-	await requestEidsr<void>(`${apiBase}${EIDSR_API_PATHS.refresh}`, {
+	return requestEidsr<EidsrSyncStart>(`${apiBase}${EIDSR_API_PATHS.refresh}`, {
 		method: "POST",
 		body: JSON.stringify({ fullSync }),
 	});
+}
+
+/** GET /eidsr/local/refresh/status — live progress of the running/last sync. */
+export async function getEidsrSyncStatus(): Promise<EidsrSyncProgress> {
+	const apiBase = getClientApiBaseUrl();
+	return requestEidsr<EidsrSyncProgress>(
+		`${apiBase}${EIDSR_API_PATHS.refreshStatus}`
+	);
 }

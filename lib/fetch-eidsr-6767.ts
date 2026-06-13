@@ -2,8 +2,11 @@ import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
 import {
 	fetchEidsrEventById,
 	fetchEidsrEventsPage,
+	getEidsrSyncStatus,
 	refreshEidsrEvents,
 	type EidsrEventsListParams,
+	type EidsrSyncProgress,
+	type EidsrSyncStart,
 	type PaginatedEidsrEventsResult,
 } from "@/lib/fetch-eidsr-events";
 import {
@@ -27,10 +30,21 @@ export interface Eidsr6767ListResult {
 	pagination: PaginatedEidsrEventsResult;
 }
 
-/** Sync 6767 data via POST /eidsr/local/refresh */
-export async function syncEidsr6767(): Promise<void> {
-	await refreshEidsrEvents(true);
+/**
+ * Start a 6767 sync (POST /eidsr/local/refresh). Returns immediately; the sync
+ * runs in the background — poll getEidsr6767SyncStatus for progress. Incremental
+ * by default; pass fullSync=true for a full re-scan.
+ */
+export async function syncEidsr6767(fullSync = false): Promise<EidsrSyncStart> {
+	return refreshEidsrEvents(fullSync);
 }
+
+/** Live progress of the running/last 6767 sync. */
+export function getEidsr6767SyncStatus(): Promise<EidsrSyncProgress> {
+	return getEidsrSyncStatus();
+}
+
+export type { EidsrSyncProgress, EidsrSyncStart };
 
 /** Table list always uses GET /eidsr/local/events (paginated). */
 export async function listEidsr6767(

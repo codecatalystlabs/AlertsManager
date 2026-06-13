@@ -11,9 +11,11 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import {
+	EIDSR_SEX_FILTER_OPTIONS,
 	EIDSR_STATUS_FILTER_OPTIONS,
 	type EidsrAlertsFilterState,
 } from "@/constants/eidsr-alerts";
+import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
 import { LAYOUT } from "@/constants/layout";
 
 interface EidsrAlertsFiltersProps {
@@ -31,7 +33,23 @@ export const EidsrAlertsFilters = memo<EidsrAlertsFiltersProps>(
 		return (
 			<Card className={LAYOUT.card}>
 				<CardContent className="p-3">
-					<div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2 items-end">
+					<div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2 items-end">
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="eidsr-search" className="text-[11px]">
+								Search
+							</Label>
+							<Input
+								id="eidsr-search"
+								placeholder="Reporter, phone, message, location…"
+								value={filters.search}
+								onChange={(e) =>
+									onFiltersChange({ search: e.target.value })
+								}
+								disabled={localIdActive}
+								className="h-8 text-xs"
+							/>
+						</div>
+
 						<div className="space-y-1 min-w-0">
 							<Label htmlFor="eidsr-local-id" className="text-[11px]">
 								Local ID
@@ -121,25 +139,104 @@ export const EidsrAlertsFilters = memo<EidsrAlertsFiltersProps>(
 							/>
 						</div>
 
-						<div className="flex gap-1.5">
-							<Button
-								size="sm"
-								className="h-8 flex-1 bg-uganda-red hover:bg-uganda-red/90"
-								onClick={onApply}
-								disabled={isLoading}
-							>
-								Apply
-							</Button>
-							<Button
-								size="sm"
-								variant="outline"
-								className="h-8"
-								onClick={onClear}
-								disabled={isLoading}
-							>
-								Clear
-							</Button>
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="eidsr-disease" className="text-[11px]">
+								Disease / syndrome
+							</Label>
+							<Input
+								id="eidsr-disease"
+								placeholder="e.g. Measles, Cholera"
+								value={filters.disease}
+								onChange={(e) =>
+									onFiltersChange({ disease: e.target.value })
+								}
+								disabled={localIdActive}
+								className="h-8 text-xs"
+							/>
 						</div>
+
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="eidsr-district" className="text-[11px]">
+								District / location
+							</Label>
+							<Input
+								id="eidsr-district"
+								placeholder="e.g. Kampala"
+								value={filters.district}
+								onChange={(e) =>
+									onFiltersChange({ district: e.target.value })
+								}
+								disabled={localIdActive}
+								className="h-8 text-xs"
+							/>
+						</div>
+
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="eidsr-sex" className="text-[11px]">
+								Sex
+							</Label>
+							<Select
+								value={filters.sex}
+								onValueChange={(value) => onFiltersChange({ sex: value })}
+								disabled={localIdActive}
+							>
+								<SelectTrigger id="eidsr-sex" className="h-8 text-xs">
+									<SelectValue placeholder="Any sex" />
+								</SelectTrigger>
+								<SelectContent>
+									{EIDSR_SEX_FILTER_OPTIONS.map((option) => (
+										<SelectItem key={option.value} value={option.value}>
+											{option.label}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="eidsr-source" className="text-[11px]">
+								Source of alert
+							</Label>
+							<Select
+								value={filters.source}
+								onValueChange={(value) =>
+									onFiltersChange({ source: value })
+								}
+								disabled={localIdActive}
+							>
+								<SelectTrigger id="eidsr-source" className="h-8 text-xs">
+									<SelectValue placeholder="Any source" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="all">Any source</SelectItem>
+									{SOURCE_OF_ALERT_OPTIONS.map((option) => (
+										<SelectItem key={option} value={option}>
+											{option}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+					</div>
+
+					<div className="flex justify-end gap-1.5 mt-3">
+						<Button
+							size="sm"
+							className="h-8 bg-uganda-red hover:bg-uganda-red/90"
+							onClick={onApply}
+							disabled={isLoading}
+						>
+							Apply
+						</Button>
+						<Button
+							size="sm"
+							variant="outline"
+							className="h-8"
+							onClick={onClear}
+							disabled={isLoading}
+						>
+							Clear
+						</Button>
 					</div>
 					{localIdActive && (
 						<p className="text-[11px] text-muted-foreground mt-2">

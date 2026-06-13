@@ -12,7 +12,6 @@ import {
 	LayoutDashboard,
 	AlertTriangle,
 	FileText,
-	Upload,
 	Users,
 	LogOut,
 	X,
@@ -62,7 +61,6 @@ const navigationGroups: NavigationGroup[] = [
 				href: "/dashboard/reports",
 				icon: BarChart3,
 			},
-			{ name: "Upload CSV", href: "/dashboard/upload", icon: Upload, badge: "New" },
 		],
 	},
 	{

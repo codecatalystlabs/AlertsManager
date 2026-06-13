@@ -640,6 +640,7 @@ export class AuthService {
         alertCaseParish: string
         alertCaseSubCounty: string
         alertCaseDistrict: string
+        region?: string
         alertCaseNationality: string
         pointOfContactName: string
         pointOfContactRelationship: string

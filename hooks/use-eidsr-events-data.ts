@@ -13,16 +13,18 @@ import {
 	getEidsr6767ById,
 	getEidsr6767Options,
 	getEidsr6767Stats,
+	getEidsr6767SyncStatus,
 	listEidsr6767,
 	probeEidsrSmsApi,
 	syncEidsr6767,
 } from "@/lib/fetch-eidsr-6767";
-import type { EidsrEventsListParams } from "@/lib/fetch-eidsr-events";
+import type {
+	EidsrEventsListParams,
+	EidsrSyncProgress,
+} from "@/lib/fetch-eidsr-events";
 import type { EidsrMessageOptions } from "@/lib/fetch-eidsr-messages";
-import {
-	isEidsr6767LinkedToAlert,
-	isEidsr6767Verified,
-} from "@/lib/eidsr-verified-state";
+import { isEidsr6767Verified } from "@/lib/eidsr-verified-state";
+import { sourceFilterValues } from "@/lib/source-of-alert";
 import {
 	exportEidsrMessagesToCsv,
 	exportEidsrMessagesToExcel,
@@ -50,6 +52,7 @@ interface UseEidsrEventsDataReturn {
 	isValidating: boolean;
 	error: string | null;
 	syncMessage: string | null;
+	syncProgress: EidsrSyncProgress | null;
 	verificationFilter: EidsrLinkFilter;
 	setVerificationFilter: (f: EidsrLinkFilter) => void;
 	setFilters: (patch: Partial<EidsrAlertsFilterState>) => void;
@@ -58,7 +61,7 @@ interface UseEidsrEventsDataReturn {
 	setPage: (page: number) => void;
 	setPageSize: (limit: number) => void;
 	refetch: () => Promise<void>;
-	syncFromRemote: () => Promise<void>;
+	syncFromRemote: (opts?: { fullSync?: boolean }) => Promise<void>;
 	exportToCsv: () => Promise<void>;
 	exportToExcel: () => Promise<void>;
 	isExporting: boolean;
@@ -72,6 +75,7 @@ interface UseEidsrEventsDataReturn {
 
 function toEventsApiParams(
 	filters: EidsrAlertsFilterState,
+	verificationFilter: EidsrLinkFilter,
 	page: number,
 	limit: number
 ): EidsrEventsListParams {
@@ -82,49 +86,29 @@ function toEventsApiParams(
 	if (filters.fromDate) params.from_date = filters.fromDate;
 	if (filters.toDate) params.to_date = filters.toDate;
 	if (filters.updatedAfter) params.updated_after = filters.updatedAfter;
+	if (filters.search.trim()) params.search = filters.search.trim();
+	if (filters.disease.trim()) params.disease = filters.disease.trim();
+	if (filters.district.trim()) params.district = filters.district.trim();
+	if (filters.sex && filters.sex !== "all") params.sex = filters.sex;
+	if (filters.source && filters.source !== "all") {
+		// Expand the canonical label into every legacy stored alias so e.g.
+		// "Community" also matches rows saved as "Community Member".
+		params.source = sourceFilterValues(filters.source).join(",");
+	}
+	// Link status is filtered server-side (no more client-side page scanning).
+	if (verificationFilter === "linked") params.linked = true;
+	else if (verificationFilter === "unlinked") params.linked = false;
 	return params;
 }
 
-function filterMessagesClient(
-	messages: EidsrMessage[],
-	filters: EidsrAlertsFilterState,
-	verificationFilter: EidsrLinkFilter
-): EidsrMessage[] {
-	const localId = filters.localId.trim();
-	if (localId) {
-		const id = Number(localId);
-		if (Number.isInteger(id) && id > 0) {
-			return messages.filter((m) => m.id === id);
-		}
-	}
-
-	return messages.filter((m) => {
-		if (verificationFilter === "linked" && !isEidsr6767LinkedToAlert(m)) {
-			return false;
-		}
-		if (verificationFilter === "unlinked" && isEidsr6767LinkedToAlert(m)) {
-			return false;
-		}
-		if (filters.status && filters.status !== "all") {
-			if ((m.status || "").toUpperCase() !== filters.status.toUpperCase()) {
-				return false;
-			}
-		}
-		return true;
-	});
-}
-
-function paginateMessages(
-	messages: EidsrMessage[],
-	page: number,
-	limit: number
-): EidsrMessage[] {
-	const start = Math.max(0, page - 1) * limit;
-	return messages.slice(start, start + limit);
-}
-
-function totalPagesFor(total: number, limit: number): number {
-	return limit > 0 ? Math.max(1, Math.ceil(total / limit)) : 1;
+/** Human summary of a finished sync, emphasising new records pulled. */
+function summarizeSync(p: EidsrSyncProgress): string {
+	const mode = p.incremental ? "Incremental sync" : "Full sync";
+	const changes: string[] = [];
+	if (p.imported > 0) changes.push(`${p.imported} new`);
+	if (p.updated > 0) changes.push(`${p.updated} updated`);
+	const what = changes.length ? changes.join(", ") : "no new messages";
+	return `${mode} complete — ${what} (scanned ${p.scanned} of ${p.remoteTotal} remote events).`;
 }
 
 /** Received/created time as a sortable number; unknown/invalid dates sort last. */
@@ -155,61 +139,12 @@ interface EidsrFetchResult {
 	stats: Record<string, number>;
 }
 
-const LINK_FILTER_PAGE_LIMIT = 500;
-const LINK_FILTER_SCAN_PAGES = 8;
-
-async function fetchLinkedFilterPage(
-	filters: EidsrAlertsFilterState,
-	verificationFilter: Exclude<EidsrLinkFilter, "all">,
-	page: number,
-	limit: number
-): Promise<EidsrFetchResult> {
-	const fetchPage = (targetPage: number) =>
-		listEidsr6767(toEventsApiParams(filters, targetPage, LINK_FILTER_PAGE_LIMIT));
-
-	const first = await fetchPage(1);
-	const loaded = first.messages.map((m) => enrichEidsrMessage(m));
-	const scanThroughPage = Math.ceil((page * limit) / LINK_FILTER_PAGE_LIMIT);
-	const lastPage = Math.min(
-		first.pagination.totalPages,
-		Math.max(LINK_FILTER_SCAN_PAGES, scanThroughPage)
-	);
-
-	for (let nextPage = 2; nextPage <= lastPage; nextPage += 1) {
-		const filteredCount = filterMessagesClient(
-			loaded,
-			filters,
-			verificationFilter
-		).length;
-		if (filteredCount >= page * limit) break;
-
-		const result = await fetchPage(nextPage);
-		loaded.push(...result.messages.map((m) => enrichEidsrMessage(m)));
-	}
-
-	const filtered = filterMessagesClient(loaded, filters, verificationFilter);
-	const pageMessages = paginateMessages(filtered, page, limit);
-	const scannedAll = lastPage >= first.pagination.totalPages;
-	const knownTotal =
-		!scannedAll && pageMessages.length === limit
-			? page * limit + 1
-			: filtered.length;
-
-	return {
-		allMessages: pageMessages,
-		total: knownTotal,
-		totalPages: totalPagesFor(knownTotal, limit),
-		page,
-		limit,
-		stats: await safeStats(loaded, first.pagination.total),
-	};
-}
-
 /**
- * Single fetcher for the 6767 list. Branches on mode:
+ * Single fetcher for the 6767 list. Every filter (status, dates, link status,
+ * search) is applied server-side, so one page request is enough and the
+ * returned pagination total already reflects the active filters.
  * - `localId` set → fetch that one event.
- * - `verificationFilter === "all"` → server-paginated page.
- * - linked/unlinked → bounded client-filtered scan; backend has no link filter.
+ * - otherwise → server-paginated page.
  */
 async function fetchEidsr6767(
 	filters: EidsrAlertsFilterState,
@@ -236,22 +171,18 @@ async function fetchEidsr6767(
 		};
 	}
 
-	if (verificationFilter === "all") {
-		const pageResult = await listEidsr6767(
-			toEventsApiParams(filters, page, limit)
-		);
-		const loaded = pageResult.messages.map((m) => enrichEidsrMessage(m));
-		return {
-			allMessages: loaded,
-			total: pageResult.pagination.total,
-			totalPages: pageResult.pagination.totalPages,
-			page: pageResult.pagination.page,
-			limit: pageResult.pagination.limit,
-			stats: await safeStats(loaded, pageResult.pagination.total),
-		};
-	}
-
-	return fetchLinkedFilterPage(filters, verificationFilter, page, limit);
+	const pageResult = await listEidsr6767(
+		toEventsApiParams(filters, verificationFilter, page, limit)
+	);
+	const loaded = pageResult.messages.map((m) => enrichEidsrMessage(m));
+	return {
+		allMessages: loaded,
+		total: pageResult.pagination.total,
+		totalPages: pageResult.pagination.totalPages,
+		page: pageResult.pagination.page,
+		limit: pageResult.pagination.limit,
+		stats: await safeStats(loaded, pageResult.pagination.total),
+	};
 }
 
 export function useEidsrEventsData(): UseEidsrEventsDataReturn {
@@ -267,6 +198,9 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 	const [isSyncing, setIsSyncing] = useState(false);
 	const [isExporting, setIsExporting] = useState(false);
 	const [syncMessage, setSyncMessage] = useState<string | null>(null);
+	const [syncProgress, setSyncProgress] = useState<EidsrSyncProgress | null>(
+		null
+	);
 	// Errors from actions (sync) that aren't part of the SWR fetch lifecycle.
 	const [actionError, setActionError] = useState<string | null>(null);
 
@@ -315,22 +249,16 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 	);
 
 	const messages = useMemo(() => {
-		const filtered = filterMessagesClient(
-			allMessages,
-			filters,
-			verificationFilter
-		);
-		// Float pending (unverified) messages to the top, and within each group
-		// show the newest signals first so new arrivals appear at the top.
-		const sorted = [...filtered].sort((a, b) => {
+		// The server already applied every filter; here we only float pending
+		// (unverified) messages to the top of the current page, newest first
+		// within each group, so new arrivals are easy to spot.
+		return [...allMessages].sort((a, b) => {
 			const byVerified =
 				Number(isEidsr6767Verified(a)) - Number(isEidsr6767Verified(b));
 			if (byVerified !== 0) return byVerified;
 			return receivedTimestamp(b) - receivedTimestamp(a);
 		});
-
-		return sorted;
-	}, [allMessages, filters, verificationFilter, page, limit]);
+	}, [allMessages]);
 
 	const setFilters = useCallback((patch: Partial<EidsrAlertsFilterState>) => {
 		setFiltersState((prev) => ({ ...prev, ...patch }));
@@ -366,32 +294,68 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 		await mutate();
 	}, [mutate]);
 
-	const syncFromRemote = useCallback(async () => {
-		setIsSyncing(true);
-		setSyncMessage(null);
-		setActionError(null);
-		try {
-			await syncEidsr6767();
-			setSyncMessage("6767 events updated from EIDSR.");
-			setPageState(1);
-			await mutate();
-		} catch (err) {
-			setActionError(
-				err instanceof Error ? err.message : "Failed to sync from EIDSR"
-			);
-		} finally {
-			setIsSyncing(false);
-		}
-	}, [mutate]);
+	const syncFromRemote = useCallback(
+		async (opts?: { fullSync?: boolean }) => {
+			setIsSyncing(true);
+			setSyncMessage(null);
+			setActionError(null);
+			setSyncProgress(null);
+			try {
+				// Kick off a background sync (incremental by default) — returns at
+				// once, so the request never hits the proxy/undici timeout that used
+				// to surface as a misleading "could not pull data from EIDSR" error.
+				const start = await syncEidsr6767(opts?.fullSync ?? false);
+				setSyncProgress(start.progress);
+
+				// Poll the live progress until the background sync settles.
+				const deadline = Date.now() + 20 * 60 * 1000; // 20-min safety cap
+				let final: EidsrSyncProgress = start.progress;
+				for (;;) {
+					await new Promise((resolve) => setTimeout(resolve, 1200));
+					let status: EidsrSyncProgress;
+					try {
+						status = await getEidsr6767SyncStatus();
+					} catch {
+						if (Date.now() > deadline) break;
+						continue; // transient poll error — keep watching
+					}
+					setSyncProgress(status);
+					final = status;
+					if (!status.running || Date.now() > deadline) break;
+				}
+
+				if (final.phase === "error") {
+					setActionError(final.error || "Failed to sync from EIDSR");
+				} else {
+					setSyncMessage(summarizeSync(final));
+					setPageState(1);
+					await mutate();
+				}
+			} catch (err) {
+				setActionError(
+					err instanceof Error ? err.message : "Failed to sync from EIDSR"
+				);
+			} finally {
+				setIsSyncing(false);
+			}
+		},
+		[mutate]
+	);
 
 	const loadMessagesForExport = useCallback(async (): Promise<
 		EidsrMessage[]
 	> => {
+		// Server applies all filters (status, dates, link status, search), so the
+		// exported set matches what the table shows — no client re-filtering.
 		const pageResult = await listEidsr6767(
-			toEventsApiParams(filters, 1, EIDSR_ALERTS_CONFIG.EXPORT_MAX_ROWS)
+			toEventsApiParams(
+				filters,
+				verificationFilter,
+				1,
+				EIDSR_ALERTS_CONFIG.EXPORT_MAX_ROWS
+			)
 		);
-		const loaded = pageResult.messages.map((m) => enrichEidsrMessage(m));
-		return filterMessagesClient(loaded, filters, verificationFilter);
+		return pageResult.messages.map((m) => enrichEidsrMessage(m));
 	}, [filters, verificationFilter]);
 
 	const exportToCsv = useCallback(async () => {
@@ -498,6 +462,7 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 		isValidating,
 		error,
 		syncMessage,
+		syncProgress,
 		verificationFilter,
 		setVerificationFilter,
 		setFilters,

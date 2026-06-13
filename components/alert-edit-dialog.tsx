@@ -44,7 +44,7 @@ import {
 	alertStatus,
 	signsAndSymptoms,
 } from "@/constants";
-import { DistrictSelect } from "@/components/district-select";
+import { CaseLocationSelect } from "@/components/case-location-select";
 import { useToast } from "@/hooks/use-toast";
 
 import {
@@ -106,8 +106,6 @@ export function AlertEditDialog({
 		facility: "",
 		region: "",
 	});
-
-	console.log(alert, "Alert is here");
 
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -357,7 +355,7 @@ export function AlertEditDialog({
 			<DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
-						<AlertTriangleIcon className="h-5 w-5 text-uganda-red" />
+						<AlertTriangleIcon className="h-4 w-4 text-uganda-red" />
 						Edit Alert - ALT
 						{String(alert?.id).padStart(3, "0")}
 					</DialogTitle>
@@ -388,19 +386,19 @@ export function AlertEditDialog({
 				{/* Main Form */}
 				<form
 					onSubmit={handleSubmit}
-					className="space-y-6"
+					className="space-y-3 [&_input]:h-8 [&_input]:text-sm [&_label]:text-xs [&_[role=combobox]]:h-8 [&_[role=combobox]]:text-sm [&_textarea]:text-sm"
 				>
 					{/* Basic Information */}
-					<div className="space-y-4">
-						<div className="flex items-center gap-3 mb-4">
-							<CalendarIcon className="h-5 w-5 text-uganda-red" />
-							<h3 className="text-lg font-semibold text-uganda-black">
+					<div className="space-y-2.5">
+						<div className="flex items-center gap-2 mb-1">
+							<CalendarIcon className="h-4 w-4 text-uganda-red" />
+							<h3 className="text-sm font-semibold text-uganda-black">
 								Basic Information
 							</h3>
 						</div>
 
-						<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-							<div className="space-y-2">
+						<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+							<div className="space-y-1">
 								<Label
 									htmlFor="date"
 									className="text-sm font-medium"
@@ -421,7 +419,7 @@ export function AlertEditDialog({
 									required
 								/>
 							</div>
-							<div className="space-y-2">
+							<div className="space-y-1">
 								<Label
 									htmlFor="time"
 									className="text-sm font-medium"
@@ -441,7 +439,7 @@ export function AlertEditDialog({
 									required
 								/>
 							</div>
-							<div className="space-y-2">
+							<div className="space-y-1">
 								<Label
 									htmlFor="cifNo"
 									className="text-sm font-medium"
@@ -463,8 +461,8 @@ export function AlertEditDialog({
 							</div>
 						</div>
 
-						<div className="grid grid-cols-1 gap-4">
-							<div className="space-y-2">
+						<div className="grid grid-cols-1 gap-3">
+							<div className="space-y-1">
 								<Label className="text-sm font-medium">
 									Alert reported before? *
 								</Label>
@@ -478,7 +476,7 @@ export function AlertEditDialog({
 											value
 										)
 									}
-									className="flex gap-4 mt-2"
+									className="flex gap-3 mt-2"
 								>
 									<div className="flex items-center space-x-2">
 										<RadioGroupItem
@@ -512,16 +510,16 @@ export function AlertEditDialog({
 					<Separator />
 
 					{/* Reporter Information */}
-					<div className="space-y-4">
-						<div className="flex items-center gap-3 mb-4">
-							<UserIcon className="h-5 w-5 text-uganda-red" />
-							<h3 className="text-lg font-semibold text-uganda-black">
+					<div className="space-y-2.5">
+						<div className="flex items-center gap-2 mb-1">
+							<UserIcon className="h-4 w-4 text-uganda-red" />
+							<h3 className="text-sm font-semibold text-uganda-black">
 								Reporter Information
 							</h3>
 						</div>
 
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div className="space-y-2">
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+							<div className="space-y-1">
 								<Label
 									htmlFor="personReporting"
 									className="text-sm font-medium"
@@ -541,7 +539,7 @@ export function AlertEditDialog({
 									placeholder="Enter reporter's full name"
 								/>
 							</div>
-							<div className="space-y-2">
+							<div className="space-y-1">
 								<Label
 									htmlFor="contactNumber"
 									className="text-sm font-medium"
@@ -563,8 +561,8 @@ export function AlertEditDialog({
 							</div>
 						</div>
 
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div className="space-y-2">
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+							<div className="space-y-1">
 								<Label
 									htmlFor="sourceOfAlert"
 									className="text-sm font-medium"
@@ -595,7 +593,7 @@ export function AlertEditDialog({
 									</SelectContent>
 								</Select>
 							</div>
-							<div className="space-y-2">
+							<div className="space-y-1">
 								<Label
 									htmlFor="status"
 									className="text-sm font-medium"
@@ -634,7 +632,7 @@ export function AlertEditDialog({
 							</div>
 						</div>
 
-						<div className="space-y-2">
+						<div className="space-y-1">
 							<Label
 								htmlFor="response"
 								className="text-sm font-medium"
@@ -670,53 +668,32 @@ export function AlertEditDialog({
 					<Separator />
 
 					{/* Location Information */}
-					<div className="space-y-4">
-						<div className="flex items-center gap-3 mb-4">
-							<MapPinIcon className="h-5 w-5 text-uganda-red" />
-							<h3 className="text-lg font-semibold text-uganda-black">
+					<div className="space-y-2.5">
+						<div className="flex items-center gap-2 mb-1">
+							<MapPinIcon className="h-4 w-4 text-uganda-red" />
+							<h3 className="text-sm font-semibold text-uganda-black">
 								Case Location
 							</h3>
 						</div>
 
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div className="space-y-2">
-								<Label
-									htmlFor="alertCaseDistrict"
-									className="text-sm font-medium"
-								>
-									District *
-								</Label>
-								<DistrictSelect
-									id="alertCaseDistrict"
-									value={formData.alertCaseDistrict}
-									onValueChange={(value) =>
-										handleInputChange(
-											"alertCaseDistrict",
-											value
-										)
-									}
-								/>
-							</div>
-							<div className="space-y-2">
-								<Label
-									htmlFor="subCounty"
-									className="text-sm font-medium"
-								>
-									Subcounty/Division
-								</Label>
-								<Input
-									id="subCounty"
-									value={formData.subCounty}
-									onChange={(e) =>
-										handleInputChange(
-											"subCounty",
-											e.target.value
-										)
-									}
-									placeholder="Enter subcounty or division"
-								/>
-							</div>
-							<div className="space-y-2">
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+							<CaseLocationSelect
+								value={{
+									region: formData.region,
+									district: formData.alertCaseDistrict,
+									subcounty: formData.subCounty,
+								}}
+								onChange={(loc) =>
+									setFormData((prev) => ({
+										...prev,
+										region: loc.region,
+										alertCaseDistrict: loc.district,
+										subCounty: loc.subcounty,
+									}))
+								}
+								labelClassName="text-sm font-medium"
+							/>
+							<div className="space-y-1">
 								<Label
 									htmlFor="alertCaseVillage"
 									className="text-sm font-medium"
@@ -735,7 +712,7 @@ export function AlertEditDialog({
 									placeholder="Enter village name"
 								/>
 							</div>
-							<div className="space-y-2">
+							<div className="space-y-1">
 								<Label
 									htmlFor="alertCaseParish"
 									className="text-sm font-medium"
@@ -760,16 +737,16 @@ export function AlertEditDialog({
 					<Separator />
 
 					{/* Case Information */}
-					<div className="space-y-4">
-						<div className="flex items-center gap-3 mb-4">
-							<AlertTriangleIcon className="h-5 w-5 text-uganda-red" />
-							<h3 className="text-lg font-semibold text-uganda-black">
+					<div className="space-y-2.5">
+						<div className="flex items-center gap-2 mb-1">
+							<AlertTriangleIcon className="h-4 w-4 text-uganda-red" />
+							<h3 className="text-sm font-semibold text-uganda-black">
 								Case Information
 							</h3>
 						</div>
 
-						<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-							<div className="space-y-2">
+						<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+							<div className="space-y-1">
 								<Label
 									htmlFor="alertCaseName"
 									className="text-sm font-medium"
@@ -789,7 +766,7 @@ export function AlertEditDialog({
 									placeholder="Patient's full name"
 								/>
 							</div>
-							<div className="space-y-2">
+							<div className="space-y-1">
 								<Label
 									htmlFor="alertCaseAge"
 									className="text-sm font-medium"
@@ -812,7 +789,7 @@ export function AlertEditDialog({
 									max="150"
 								/>
 							</div>
-							<div className="space-y-2">
+							<div className="space-y-1">
 								<Label className="text-sm font-medium">
 									Patient Sex *
 								</Label>
@@ -824,7 +801,7 @@ export function AlertEditDialog({
 											value
 										)
 									}
-									className="flex gap-4 mt-2"
+									className="flex gap-3 mt-2"
 								>
 									<div className="flex items-center space-x-2">
 										<RadioGroupItem
@@ -854,8 +831,8 @@ export function AlertEditDialog({
 							</div>
 						</div>
 
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div className="space-y-2">
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+							<div className="space-y-1">
 								<Label
 									htmlFor="pointOfContactName"
 									className="text-sm font-medium"
@@ -874,7 +851,7 @@ export function AlertEditDialog({
 									placeholder="Next of kin's full name"
 								/>
 							</div>
-							<div className="space-y-2">
+							<div className="space-y-1">
 								<Label
 									htmlFor="pointOfContactPhone"
 									className="text-sm font-medium"
@@ -897,7 +874,7 @@ export function AlertEditDialog({
 							</div>
 						</div>
 
-						<div className="space-y-2">
+						<div className="space-y-1">
 							<Label
 								htmlFor="history"
 								className="text-sm font-medium"
@@ -914,12 +891,12 @@ export function AlertEditDialog({
 									)
 								}
 								required
-								rows={3}
+								rows={2}
 								placeholder="Describe what happened, when it started, and any relevant details"
 							/>
 						</div>
 
-						<div className="space-y-2">
+						<div className="space-y-1">
 							<Label
 								htmlFor="narrative"
 								className="text-sm font-medium"
@@ -937,7 +914,7 @@ export function AlertEditDialog({
 									)
 								}
 								maxLength={250}
-								rows={3}
+								rows={2}
 							/>
 							<div className="flex justify-between text-xs text-gray-500">
 								<span>Maximum 250 characters</span>
@@ -951,24 +928,24 @@ export function AlertEditDialog({
 					<Separator />
 
 					{/* Signs and Symptoms */}
-					<div className="space-y-4">
-						<div className="flex items-center gap-3 mb-4">
-							<HeartIcon className="h-5 w-5 text-uganda-red" />
-							<h3 className="text-lg font-semibold text-uganda-black">
+					<div className="space-y-2.5">
+						<div className="flex items-center gap-2 mb-1">
+							<HeartIcon className="h-4 w-4 text-uganda-red" />
+							<h3 className="text-sm font-semibold text-uganda-black">
 								Signs and Symptoms
 							</h3>
 						</div>
 
-						<div className="bg-gray-50 p-4 rounded-lg">
-							<p className="text-sm text-gray-600 mb-4">
+						<div className="bg-gray-50 p-3 rounded-lg">
+							<p className="text-xs text-gray-600 mb-2">
 								Select all symptoms that apply to this
 								case:
 							</p>
-							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+							<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
 								{signsAndSymptoms.map((symptom) => (
 									<div
 										key={symptom}
-										className="flex items-center space-x-3 p-2 bg-white rounded border hover:border-uganda-yellow/50 transition-colors"
+										className="flex items-center space-x-2 px-2 py-1 bg-white rounded border hover:border-uganda-yellow/50 transition-colors"
 									>
 										<Checkbox
 											id={symptom}
@@ -1019,15 +996,15 @@ export function AlertEditDialog({
 					<Separator />
 
 					{/* Verification / Lab / Assignment */}
-					<div className="space-y-4">
+					<div className="space-y-2.5">
 						<div className="flex items-center gap-3 mb-1">
-							<CheckCircleIcon className="h-5 w-5 text-uganda-red" />
-							<h3 className="text-lg font-semibold text-uganda-black">
+							<CheckCircleIcon className="h-4 w-4 text-uganda-red" />
+							<h3 className="text-sm font-semibold text-uganda-black">
 								Verification & Lab
 							</h3>
 						</div>
 
-						<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+						<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 							<div className="flex items-center gap-3 rounded-lg border p-3 bg-gray-50">
 								<Checkbox
 									id="isVerified"
@@ -1047,7 +1024,7 @@ export function AlertEditDialog({
 								</Label>
 							</div>
 
-							<div className="space-y-2">
+							<div className="space-y-1">
 								<Label htmlFor="verifiedBy" className="text-sm font-medium">
 									Verified By
 								</Label>
@@ -1061,7 +1038,7 @@ export function AlertEditDialog({
 								/>
 							</div>
 
-							<div className="space-y-2">
+							<div className="space-y-1">
 								<Label htmlFor="assignedTo" className="text-sm font-medium">
 									Assigned To
 								</Label>
@@ -1076,8 +1053,8 @@ export function AlertEditDialog({
 							</div>
 						</div>
 
-						<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-							<div className="space-y-2">
+						<div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+							<div className="space-y-1">
 								<Label htmlFor="verificationDate" className="text-sm font-medium">
 									Verification Date
 								</Label>
@@ -1090,7 +1067,7 @@ export function AlertEditDialog({
 									}
 								/>
 							</div>
-							<div className="space-y-2">
+							<div className="space-y-1">
 								<Label htmlFor="verificationTime" className="text-sm font-medium">
 									Verification Time
 								</Label>
@@ -1103,7 +1080,7 @@ export function AlertEditDialog({
 									}
 								/>
 							</div>
-							<div className="space-y-2">
+							<div className="space-y-1">
 								<Label htmlFor="labResult" className="text-sm font-medium">
 									Lab Result
 								</Label>
@@ -1116,7 +1093,7 @@ export function AlertEditDialog({
 									placeholder="e.g. Positive / Negative"
 								/>
 							</div>
-							<div className="space-y-2">
+							<div className="space-y-1">
 								<Label htmlFor="labResultDate" className="text-sm font-medium">
 									Lab Result Date
 								</Label>
@@ -1131,26 +1108,26 @@ export function AlertEditDialog({
 							</div>
 						</div>
 
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div className="space-y-2">
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+							<div className="space-y-1">
 								<Label htmlFor="actions" className="text-sm font-medium">
 									Actions Taken
 								</Label>
 								<Textarea
 									id="actions"
-									rows={3}
+									rows={2}
 									value={formData.actions}
 									onChange={(e) => handleInputChange("actions", e.target.value)}
 									placeholder="Actions taken during verification / response"
 								/>
 							</div>
-							<div className="space-y-2">
+							<div className="space-y-1">
 								<Label htmlFor="feedback" className="text-sm font-medium">
 									Feedback
 								</Label>
 								<Textarea
 									id="feedback"
-									rows={3}
+									rows={2}
 									value={formData.feedback}
 									onChange={(e) => handleInputChange("feedback", e.target.value)}
 									placeholder="Feedback notes"
@@ -1230,7 +1207,7 @@ export function AlertEditDialog({
 							</div>
 						)}
 
-						<div className="space-y-2">
+						<div className="space-y-1">
 							<Label htmlFor="fieldVerification" className="text-sm font-medium">
 								Field Verification Notes
 							</Label>
@@ -1245,8 +1222,8 @@ export function AlertEditDialog({
 							/>
 						</div>
 
-						<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-							<div className="space-y-2">
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+							<div className="space-y-1">
 								<Label htmlFor="facilityType" className="text-sm font-medium">
 									Facility Type
 								</Label>
@@ -1259,7 +1236,7 @@ export function AlertEditDialog({
 									placeholder="Facility type"
 								/>
 							</div>
-							<div className="space-y-2">
+							<div className="space-y-1">
 								<Label htmlFor="facility" className="text-sm font-medium">
 									Facility
 								</Label>
@@ -1272,28 +1249,15 @@ export function AlertEditDialog({
 									placeholder="Facility name"
 								/>
 							</div>
-							<div className="space-y-2">
-								<Label htmlFor="region" className="text-sm font-medium">
-									Region
-								</Label>
-								<Input
-									id="region"
-									value={formData.region}
-									onChange={(e) =>
-										handleInputChange("region", e.target.value)
-									}
-									placeholder="Region"
-								/>
-							</div>
 						</div>
 
-						<div className="space-y-2">
+						<div className="space-y-1">
 							<Label htmlFor="comments" className="text-sm font-medium">
 								Comments
 							</Label>
 							<Textarea
 								id="comments"
-								rows={3}
+								rows={2}
 								value={formData.comments}
 								onChange={(e) => handleInputChange("comments", e.target.value)}
 								placeholder="Additional comments"

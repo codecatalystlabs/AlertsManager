@@ -15,6 +15,8 @@ export const EIDSR_API_PATHS = {
 	events: "/eidsr/local/events",
 	eventById: (localId: number) => `/eidsr/local/events/${localId}`,
 	refresh: "/eidsr/local/refresh",
+	/** GET — live progress of the running/last sync. */
+	refreshStatus: "/eidsr/local/refresh/status",
 	/** POST verify 6767 event into alerts */
 	eventVerify: (id: number) => `/eidsr/local/events/${id}/verify`,
 } as const;
@@ -28,12 +30,29 @@ export const EIDSR_STATUS_FILTER_OPTIONS = [
 	{ value: "SKIPPED", label: "Skipped" },
 ] as const;
 
+/** Sex filter values. "all" = no filter; others are matched exactly server-side. */
+export const EIDSR_SEX_FILTER_OPTIONS = [
+	{ value: "all", label: "Any sex" },
+	{ value: "Male", label: "Male" },
+	{ value: "Female", label: "Female" },
+] as const;
+
 export interface EidsrAlertsFilterState {
 	status: string;
 	fromDate: string;
 	toDate: string;
 	updatedAfter: string;
 	localId: string;
+	/** Free-text search across reporter, phone, message, location, …; "" = none. */
+	search: string;
+	/** Suspected disease/syndrome substring; "" = none. */
+	disease: string;
+	/** Location/district substring; "" = none. */
+	district: string;
+	/** Sex; "all" = none. */
+	sex: string;
+	/** Canonical source-of-alert label; "all" = none. */
+	source: string;
 }
 
 export const EIDSR_INITIAL_FILTERS: EidsrAlertsFilterState = {
@@ -42,4 +61,9 @@ export const EIDSR_INITIAL_FILTERS: EidsrAlertsFilterState = {
 	toDate: "",
 	updatedAfter: "",
 	localId: "",
+	search: "",
+	disease: "",
+	district: "",
+	sex: "all",
+	source: "all",
 };
