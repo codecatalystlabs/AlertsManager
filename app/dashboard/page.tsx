@@ -1,7 +1,10 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
+import { Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { downloadChartsAsPdf } from "@/lib/charts-pdf";
 import {
 	WelcomeSection,
 	ErrorAlert,
@@ -15,6 +18,21 @@ import {
 import { useDashboardSummary } from "@/hooks/use-dashboard-summary";
 import type { AlertCounts } from "@/app/dashboard/types";
 import { LAYOUT } from "@/constants/layout";
+import { ChartSkeleton } from "@/components/ui/skeletons";
+
+/** Loading placeholder mirroring the DashboardCharts grid. */
+function DashboardChartsSkeleton(): React.JSX.Element {
+	return (
+		<div className="space-y-6">
+			<ChartSkeleton height={90} bars={7} withLegend />
+			<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+				{[0, 1, 2, 3].map((i) => (
+					<ChartSkeleton key={i} height={300} />
+				))}
+			</div>
+		</div>
+	);
+}
 
 const DashboardCharts = dynamic(
 	() =>
@@ -23,9 +41,7 @@ const DashboardCharts = dynamic(
 		})),
 	{
 		ssr: false,
-		loading: () => (
-			<div className="h-56 animate-pulse rounded-lg border bg-muted/40" />
-		),
+		loading: () => <DashboardChartsSkeleton />,
 	}
 );
 
@@ -47,6 +63,8 @@ export default function DashboardPage(): React.JSX.Element {
 		district
 	);
 	const [isRefreshing, setIsRefreshing] = useState(false);
+	const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+	const chartsRef = useRef<HTMLDivElement>(null);
 
 	const handleRefresh = useCallback(async () => {
 		setIsRefreshing(true);
@@ -58,6 +76,24 @@ export default function DashboardPage(): React.JSX.Element {
 	}, [refetch]);
 
 	const isUnbounded = !range.from && !range.to && district === "all";
+
+	const handleDownloadCharts = useCallback(async () => {
+		if (!chartsRef.current) return;
+		setIsDownloadingPdf(true);
+		try {
+			await downloadChartsAsPdf(chartsRef.current, {
+				title: "Health Alert Dashboard — Charts",
+				subtitle: isUnbounded
+					? "All-time data"
+					: "Data for the selected date range",
+			});
+		} catch (err) {
+			console.error("Failed to export charts to PDF:", err);
+			window.alert("Could not generate the PDF. Please try again.");
+		} finally {
+			setIsDownloadingPdf(false);
+		}
+	}, [isUnbounded]);
 
 	// Every KPI card now comes from one server-side aggregate, scoped to the
 	// selected range + district.
@@ -113,25 +149,29 @@ export default function DashboardPage(): React.JSX.Element {
 				kpiLoading={loading && !summary}
 			/>
 
-			<h2 className="text-base font-semibold text-gray-900">
-				Trends &amp; breakdowns
-			</h2>
+			<div className="flex flex-wrap items-center justify-between gap-2">
+				<h2 className="text-base font-semibold text-gray-900">
+					Trends &amp; breakdowns
+				</h2>
+				<Button
+					variant="outline"
+					size="sm"
+					onClick={handleDownloadCharts}
+					disabled={!summary || isDownloadingPdf}
+					className="gap-2"
+				>
+					<Download className="h-4 w-4" />
+					{isDownloadingPdf ? "Preparing PDF..." : "Download charts (PDF)"}
+				</Button>
+			</div>
 
-			{loading && !summary ? (
-				<div className="space-y-6">
-					<div className="h-16 animate-pulse rounded-lg border bg-muted/40" />
-					<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-						{[0, 1, 2, 3].map((i) => (
-							<div
-								key={i}
-								className="h-[340px] animate-pulse rounded-lg border bg-muted/40"
-							/>
-						))}
-					</div>
-				</div>
-			) : summary ? (
-				<DashboardCharts summary={summary} />
-			) : null}
+			<div ref={chartsRef}>
+				{loading && !summary ? (
+					<DashboardChartsSkeleton />
+				) : summary ? (
+					<DashboardCharts summary={summary} />
+				) : null}
+			</div>
 		</div>
 	);
 }

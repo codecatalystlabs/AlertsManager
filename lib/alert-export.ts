@@ -1,6 +1,9 @@
 /** Shared export helpers for alert / call-log data */
 
-import { deriveAlertOutcome } from "./alert-outcome";
+import {
+	deriveAlertOutcome,
+	deriveDeskVerificationOutcome,
+} from "./alert-outcome";
 
 export interface ExportableAlert {
 	id?: number;
@@ -50,6 +53,10 @@ const EXPORT_COLUMNS: ExportColumn[] = [
 	{
 		header: "Verified",
 		getValue: (a) => (a.isVerified ? "Yes" : "Pending"),
+	},
+	{
+		header: "Desk Verification Outcome",
+		getValue: (a) => deriveDeskVerificationOutcome(a),
 	},
 	{
 		header: "Verification Outcome",

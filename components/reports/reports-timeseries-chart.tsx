@@ -20,6 +20,7 @@ import {
 	type ChartConfig,
 } from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
+import { ChartCanvasSkeleton } from "@/components/ui/skeletons";
 import { LAYOUT } from "@/constants/layout";
 import type { ReportTimeseries } from "@/lib/fetch-reports";
 import {
@@ -115,7 +116,9 @@ export const ReportsTimeseriesChart = memo<ReportsTimeseriesChartProps>(
 				</CardHeader>
 				<CardContent className={cn(LAYOUT.cardContent, "pt-0")}>
 					{isLoading ? (
-						<div className="h-[260px] animate-pulse rounded-md border bg-muted/40" />
+						<div className="h-[260px]">
+							<ChartCanvasSkeleton bars={12} />
+						</div>
 					) : !hasData ? (
 						<div className="flex h-[260px] items-center justify-center rounded-md border border-dashed bg-muted/20 text-sm text-muted-foreground">
 							No timeseries data for this selection.

@@ -18,11 +18,13 @@ export interface DashboardRangeValue {
 	to: string;
 }
 
-// Last 90 days by default: a dashboard should open on recent activity, and an
-// all-time default forced the chart fetch to page through up to CHART_MAX_PAGES
-// (20k rows) on every load — the main cause of slow dashboard loads. Users can
-// still pick "All time" to scope both the cards and the charts to the full set.
-export const DEFAULT_RANGE_PRESET = "90d";
+// All time by default: the dashboard must open showing the full recorded count
+// (Total Signals = every captured record), not a recent slice. The old reason
+// for defaulting to 90d — an all-time default made the chart fetch page through
+// up to CHART_MAX_PAGES (20k rows) — no longer applies: the dashboard now runs
+// off one server-side /dashboard/summary aggregate (no client paging), so an
+// all-time default is cheap. Users can still pick a narrower range.
+export const DEFAULT_RANGE_PRESET = "all";
 
 const PRESETS = [
 	{ id: "30d", label: "Last 30 days" },

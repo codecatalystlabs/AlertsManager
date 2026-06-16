@@ -13,13 +13,10 @@ import {
 	AlertTriangle,
 	FileText,
 	Users,
-	LogOut,
 	X,
 	Phone,
 	PhoneCall,
 	User,
-	PanelLeftClose,
-	PanelLeftOpen,
 	BarChart3,
 } from "lucide-react";
 import { MohLogo } from "@/components/moh-logo";
@@ -76,7 +73,6 @@ interface ModernSidebarProps {
 	mobileOpen: boolean;
 	onMobileClose: () => void;
 	collapsed: boolean;
-	onToggleCollapsed: () => void;
 }
 
 type AlertCounts = { verified: number; notVerified: number; total: number };
@@ -85,11 +81,8 @@ export function ModernSidebar({
 	mobileOpen,
 	onMobileClose,
 	collapsed,
-	onToggleCollapsed,
 }: ModernSidebarProps) {
 	const pathname = usePathname();
-	const [user, setUser] = useState<ReturnType<typeof AuthService.getUser>>(null);
-	const [isLoggingOut, setIsLoggingOut] = useState(false);
 	const [alertCounts, setAlertCounts] = useState<AlertCounts>({
 		verified: 0,
 		notVerified: 0,
@@ -97,10 +90,6 @@ export function ModernSidebar({
 	});
 	const mobilePanelRef = useRef<HTMLDivElement>(null);
 	const closeButtonRef = useRef<HTMLButtonElement>(null);
-
-	useEffect(() => {
-		setUser(AuthService.getUser());
-	}, []);
 
 	useEffect(() => {
 		if (!AuthService.isAuthenticated()) return;
@@ -141,28 +130,6 @@ export function ModernSidebar({
 		};
 	}, [mobileOpen, onMobileClose]);
 
-	const handleLogout = async () => {
-		if (isLoggingOut) return;
-		try {
-			setIsLoggingOut(true);
-			await AuthService.logout();
-			window.location.href = "/add-alert";
-		} catch (error) {
-			console.error("Logout error:", error);
-			window.location.href = "/add-alert";
-		} finally {
-			setIsLoggingOut(false);
-		}
-	};
-
-	const displayName = (() => {
-		if (!user) return "Admin User";
-		const full = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
-		return full || user.username || "Admin User";
-	})();
-
-	const email = user?.email || (user ? `${user.username}@health.go.ug` : "admin@health.go.ug");
-
 	const getBadgeValue = (item: NavigationItem): string | null => {
 		if (item.badge) return item.badge;
 		if (item.dynamicBadge) {
@@ -174,10 +141,6 @@ export function ModernSidebar({
 
 	const contentProps = {
 		pathname,
-		displayName,
-		email,
-		onLogout: handleLogout,
-		isLoggingOut,
 		getBadgeValue,
 	};
 
@@ -236,11 +199,7 @@ export function ModernSidebar({
 				)}
 				aria-label="Main navigation"
 			>
-				<SidebarContent
-					{...contentProps}
-					collapsed={collapsed}
-					onToggleCollapsed={onToggleCollapsed}
-				/>
+				<SidebarContent {...contentProps} collapsed={collapsed} />
 			</aside>
 		</>
 	);
@@ -322,27 +281,15 @@ function NavLink({
 
 function SidebarContent({
 	pathname,
-	displayName,
-	email,
-	onLogout,
-	isLoggingOut,
 	getBadgeValue,
 	collapsed,
-	onToggleCollapsed,
 	onNavigate,
 }: {
 	pathname: string;
-	displayName: string;
-	email: string;
-	onLogout: () => Promise<void>;
-	isLoggingOut: boolean;
 	getBadgeValue: (item: NavigationItem) => string | null;
 	collapsed: boolean;
-	onToggleCollapsed?: () => void;
 	onNavigate?: () => void;
 }) {
-	const initials = getInitials(displayName);
-
 	return (
 		<div className="flex h-full flex-col overflow-hidden border-r border-gray-200 bg-white">
 			{/* Brand header */}
@@ -396,80 +343,6 @@ function SidebarContent({
 					))}
 				</nav>
 			</ScrollArea>
-
-			{/* Footer: user card + actions */}
-			<div className={cn("shrink-0 border-t border-gray-200", collapsed ? "p-2" : "p-3")}>
-				<div
-					className={cn(
-						"flex items-center rounded-md",
-						collapsed ? "justify-center" : "gap-3 px-1 py-1.5"
-					)}
-				>
-					<div
-						className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-uganda-yellow to-uganda-red text-xs font-semibold text-white"
-						title={collapsed ? displayName : undefined}
-					>
-						{initials}
-						<span
-							className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-green-500"
-							aria-label="Online"
-						/>
-					</div>
-					{!collapsed && (
-						<div className="min-w-0 flex-1">
-							<p className="truncate text-sm font-semibold text-gray-900">
-								{displayName}
-							</p>
-							<p className="truncate text-xs text-gray-500">{email}</p>
-						</div>
-					)}
-				</div>
-
-				<div className={cn("mt-2 flex gap-2", collapsed && "flex-col items-center")}>
-					{onToggleCollapsed && (
-						<Button
-							variant="outline"
-							size={collapsed ? "icon" : "sm"}
-							onClick={onToggleCollapsed}
-							className={cn(collapsed ? "h-9 w-9" : "flex-1 gap-2")}
-							aria-expanded={!collapsed}
-							aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-						>
-							{collapsed ? (
-								<PanelLeftOpen className="h-4 w-4" />
-							) : (
-								<>
-									<PanelLeftClose className="h-4 w-4" />
-									Collapse
-								</>
-							)}
-						</Button>
-					)}
-					<Button
-						variant="ghost"
-						size={collapsed ? "icon" : "sm"}
-						onClick={onLogout}
-						disabled={isLoggingOut}
-						title={collapsed ? "Sign Out" : undefined}
-						aria-label="Sign Out"
-						className={cn(
-							"text-gray-600 hover:bg-red-50 hover:text-red-700",
-							collapsed ? "h-9 w-9" : "flex-1 gap-2"
-						)}
-					>
-						<LogOut className="h-4 w-4" />
-						{!collapsed && (isLoggingOut ? "Signing Out..." : "Sign Out")}
-					</Button>
-				</div>
-			</div>
 		</div>
 	);
-}
-
-function getInitials(name: string): string {
-	if (!name) return "AU";
-	const parts = name.trim().split(/\s+/);
-	return parts.length > 1
-		? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-		: parts[0].substring(0, 2).toUpperCase();
 }

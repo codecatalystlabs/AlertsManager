@@ -9,6 +9,7 @@ import {
 	AlertsTable,
 } from "@/components/alerts";
 import { ErrorAlert } from "@/components/dashboard";
+import { StatsGridSkeleton, FiltersSkeleton } from "@/components/ui/skeletons";
 import { useAlertsData } from "@/hooks/use-alerts-data";
 
 const AlertDetailsDialog = dynamic(
@@ -145,13 +146,21 @@ export default function AlertsPage(): React.JSX.Element {
 				/>
 			)}
 
-			<AlertsStats stats={stats} />
+			{loading ? (
+				<StatsGridSkeleton count={4} />
+			) : (
+				<AlertsStats stats={stats} />
+			)}
 
-			<AlertsFilters
-				filters={filters}
-				onFiltersChange={setFilters}
-				uniqueSources={uniqueSources}
-			/>
+			{loading ? (
+				<FiltersSkeleton fields={5} />
+			) : (
+				<AlertsFilters
+					filters={filters}
+					onFiltersChange={setFilters}
+					uniqueSources={uniqueSources}
+				/>
+			)}
 
 			<AlertsTable
 				alerts={filteredAlerts}

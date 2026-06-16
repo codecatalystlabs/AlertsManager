@@ -27,9 +27,14 @@ import {
 	HeartIcon,
 	LogIn,
 	Home,
+	Download,
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
 import { getClientApiBaseUrl } from "@/lib/api-config";
+import {
+	downloadAlertConfirmationPdf,
+	type AlertPdfData,
+} from "@/lib/alert-pdf";
 import Link from "next/link";
 import {
 	alertResponse,
@@ -38,6 +43,7 @@ import {
 	signsAndSymptoms,
 } from "@/constants";
 import { CaseLocationSelect } from "@/components/case-location-select";
+import { SearchableSelect, MultiSelect } from "@/components/searchable-select";
 import {
 	getLocalDateString,
 	getLocalDateTimeIsoString,
@@ -78,6 +84,13 @@ export default function PublicAddAlertPage() {
 		type: "success" | "error" | null;
 		message: string;
 	}>({ type: null, message: "" });
+	// Snapshot of the just-submitted alert, kept so the reporter can download
+	// a PDF copy after the form has been reset.
+	const [submittedAlert, setSubmittedAlert] = useState<AlertPdfData | null>(
+		null
+	);
+	const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+	const [pdfError, setPdfError] = useState("");
 	const isAuthenticated = useIsAuthenticated();
 
 	const handleInputChange = (field: string, value: string) => {
@@ -97,6 +110,8 @@ export default function PublicAddAlertPage() {
 		e.preventDefault();
 		setIsSubmitting(true);
 		setSubmitStatus({ type: null, message: "" });
+		setSubmittedAlert(null);
+		setPdfError("");
 
 		try {
 			// Validate required fields
@@ -167,11 +182,12 @@ export default function PublicAddAlertPage() {
 				isVerified: false,
 			};
 
-			console.log("Sending alert data:", alertData); // Debug log
 
+			let createdAlertId: number | null = null;
 			if (isAuthenticated) {
 				// Use the new createAlert method for authenticated users
-				await AuthService.createAlert(alertData);
+				const created = await AuthService.createAlert(alertData);
+				createdAlertId = created?.id ?? null;
 			} else {
 				// Use public endpoint if not authenticated
 				const response = await fetch(
@@ -199,7 +215,52 @@ export default function PublicAddAlertPage() {
 					}
 					throw new Error(errorMessage);
 				}
+
+				try {
+					const created = await response.json();
+					createdAlertId = created?.id ?? null;
+				} catch (e) {
+					// Created successfully, but no/invalid body — leave id null.
+				}
 			}
+
+			// Capture a snapshot for the downloadable PDF copy before the
+			// form is reset below.
+			const responseName = formData.response
+				? alertResponse.find((d) => d.code === formData.response)
+						?.name ?? formData.response
+				: "";
+			setSubmittedAlert({
+				referenceId: createdAlertId,
+				submittedAt: new Date(),
+				date: formData.date,
+				time: formData.callTime,
+				status: formData.status,
+				callTaker: formData.call_taker,
+				alertReportedBefore:
+					formData.alertReportedBefore === "yes"
+						? "Yes"
+						: formData.alertReportedBefore === "no"
+						? "No"
+						: "",
+				personReporting: formData.nameOfPersonReporting,
+				contactNumber: formData.numberOfPersonReporting,
+				sourceOfAlert: formData.sourceOfAlert,
+				response: responseName,
+				region: formData.region,
+				district: formData.district,
+				subCounty: formData.subcounty,
+				village: formData.village,
+				parish: formData.parish,
+				caseName: formData.caseName,
+				caseAge: formData.caseAge,
+				caseSex: formData.caseSex,
+				nextOfKinName: formData.nameOfNextOfKin,
+				nextOfKinPhone: formData.nextOfKinPhoneNumber,
+				caseDescription: formData.caseAlertDescription,
+				narrative: formData.narrative,
+				symptoms: formData.signsAndSymptoms,
+			});
 
 			setSubmitStatus({
 				type: "success",
@@ -242,6 +303,23 @@ export default function PublicAddAlertPage() {
 			});
 		} finally {
 			setIsSubmitting(false);
+		}
+	};
+
+	const handleDownloadPdf = async () => {
+		if (!submittedAlert) return;
+		setIsDownloadingPdf(true);
+		setPdfError("");
+		try {
+			await downloadAlertConfirmationPdf(submittedAlert);
+		} catch (err) {
+			setPdfError(
+				err instanceof Error
+					? err.message
+					: "Could not generate the PDF. Please try again."
+			);
+		} finally {
+			setIsDownloadingPdf(false);
 		}
 	};
 
@@ -579,36 +657,34 @@ export default function PublicAddAlertPage() {
 										>
 											Source of Alert *
 										</Label>
-										<Select
-											onValueChange={(value) =>
+										<MultiSelect
+											id="sourceOfAlert"
+											options={alertSource.map(
+												(source) => ({
+													value: source.name,
+													label: source.name,
+												})
+											)}
+											values={
+												formData.sourceOfAlert
+													? formData.sourceOfAlert
+															.split(",")
+															.map((s) =>
+																s.trim()
+															)
+															.filter(Boolean)
+													: []
+											}
+											onChange={(vals) =>
 												handleInputChange(
 													"sourceOfAlert",
-													value
+													vals.join(", ")
 												)
 											}
-										>
-											<SelectTrigger className="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20">
-												<SelectValue placeholder="How did you learn about this case?" />
-											</SelectTrigger>
-											<SelectContent>
-												{alertSource?.map(
-													(source) => (
-														<SelectItem
-															key={
-																source.name
-															}
-															value={
-																source.name
-															}
-														>
-															{
-																source.name
-															}
-														</SelectItem>
-													)
-												)}
-											</SelectContent>
-										</Select>
+											placeholder="How did you learn about this case?"
+											searchPlaceholder="Search sources..."
+											className="border-gray-300 focus-visible:ring-uganda-yellow/20"
+										/>
 									</div>
 
 									{/* Response */}
@@ -622,37 +698,24 @@ export default function PublicAddAlertPage() {
 												(optional)
 											</span>
 										</Label>
-										<Select
-											onValueChange={(value) =>
+										<SearchableSelect
+											id="response"
+											options={alertResponse.map(
+												(disease) => ({
+													value: disease.code,
+													label: disease.name,
+												})
+											)}
+											value={formData.response}
+											onChange={(value) =>
 												handleInputChange(
 													"response",
 													value
 												)
 											}
-											value={formData.response}
-										>
-											<SelectTrigger>
-												<SelectValue placeholder="Select disease" />
-											</SelectTrigger>
-											<SelectContent>
-												{alertResponse?.map(
-													(disease) => (
-														<SelectItem
-															key={
-																disease.code
-															}
-															value={
-																disease.code
-															}
-														>
-															{
-																disease.name
-															}
-														</SelectItem>
-													)
-												)}
-											</SelectContent>
-										</Select>
+											placeholder="Select disease"
+											searchPlaceholder="Search diseases..."
+										/>
 									</div>
 								</div>
 							</div>
@@ -1067,6 +1130,35 @@ export default function PublicAddAlertPage() {
 										{submitStatus.message}
 									</AlertDescription>
 								</Alert>
+
+								{submitStatus.type === "success" &&
+									submittedAlert && (
+										<div className="mt-3 flex flex-col gap-2 rounded-lg border border-green-200 bg-green-50/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+											<p className="text-sm text-green-800">
+												Would you like a copy for
+												your records? Download a PDF
+												of the alert you just
+												submitted.
+											</p>
+											<Button
+												type="button"
+												onClick={handleDownloadPdf}
+												disabled={isDownloadingPdf}
+												className="bg-uganda-red font-semibold text-white hover:bg-uganda-red/90"
+											>
+												<Download className="mr-2 h-4 w-4" />
+												{isDownloadingPdf
+													? "Preparing PDF..."
+													: "Download PDF copy"}
+											</Button>
+										</div>
+									)}
+
+								{pdfError && (
+									<p className="mt-2 text-sm text-red-600">
+										{pdfError}
+									</p>
+								)}
 							</div>
 						)}
 					</CardContent>

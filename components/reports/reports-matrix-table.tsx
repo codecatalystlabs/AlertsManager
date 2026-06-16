@@ -19,6 +19,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { TableSkeleton } from "@/components/ui/skeletons";
 import { LAYOUT } from "@/constants/layout";
 import type { ReportMatrix } from "@/lib/fetch-reports";
 import {
@@ -104,7 +105,7 @@ export const ReportsMatrixTable = memo<ReportsMatrixTableProps>(
 				</CardHeader>
 				<CardContent className={cn(LAYOUT.cardContent, "pt-0")}>
 					{isLoading ? (
-						<div className="h-[560px] animate-pulse rounded-md border bg-muted/40" />
+						<TableSkeleton rows={12} columns={8} />
 					) : !matrix?.rows?.length ? (
 						<p className="py-8 text-center text-sm text-muted-foreground">
 							No matrix data for this date range.

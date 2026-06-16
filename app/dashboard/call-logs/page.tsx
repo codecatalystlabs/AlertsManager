@@ -14,6 +14,7 @@ import {
 	CallLogsTable,
 } from "@/components/call-logs";
 import { ErrorAlert } from "@/components/dashboard";
+import { StatsGridSkeleton, FiltersSkeleton } from "@/components/ui/skeletons";
 import { useCallLogsData, type AlertLog } from "@/hooks/use-call-logs-data";
 import { AuthService } from "@/lib/auth";
 
@@ -200,17 +201,25 @@ export default function CallLogsPage(): React.JSX.Element {
 				/>
 			)}
 
-			<CallLogsStats
-				stats={stats}
-				filters={filters}
-				onStatClick={handleStatCardClick}
-			/>
+			{loading ? (
+				<StatsGridSkeleton count={4} />
+			) : (
+				<CallLogsStats
+					stats={stats}
+					filters={filters}
+					onStatClick={handleStatCardClick}
+				/>
+			)}
 
-			<CallLogsFilters
-				filters={filters}
-				onFiltersChange={setFilters}
-				onClearFilters={clearFilters}
-			/>
+			{loading ? (
+				<FiltersSkeleton fields={5} />
+			) : (
+				<CallLogsFilters
+					filters={filters}
+					onFiltersChange={setFilters}
+					onClearFilters={clearFilters}
+				/>
+			)}
 
 			<CallLogsVerificationTabs
 				value={filters.verification}

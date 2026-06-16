@@ -14,7 +14,6 @@ export const SOURCE_OF_ALERT_OPTIONS = [
 	"Health Worker",
 	"Point Of Entry",
 	"Schools",
-	"SMS 6767",
 	"VHT",
 	"Other",
 ] as const;
@@ -35,8 +34,6 @@ const SOURCE_ALIASES: Record<string, SourceOfAlert> = {
 	"point of entry": "Point Of Entry",
 	schools: "Schools",
 	school: "Schools",
-	sms: "SMS 6767",
-	"sms 6767": "SMS 6767",
 	vht: "VHT",
 	"vht (village health team)": "VHT",
 	other: "Other",

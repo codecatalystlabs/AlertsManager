@@ -36,6 +36,7 @@ import {
 import Link from "next/link";
 import { alertSource, alertEntryStatus, signsAndSymptoms } from "@/constants";
 import { CaseLocationSelect } from "@/components/case-location-select";
+import { MultiSelect } from "@/components/searchable-select";
 
 
 
@@ -513,29 +514,29 @@ export default function DashboardAddAlertPage() {
 								>
 									Source of Alert *
 								</Label>
-								<Select
-									onValueChange={(value) =>
+								<MultiSelect
+									id="sourceOfAlert"
+									options={alertSource.map((source) => ({
+										value: source.name,
+										label: source.name,
+									}))}
+									values={
+										formData.sourceOfAlert
+											? formData.sourceOfAlert
+													.split(",")
+													.map((s) => s.trim())
+													.filter(Boolean)
+											: []
+									}
+									onChange={(vals) =>
 										handleInputChange(
 											"sourceOfAlert",
-											value
+											vals.join(", ")
 										)
 									}
-									value={formData.sourceOfAlert}
-								>
-									<SelectTrigger>
-										<SelectValue placeholder="Select alert source" />
-									</SelectTrigger>
-									<SelectContent>
-										{alertSource?.map((source) => (
-											<SelectItem
-												key={source.name}
-												value={source.name}
-											>
-												{source.name}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+									placeholder="Select alert source"
+									searchPlaceholder="Search sources..."
+								/>
 							</div>
 						</div>
 

@@ -8,6 +8,7 @@ import {
 	ReportsDateFilter,
 } from "@/components/reports";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ChartSkeleton } from "@/components/ui/skeletons";
 
 const ReportsTimeseriesChart = dynamic(
 	() =>
@@ -16,9 +17,7 @@ const ReportsTimeseriesChart = dynamic(
 		})),
 	{
 		ssr: false,
-		loading: () => (
-			<div className="h-[300px] animate-pulse rounded-lg border bg-muted/40" />
-		),
+		loading: () => <ChartSkeleton height={260} bars={10} withLegend />,
 	}
 );
 import { LAYOUT } from "@/constants/layout";

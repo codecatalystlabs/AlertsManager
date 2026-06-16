@@ -12,6 +12,7 @@ import {
 } from "@/hooks/use-sidebar-state";
 import { cn } from "@/lib/utils";
 import { ApiBackendStatus } from "@/components/api-backend-status";
+import { UserMenu } from "@/components/user-menu";
 
 export default function DashboardLayout({
 	children,
@@ -34,7 +35,6 @@ export default function DashboardLayout({
 					mobileOpen={mobileOpen}
 					onMobileClose={closeMobile}
 					collapsed={collapsed}
-					onToggleCollapsed={toggleCollapsed}
 				/>
 
 				<div
@@ -82,7 +82,7 @@ export default function DashboardLayout({
 									Health Alert Management System
 								</h1>
 							</div>
-							<div className="flex items-center gap-x-4 lg:gap-x-6 shrink-0">
+							<div className="flex items-center gap-x-3 shrink-0 sm:gap-x-4">
 								{process.env.NODE_ENV === "development" ? (
 									<ApiBackendStatus />
 								) : (
@@ -93,12 +93,14 @@ export default function DashboardLayout({
 										</span>
 									</div>
 								)}
+								<div className="h-6 w-px bg-gray-200" aria-hidden />
+								<UserMenu />
 							</div>
 						</div>
 					</div>
 
 					<main className="py-3">
-						<div className="mx-auto max-w-[1600px] px-3 sm:px-4 lg:px-5">
+						<div className="mx-auto max-w-[1600px] px-3 sm:px-4 lg:px-5 2xl:max-w-none">
 							{children}
 						</div>
 					</main>

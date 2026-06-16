@@ -55,6 +55,7 @@ import {
 } from "@/components/ui/table"
 import { getPaginationRange } from "@/lib/pagination-utils"
 import { cn } from "@/lib/utils"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
 const EMPTY_SELECT_VALUE = "__all__"
@@ -563,11 +564,17 @@ export function DataTable<TData, TValue>({
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center text-sm text-muted-foreground">
-                  Loading...
-                </TableCell>
-              </TableRow>
+              Array.from({ length: Math.min(pageSize || 8, 8) }).map((_, r) => (
+                <TableRow key={`skeleton-${r}`} className="hover:bg-transparent">
+                  {columns.map((_, c) => (
+                    <TableCell key={c} className="px-3 py-2.5">
+                      <Skeleton
+                        className={cn("h-4", c === 0 ? "w-2/3" : "w-full max-w-[8rem]")}
+                      />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
             ) : pageRows.length ? (
               pageRows.map((row) => (
                 <TableRow
@@ -596,9 +603,16 @@ export function DataTable<TData, TValue>({
       {/* Mobile: each row becomes a stacked label/value card */}
       <div className="space-y-2 md:hidden">
         {isLoading ? (
-          <div className="rounded-md border p-6 text-center text-sm text-muted-foreground">
-            Loading...
-          </div>
+          Array.from({ length: Math.min(pageSize || 4, 4) }).map((_, r) => (
+            <div
+              key={`skeleton-card-${r}`}
+              className="space-y-2 rounded-lg border bg-card p-3 shadow-sm"
+            >
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
+          ))
         ) : pageRows.length ? (
           pageRows.map((row) => (
             <div

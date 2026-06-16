@@ -36,7 +36,9 @@ export const calculateAlertStatistics = (alerts: CallLogAlert[]): AlertCounts & 
         verified,
         notVerified,
         discarded,
-        alerts: Math.max(0, verified - discarded),
+        // Every signal is either discarded or an alert; alerts = all signals
+        // that were not discarded (keeps backend parity in dashboard.go).
+        alerts: Math.max(0, total - discarded),
         total,
         verificationRate,
         totalToday: todayAlerts.length,

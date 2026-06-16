@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { StatCardConfig } from '@/constants/dashboard';
 import { AlertCounts } from '@/app/dashboard/types';
 import { cn } from '@/lib/utils';
@@ -46,7 +47,7 @@ export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, classNam
       case 'discarded':
         return `${data.discarded} verified signals discarded`;
       case 'alerts':
-        return `${data.verified} verified minus ${data.discarded} discarded`;
+        return `${data.total} signals minus ${data.discarded} discarded`;
       case 'total':
         return `${data.verified} verified, ${data.notVerified} unverified`;
       default:
@@ -70,7 +71,7 @@ export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, classNam
           <div className="min-w-0">
             <p className="text-sm font-medium text-gray-500">{title}</p>
             {isLoading ? (
-              <div className="mt-2 h-7 w-20 animate-pulse rounded bg-gray-200" />
+              <Skeleton className="mt-2 h-7 w-20" />
             ) : (
               <p className="mt-1 text-2xl font-bold text-gray-900">{getValue()}</p>
             )}
@@ -85,7 +86,7 @@ export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, classNam
           </div>
         </div>
         {isLoading ? (
-          <div className="mt-3 h-3.5 w-28 animate-pulse rounded bg-gray-100" />
+          <Skeleton className="mt-3 h-3.5 w-28" />
         ) : (
           getSubText() && (
             <div className="mt-3 flex items-center gap-1.5 text-xs text-gray-500">

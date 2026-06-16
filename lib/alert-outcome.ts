@@ -44,10 +44,42 @@ const OUTCOME_SYNONYMS: Record<string, string> = {
 /** Matches the "Actions: <outcome>." segment of a generated narrative. */
 const NARRATIVE_OUTCOME_PATTERN = /Actions:\s*([^.]+?)\s*\./i;
 
+/**
+ * Fold a free-text verification value onto one canonical outcome label. Real
+ * records use many phrasings/spellings/cases ("sample collected", "samples were
+ * collected and results were negative", the misspelled "Mortality
+ * Survaillance/Supervised Burial", "does not meet case definition", …), so
+ * exact-match alone dumped most of them into "Others" and hid the biggest
+ * categories. The substring rules below (most-decisive first) route the common
+ * variants to their real bucket; anything unrecognised is returned as-is and
+ * rolls into "Others" upstream. Kept in sync with the Go twin
+ * (`alertsMIS/backend/internal/services/alert_outcome.go`).
+ */
 function canonicalizeOutcome(value: string): string {
 	const trimmed = value.trim();
 	if (!trimmed) return "";
-	return OUTCOME_SYNONYMS[trimmed.toLowerCase()] ?? trimmed;
+	const lower = trimmed.toLowerCase();
+
+	if (
+		lower.includes("discard") ||
+		(lower.includes("case def") &&
+			(lower.includes("not meet") || lower.includes("doesnot")))
+	) {
+		return "Discarded";
+	}
+	if (lower.includes("sample")) return "Sample Collected";
+	if (lower.includes("evacuat")) return "Validated for EMS Evacuation";
+	if (
+		lower.includes("supervised burial") ||
+		lower.includes("mortality surv") ||
+		lower.includes("survaillance") ||
+		lower.includes("sdb")
+	) {
+		return "Mortality Surveillance/Supervised Burial";
+	}
+	if (lower.includes("case verification")) return "Field Case Verification";
+
+	return OUTCOME_SYNONYMS[lower] ?? trimmed;
 }
 
 /** The subset of alert fields the outcome can be derived from. */
@@ -56,6 +88,18 @@ export interface OutcomeSource {
 	fieldVerificationDecision?: string | null;
 	actions?: string | null;
 	narrative?: string | null;
+}
+
+/**
+ * The desk-verification decision on its own (canonicalized), independent of any
+ * field-team decision. Unlike {@link deriveAlertOutcome} — which lets a field
+ * decision override the desk one — this reports specifically what the desk
+ * concluded. Returns {@link OUTCOME_NOT_RECORDED} when no desk decision exists.
+ */
+export function deriveDeskVerificationOutcome(
+	alert: Pick<OutcomeSource, "caseVerificationDesk">
+): string {
+	return canonicalizeOutcome(alert.caseVerificationDesk ?? "") || OUTCOME_NOT_RECORDED;
 }
 
 export function deriveAlertOutcome(alert: OutcomeSource): string {

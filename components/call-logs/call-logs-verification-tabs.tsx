@@ -23,8 +23,8 @@ export const CallLogsVerificationTabs = memo<CallLogsVerificationTabsProps>(
 		const selectedValue = isVerificationTab(value) ? value : "all";
 
 		return (
-			<div className="flex flex-col gap-2 rounded-md border border-uganda-red/20 bg-uganda-red/5 p-2 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-				<span className="text-sm font-semibold text-foreground">
+			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+				<span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
 					Show alerts
 				</span>
 				<Tabs
@@ -36,12 +36,12 @@ export const CallLogsVerificationTabs = memo<CallLogsVerificationTabsProps>(
 					}}
 					className="w-full sm:w-auto"
 				>
-					<TabsList className="grid h-11 w-full grid-cols-3 border border-border bg-background p-1 sm:w-auto">
+					<TabsList className="grid h-9 w-full grid-cols-3 bg-muted p-1 sm:w-auto">
 						{VERIFICATION_TABS.map((tab) => (
 							<TabsTrigger
 								key={tab.value}
 								value={tab.value}
-								className="h-9 px-4 text-sm font-semibold data-[state=active]:bg-uganda-red data-[state=active]:text-white data-[state=active]:shadow"
+								className="h-7 px-5 text-sm font-medium text-muted-foreground transition-colors data-[state=active]:bg-background data-[state=active]:text-uganda-red data-[state=active]:shadow-sm"
 							>
 								{tab.label}
 							</TabsTrigger>
