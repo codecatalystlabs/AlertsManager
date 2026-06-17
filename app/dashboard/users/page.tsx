@@ -1,6 +1,14 @@
 "use client";
 
-import { type ReactNode, useMemo, useState, useEffect } from "react";
+import {
+	type ReactNode,
+	useMemo,
+	useState,
+	useEffect,
+	useCallback,
+} from "react";
+import { type ColumnDef } from "@tanstack/react-table";
+import { DataTable } from "@/components/ui/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +39,7 @@ import {
 	AuthService,
 	User,
 	type UpdateUserPayload,
+	type UsersPage,
 	ROLE_DISTRICT_BIOSTAT,
 } from "@/lib/auth";
 import { useDistrictOptions } from "@/hooks/use-district-options";
@@ -215,7 +224,8 @@ export default function UsersPage() {
 	// Full district list (admin-units) for the district-scoped-role picker.
 	const { districts: districtOptions } = useDistrictOptions();
 
-	const fetchUsers = async () => {
+	// Full list — used only for the summary stat cards (Total / Admin / District).
+	const loadStats = useCallback(async () => {
 		try {
 			setLoading(true);
 			setError(null);
@@ -229,11 +239,47 @@ export default function UsersPage() {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, []);
 
 	useEffect(() => {
-		fetchUsers();
-	}, []);
+		loadStats();
+	}, [loadStats]);
+
+	// Server-side paginated table state.
+	const [page, setPage] = useState(1);
+	const [pageSize, setPageSize] = useState(10);
+	const [pageData, setPageData] = useState<UsersPage>({
+		users: [],
+		pagination: { page: 1, limit: 10, total: 0, pages: 1 },
+	});
+	const [tableLoading, setTableLoading] = useState(true);
+	const [debouncedSearch, setDebouncedSearch] = useState("");
+
+	// Debounce the search box so each keystroke doesn't hit the API.
+	useEffect(() => {
+		const t = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+		return () => clearTimeout(t);
+	}, [searchTerm]);
+
+	const loadPage = useCallback(async () => {
+		try {
+			setTableLoading(true);
+			const data = await AuthService.fetchUsers({
+				page,
+				limit: pageSize,
+				search: debouncedSearch,
+			});
+			setPageData(data);
+		} catch (err) {
+			console.error("Error fetching users page:", err);
+		} finally {
+			setTableLoading(false);
+		}
+	}, [page, pageSize, debouncedSearch]);
+
+	useEffect(() => {
+		loadPage();
+	}, [loadPage]);
 
 	const userTypeOptions = useMemo(
 		() =>
@@ -321,6 +367,9 @@ export default function UsersPage() {
 			});
 
 			setUsers([...users, registeredUser]);
+			// Refresh the paginated table + stat counts to include the new user.
+			void loadPage();
+			void loadStats();
 			setNewUser({
 				username: "",
 				password: "",
@@ -405,6 +454,9 @@ export default function UsersPage() {
 			setUsers((prev) =>
 				prev.map((u) => (u.id === updatedUser.id ? updatedUser : u))
 			);
+			// Reflect the edit in the paginated table + stat counts.
+			void loadPage();
+			void loadStats();
 			setIsEditUserOpen(false);
 			setEditingUser(null);
 			setEditPassword("");
@@ -420,9 +472,12 @@ export default function UsersPage() {
 
 	const handleDeleteUser = (userId: number) => {
 		if (confirm("Are you sure you want to delete this user?")) {
-			// For now, just remove from local state
-			// In a real app, you would call an API to delete the user
+			// For now, just remove from local state (no delete API yet).
 			setUsers(users.filter((user) => user.id !== userId));
+			setPageData((prev) => ({
+				...prev,
+				users: prev.users.filter((user) => user.id !== userId),
+			}));
 		}
 	};
 
@@ -459,6 +514,77 @@ export default function UsersPage() {
 		return names.length > 0 ? names.join(" ") : user.username;
 	}
 
+	// Columns for the shared DataTable (same component used by alerts/call-logs).
+	const userColumns: ColumnDef<User>[] = [
+		{
+			accessorKey: "username",
+			header: "Username",
+			cell: ({ row }) => (
+				<span className="font-medium">{row.original.username}</span>
+			),
+		},
+		{
+			id: "name",
+			header: "Name",
+			cell: ({ row }) => getDisplayName(row.original),
+		},
+		{ accessorKey: "email", header: "Email" },
+		{ accessorKey: "affiliation", header: "Affiliation" },
+		{
+			accessorKey: "userType",
+			header: "User Type",
+			cell: ({ row }) => row.original.userType || "-",
+		},
+		{
+			accessorKey: "level",
+			header: "Level",
+			cell: ({ row }) =>
+				row.original.level ? (
+					<Badge className={getRoleBadgeColor(row.original.level)}>
+						{row.original.level}
+					</Badge>
+				) : (
+					"-"
+				),
+		},
+		{
+			id: "district",
+			header: "District",
+			cell: ({ row }) => row.original.district || "-",
+		},
+		{
+			accessorKey: "createdAt",
+			header: "Created",
+			cell: ({ row }) => formatDate(row.original.createdAt),
+		},
+		{
+			id: "actions",
+			header: "Actions",
+			enableSorting: false,
+			cell: ({ row }) => (
+				<div className="flex space-x-2">
+					<Button
+						size="sm"
+						variant="outline"
+						onClick={() => handleOpenEdit(row.original)}
+						aria-label={`Edit ${row.original.username}`}
+					>
+						<Edit className="w-4 h-4" />
+					</Button>
+					<Button
+						size="sm"
+						variant="outline"
+						className="text-red-600 hover:text-red-700"
+						onClick={() => handleDeleteUser(row.original.id)}
+						aria-label={`Delete ${row.original.username}`}
+					>
+						<Trash2 className="w-4 h-4" />
+					</Button>
+				</div>
+			),
+		},
+	];
+
 	if (loading) {
 		return (
 			<div className="container mx-auto p-6">
@@ -486,7 +612,7 @@ export default function UsersPage() {
 							</h3>
 							<p className="text-gray-600 mb-4">{error}</p>
 							<Button
-								onClick={fetchUsers}
+								onClick={loadStats}
 								className="bg-uganda-red hover:bg-uganda-red/90"
 							>
 								Try Again
@@ -1271,354 +1397,21 @@ export default function UsersPage() {
 						</Dialog>
 					</div>
 
-					<div className="overflow-x-auto">
-						<table className="w-full text-sm">
-							<thead>
-								<tr className="bg-uganda-red text-white">
-									<th className="px-4 py-3 text-left">
-										<div className="flex items-center gap-1">
-											<span>Username</span>
-											<HeaderFilter
-												label="Username"
-												isActive={Boolean(
-													headerFilters.username.trim()
-												)}
-												onClear={() =>
-													updateHeaderFilter({
-														username: "",
-													})
-												}
-											>
-												<Input
-													value={
-														headerFilters.username
-													}
-													onChange={(event) =>
-														updateHeaderFilter({
-															username:
-																event.target.value,
-														})
-													}
-													placeholder="Username"
-													className="h-8 text-xs"
-												/>
-											</HeaderFilter>
-										</div>
-									</th>
-									<th className="px-4 py-3 text-left">
-										<div className="flex items-center gap-1">
-											<span>Name</span>
-											<HeaderFilter
-												label="Name"
-												isActive={Boolean(
-													headerFilters.name.trim()
-												)}
-												onClear={() =>
-													updateHeaderFilter({
-														name: "",
-													})
-												}
-											>
-												<Input
-													value={headerFilters.name}
-													onChange={(event) =>
-														updateHeaderFilter({
-															name: event.target.value,
-														})
-													}
-													placeholder="Name"
-													className="h-8 text-xs"
-												/>
-											</HeaderFilter>
-										</div>
-									</th>
-									<th className="px-4 py-3 text-left">
-										<div className="flex items-center gap-1">
-											<span>Email</span>
-											<HeaderFilter
-												label="Email"
-												isActive={Boolean(
-													headerFilters.email.trim()
-												)}
-												onClear={() =>
-													updateHeaderFilter({
-														email: "",
-													})
-												}
-											>
-												<Input
-													value={headerFilters.email}
-													onChange={(event) =>
-														updateHeaderFilter({
-															email: event.target.value,
-														})
-													}
-													placeholder="Email"
-													className="h-8 text-xs"
-												/>
-											</HeaderFilter>
-										</div>
-									</th>
-									<th className="px-4 py-3 text-left">
-										<div className="flex items-center gap-1">
-											<span>Affiliation</span>
-											<HeaderFilter
-												label="Affiliation"
-												isActive={Boolean(
-													headerFilters.affiliation.trim()
-												)}
-												onClear={() =>
-													updateHeaderFilter({
-														affiliation: "",
-													})
-												}
-											>
-												<Input
-													value={
-														headerFilters.affiliation
-													}
-													onChange={(event) =>
-														updateHeaderFilter({
-															affiliation:
-																event.target.value,
-														})
-													}
-													placeholder="Affiliation"
-													className="h-8 text-xs"
-												/>
-											</HeaderFilter>
-										</div>
-									</th>
-									<th className="px-4 py-3 text-left">
-										<div className="flex items-center gap-1">
-											<span>User Type</span>
-											<HeaderFilter
-												label="User Type"
-												isActive={
-													headerFilters.userType !==
-													"all"
-												}
-												onClear={() =>
-													updateHeaderFilter({
-														userType: "all",
-													})
-												}
-											>
-												<Select
-													value={
-														headerFilters.userType
-													}
-													onValueChange={(value) =>
-														updateHeaderFilter({
-															userType: value,
-														})
-													}
-												>
-													<SelectTrigger className="h-8 text-xs">
-														<SelectValue placeholder="All" />
-													</SelectTrigger>
-													<SelectContent>
-														<SelectItem value="all">
-															All
-														</SelectItem>
-														{userTypeOptions.map(
-															(userType) => (
-																<SelectItem
-																	key={userType}
-																	value={userType}
-																>
-																	{userType}
-																</SelectItem>
-															)
-														)}
-													</SelectContent>
-												</Select>
-											</HeaderFilter>
-										</div>
-									</th>
-									<th className="px-4 py-3 text-left">
-										<div className="flex items-center gap-1">
-											<span>Level</span>
-											<HeaderFilter
-												label="Level"
-												isActive={
-													headerFilters.level !== "all"
-												}
-												onClear={() =>
-													updateHeaderFilter({
-														level: "all",
-													})
-												}
-											>
-												<Select
-													value={headerFilters.level}
-													onValueChange={(value) =>
-														updateHeaderFilter({
-															level: value,
-														})
-													}
-												>
-													<SelectTrigger className="h-8 text-xs">
-														<SelectValue placeholder="All" />
-													</SelectTrigger>
-													<SelectContent>
-														<SelectItem value="all">
-															All
-														</SelectItem>
-														{levelOptions.map(
-															(level) => (
-																<SelectItem
-																	key={level}
-																	value={level}
-																>
-																	{level}
-																</SelectItem>
-															)
-														)}
-													</SelectContent>
-												</Select>
-											</HeaderFilter>
-										</div>
-									</th>
-									<th className="px-4 py-3 text-left">
-										<div className="flex items-center gap-1">
-											<span>Created</span>
-											<HeaderFilter
-												label="Created"
-												isActive={Boolean(
-													headerFilters.createdFrom ||
-														headerFilters.createdTo
-												)}
-												onClear={() =>
-													updateHeaderFilter({
-														createdFrom: "",
-														createdTo: "",
-													})
-												}
-											>
-												<div className="grid grid-cols-2 gap-2">
-													<Input
-														type="date"
-														value={
-															headerFilters.createdFrom
-														}
-														onChange={(event) =>
-															updateHeaderFilter({
-																createdFrom:
-																	event.target.value,
-															})
-														}
-														className="h-8 text-xs"
-														aria-label="Created from"
-													/>
-													<Input
-														type="date"
-														value={
-															headerFilters.createdTo
-														}
-														onChange={(event) =>
-															updateHeaderFilter({
-																createdTo:
-																	event.target.value,
-															})
-														}
-														className="h-8 text-xs"
-														aria-label="Created to"
-													/>
-												</div>
-											</HeaderFilter>
-										</div>
-									</th>
-									<th className="px-4 py-3 text-left">
-										Actions
-									</th>
-								</tr>
-							</thead>
-							<tbody>
-								{filteredUsers.map((user, index) => (
-									<tr
-										key={user.id}
-										className={
-											index % 2 === 0
-												? "bg-gray-50"
-												: "bg-white"
-										}
-									>
-										<td className="px-4 py-3 font-medium">
-											{user.username}
-										</td>
-										<td className="px-4 py-3">
-											{getDisplayName(user)}
-										</td>
-										<td className="px-4 py-3">
-											{user.email}
-										</td>
-										<td className="px-4 py-3">
-											{user.affiliation}
-										</td>
-										<td className="px-4 py-3">
-											{user.userType || "-"}
-										</td>
-										<td className="px-4 py-3">
-											{user.level ? (
-												<Badge
-													className={getRoleBadgeColor(
-														user.level
-													)}
-												>
-													{user.level}
-												</Badge>
-											) : (
-												"-"
-											)}
-										</td>
-										<td className="px-4 py-3">
-											{formatDate(
-												user.createdAt
-											)}
-										</td>
-										<td className="px-4 py-3">
-											<div className="flex space-x-2">
-												<Button
-													size="sm"
-													variant="outline"
-													onClick={() =>
-														handleOpenEdit(user)
-													}
-													aria-label={`Edit ${user.username}`}
-												>
-													<Edit className="w-4 h-4" />
-												</Button>
-												<Button
-													size="sm"
-													variant="outline"
-													className="text-red-600 hover:text-red-700"
-													onClick={() =>
-														handleDeleteUser(
-															user.id
-														)
-													}
-												>
-													<Trash2 className="w-4 h-4" />
-												</Button>
-											</div>
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
-
-					{filteredUsers.length === 0 && (
-						<div className="text-center py-8">
-							<Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-							<p className="text-gray-600">
-								{searchTerm
-									? "No users found matching your search."
-									: "No users found."}
-							</p>
-						</div>
-					)}
+					<DataTable
+						columns={userColumns}
+						data={pageData.users}
+						pageSize={pageSize}
+						manualPagination
+						pageCount={pageData.pagination.pages}
+						totalRowCount={pageData.pagination.total}
+						pageIndex={page - 1}
+						onPageChange={(pageIndex) => setPage(pageIndex + 1)}
+						onPageSizeChange={(size) => {
+							setPageSize(size);
+							setPage(1);
+						}}
+						isLoading={tableLoading}
+					/>
 				</CardContent>
 			</Card>
 		</div>

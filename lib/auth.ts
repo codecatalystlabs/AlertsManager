@@ -56,6 +56,17 @@ export function isDistrictScopedRole(user: User | null): boolean {
     return (user?.level ?? "").trim().toLowerCase() === ROLE_DISTRICT_BIOSTAT
 }
 
+/** One page of users from GET /users. */
+export interface UsersPage {
+    users: User[]
+    pagination: {
+        page: number
+        limit: number
+        total: number
+        pages: number
+    }
+}
+
 export interface UpdateUserPayload {
     username: string
     firstName: string
@@ -329,6 +340,32 @@ export class AuthService {
             console.error('Error fetching users:', error)
             throw error
         }
+    }
+
+    /** Server-paginated, filterable user list (GET /users). Admin only. */
+    static async fetchUsers(params: {
+        page?: number
+        limit?: number
+        search?: string
+        userType?: string
+        level?: string
+    } = {}): Promise<UsersPage> {
+        const sp = new URLSearchParams()
+        sp.set('page', String(params.page ?? 1))
+        sp.set('limit', String(params.limit ?? 10))
+        if (params.search?.trim()) sp.set('search', params.search.trim())
+        if (params.userType && params.userType !== 'all')
+            sp.set('user_type', params.userType)
+        if (params.level && params.level !== 'all') sp.set('level', params.level)
+
+        const response = await this.makeAuthenticatedRequest(
+            `${API_BASE_URL}/users?${sp.toString()}`,
+            { method: 'GET' }
+        )
+        if (!response.ok) {
+            throw new Error(`Failed to fetch users: ${response.statusText}`)
+        }
+        return response.json()
     }
 
     static async updateUser(
