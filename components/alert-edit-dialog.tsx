@@ -45,6 +45,7 @@ import {
 	signsAndSymptoms,
 } from "@/constants";
 import { CaseLocationSelect } from "@/components/case-location-select";
+import { CHANNEL_OF_REPORTING_OPTIONS } from "@/lib/channel-of-reporting";
 import { useToast } from "@/hooks/use-toast";
 
 import {
@@ -80,10 +81,12 @@ export function AlertEditDialog({
 		alertCaseVillage: "",
 		alertCaseParish: "",
 		sourceOfAlert: "",
+		channelOfReporting: "",
 		history: "",
 		alertCaseName: "",
 		alertCaseAge: "",
 		alertCaseSex: "",
+		labSamplesCollected: "",
 		pointOfContactName: "",
 		pointOfContactPhone: "",
 		narrative: "",
@@ -141,12 +144,14 @@ export function AlertEditDialog({
 				alertCaseVillage: alert.alertCaseVillage || "",
 				alertCaseParish: alert.alertCaseParish || "",
 				sourceOfAlert: alert.sourceOfAlert || "",
+				channelOfReporting: alert.channelOfReporting || "",
 				history: alert.history || "",
 				alertCaseName: alert.alertCaseName || "",
 				alertCaseAge: alert.alertCaseAge
 					? alert.alertCaseAge.toString()
 					: "",
 				alertCaseSex: alert.alertCaseSex || "",
+				labSamplesCollected: alert.labSamplesCollected || "",
 				pointOfContactName: alert.pointOfContactName || "",
 				pointOfContactPhone: alert.pointOfContactPhone || "",
 				narrative: alert.narrative || "",
@@ -277,10 +282,12 @@ export function AlertEditDialog({
 				alertCaseVillage: formData.alertCaseVillage,
 				alertCaseParish: formData.alertCaseParish,
 				sourceOfAlert: formData.sourceOfAlert,
+				channelOfReporting: formData.channelOfReporting,
 				history: formData.history,
 				alertCaseName: formData.alertCaseName,
 				alertCaseAge: parseInt(formData.alertCaseAge) || 0,
 				alertCaseSex: formData.alertCaseSex,
+				labSamplesCollected: formData.labSamplesCollected,
 				pointOfContactName: formData.pointOfContactName,
 				pointOfContactPhone: formData.pointOfContactPhone,
 				narrative: formData.narrative,
@@ -480,7 +487,7 @@ export function AlertEditDialog({
 								>
 									<div className="flex items-center space-x-2">
 										<RadioGroupItem
-											value="yes"
+											value="Yes"
 											id="yes"
 										/>
 										<Label
@@ -492,7 +499,7 @@ export function AlertEditDialog({
 									</div>
 									<div className="flex items-center space-x-2">
 										<RadioGroupItem
-											value="no"
+											value="No"
 											id="no"
 										/>
 										<Label
@@ -590,6 +597,39 @@ export function AlertEditDialog({
 																{source.name}
 															</SelectItem>
 														))}
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="space-y-1">
+								<Label
+									htmlFor="channelOfReporting"
+									className="text-sm font-medium"
+								>
+									Channel of Reporting
+								</Label>
+								<Select
+									onValueChange={(value) =>
+										handleInputChange(
+											"channelOfReporting",
+											value
+										)
+									}
+									value={formData.channelOfReporting}
+								>
+									<SelectTrigger id="channelOfReporting">
+										<SelectValue placeholder="Select channel of reporting" />
+									</SelectTrigger>
+									<SelectContent>
+										{CHANNEL_OF_REPORTING_OPTIONS.map(
+											(channel) => (
+												<SelectItem
+													key={channel}
+													value={channel}
+												>
+													{channel}
+												</SelectItem>
+											)
+										)}
 									</SelectContent>
 								</Select>
 							</div>
@@ -829,6 +869,47 @@ export function AlertEditDialog({
 									</div>
 								</RadioGroup>
 							</div>
+						</div>
+
+						<div className="space-y-1">
+							<Label className="text-sm font-medium">
+								Were laboratory samples collected?
+							</Label>
+							<RadioGroup
+								value={formData.labSamplesCollected}
+								onValueChange={(value) =>
+									handleInputChange(
+										"labSamplesCollected",
+										value
+									)
+								}
+								className="flex gap-4 mt-1"
+							>
+								<div className="flex items-center space-x-2">
+									<RadioGroupItem
+										value="Yes"
+										id="editLabSamplesYes"
+									/>
+									<Label
+										htmlFor="editLabSamplesYes"
+										className="text-sm"
+									>
+										Yes
+									</Label>
+								</div>
+								<div className="flex items-center space-x-2">
+									<RadioGroupItem
+										value="No"
+										id="editLabSamplesNo"
+									/>
+									<Label
+										htmlFor="editLabSamplesNo"
+										className="text-sm"
+									>
+										No
+									</Label>
+								</div>
+							</RadioGroup>
 						</div>
 
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">

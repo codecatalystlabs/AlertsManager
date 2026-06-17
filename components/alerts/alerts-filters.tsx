@@ -15,6 +15,7 @@ import { STATUS_OPTIONS, VERIFICATION_FILTER_OPTIONS } from "@/constants/alerts"
 import { LAYOUT } from "@/constants/layout";
 import { useRegionOptions } from "@/hooks/use-region-options";
 import { useDistrictOptions } from "@/hooks/use-district-options";
+import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
 
 export interface AlertsFilterState {
 	status: string;
@@ -28,11 +29,10 @@ export interface AlertsFilterState {
 interface AlertsFiltersProps {
 	filters: AlertsFilterState;
 	onFiltersChange: (filters: Partial<AlertsFilterState>) => void;
-	uniqueSources: string[];
 }
 
 export const AlertsFilters = memo<AlertsFiltersProps>(
-	({ filters, onFiltersChange, uniqueSources }) => {
+	({ filters, onFiltersChange }) => {
 		// Region/District come from the official admin-units hierarchy
 		// (GET /admin-units/...). District is scoped to the selected region by
 		// resolving its id (Region → District cascade).
@@ -162,7 +162,7 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 									<SelectItem value="all">
 										All Sources
 									</SelectItem>
-									{uniqueSources.map((source) => (
+									{SOURCE_OF_ALERT_OPTIONS.map((source) => (
 										<SelectItem
 											key={source}
 											value={source}

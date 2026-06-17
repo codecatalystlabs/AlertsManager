@@ -64,6 +64,9 @@ const alertStatus = [
     { name: "Alive" },
     { name: "Dead" },
     { name: "Unknown" },
+    // Default case status for not-yet-triaged signals; included so the edit
+    // form can display & preserve a Pending value instead of rendering blank.
+    { name: "Pending" },
 ]
 
 // Status options offered on the alert ENTRY forms (must be Alive or Dead).

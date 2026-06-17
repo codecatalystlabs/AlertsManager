@@ -14,6 +14,7 @@ const ALERTS_KEY_ROOTS = new Set([
 	"today-activity",
 	"dashboard-chart-alerts",
 	"dashboard-summary",
+	"recent-activity",
 ]);
 
 function isAlertsKey(key: unknown): boolean {

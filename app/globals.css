@@ -10,6 +10,10 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+  .mono {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+    font-feature-settings: "ss01", "cv01";
+  }
 }
 
 @layer base {
@@ -47,6 +51,10 @@ body {
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Editorial loader accent stripes — Uganda flag (red / yellow / green), oklch. */
+    --accent-red: 0.55 0.2 25;
+    --accent-yellow: 0.82 0.17 85;
+    --accent-green: 0.5 0.12 155;
   }
   .dark {
     --background: 0 0% 3.9%;
@@ -81,6 +89,10 @@ body {
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Editorial loader accent stripes — Uganda flag (red / yellow / green), oklch. */
+    --accent-red: 0.62 0.2 25;
+    --accent-yellow: 0.85 0.17 85;
+    --accent-green: 0.58 0.12 155;
   }
 }
 
@@ -91,4 +103,27 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Editorial loader bar — three accent stripes sweep through a hairline track. */
+@keyframes loader-sweep {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(440%);
+  }
+}
+
+.loader-bar-red {
+  animation: loader-sweep 2.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  animation-delay: 0s;
+}
+.loader-bar-yellow {
+  animation: loader-sweep 2.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  animation-delay: 0.35s;
+}
+.loader-bar-green {
+  animation: loader-sweep 2.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  animation-delay: 0.7s;
 }

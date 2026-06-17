@@ -44,6 +44,7 @@ import {
 } from "@/constants";
 import { CaseLocationSelect } from "@/components/case-location-select";
 import { SearchableSelect, MultiSelect } from "@/components/searchable-select";
+import { CHANNEL_OF_REPORTING_OPTIONS } from "@/lib/channel-of-reporting";
 import {
 	getLocalDateString,
 	getLocalDateTimeIsoString,
@@ -69,10 +70,12 @@ export default function PublicAddAlertPage() {
 		village: "",
 		parish: "",
 		sourceOfAlert: "",
+		channelOfReporting: "",
 		caseAlertDescription: "",
 		caseName: "",
 		caseAge: "",
 		caseSex: "",
+		labSamplesCollected: "",
 		nameOfNextOfKin: "",
 		nextOfKinPhoneNumber: "",
 		narrative: "",
@@ -165,11 +168,13 @@ export default function PublicAddAlertPage() {
 				alertCaseParish: formData.parish || "",
 				alertCaseNationality: "Ugandan",
 				sourceOfAlert: formData.sourceOfAlert,
+				channelOfReporting: formData.channelOfReporting || "",
 				callTaker: formData.call_taker || "",
 				history: formData.caseAlertDescription,
 				alertCaseName: formData.caseName,
 				alertCaseAge: parseInt(formData.caseAge) || 0,
 				alertCaseSex: formData.caseSex,
+				labSamplesCollected: formData.labSamplesCollected || "",
 				pointOfContactName: formData.nameOfNextOfKin || "",
 				pointOfContactRelationship: "Family",
 				pointOfContactPhone: formData.nextOfKinPhoneNumber || "",
@@ -284,10 +289,12 @@ export default function PublicAddAlertPage() {
 				village: "",
 				parish: "",
 				sourceOfAlert: "",
+				channelOfReporting: "",
 				caseAlertDescription: "",
 				caseName: "",
 				caseAge: "",
 				caseSex: "",
+				labSamplesCollected: "",
 				nameOfNextOfKin: "",
 				nextOfKinPhoneNumber: "",
 				narrative: "",
@@ -687,7 +694,46 @@ export default function PublicAddAlertPage() {
 										/>
 									</div>
 
-									{/* Response */}
+									<div className="space-y-2">
+											<Label
+												htmlFor="channelOfReporting"
+												className="text-sm font-medium text-gray-700"
+											>
+												Channel of Reporting
+											</Label>
+											<Select
+												value={
+													formData.channelOfReporting
+												}
+												onValueChange={(value) =>
+													handleInputChange(
+														"channelOfReporting",
+														value
+													)
+												}
+											>
+												<SelectTrigger
+													id="channelOfReporting"
+													className="border-gray-300 focus:ring-uganda-yellow/20"
+												>
+													<SelectValue placeholder="How was this alert reported?" />
+												</SelectTrigger>
+												<SelectContent>
+													{CHANNEL_OF_REPORTING_OPTIONS.map(
+														(channel) => (
+															<SelectItem
+																key={channel}
+																value={channel}
+															>
+																{channel}
+															</SelectItem>
+														)
+													)}
+												</SelectContent>
+											</Select>
+										</div>
+
+										{/* Response */}
 									<div className="space-y-2">
 										<Label
 											htmlFor="response"
@@ -946,6 +992,47 @@ export default function PublicAddAlertPage() {
 											className="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
 										/>
 									</div>
+								</div>
+
+								<div className="space-y-2">
+									<Label className="text-sm font-medium text-gray-700">
+										Were laboratory samples collected?
+									</Label>
+									<RadioGroup
+										value={formData.labSamplesCollected}
+										onValueChange={(value) =>
+											handleInputChange(
+												"labSamplesCollected",
+												value
+											)
+										}
+										className="flex gap-4 mt-2"
+									>
+										<div className="flex items-center space-x-2">
+											<RadioGroupItem
+												value="Yes"
+												id="labSamplesYes"
+											/>
+											<Label
+												htmlFor="labSamplesYes"
+												className="text-sm"
+											>
+												Yes
+											</Label>
+										</div>
+										<div className="flex items-center space-x-2">
+											<RadioGroupItem
+												value="No"
+												id="labSamplesNo"
+											/>
+											<Label
+												htmlFor="labSamplesNo"
+												className="text-sm"
+											>
+												No
+											</Label>
+										</div>
+									</RadioGroup>
 								</div>
 
 								<div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

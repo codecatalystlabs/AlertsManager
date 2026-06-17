@@ -27,7 +27,13 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
-import { AuthService, User, type UpdateUserPayload } from "@/lib/auth";
+import {
+	AuthService,
+	User,
+	type UpdateUserPayload,
+	ROLE_DISTRICT_BIOSTAT,
+} from "@/lib/auth";
+import { useDistrictOptions } from "@/hooks/use-district-options";
 import {
 	Plus,
 	Edit,
@@ -41,6 +47,11 @@ import {
 	X,
 } from "lucide-react";
 
+/** True when an access level is the district-scoped role that needs a district. */
+function isDistrictScopedLevel(level?: string | null): boolean {
+	return (level ?? "").trim().toLowerCase() === ROLE_DISTRICT_BIOSTAT;
+}
+
 interface NewUserData {
 	username: string;
 	password: string;
@@ -51,6 +62,7 @@ interface NewUserData {
 	affiliation: string;
 	userType: string;
 	level: string;
+	district: string;
 }
 
 interface UserHeaderFilters {
@@ -197,7 +209,11 @@ export default function UsersPage() {
 		affiliation: "",
 		userType: "",
 		level: "",
+		district: "",
 	});
+
+	// Full district list (admin-units) for the district-scoped-role picker.
+	const { districts: districtOptions } = useDistrictOptions();
 
 	const fetchUsers = async () => {
 		try {
@@ -276,6 +292,13 @@ export default function UsersPage() {
 			return;
 		}
 
+		if (isDistrictScopedLevel(newUser.level) && !newUser.district) {
+			setRegistrationError(
+				"A District Biostat must be assigned a district"
+			);
+			return;
+		}
+
 		try {
 			setIsRegistering(true);
 			setRegistrationError(null);
@@ -291,6 +314,10 @@ export default function UsersPage() {
 				affiliation: newUser.affiliation,
 				userType: newUser.userType || undefined,
 				level: newUser.level || undefined,
+				// Only meaningful for district-scoped roles; null otherwise.
+				district: isDistrictScopedLevel(newUser.level)
+					? newUser.district || undefined
+					: null,
 			});
 
 			setUsers([...users, registeredUser]);
@@ -304,6 +331,7 @@ export default function UsersPage() {
 				affiliation: "",
 				userType: "",
 				level: "",
+				district: "",
 			});
 			setRegistrationSuccess("User registered successfully!");
 			setTimeout(() => {
@@ -338,6 +366,8 @@ export default function UsersPage() {
 		affiliation: user.affiliation,
 		userType: user.userType ?? "",
 		level: user.level ?? "",
+		// Persist the district only for district-scoped roles; clear it otherwise.
+		district: isDistrictScopedLevel(user.level) ? user.district ?? "" : null,
 		password: editPassword,
 	});
 
@@ -352,6 +382,14 @@ export default function UsersPage() {
 			!editingUser.affiliation
 		) {
 			setUpdateError("Please fill in all required fields");
+			return;
+		}
+
+		if (
+			isDistrictScopedLevel(editingUser.level) &&
+			!editingUser.district
+		) {
+			setUpdateError("A District Biostat must be assigned a district");
 			return;
 		}
 
@@ -584,13 +622,13 @@ export default function UsersPage() {
 									Add User
 								</Button>
 							</DialogTrigger>
-							<DialogContent className="sm:max-w-md">
+							<DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
 								<DialogHeader>
 									<DialogTitle>
 										Register New User
 									</DialogTitle>
 								</DialogHeader>
-								<div className="space-y-4">
+								<div className="space-y-3">
 									{registrationError && (
 										<Alert className="border-red-200 bg-red-50">
 											<AlertCircle className="h-4 w-4 text-red-600" />
@@ -714,6 +752,7 @@ export default function UsersPage() {
 										</div>
 									</div>
 
+									<div className="grid grid-cols-2 gap-4">
 									<div>
 										<Label htmlFor="otherName">
 											Other Name
@@ -752,6 +791,7 @@ export default function UsersPage() {
 											placeholder="Enter email address"
 											disabled={isRegistering}
 										/>
+									</div>
 									</div>
 
 									<div>
@@ -845,6 +885,9 @@ export default function UsersPage() {
 													<SelectItem value="Admin">
 														Admin
 													</SelectItem>
+													<SelectItem value="District Biostat">
+														District Biostat
+													</SelectItem>
 													<SelectItem value="District">
 														District
 													</SelectItem>
@@ -858,6 +901,47 @@ export default function UsersPage() {
 											</Select>
 										</div>
 									</div>
+
+									{isDistrictScopedLevel(newUser.level) && (
+										<div>
+											<Label htmlFor="district">
+												District{" "}
+												<span className="text-uganda-red">
+													*
+												</span>
+											</Label>
+											<Select
+												value={newUser.district}
+												onValueChange={(value) =>
+													setNewUser({
+														...newUser,
+														district: value,
+													})
+												}
+												disabled={isRegistering}
+											>
+												<SelectTrigger>
+													<SelectValue placeholder="Select the district this user is limited to" />
+												</SelectTrigger>
+												<SelectContent>
+													{districtOptions.map(
+														(district) => (
+															<SelectItem
+																key={district}
+																value={district}
+															>
+																{district}
+															</SelectItem>
+														)
+													)}
+												</SelectContent>
+											</Select>
+											<p className="mt-1 text-xs text-muted-foreground">
+												A District Biostat can only see
+												data for this district.
+											</p>
+										</div>
+									)}
 
 									<div className="flex justify-end space-x-2">
 										<Button
@@ -904,7 +988,7 @@ export default function UsersPage() {
 								}
 							}}
 						>
-							<DialogContent className="sm:max-w-md">
+							<DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
 								<DialogHeader>
 									<DialogTitle>Edit User</DialogTitle>
 								</DialogHeader>
@@ -1074,6 +1158,9 @@ export default function UsersPage() {
 														<SelectItem value="Admin">
 															Admin
 														</SelectItem>
+														<SelectItem value="District Biostat">
+															District Biostat
+														</SelectItem>
 														<SelectItem value="District">
 															District
 														</SelectItem>
@@ -1087,6 +1174,47 @@ export default function UsersPage() {
 												</Select>
 											</div>
 										</div>
+
+										{isDistrictScopedLevel(editingUser.level) && (
+											<div>
+												<Label>
+													District{" "}
+													<span className="text-uganda-red">
+														*
+													</span>
+												</Label>
+												<Select
+													value={editingUser.district || ""}
+													onValueChange={(value) =>
+														setEditingUser({
+															...editingUser,
+															district: value,
+														})
+													}
+													disabled={isUpdating}
+												>
+													<SelectTrigger>
+														<SelectValue placeholder="Select the district this user is limited to" />
+													</SelectTrigger>
+													<SelectContent>
+														{districtOptions.map(
+															(district) => (
+																<SelectItem
+																	key={district}
+																	value={district}
+																>
+																	{district}
+																</SelectItem>
+															)
+														)}
+													</SelectContent>
+												</Select>
+												<p className="mt-1 text-xs text-muted-foreground">
+													A District Biostat can only see data
+													for this district.
+												</p>
+											</div>
+										)}
 
 										<Separator />
 

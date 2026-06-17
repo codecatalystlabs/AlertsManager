@@ -9,12 +9,10 @@
  */
 export const SOURCE_OF_ALERT_OPTIONS = [
 	"Community",
-	"Call centre",
 	"Health facility",
-	"Health Worker",
+	"Refugee Camp",
 	"Point Of Entry",
 	"Schools",
-	"VHT",
 	"Other",
 ] as const;
 
@@ -25,17 +23,11 @@ const SOURCE_ALIASES: Record<string, SourceOfAlert> = {
 	community: "Community",
 	"community member": "Community",
 	"mass gathering": "Community",
-	"direct call": "Call centre",
-	"call centre": "Call centre",
-	"call center": "Call centre",
 	facility: "Health facility",
 	"health facility": "Health facility",
-	"health worker": "Health Worker",
+	"refugee camp": "Refugee Camp",
 	"point of entry": "Point Of Entry",
-	schools: "Schools",
 	school: "Schools",
-	vht: "VHT",
-	"vht (village health team)": "VHT",
 	other: "Other",
 };
 

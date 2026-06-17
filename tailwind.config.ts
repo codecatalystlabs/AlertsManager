@@ -46,6 +46,10 @@ const config: Config = {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
         },
+        // Editorial loader accent stripes (Uganda flag — red / yellow / green).
+        "accent-red": "oklch(var(--accent-red))",
+        "accent-yellow": "oklch(var(--accent-yellow))",
+        "accent-green": "oklch(var(--accent-green))",
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",

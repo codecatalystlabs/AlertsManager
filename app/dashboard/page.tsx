@@ -1,14 +1,16 @@
 "use client";
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { Download } from "lucide-react";
+import { Download, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AuthService, isDistrictScopedRole, type User } from "@/lib/auth";
 import { downloadChartsAsPdf } from "@/lib/charts-pdf";
 import {
 	WelcomeSection,
 	ErrorAlert,
 	StatsGrid,
+	RecentActivityCard,
 	DashboardRangePicker,
 	DashboardDistrictPicker,
 	resolveDashboardRange,
@@ -66,6 +68,16 @@ export default function DashboardPage(): React.JSX.Element {
 	const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 	const chartsRef = useRef<HTMLDivElement>(null);
 
+	// Current user (resolved after mount — localStorage is client-only). A
+	// district-scoped user (e.g. District Biostat) only ever sees their district,
+	// so we surface its name and replace the (no-op) district picker with it.
+	const [user, setUser] = useState<User | null>(null);
+	useEffect(() => {
+		setUser(AuthService.getUser());
+	}, []);
+	const scopedToDistrict = isDistrictScopedRole(user);
+	const assignedDistrict = user?.district?.trim();
+
 	const handleRefresh = useCallback(async () => {
 		setIsRefreshing(true);
 		try {
@@ -121,17 +133,31 @@ export default function DashboardPage(): React.JSX.Element {
 						Overview
 					</h2>
 					<p className="text-xs text-muted-foreground">
-						{isUnbounded
-							? "Showing all-time data"
-							: "Showing data for the selected range"}
+						{scopedToDistrict && assignedDistrict
+							? `Showing data for ${assignedDistrict} district only`
+							: isUnbounded
+								? "Showing all-time data"
+								: "Showing data for the selected range"}
 					</p>
 				</div>
 				<div className="flex flex-wrap items-end gap-2">
-					<DashboardDistrictPicker
-						value={district}
-						onChange={setDistrict}
-						disabled={loading}
-					/>
+					{scopedToDistrict ? (
+						// District-scoped users can't change scope (enforced
+						// server-side), so show their district instead of the picker.
+						<div
+							className="flex h-8 items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2.5 text-xs font-medium text-gray-700"
+							title="You can only see data for your assigned district"
+						>
+							<MapPin className="h-3.5 w-3.5 text-uganda-red" />
+							<span>{assignedDistrict || "No district assigned"}</span>
+						</div>
+					) : (
+						<DashboardDistrictPicker
+							value={district}
+							onChange={setDistrict}
+							disabled={loading}
+						/>
+					)}
 					<DashboardRangePicker onChange={setRange} disabled={loading} />
 				</div>
 			</div>
@@ -148,6 +174,10 @@ export default function DashboardPage(): React.JSX.Element {
 				alertCounts={statCounts}
 				kpiLoading={loading && !summary}
 			/>
+
+			{/* Recent-activity triage snapshot — its own rolling/custom window,
+			    independent of the page date range but scoped by district. */}
+			<RecentActivityCard district={district} />
 
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<h2 className="text-base font-semibold text-gray-900">

@@ -13,6 +13,7 @@ export interface ApiAlert {
 	subCounty?: string;
 	contactNumber: string;
 	sourceOfAlert: string;
+	channelOfReporting?: string;
 	alertCaseName: string;
 	alertCaseAge: number;
 	alertCaseSex: string;
@@ -34,6 +35,7 @@ export interface ApiAlert {
 	fieldVerification?: string;
 	fieldVerificationDecision?: string;
 	feedback?: string;
+	labSamplesCollected?: string;
 	labResult?: string;
 	labResultDate?: string | null;
 	isHighlighted?: boolean;
@@ -51,6 +53,7 @@ export interface ApiAlert {
 	isVerified?: boolean;
 	verifiedBy?: string;
 	region?: string;
+	caseCode?: string;
 	createdAt?: string;
 	updatedAt?: string;
 }
@@ -124,6 +127,9 @@ export function normalizeAlertFromApi(raw: unknown): ApiAlert {
 		sourceOfAlert: normalizeSourceOfAlert(
 			str(body.sourceOfAlert ?? body.source_of_alert)
 		),
+		channelOfReporting: str(
+			body.channelOfReporting ?? body.channel_of_reporting
+		),
 		alertCaseName: str(body.alertCaseName ?? body.alert_case_name) ?? "",
 		alertCaseAge: num(body.alertCaseAge ?? body.alert_case_age) ?? 0,
 		alertCaseSex: str(body.alertCaseSex ?? body.alert_case_sex) ?? "",
@@ -180,6 +186,9 @@ export function normalizeAlertFromApi(raw: unknown): ApiAlert {
 				body.desk_verification_actions
 		),
 		feedback: str(body.feedback),
+		labSamplesCollected: str(
+			body.labSamplesCollected ?? body.lab_samples_collected
+		),
 		labResult: str(body.labResult ?? body.lab_result),
 		labResultDate: str(body.labResultDate ?? body.lab_result_date) ?? null,
 		isHighlighted: bool(body.isHighlighted ?? body.is_highlighted),
@@ -201,6 +210,7 @@ export function normalizeAlertFromApi(raw: unknown): ApiAlert {
 		isVerified: bool(body.isVerified ?? body.is_verified),
 		verifiedBy: str(body.verifiedBy ?? body.verified_by),
 		region: str(body.region),
+		caseCode: str(body.caseCode ?? body.case_code),
 		createdAt: str(body.createdAt ?? body.created_at),
 		updatedAt: str(body.updatedAt ?? body.updated_at),
 	};

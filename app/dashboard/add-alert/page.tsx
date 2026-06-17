@@ -35,6 +35,7 @@ import {
 } from "@/lib/utils";
 import Link from "next/link";
 import { alertSource, alertEntryStatus, signsAndSymptoms } from "@/constants";
+import { CHANNEL_OF_REPORTING_OPTIONS } from "@/lib/channel-of-reporting";
 import { CaseLocationSelect } from "@/components/case-location-select";
 import { MultiSelect } from "@/components/searchable-select";
 
@@ -59,10 +60,12 @@ export default function DashboardAddAlertPage() {
 		alertCaseVillage: "",
 		alertCaseParish: "",
 		sourceOfAlert: "",
+		channelOfReporting: "",
 		history: "",
 		alertCaseName: "",
 		alertCaseAge: "",
 		alertCaseSex: "",
+		labSamplesCollected: "",
 		pointOfContactName: "",
 		pointOfContactPhone: "",
 		narrative: "",
@@ -147,10 +150,12 @@ export default function DashboardAddAlertPage() {
 				alertCaseParish: formData.alertCaseParish || "",
 				alertCaseNationality: formData.alertCaseNationality || "",
 				sourceOfAlert: formData.sourceOfAlert,
+				channelOfReporting: formData.channelOfReporting || "",
 				history: formData.history,
 				alertCaseName: formData.alertCaseName,
 				alertCaseAge: parseInt(formData.alertCaseAge) || 0,
 				alertCaseSex: formData.alertCaseSex,
+				labSamplesCollected: formData.labSamplesCollected || "",
 				pointOfContactName: formData.pointOfContactName || "",
 				pointOfContactRelationship: "Family",
 				pointOfContactPhone: formData.pointOfContactPhone || "",
@@ -188,10 +193,12 @@ export default function DashboardAddAlertPage() {
 				alertCaseVillage: "",
 				alertCaseParish: "",
 				sourceOfAlert: "",
+				channelOfReporting: "",
 				history: "",
 				alertCaseName: "",
 				alertCaseAge: "",
 				alertCaseSex: "",
+				labSamplesCollected: "",
 				pointOfContactName: "",
 				pointOfContactPhone: "",
 				narrative: "",
@@ -538,6 +545,40 @@ export default function DashboardAddAlertPage() {
 									searchPlaceholder="Search sources..."
 								/>
 							</div>
+
+							<div className="space-y-2">
+								<Label
+									htmlFor="channelOfReporting"
+									className="text-sm font-medium"
+								>
+									Channel of Reporting
+								</Label>
+								<Select
+									value={formData.channelOfReporting}
+									onValueChange={(value) =>
+										handleInputChange(
+											"channelOfReporting",
+											value
+										)
+									}
+								>
+									<SelectTrigger id="channelOfReporting">
+										<SelectValue placeholder="Select channel of reporting" />
+									</SelectTrigger>
+									<SelectContent>
+										{CHANNEL_OF_REPORTING_OPTIONS.map(
+											(channel) => (
+												<SelectItem
+													key={channel}
+													value={channel}
+												>
+													{channel}
+												</SelectItem>
+											)
+										)}
+									</SelectContent>
+								</Select>
+							</div>
 						</div>
 
 						<Separator />
@@ -753,6 +794,47 @@ export default function DashboardAddAlertPage() {
 										placeholder="e.g., 0701234567"
 									/>
 								</div>
+							</div>
+
+							<div className="space-y-2">
+								<Label className="text-sm font-medium">
+									Were laboratory samples collected?
+								</Label>
+								<RadioGroup
+									value={formData.labSamplesCollected}
+									onValueChange={(value) =>
+										handleInputChange(
+											"labSamplesCollected",
+											value
+										)
+									}
+									className="flex gap-4 mt-2"
+								>
+									<div className="flex items-center space-x-2">
+										<RadioGroupItem
+											value="Yes"
+											id="labSamplesYes"
+										/>
+										<Label
+											htmlFor="labSamplesYes"
+											className="text-sm"
+										>
+											Yes
+										</Label>
+									</div>
+									<div className="flex items-center space-x-2">
+										<RadioGroupItem
+											value="No"
+											id="labSamplesNo"
+										/>
+										<Label
+											htmlFor="labSamplesNo"
+											className="text-sm"
+										>
+											No
+										</Label>
+									</div>
+								</RadioGroup>
 							</div>
 
 							<div className="space-y-2">

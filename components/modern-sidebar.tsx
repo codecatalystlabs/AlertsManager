@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AuthService } from "@/lib/auth";
+import { AuthService, isAdminRole } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import {
 	LayoutDashboard,
@@ -27,6 +27,8 @@ interface NavigationItem {
 	icon: React.ComponentType<{ className?: string }>;
 	badge?: string | null;
 	dynamicBadge?: "verified" | "notVerified" | "total";
+	/** Only shown to Admin users (backend also enforces these routes). */
+	adminOnly?: boolean;
 }
 
 interface NavigationGroup {
@@ -63,7 +65,7 @@ const navigationGroups: NavigationGroup[] = [
 	{
 		label: "Administration",
 		items: [
-			{ name: "Manage Users", href: "/dashboard/users", icon: Users },
+			{ name: "Manage Users", href: "/dashboard/users", icon: Users, adminOnly: true },
 			{ name: "Profile", href: "/dashboard/profile", icon: User },
 		],
 	},
@@ -290,6 +292,27 @@ function SidebarContent({
 	collapsed: boolean;
 	onNavigate?: () => void;
 }) {
+	// Role-gated nav: resolved after mount to avoid a hydration mismatch
+	// (localStorage is client-only). The backend independently enforces these
+	// admin-only routes (403), so this is UX, not the security boundary.
+	const [isAdmin, setIsAdmin] = useState(false);
+	useEffect(() => {
+		setIsAdmin(isAdminRole(AuthService.getUser()));
+	}, []);
+
+	const visibleGroups = useMemo(
+		() =>
+			navigationGroups
+				.map((group) => ({
+					...group,
+					items: group.items.filter(
+						(item) => !item.adminOnly || isAdmin
+					),
+				}))
+				.filter((group) => group.items.length > 0),
+		[isAdmin]
+	);
+
 	return (
 		<div className="flex h-full flex-col overflow-hidden border-r border-gray-200 bg-white">
 			{/* Brand header */}
@@ -318,7 +341,7 @@ function SidebarContent({
 					className={cn("space-y-5 py-4", collapsed ? "px-2" : "px-3")}
 					aria-label="Sidebar navigation"
 				>
-					{navigationGroups.map((group, groupIndex) => (
+					{visibleGroups.map((group, groupIndex) => (
 						<div key={group.label} className="space-y-1">
 							{collapsed
 								? groupIndex > 0 && (

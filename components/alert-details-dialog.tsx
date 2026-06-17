@@ -189,6 +189,15 @@ export function AlertDetailsDialog({
 										"Not specified"}
 								</Badge>
 							</div>
+							<div>
+								<Label className="text-sm font-medium text-gray-600">
+									Channel of Reporting
+								</Label>
+								<p className="text-sm">
+									{alert.channelOfReporting ||
+										"Not specified"}
+								</p>
+							</div>
 						</div>
 					</div>
 
@@ -304,6 +313,16 @@ export function AlertDetailsDialog({
 										"Not provided"}
 								</p>
 							</div>
+						</div>
+
+						<div>
+							<Label className="text-sm font-medium text-gray-600">
+								Laboratory Samples Collected
+							</Label>
+							<p className="text-sm">
+								{alert.labSamplesCollected ||
+									"Not specified"}
+							</p>
 						</div>
 
 						<div>

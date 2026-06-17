@@ -36,8 +36,24 @@ export interface User {
     affiliation: string
     userType: string
     level: string
+    /** District a district-scoped user (e.g. District Biostat) is limited to. */
+    district?: string | null
     createdAt: string
     updatedAt: string
+}
+
+/** Canonical role names (compared case-insensitively against User.level). */
+export const ROLE_ADMIN = "admin"
+export const ROLE_DISTRICT_BIOSTAT = "district biostat"
+
+/** True if the user's role is the unscoped Admin role. */
+export function isAdminRole(user: User | null): boolean {
+    return (user?.level ?? "").trim().toLowerCase() === ROLE_ADMIN
+}
+
+/** True if the user may only ever see data for their own assigned district. */
+export function isDistrictScopedRole(user: User | null): boolean {
+    return (user?.level ?? "").trim().toLowerCase() === ROLE_DISTRICT_BIOSTAT
 }
 
 export interface UpdateUserPayload {
@@ -49,6 +65,8 @@ export interface UpdateUserPayload {
     affiliation: string
     userType: string
     level: string
+    /** District for a district-scoped role (e.g. District Biostat); null/"" clears it. */
+    district?: string | null
     /** Empty string leaves the password unchanged on the server */
     password: string
 }
@@ -66,6 +84,7 @@ export interface Alert {
     subCounty?: string
     contactNumber: string
     sourceOfAlert: string
+    channelOfReporting?: string
     alertCaseName: string
     alertCaseAge: number
     alertCaseSex: string
@@ -87,6 +106,7 @@ export interface Alert {
     fieldVerification?: string
     fieldVerificationDecision?: string
     feedback?: string
+    labSamplesCollected?: string
     labResult?: string
     labResultDate?: string | null
     isHighlighted?: boolean
@@ -329,6 +349,7 @@ export class AuthService {
                         affiliation: userData.affiliation,
                         userType: userData.userType ?? '',
                         level: userData.level ?? '',
+                        district: userData.district ?? null,
                         password: userData.password ?? '',
                     }),
                 }
@@ -362,6 +383,7 @@ export class AuthService {
         affiliation: string
         userType?: string
         level?: string
+        district?: string | null
     }): Promise<User> {
         try {
             const response = await this.makeAuthenticatedRequest(`${API_BASE_URL}/users/register`, {

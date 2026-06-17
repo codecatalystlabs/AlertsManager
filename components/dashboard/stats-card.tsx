@@ -33,8 +33,11 @@ export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, classNam
   const chip = CHIP_STYLES[iconBg] ?? DEFAULT_CHIP;
 
   const getValue = (): string => {
-    const value = data[key as keyof typeof data];
-    
+    // Fall back to 0 if the count is missing — e.g. an older API response that
+    // predates a newly added card field — so one absent key never crashes the
+    // whole grid.
+    const value = data[key as keyof typeof data] ?? 0;
+
     return value.toLocaleString();
   };
 

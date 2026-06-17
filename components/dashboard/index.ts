@@ -3,6 +3,7 @@ export { WelcomeSection } from './welcome-section';
 export { ErrorAlert } from './error-alert';
 export { LoadingSpinner } from './loading-spinner';
 export { StatsGrid } from './stats-grid';
+export { RecentActivityCard } from './recent-activity-card';
 export { DashboardCharts } from './dashboard-charts';
 export {
 	DashboardRangePicker,

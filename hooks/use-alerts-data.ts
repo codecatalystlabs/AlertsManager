@@ -3,6 +3,7 @@ import useSWR from 'swr';
 import { AuthService, Alert as AlertType } from '@/lib/auth';
 import { exportAlertsToCsv, exportAlertsToExcel } from '@/lib/alert-export';
 import { ALERTS_CONFIG } from '@/constants/alerts';
+import { sourceFilterValues } from '@/lib/source-of-alert';
 import {
     fetchAlertsPage,
     fetchAlertsStats,
@@ -43,7 +44,6 @@ interface UseAlertsDataReturn {
     isValidating: boolean;
     error: string | null;
     deletingId: number | null;
-    uniqueSources: string[];
     setFilters: (filters: Partial<AlertsFilters>) => void;
     setPage: (page: number) => void;
     setPageSize: (limit: number) => void;
@@ -90,7 +90,9 @@ function toApiParams(
     }
 
     if (filters.source && filters.source !== 'all') {
-        params.source = filters.source;
+        // Expand the canonical source to its raw aliases so the server-side
+        // IN-match also catches legacy values (mirrors call-logs).
+        params.source = sourceFilterValues(filters.source).join(',');
     }
 
     if (filters.date) {
@@ -106,7 +108,6 @@ export const useAlertsData = (): UseAlertsDataReturn => {
     const [page, setPageState] = useState(1);
     const [limit, setLimitState] = useState<number>(ALERTS_CONFIG.ITEMS_PER_PAGE);
     const [deletingId, setDeletingId] = useState<number | null>(null);
-    const [uniqueSources, setUniqueSources] = useState<string[]>([]);
 
     const filtersRef = useRef(filters);
     filtersRef.current = filters;
@@ -250,31 +251,6 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         await mutate();
     }, [mutate]);
 
-    // Accumulate the distinct alert sources seen across visited pages, so the
-    // source filter keeps options even after the user pages away from them.
-    const fromPage = useMemo(
-        () =>
-            Array.from(
-                new Set(
-                    alerts
-                        .map((alert) => alert.sourceOfAlert)
-                        .filter(Boolean) as string[]
-                )
-            ),
-        [alerts]
-    );
-
-    if (fromPage.length) {
-        const merged = Array.from(new Set([...uniqueSources, ...fromPage])).sort();
-        if (
-            merged.length !== uniqueSources.length ||
-            merged.some((value, index) => value !== uniqueSources[index])
-        ) {
-            // Safe state update during render (React bails out if unchanged).
-            setUniqueSources(merged);
-        }
-    }
-
     return {
         alerts,
         filteredAlerts,
@@ -285,7 +261,6 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         isValidating,
         error,
         deletingId,
-        uniqueSources,
         setFilters,
         setPage,
         setPageSize,

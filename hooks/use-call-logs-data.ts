@@ -36,6 +36,7 @@ export interface AlertLog {
     subCounty: string;
     contactNumber: string;
     sourceOfAlert: string;
+    channelOfReporting?: string;
     alertCaseName: string;
     alertCaseAge: number;
     alertCaseSex: string;
@@ -57,6 +58,7 @@ export interface AlertLog {
     fieldVerification: string;
     fieldVerificationDecision: string;
     feedback: string;
+    labSamplesCollected?: string;
     labResult: string;
     labResultDate: string | null;
     isHighlighted: boolean;
