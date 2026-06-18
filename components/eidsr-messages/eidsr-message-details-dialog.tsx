@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
 import { isEidsr6767Verified } from "@/lib/eidsr-verified-state";
+import { EidsrLifecycleTimeline } from "@/components/eidsr-alerts/eidsr-lifecycle-timeline";
 import { ExternalLink } from "lucide-react";
 
 interface EidsrMessageDetailsDialogProps {
@@ -74,6 +75,10 @@ export const EidsrMessageDetailsDialog = memo<EidsrMessageDetailsDialogProps>(
 							</Button>
 						)}
 					</div>
+
+					<Separator />
+					<EidsrLifecycleTimeline message={message} />
+					<Separator />
 
 					<dl className="space-y-2">
 						<DetailRow label="Reporter" value={message.personReporting} />

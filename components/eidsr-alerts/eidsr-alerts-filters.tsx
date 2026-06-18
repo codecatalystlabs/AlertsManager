@@ -11,6 +11,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import {
+	EIDSR_FORWARD_VERIFICATION_FILTER_OPTIONS,
 	EIDSR_SEX_FILTER_OPTIONS,
 	EIDSR_STATUS_FILTER_OPTIONS,
 	type EidsrAlertsFilterState,
@@ -214,6 +215,41 @@ export const EidsrAlertsFilters = memo<EidsrAlertsFiltersProps>(
 											{option}
 										</SelectItem>
 									))}
+								</SelectContent>
+							</Select>
+						</div>
+
+						<div className="space-y-1 min-w-0">
+							<Label
+								htmlFor="eidsr-forward-verification"
+								className="text-[11px]"
+							>
+								Forwarding
+							</Label>
+							<Select
+								value={filters.forwardVerification}
+								onValueChange={(value) =>
+									onFiltersChange({ forwardVerification: value })
+								}
+								disabled={localIdActive}
+							>
+								<SelectTrigger
+									id="eidsr-forward-verification"
+									className="h-8 text-xs"
+								>
+									<SelectValue placeholder="Any forwarding" />
+								</SelectTrigger>
+								<SelectContent>
+									{EIDSR_FORWARD_VERIFICATION_FILTER_OPTIONS.map(
+										(option) => (
+											<SelectItem
+												key={option.value}
+												value={option.value}
+											>
+												{option.label}
+											</SelectItem>
+										)
+									)}
 								</SelectContent>
 							</Select>
 						</div>

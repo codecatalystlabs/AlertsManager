@@ -3,7 +3,10 @@ import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
 import { enrichEidsrMessage } from "@/lib/eidsr-message-normalize";
 import { getEidsrDataValue } from "@/lib/eidsr-event-fields";
 import { resolveAlertResponseCode } from "@/lib/resolve-alert-response";
-import { pickLinkedAlertId } from "@/lib/eidsr-message-normalize";
+import {
+	pickAlertRef,
+	pickLinkedAlertId,
+} from "@/lib/eidsr-message-normalize";
 
 /** Map DHIS2 local event rows to the SMS message shape used by the 6767 UI. */
 export function eidsrEventToMessage(event: EidsrEvent): EidsrMessage {
@@ -20,6 +23,14 @@ export function eidsrEventToMessage(event: EidsrEvent): EidsrMessage {
 		status: event.status || getEidsrDataValue(event, "caseStatus"),
 		isVerified: false,
 		linkedAlertId: pickLinkedAlertId(raw),
+		linkedAlert: pickAlertRef(raw, "linkedAlert", "linked_alert"),
+		forwardedAlertId: (() => {
+			const n = Number(raw.forwardedAlertId ?? raw.forwarded_alert_id);
+			return Number.isFinite(n) && n > 0 ? n : null;
+		})(),
+		forwardedAlert: pickAlertRef(raw, "forwardedAlert", "forwarded_alert"),
+		forwardedToDistrict: event.forwardedToDistrict?.trim() || null,
+		forwardedAt: event.forwardedAt || null,
 		createdAt: event.createdAt || event.eventDate,
 		receivedAt: event.eventDate || event.updatedAt,
 		alertCaseDistrict: getEidsrDataValue(event, "location"),

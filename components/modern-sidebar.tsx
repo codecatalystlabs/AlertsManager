@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AuthService, isAdminRole } from "@/lib/auth";
+import { AuthService, canManageUsers } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import {
 	LayoutDashboard,
@@ -27,7 +27,11 @@ interface NavigationItem {
 	icon: React.ComponentType<{ className?: string }>;
 	badge?: string | null;
 	dynamicBadge?: "verified" | "notVerified" | "total";
-	/** Only shown to Admin users (backend also enforces these routes). */
+	/**
+	 * Only shown to users who can manage other users (Admin). EOC is excluded —
+	 * it has admin-like alert rights but no user management. The backend also
+	 * enforces these routes (403), so this is UX, not the security boundary.
+	 */
 	adminOnly?: boolean;
 }
 
@@ -295,9 +299,9 @@ function SidebarContent({
 	// Role-gated nav: resolved after mount to avoid a hydration mismatch
 	// (localStorage is client-only). The backend independently enforces these
 	// admin-only routes (403), so this is UX, not the security boundary.
-	const [isAdmin, setIsAdmin] = useState(false);
+	const [canManage, setCanManage] = useState(false);
 	useEffect(() => {
-		setIsAdmin(isAdminRole(AuthService.getUser()));
+		setCanManage(canManageUsers(AuthService.getUser()));
 	}, []);
 
 	const visibleGroups = useMemo(
@@ -306,11 +310,11 @@ function SidebarContent({
 				.map((group) => ({
 					...group,
 					items: group.items.filter(
-						(item) => !item.adminOnly || isAdmin
+						(item) => !item.adminOnly || canManage
 					),
 				}))
 				.filter((group) => group.items.length > 0),
-		[isAdmin]
+		[canManage]
 	);
 
 	return (

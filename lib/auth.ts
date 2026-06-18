@@ -38,6 +38,8 @@ export interface User {
     level: string
     /** District a district-scoped user (e.g. District Biostat) is limited to. */
     district?: string | null
+    /** Region a region-scoped user (the REOC role) is limited to. */
+    region?: string | null
     createdAt: string
     updatedAt: string
 }
@@ -45,15 +47,40 @@ export interface User {
 /** Canonical role names (compared case-insensitively against User.level). */
 export const ROLE_ADMIN = "admin"
 export const ROLE_DISTRICT_BIOSTAT = "district biostat"
+export const ROLE_REOC = "reoc"
+/** Emergency Operations Centre: admin-like rights but NO user management. */
+export const ROLE_EOC = "eoc"
 
 /** True if the user's role is the unscoped Admin role. */
 export function isAdminRole(user: User | null): boolean {
     return (user?.level ?? "").trim().toLowerCase() === ROLE_ADMIN
 }
 
+/**
+ * True if the user is an EOC: admin-like access to alerts (including delete) but
+ * no access to user management. Unscoped (sees all districts/regions).
+ */
+export function isEOCRole(user: User | null): boolean {
+    return (user?.level ?? "").trim().toLowerCase() === ROLE_EOC
+}
+
+/**
+ * True if the user may manage other users (the Manage Users area). Only the
+ * Admin role qualifies — EOC is deliberately excluded. Mirrors the backend,
+ * which gates the user endpoints to RoleAdmin only.
+ */
+export function canManageUsers(user: User | null): boolean {
+    return isAdminRole(user)
+}
+
 /** True if the user may only ever see data for their own assigned district. */
 export function isDistrictScopedRole(user: User | null): boolean {
     return (user?.level ?? "").trim().toLowerCase() === ROLE_DISTRICT_BIOSTAT
+}
+
+/** True if the user may only ever see data for their own assigned region (REOC). */
+export function isRegionScopedRole(user: User | null): boolean {
+    return (user?.level ?? "").trim().toLowerCase() === ROLE_REOC
 }
 
 /** One page of users from GET /users. */
@@ -78,6 +105,8 @@ export interface UpdateUserPayload {
     level: string
     /** District for a district-scoped role (e.g. District Biostat); null/"" clears it. */
     district?: string | null
+    /** Region for a region-scoped role (REOC); null/"" clears it. */
+    region?: string | null
     /** Empty string leaves the password unchanged on the server */
     password: string
 }
@@ -387,6 +416,7 @@ export class AuthService {
                         userType: userData.userType ?? '',
                         level: userData.level ?? '',
                         district: userData.district ?? null,
+                        region: userData.region ?? null,
                         password: userData.password ?? '',
                     }),
                 }
@@ -421,6 +451,7 @@ export class AuthService {
         userType?: string
         level?: string
         district?: string | null
+        region?: string | null
     }): Promise<User> {
         try {
             const response = await this.makeAuthenticatedRequest(`${API_BASE_URL}/users/register`, {

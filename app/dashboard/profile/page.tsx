@@ -12,6 +12,7 @@ import {
 	IdCard,
 	Loader2,
 	Mail,
+	MapPin,
 	Save,
 	ShieldCheck,
 	UserRound,
@@ -23,7 +24,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AuthService, type UpdateUserPayload, type User } from "@/lib/auth";
+import {
+	AuthService,
+	isDistrictScopedRole,
+	isRegionScopedRole,
+	type UpdateUserPayload,
+	type User,
+} from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 type ProfileForm = Pick<
@@ -80,6 +87,8 @@ function getRoleBadgeClass(level: string): string {
 			return "border-blue-200 bg-blue-50 text-blue-700";
 		case "reoc":
 			return "border-emerald-200 bg-emerald-50 text-emerald-700";
+		case "eoc":
+			return "border-purple-200 bg-purple-50 text-purple-700";
 		default:
 			return "border-slate-200 bg-slate-50 text-slate-700";
 	}
@@ -525,6 +534,30 @@ export default function ProfilePage() {
 										{level}
 									</Badge>
 								</div>
+								{isDistrictScopedRole(user) && (
+									<div>
+										<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+											District
+										</p>
+										<p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-slate-900">
+											<MapPin className="h-3.5 w-3.5 text-uganda-red" />
+											{user.district?.trim() ||
+												"Not assigned"}
+										</p>
+									</div>
+								)}
+								{isRegionScopedRole(user) && (
+									<div>
+										<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+											Region
+										</p>
+										<p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-slate-900">
+											<MapPin className="h-3.5 w-3.5 text-uganda-red" />
+											{user.region?.trim() ||
+												"Not assigned"}
+										</p>
+									</div>
+								)}
 								<div>
 									<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
 										User type

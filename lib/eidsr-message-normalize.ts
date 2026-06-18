@@ -7,6 +7,21 @@ import {
 import { resolveAlertResponseCode } from "@/lib/resolve-alert-response";
 import { resolveEidsrVerifiedState } from "@/lib/eidsr-verified-state";
 
+/**
+ * Live snapshot of an alerts-table row a 6767 message points at (its
+ * verify-linked alert and/or the alert created when it was forwarded to a
+ * district). Read-only — the server derives it from the alerts table per request
+ * so the EOC sees the downstream verification outcome inside the 6767 view.
+ */
+export interface EidsrAlertRef {
+	id: number;
+	isVerified: boolean;
+	status: string;
+	verifiedBy: string;
+	verificationDate: string;
+	district: string;
+}
+
 export interface EidsrMessage {
 	id: number;
 	messageId: string;
@@ -16,6 +31,16 @@ export interface EidsrMessage {
 	status: string;
 	isVerified: boolean;
 	linkedAlertId: number | null;
+	/** Live verification snapshot of the verify-linked alert, if any. */
+	linkedAlert: EidsrAlertRef | null;
+	/** Alert id created by the most recent "forward to district", if any. */
+	forwardedAlertId: number | null;
+	/** Live verification snapshot of the forwarded alert, if any. */
+	forwardedAlert: EidsrAlertRef | null;
+	/** Most recent district this 6767 message was forwarded to (as a call log). */
+	forwardedToDistrict: string | null;
+	/** When it was last forwarded (RFC3339), if ever. */
+	forwardedAt: string | null;
 	createdAt: string;
 	receivedAt: string;
 	alertCaseDistrict: string;
@@ -72,6 +97,35 @@ function pickBool(obj: Record<string, unknown>, ...keys: string[]): boolean {
 		if (v === false || v === 0 || v === "0" || v === "false") return false;
 	}
 	return false;
+}
+
+/** Parse a nested alert-ref object (linkedAlert / forwardedAlert) from the API. */
+export function pickAlertRef(
+	obj: Record<string, unknown>,
+	...keys: string[]
+): EidsrAlertRef | null {
+	for (const key of keys) {
+		const v = obj[key];
+		if (v && typeof v === "object" && !Array.isArray(v)) {
+			const r = v as Record<string, unknown>;
+			const id = pickNumber(r, "id", "ID");
+			if (id != null && id > 0) {
+				return {
+					id,
+					isVerified: pickBool(r, "isVerified", "is_verified"),
+					status: pickString(r, "status"),
+					verifiedBy: pickString(r, "verifiedBy", "verified_by"),
+					verificationDate: pickString(
+						r,
+						"verificationDate",
+						"verification_date"
+					),
+					district: pickString(r, "district"),
+				};
+			}
+		}
+	}
+	return null;
 }
 
 export function pickLinkedAlertId(obj: Record<string, unknown>): number | null {
@@ -294,6 +348,17 @@ export function asEidsrMessage(input: unknown): EidsrMessage | null {
 			dataValueByProgramField(dataValues, "caseStatus"),
 		isVerified: pickBool(raw, "isVerified", "is_verified"),
 		linkedAlertId: pickLinkedAlertId(raw),
+		linkedAlert: pickAlertRef(raw, "linkedAlert", "linked_alert"),
+		forwardedAlertId: pickNumber(
+			raw,
+			"forwardedAlertId",
+			"forwarded_alert_id"
+		),
+		forwardedAlert: pickAlertRef(raw, "forwardedAlert", "forwarded_alert"),
+		forwardedToDistrict:
+			pickString(raw, "forwardedToDistrict", "forwarded_to_district") ||
+			null,
+		forwardedAt: pickString(raw, "forwardedAt", "forwarded_at") || null,
 		createdAt: pickString(
 			raw,
 			"createdAt",

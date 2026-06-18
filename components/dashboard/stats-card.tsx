@@ -69,31 +69,31 @@ export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, classNam
       )}
       onClick={onClick}
     >
-      <CardContent className="p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-3">
+      <CardContent className="p-3">
+        <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-500">{title}</p>
+            <p className="truncate text-xs font-medium text-gray-500">{title}</p>
             {isLoading ? (
-              <Skeleton className="mt-2 h-7 w-20" />
+              <Skeleton className="mt-1.5 h-6 w-16" />
             ) : (
-              <p className="mt-1 text-2xl font-bold text-gray-900">{getValue()}</p>
+              <p className="mt-0.5 text-xl font-bold text-gray-900">{getValue()}</p>
             )}
           </div>
           <div
             className={cn(
-              'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
+              'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
               chip.bg
             )}
           >
-            <Icon className={cn('h-5 w-5', chip.text)} />
+            <Icon className={cn('h-4 w-4', chip.text)} />
           </div>
         </div>
         {isLoading ? (
-          <Skeleton className="mt-3 h-3.5 w-28" />
+          <Skeleton className="mt-2 h-3 w-24" />
         ) : (
           getSubText() && (
-            <div className="mt-3 flex items-center gap-1.5 text-xs text-gray-500">
-              <SubIcon className={cn('h-3.5 w-3.5 shrink-0', chip.text)} />
+            <div className="mt-1.5 flex items-center gap-1 text-[11px] leading-tight text-gray-500">
+              <SubIcon className={cn('h-3 w-3 shrink-0', chip.text)} />
               <span className="truncate">{getSubText()}</span>
             </div>
           )

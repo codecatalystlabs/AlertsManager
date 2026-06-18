@@ -16,6 +16,7 @@ import {
 import { ErrorAlert } from "@/components/dashboard";
 import { StatsGridSkeleton, FiltersSkeleton } from "@/components/ui/skeletons";
 import { useCallLogsData, type AlertLog } from "@/hooks/use-call-logs-data";
+import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
 import { AuthService } from "@/lib/auth";
 
 const AlertDetailsDialog = dynamic(
@@ -84,6 +85,10 @@ export default function CallLogsPage(): React.JSX.Element {
 		exporting,
 		clearFilters,
 	} = useCallLogsData();
+
+	// Revalidates every alerts-derived SWR key (this list + its stats, the Alerts
+	// Management table, dashboard cards/charts) — not just this page's list.
+	const invalidateAlerts = useInvalidateAlerts();
 
 	// Dialog states
 	const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
@@ -169,8 +174,12 @@ export default function CallLogsPage(): React.JSX.Element {
 	);
 
 	const handleVerificationComplete = useCallback(() => {
-		refetch();
-	}, [refetch]);
+		// Verifying/editing an alert changes data on other alerts-derived views
+		// too (the Alerts Management table, dashboard cards/charts). Invalidate
+		// every alerts-rooted SWR key — not just this page's list — so those views
+		// don't keep painting the pre-verify snapshot from the persisted cache.
+		void invalidateAlerts();
+	}, [invalidateAlerts]);
 
 	const handleRetry = useCallback(async () => {
 		await handleRefresh();

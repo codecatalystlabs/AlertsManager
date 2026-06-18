@@ -126,22 +126,22 @@ function OutcomeBreakdownCard({ items }: { items: ChartCountItem[] }) {
 
 	return (
 		<Card className="lg:col-span-2">
-			<CardHeader className="pb-2">
+			<CardHeader className="p-4 pb-2">
 				<div className="flex items-center gap-2">
-					<ListChecks className="h-5 w-5 text-uganda-red" />
-					<CardTitle className="text-lg">Verification Outcomes</CardTitle>
+					<ListChecks className="h-4 w-4 text-uganda-red" />
+					<CardTitle className="text-base">Verification Outcomes</CardTitle>
 				</div>
 				<CardDescription>
 					Desk and field verification decisions for verified signals
 				</CardDescription>
 			</CardHeader>
-			<CardContent>
+			<CardContent className="p-4 pt-0">
 				{total === 0 ? (
 					<ChartEmptyState message="No verification outcomes recorded yet." />
 				) : (
-					<div className="space-y-3">
+					<div className="space-y-2">
 						{items.map((item) => (
-							<div key={item.key} className="space-y-1.5">
+							<div key={item.key} className="space-y-1">
 								<div className="flex items-start justify-between gap-3 text-sm">
 									<span className="min-w-0 font-medium text-foreground">
 										{item.label}
@@ -194,26 +194,26 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 	const hasSignals = summary.total > 0;
 
 	return (
-		<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+		<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
 			<OutcomeBreakdownCard items={outcomeData} />
 
 			<Card>
-				<CardHeader className="pb-2">
+				<CardHeader className="p-4 pb-2">
 					<div className="flex items-center gap-2">
-						<PieChartIcon className="h-5 w-5 text-uganda-red" />
-						<CardTitle className="text-lg">Signal Verification</CardTitle>
+						<PieChartIcon className="h-4 w-4 text-uganda-red" />
+						<CardTitle className="text-base">Signal Verification</CardTitle>
 					</div>
 					<CardDescription>
 						Verified and unverified signal backlog
 					</CardDescription>
 				</CardHeader>
-				<CardContent>
+				<CardContent className="p-4 pt-0">
 					{!hasSignals || verificationTotal === 0 ? (
 						<ChartEmptyState message="No signal data available for verification breakdown." />
 					) : (
 						<ChartContainer
 							config={verificationConfig}
-							className="mx-auto aspect-square max-h-[280px]"
+							className="mx-auto aspect-square max-h-[220px]"
 						>
 							<PieChart>
 								<ChartTooltip
@@ -244,20 +244,20 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="pb-2">
+				<CardHeader className="p-4 pb-2">
 					<div className="flex items-center gap-2">
-						<BarChart3 className="h-5 w-5 text-uganda-red" />
-						<CardTitle className="text-lg">Case Status</CardTitle>
+						<BarChart3 className="h-4 w-4 text-uganda-red" />
+						<CardTitle className="text-base">Case Status</CardTitle>
 					</div>
 					<CardDescription>
 						Alive, dead, and unknown outcomes
 					</CardDescription>
 				</CardHeader>
-				<CardContent>
+				<CardContent className="p-4 pt-0">
 					{statusData.length === 0 ? (
 						<ChartEmptyState message="No status data available in signals." />
 					) : (
-						<ChartContainer config={statusConfig} className="h-[280px] w-full">
+						<ChartContainer config={statusConfig} className="h-[220px] w-full">
 							<BarChart
 								data={statusData}
 								layout="vertical"
@@ -293,10 +293,10 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="pb-2">
+				<CardHeader className="p-4 pb-2">
 					<div className="flex items-center gap-2">
-						<TrendingUp className="h-5 w-5 text-uganda-red" />
-						<CardTitle className="text-lg">Signals Over Time</CardTitle>
+						<TrendingUp className="h-4 w-4 text-uganda-red" />
+						<CardTitle className="text-base">Signals Over Time</CardTitle>
 					</div>
 					<CardDescription>
 						{timelineGranularity === "monthly"
@@ -304,11 +304,11 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 							: "Daily volume (last 30 days)"}
 					</CardDescription>
 				</CardHeader>
-				<CardContent>
+				<CardContent className="p-4 pt-0">
 					{timelineData.length === 0 ? (
 						<ChartEmptyState message="No valid dates found in signal records." />
 					) : (
-						<ChartContainer config={timelineConfig} className="h-[280px] w-full">
+						<ChartContainer config={timelineConfig} className="h-[220px] w-full">
 							<LineChart
 								data={timelineData}
 								margin={{ left: 0, right: 8, top: 8, bottom: 0 }}
@@ -356,20 +356,20 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="pb-2">
+				<CardHeader className="p-4 pb-2">
 					<div className="flex items-center gap-2">
-						<MapPin className="h-5 w-5 text-uganda-red" />
-						<CardTitle className="text-lg">Top Districts</CardTitle>
+						<MapPin className="h-4 w-4 text-uganda-red" />
+						<CardTitle className="text-base">Top Districts</CardTitle>
 					</div>
 					<CardDescription>
 						Highest signal volume by case district
 					</CardDescription>
 				</CardHeader>
-				<CardContent>
+				<CardContent className="p-4 pt-0">
 					{districtData.length === 0 ? (
 						<ChartEmptyState message="No district data available in signals." />
 					) : (
-						<ChartContainer config={districtConfig} className="h-[280px] w-full">
+						<ChartContainer config={districtConfig} className="h-[220px] w-full">
 							<BarChart
 								data={districtData}
 								layout="vertical"
@@ -399,20 +399,20 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="pb-2">
+				<CardHeader className="p-4 pb-2">
 					<div className="flex items-center gap-2">
-						<Stethoscope className="h-5 w-5 text-uganda-red" />
-						<CardTitle className="text-lg">Alerts by Disease</CardTitle>
+						<Stethoscope className="h-4 w-4 text-uganda-red" />
+						<CardTitle className="text-base">Alerts by Disease</CardTitle>
 					</div>
 					<CardDescription>
 						Top suspected diseases / syndromes
 					</CardDescription>
 				</CardHeader>
-				<CardContent>
+				<CardContent className="p-4 pt-0">
 					{summary.diseases.length === 0 ? (
 						<ChartEmptyState message="No disease data available in signals." />
 					) : (
-						<ChartContainer config={diseaseConfig} className="h-[280px] w-full">
+						<ChartContainer config={diseaseConfig} className="h-[220px] w-full">
 							<BarChart
 								data={summary.diseases}
 								layout="vertical"
@@ -443,20 +443,20 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="pb-2">
+				<CardHeader className="p-4 pb-2">
 					<div className="flex items-center gap-2">
-						<Megaphone className="h-5 w-5 text-uganda-red" />
-						<CardTitle className="text-lg">Alerts by Source</CardTitle>
+						<Megaphone className="h-4 w-4 text-uganda-red" />
+						<CardTitle className="text-base">Alerts by Source</CardTitle>
 					</div>
 					<CardDescription>
 						How alerts reach the system
 					</CardDescription>
 				</CardHeader>
-				<CardContent>
+				<CardContent className="p-4 pt-0">
 					{summary.sources.length === 0 ? (
 						<ChartEmptyState message="No source data available in signals." />
 					) : (
-						<ChartContainer config={sourceConfig} className="h-[280px] w-full">
+						<ChartContainer config={sourceConfig} className="h-[220px] w-full">
 							<BarChart
 								data={summary.sources}
 								layout="vertical"
@@ -487,18 +487,18 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="pb-2">
+				<CardHeader className="p-4 pb-2">
 					<div className="flex items-center gap-2">
-						<Users className="h-5 w-5 text-uganda-red" />
-						<CardTitle className="text-lg">Age Distribution</CardTitle>
+						<Users className="h-4 w-4 text-uganda-red" />
+						<CardTitle className="text-base">Age Distribution</CardTitle>
 					</div>
 					<CardDescription>Case age groups (years)</CardDescription>
 				</CardHeader>
-				<CardContent>
+				<CardContent className="p-4 pt-0">
 					{summary.age.length === 0 ? (
 						<ChartEmptyState message="No age data available in signals." />
 					) : (
-						<ChartContainer config={ageConfig} className="h-[280px] w-full">
+						<ChartContainer config={ageConfig} className="h-[220px] w-full">
 							<BarChart
 								data={summary.age}
 								margin={{ left: 0, right: 8, top: 8, bottom: 0 }}
@@ -530,20 +530,20 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="pb-2">
+				<CardHeader className="p-4 pb-2">
 					<div className="flex items-center gap-2">
-						<UserCircle className="h-5 w-5 text-uganda-red" />
-						<CardTitle className="text-lg">Sex Breakdown</CardTitle>
+						<UserCircle className="h-4 w-4 text-uganda-red" />
+						<CardTitle className="text-base">Sex Breakdown</CardTitle>
 					</div>
 					<CardDescription>Case sex distribution</CardDescription>
 				</CardHeader>
-				<CardContent>
+				<CardContent className="p-4 pt-0">
 					{summary.sex.length === 0 ? (
 						<ChartEmptyState message="No sex data available in signals." />
 					) : (
 						<ChartContainer
 							config={sexConfig}
-							className="mx-auto aspect-square max-h-[280px]"
+							className="mx-auto aspect-square max-h-[220px]"
 						>
 							<PieChart>
 								<ChartTooltip

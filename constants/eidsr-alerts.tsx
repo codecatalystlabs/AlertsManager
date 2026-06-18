@@ -37,6 +37,19 @@ export const EIDSR_SEX_FILTER_OPTIONS = [
 	{ value: "Female", label: "Female" },
 ] as const;
 
+/**
+ * Forward-verification traceability filter. Scopes the 6767 list by whether an
+ * event was forwarded to a district and whether that forwarded alert has since
+ * been verified there. "all" = no filter; the rest map to the server's
+ * `forward_verification` query param.
+ */
+export const EIDSR_FORWARD_VERIFICATION_FILTER_OPTIONS = [
+	{ value: "all", label: "Any forwarding" },
+	{ value: "forwarded", label: "Forwarded (any)" },
+	{ value: "forwarded_verified", label: "Forwarded & verified" },
+	{ value: "forwarded_pending", label: "Forwarded, pending" },
+] as const;
+
 export interface EidsrAlertsFilterState {
 	status: string;
 	fromDate: string;
@@ -53,6 +66,8 @@ export interface EidsrAlertsFilterState {
 	sex: string;
 	/** Canonical source-of-alert label; "all" = none. */
 	source: string;
+	/** Forward-verification scope; "all" = none. See the options above. */
+	forwardVerification: string;
 }
 
 export const EIDSR_INITIAL_FILTERS: EidsrAlertsFilterState = {
@@ -66,4 +81,5 @@ export const EIDSR_INITIAL_FILTERS: EidsrAlertsFilterState = {
 	district: "",
 	sex: "all",
 	source: "all",
+	forwardVerification: "all",
 };

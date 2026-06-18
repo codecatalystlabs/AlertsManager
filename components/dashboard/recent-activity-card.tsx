@@ -61,7 +61,7 @@ export const RecentActivityCard = memo<RecentActivityCardProps>(
 
 		return (
 			<Card className={cn("border border-gray-200 bg-white", className)}>
-				<CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0 p-4 pb-3 sm:p-5 sm:pb-4">
+				<CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2 space-y-0 p-3 pb-2">
 					<div className="min-w-0">
 						<p className="text-sm font-semibold text-gray-900">
 							Recent activity
@@ -112,15 +112,15 @@ export const RecentActivityCard = memo<RecentActivityCardProps>(
 					</div>
 				</CardHeader>
 
-				<CardContent className="p-4 pt-0 sm:p-5 sm:pt-0">
+				<CardContent className="p-3 pt-0">
 					{awaitingCustom ? (
-						<p className="rounded-lg border border-dashed border-gray-200 bg-gray-50/60 px-3 py-4 text-center text-xs text-muted-foreground">
+						<p className="rounded-lg border border-dashed border-gray-200 bg-gray-50/60 px-3 py-3 text-center text-xs text-muted-foreground">
 							Choose a start and end date to see recent activity.
 						</p>
 					) : error ? (
 						<p className="text-xs text-red-600">{error}</p>
 					) : (
-						<div className="grid grid-cols-2 gap-3">
+						<div className="grid grid-cols-2 gap-2.5">
 							<Metric
 								label="Pending verification"
 								value={activity?.pending}
@@ -165,13 +165,13 @@ function Metric({
 	loading,
 }: MetricProps): React.JSX.Element {
 	return (
-		<div className="flex items-start justify-between gap-2 rounded-lg border border-gray-100 bg-gray-50/60 p-3">
+		<div className="flex items-start justify-between gap-2 rounded-lg border border-gray-100 bg-gray-50/60 p-2.5">
 			<div className="min-w-0">
 				<p className="text-xs font-medium text-gray-500">{label}</p>
 				{loading ? (
-					<Skeleton className="mt-1.5 h-7 w-12" />
+					<Skeleton className="mt-1 h-6 w-12" />
 				) : (
-					<p className="mt-0.5 text-2xl font-bold text-gray-900">
+					<p className="mt-0.5 text-xl font-bold text-gray-900">
 						{(value ?? 0).toLocaleString()}
 					</p>
 				)}
@@ -181,11 +181,11 @@ function Metric({
 			</div>
 			<div
 				className={cn(
-					"flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+					"flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
 					tint.bg
 				)}
 			>
-				<Icon className={cn("h-5 w-5", tint.text)} />
+				<Icon className={cn("h-4 w-4", tint.text)} />
 			</div>
 		</div>
 	);

@@ -71,6 +71,7 @@ interface UseEidsrEventsDataReturn {
 		linkedAlertId: number | null,
 		markVerified?: boolean
 	) => void;
+	markMessageForwarded: (id: number, district: string) => void;
 }
 
 function toEventsApiParams(
@@ -98,6 +99,10 @@ function toEventsApiParams(
 	// Link status is filtered server-side (no more client-side page scanning).
 	if (verificationFilter === "linked") params.linked = true;
 	else if (verificationFilter === "unlinked") params.linked = false;
+	// Forward-verification traceability scope (also server-side).
+	if (filters.forwardVerification && filters.forwardVerification !== "all") {
+		params.forward_verification = filters.forwardVerification;
+	}
 	return params;
 }
 
@@ -449,6 +454,33 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 		[mutate]
 	);
 
+	const markMessageForwarded = useCallback(
+		(id: number, district: string) => {
+			// Optimistically stamp the forwarded district/time so the row's
+			// "Forwarded" badge updates immediately, then revalidate.
+			const now = new Date().toISOString();
+			void mutate(
+				(prev) =>
+					prev
+						? {
+								...prev,
+								allMessages: prev.allMessages.map((m) =>
+									m.id === id
+										? {
+												...m,
+												forwardedToDistrict: district,
+												forwardedAt: now,
+											}
+										: m
+								),
+							}
+						: prev,
+				{ revalidate: true }
+			);
+		},
+		[mutate]
+	);
+
 	return {
 		messages,
 		allMessages,
@@ -477,5 +509,6 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 		isExporting,
 		updateLocalMessage,
 		markMessageLinked,
+		markMessageForwarded,
 	};
 }

@@ -9,6 +9,7 @@ import {
 	EidsrAlertsHeader,
 	EidsrLinkedTabs,
 	EidsrAlertsTable,
+	ForwardAlertDialog,
 } from "@/components/eidsr-alerts";
 import {
 	EidsrMessageDetailsDialog,
@@ -59,6 +60,7 @@ export default function EidsrAlertsPage() {
 		isExporting,
 		updateLocalMessage,
 		markMessageLinked,
+		markMessageForwarded,
 	} = useEidsrEventsData();
 
 	const invalidateAlerts = useInvalidateAlerts();
@@ -74,6 +76,7 @@ export default function EidsrAlertsPage() {
 	const [verifyInProgressId, setVerifyInProgressId] = useState<number | null>(
 		null
 	);
+	const [forwardOpen, setForwardOpen] = useState(false);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 
 	const handleRefresh = useCallback(async () => {
@@ -137,6 +140,22 @@ export default function EidsrAlertsPage() {
 		setVerifyAlertShape(eidsrMessageToAlertShape(message));
 		setVerifyOpen(true);
 	}, []);
+
+	const handleForward = useCallback((message: EidsrMessage) => {
+		setSelected(message);
+		setForwardOpen(true);
+	}, []);
+
+	const handleForwarded = useCallback(
+		(district: string) => {
+			if (selected) {
+				markMessageForwarded(selected.id, district);
+			}
+			void invalidateAlerts();
+			void refetch();
+		},
+		[selected, markMessageForwarded, invalidateAlerts, refetch]
+	);
 
 	const handleVerificationComplete = useCallback(
 		(linkedAlertId?: number | null) => {
@@ -235,6 +254,7 @@ export default function EidsrAlertsPage() {
 				onView={handleView}
 				onEdit={handleEdit}
 				onVerify={handleVerify}
+				onForward={handleForward}
 			/>
 
 			<EidsrMessageDetailsDialog
@@ -258,6 +278,13 @@ export default function EidsrAlertsPage() {
 						description: "6767 SMS message saved.",
 					});
 				}}
+			/>
+
+			<ForwardAlertDialog
+				isOpen={forwardOpen}
+				onClose={() => setForwardOpen(false)}
+				message={selected}
+				onForwarded={handleForwarded}
 			/>
 
 			{verifyOpen && verifyAlertShape && selected && (

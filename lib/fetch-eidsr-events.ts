@@ -25,6 +25,8 @@ export interface EidsrEvent {
 	eventDate: string;
 	lastUpdatedRemote: string;
 	deletedRemote: boolean;
+	forwardedToDistrict?: string;
+	forwardedAt?: string;
 	createdAt: string;
 	updatedAt: string;
 	dataValues: Record<string, string>;
@@ -39,6 +41,12 @@ export interface EidsrEventsListParams {
 	updated_after?: string;
 	/** true = linked to an alert, false = not linked. Omit for no link filter. */
 	linked?: boolean;
+	/**
+	 * Forward-verification traceability filter:
+	 * "forwarded" (forwarded at all) | "forwarded_verified" | "forwarded_pending".
+	 * Omit for no filter.
+	 */
+	forward_verification?: string;
 	/** Free-text search across tracked entity and any data value. */
 	search?: string;
 	/** Substring match on the suspected disease/syndrome data value. */
@@ -72,6 +80,8 @@ function buildEventsUrl(apiBase: string, params?: EidsrEventsListParams): string
 	if (params?.to_date) searchParams.set("to_date", params.to_date);
 	if (params?.updated_after) searchParams.set("updated_after", params.updated_after);
 	if (params?.linked !== undefined) searchParams.set("linked", String(params.linked));
+	if (params?.forward_verification)
+		searchParams.set("forward_verification", params.forward_verification);
 	if (params?.search) searchParams.set("search", params.search);
 	if (params?.disease) searchParams.set("disease", params.disease);
 	if (params?.district) searchParams.set("district", params.district);

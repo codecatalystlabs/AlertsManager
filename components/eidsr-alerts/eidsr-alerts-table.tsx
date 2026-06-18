@@ -21,7 +21,15 @@ import { EIDSR_STATUS_FILTER_OPTIONS } from "@/constants/eidsr-alerts";
 import { LAYOUT } from "@/constants/layout";
 import { verifiedTableRowClass } from "@/lib/verified-row-style";
 import { isEidsr6767Verified } from "@/lib/eidsr-verified-state";
-import { Eye, Loader2, MoreHorizontal, Pencil, ShieldCheck } from "lucide-react";
+import { AlertVerifyChip } from "@/components/eidsr-alerts/alert-verify-chip";
+import {
+	Eye,
+	Loader2,
+	MoreHorizontal,
+	Pencil,
+	Send,
+	ShieldCheck,
+} from "lucide-react";
 
 interface EidsrAlertsTableProps {
 	messages: EidsrMessage[];
@@ -37,12 +45,14 @@ interface EidsrAlertsTableProps {
 	onView: (message: EidsrMessage) => void;
 	onEdit: (message: EidsrMessage) => void;
 	onVerify: (message: EidsrMessage) => void;
+	onForward: (message: EidsrMessage) => void;
 }
 
 function createColumns(handlers: {
 	onView: (m: EidsrMessage) => void;
 	onEdit: (m: EidsrMessage) => void;
 	onVerify: (m: EidsrMessage) => void;
+	onForward: (m: EidsrMessage) => void;
 	verifyInProgressId: number | null;
 }): ColumnDef<EidsrMessage>[] {
 	return [
@@ -146,9 +156,15 @@ function createColumns(handlers: {
 			},
 			cell: ({ row }) =>
 				row.original.linkedAlertId != null ? (
-					<Badge className="bg-green-600 hover:bg-green-600">
-						ALT{String(row.original.linkedAlertId).padStart(3, "0")}
-					</Badge>
+					<div className="flex flex-col items-start gap-1">
+						<Badge className="bg-green-600 hover:bg-green-600">
+							ALT
+							{String(row.original.linkedAlertId).padStart(3, "0")}
+						</Badge>
+						{/* Verify-into-alerts marks the linked alert verified, but
+						    surface its live state for full traceability. */}
+						<AlertVerifyChip alert={row.original.linkedAlert} />
+					</div>
 				) : (
 					<Badge variant="secondary">Not linked</Badge>
 				),
@@ -163,6 +179,31 @@ function createColumns(handlers: {
 			},
 			cell: ({ row }) =>
 				row.original.receivedAt || row.original.createdAt || "—",
+		},
+		{
+			id: "forwarded",
+			header: "Forwarded",
+			enableColumnFilter: false,
+			cell: ({ row }) => {
+				const m = row.original;
+				if (!m.forwardedToDistrict) {
+					return <span className="text-muted-foreground">—</span>;
+				}
+				return (
+					<div className="flex flex-col items-start gap-1">
+						<Badge
+							variant="secondary"
+							className="gap-1 whitespace-nowrap"
+							title={`Forwarded to ${m.forwardedToDistrict}`}
+						>
+							<Send className="h-3 w-3" />
+							{m.forwardedToDistrict}
+						</Badge>
+						{/* Traceability: did the district verify the forwarded alert? */}
+						<AlertVerifyChip alert={m.forwardedAlert} />
+					</div>
+				);
+			},
 		},
 		{
 			id: "actions",
@@ -207,6 +248,14 @@ function createColumns(handlers: {
 								</DropdownMenuItem>
 								<DropdownMenuSeparator />
 								<DropdownMenuItem
+									className="flex items-center gap-2"
+									onClick={() => handlers.onForward(m)}
+								>
+									<Send className="h-4 w-4" />
+									Forward to district
+								</DropdownMenuItem>
+								<DropdownMenuSeparator />
+								<DropdownMenuItem
 									className="flex items-center gap-2 text-uganda-red focus:text-uganda-red"
 									onClick={() => handlers.onVerify(m)}
 									disabled={verifying}
@@ -238,6 +287,7 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 		onView,
 		onEdit,
 		onVerify,
+		onForward,
 	}) => {
 		const columns = useMemo(
 			() =>
@@ -245,9 +295,10 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 					onView,
 					onEdit,
 					onVerify,
+					onForward,
 					verifyInProgressId,
 				}),
-			[onView, onEdit, onVerify, verifyInProgressId]
+			[onView, onEdit, onVerify, onForward, verifyInProgressId]
 		);
 		const handleColumnFiltersChange = useCallback(
 			(filters: ColumnFiltersState) => {

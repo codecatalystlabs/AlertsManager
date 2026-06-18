@@ -310,6 +310,23 @@ export const createCallLogsTableColumns = (
 		},
 	},
 	{
+		id: "forwardedFrom",
+		header: "Forwarded From",
+		enableColumnFilter: false,
+		cell: ({ row }) => {
+			// A 6767 alert forwarded into a district's call log is stamped with
+			// alertFrom = "6767 Forward" by the backend.
+			const from = (row.original.alertFrom ?? "").toLowerCase();
+			return from.includes("6767") ? (
+				<Badge variant="secondary" className="text-xs">
+					6767
+				</Badge>
+			) : (
+				<span className="text-sm text-muted-foreground">—</span>
+			);
+		},
+	},
+	{
 		accessorKey: "alertCaseDistrict",
 		header: "District",
 		meta: {

@@ -41,8 +41,10 @@ import {
 	type UpdateUserPayload,
 	type UsersPage,
 	ROLE_DISTRICT_BIOSTAT,
+	ROLE_REOC,
 } from "@/lib/auth";
 import { useDistrictOptions } from "@/hooks/use-district-options";
+import { useRegionOptions } from "@/hooks/use-region-options";
 import {
 	Plus,
 	Edit,
@@ -61,6 +63,11 @@ function isDistrictScopedLevel(level?: string | null): boolean {
 	return (level ?? "").trim().toLowerCase() === ROLE_DISTRICT_BIOSTAT;
 }
 
+/** True when an access level is the region-scoped role (REOC) that needs a region. */
+function isRegionScopedLevel(level?: string | null): boolean {
+	return (level ?? "").trim().toLowerCase() === ROLE_REOC;
+}
+
 interface NewUserData {
 	username: string;
 	password: string;
@@ -72,6 +79,7 @@ interface NewUserData {
 	userType: string;
 	level: string;
 	district: string;
+	region: string;
 }
 
 interface UserHeaderFilters {
@@ -219,10 +227,13 @@ export default function UsersPage() {
 		userType: "",
 		level: "",
 		district: "",
+		region: "",
 	});
 
 	// Full district list (admin-units) for the district-scoped-role picker.
 	const { districts: districtOptions } = useDistrictOptions();
+	// Full region list (admin-units) for the region-scoped-role (REOC) picker.
+	const { regions: regionOptions } = useRegionOptions();
 
 	// Full list — used only for the summary stat cards (Total / Admin / District).
 	const loadStats = useCallback(async () => {
@@ -345,6 +356,11 @@ export default function UsersPage() {
 			return;
 		}
 
+		if (isRegionScopedLevel(newUser.level) && !newUser.region) {
+			setRegistrationError("A REOC user must be assigned a region");
+			return;
+		}
+
 		try {
 			setIsRegistering(true);
 			setRegistrationError(null);
@@ -364,6 +380,10 @@ export default function UsersPage() {
 				district: isDistrictScopedLevel(newUser.level)
 					? newUser.district || undefined
 					: null,
+				// Only meaningful for the region-scoped REOC role; null otherwise.
+				region: isRegionScopedLevel(newUser.level)
+					? newUser.region || undefined
+					: null,
 			});
 
 			setUsers([...users, registeredUser]);
@@ -381,6 +401,7 @@ export default function UsersPage() {
 				userType: "",
 				level: "",
 				district: "",
+				region: "",
 			});
 			setRegistrationSuccess("User registered successfully!");
 			setTimeout(() => {
@@ -417,6 +438,8 @@ export default function UsersPage() {
 		level: user.level ?? "",
 		// Persist the district only for district-scoped roles; clear it otherwise.
 		district: isDistrictScopedLevel(user.level) ? user.district ?? "" : null,
+		// Persist the region only for the region-scoped REOC role; clear it otherwise.
+		region: isRegionScopedLevel(user.level) ? user.region ?? "" : null,
 		password: editPassword,
 	});
 
@@ -439,6 +462,11 @@ export default function UsersPage() {
 			!editingUser.district
 		) {
 			setUpdateError("A District Biostat must be assigned a district");
+			return;
+		}
+
+		if (isRegionScopedLevel(editingUser.level) && !editingUser.region) {
+			setUpdateError("A REOC user must be assigned a region");
 			return;
 		}
 
@@ -491,6 +519,8 @@ export default function UsersPage() {
 				return "bg-blue-100 text-blue-800";
 			case "reoc":
 				return "bg-green-100 text-green-800";
+			case "eoc":
+				return "bg-purple-100 text-purple-800";
 			default:
 				return "bg-gray-100 text-gray-800";
 		}
@@ -551,6 +581,11 @@ export default function UsersPage() {
 			id: "district",
 			header: "District",
 			cell: ({ row }) => row.original.district || "-",
+		},
+		{
+			id: "region",
+			header: "Region",
+			cell: ({ row }) => row.original.region || "-",
 		},
 		{
 			accessorKey: "createdAt",
@@ -1020,6 +1055,9 @@ export default function UsersPage() {
 													<SelectItem value="REOC">
 														REOC
 													</SelectItem>
+													<SelectItem value="EOC">
+														EOC
+													</SelectItem>
 													<SelectItem value="Viewer">
 														Viewer
 													</SelectItem>
@@ -1065,6 +1103,47 @@ export default function UsersPage() {
 											<p className="mt-1 text-xs text-muted-foreground">
 												A District Biostat can only see
 												data for this district.
+											</p>
+										</div>
+									)}
+
+									{isRegionScopedLevel(newUser.level) && (
+										<div>
+											<Label htmlFor="region">
+												Region{" "}
+												<span className="text-uganda-red">
+													*
+												</span>
+											</Label>
+											<Select
+												value={newUser.region}
+												onValueChange={(value) =>
+													setNewUser({
+														...newUser,
+														region: value,
+													})
+												}
+												disabled={isRegistering}
+											>
+												<SelectTrigger>
+													<SelectValue placeholder="Select the region this user is limited to" />
+												</SelectTrigger>
+												<SelectContent>
+													{regionOptions.map(
+														(region) => (
+															<SelectItem
+																key={region}
+																value={region}
+															>
+																{region}
+															</SelectItem>
+														)
+													)}
+												</SelectContent>
+											</Select>
+											<p className="mt-1 text-xs text-muted-foreground">
+												A REOC user can only see data
+												for this region.
 											</p>
 										</div>
 									)}
@@ -1293,6 +1372,9 @@ export default function UsersPage() {
 														<SelectItem value="REOC">
 															REOC
 														</SelectItem>
+														<SelectItem value="EOC">
+															EOC
+														</SelectItem>
 														<SelectItem value="Viewer">
 															Viewer
 														</SelectItem>
@@ -1338,6 +1420,47 @@ export default function UsersPage() {
 												<p className="mt-1 text-xs text-muted-foreground">
 													A District Biostat can only see data
 													for this district.
+												</p>
+											</div>
+										)}
+
+										{isRegionScopedLevel(editingUser.level) && (
+											<div>
+												<Label>
+													Region{" "}
+													<span className="text-uganda-red">
+														*
+													</span>
+												</Label>
+												<Select
+													value={editingUser.region || ""}
+													onValueChange={(value) =>
+														setEditingUser({
+															...editingUser,
+															region: value,
+														})
+													}
+													disabled={isUpdating}
+												>
+													<SelectTrigger>
+														<SelectValue placeholder="Select the region this user is limited to" />
+													</SelectTrigger>
+													<SelectContent>
+														{regionOptions.map(
+															(region) => (
+																<SelectItem
+																	key={region}
+																	value={region}
+																>
+																	{region}
+																</SelectItem>
+															)
+														)}
+													</SelectContent>
+												</Select>
+												<p className="mt-1 text-xs text-muted-foreground">
+													A REOC user can only see data for
+													this region.
 												</p>
 											</div>
 										)}
