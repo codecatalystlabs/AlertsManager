@@ -40,6 +40,9 @@ import { CaseLocationSelect } from "@/components/case-location-select";
 import {
 	DESK_VERIFICATION_OPTIONS,
 	FIELD_VERIFICATION_OPTIONS,
+	FIELD_CASE_VERIFICATION,
+	hasDeskAction,
+	toggleDeskAction,
 } from "@/lib/verification-options";
 import { useToast } from "@/hooks/use-toast";
 import { alertResponse, alertSource } from "@/constants";
@@ -217,9 +220,14 @@ export function AlertVerificationDialog({
 		}
 	}, [isOpen, alert, isEidsrMode]);
 
-	// Show VHF form when Field Case Verification is selected
+	// Show VHF form when Field Case Verification is one of the selected actions
 	useEffect(() => {
-		if (formData.deskVerificationActions === "Field Case Verification") {
+		if (
+			hasDeskAction(
+				formData.deskVerificationActions,
+				FIELD_CASE_VERIFICATION
+			)
+		) {
 			setShowVhfForm(true);
 		} else {
 			setShowVhfForm(false);
@@ -1221,48 +1229,54 @@ export function AlertVerificationDialog({
 							</div>
 
 							<div className="bg-gray-50 p-4 rounded-lg">
-								<RadioGroup
-									value={
-										formData.deskVerificationActions
-									}
-									onValueChange={(value) =>
-										handleInputChange(
-											"deskVerificationActions",
-											value
-										)
-									}
-									className="flex flex-wrap gap-6"
-								>
+								<p className="text-xs text-gray-500 mb-3">
+									Select all actions that apply.
+								</p>
+								<div className="flex flex-wrap gap-6">
 									{DESK_VERIFICATION_OPTIONS.map(
-										(option) => (
-											<div
-												key={option}
-												className="flex items-center space-x-2"
-											>
-												<RadioGroupItem
-													value={option}
-													id={`desk-${option
-														.toLowerCase()
-														.replace(
-															/[^a-z0-9]/g,
-															"-"
-														)}`}
-												/>
-												<Label
-													htmlFor={`desk-${option
-														.toLowerCase()
-														.replace(
-															/[^a-z0-9]/g,
-															"-"
-														)}`}
-													className="text-sm font-medium"
+										(option) => {
+											const id = `desk-${option
+												.toLowerCase()
+												.replace(
+													/[^a-z0-9]/g,
+													"-"
+												)}`;
+											return (
+												<div
+													key={option}
+													className="flex items-center space-x-2"
 												>
-													{option}
-												</Label>
-											</div>
-										)
+													<Checkbox
+														id={id}
+														checked={hasDeskAction(
+															formData.deskVerificationActions,
+															option
+														)}
+														onCheckedChange={(
+															checked
+														) =>
+															handleInputChange(
+																"deskVerificationActions",
+																toggleDeskAction(
+																	formData.deskVerificationActions,
+																	option,
+																	checked ===
+																		true
+																)
+															)
+														}
+													/>
+													<Label
+														htmlFor={id}
+														className="text-sm font-medium"
+													>
+														{option}
+													</Label>
+												</div>
+											);
+										}
 									)}
-								</RadioGroup>
+								</div>
 							</div>
 						</div>
 
@@ -1390,7 +1404,11 @@ export function AlertVerificationDialog({
 												);
 												handleInputChange(
 													"deskVerificationActions",
-													""
+													toggleDeskAction(
+														formData.deskVerificationActions,
+														FIELD_CASE_VERIFICATION,
+														false
+													)
 												);
 											}}
 										>
@@ -1407,8 +1425,10 @@ export function AlertVerificationDialog({
 						)}
 
 						{/* Manual Case Code Input - Show when Field Case Verification is selected */}
-						{formData.deskVerificationActions ===
-							"Field Case Verification" && (
+						{hasDeskAction(
+							formData.deskVerificationActions,
+							FIELD_CASE_VERIFICATION
+						) && (
 							<>
 								<Separator />
 								<div className="space-y-4">
@@ -1497,8 +1517,10 @@ export function AlertVerificationDialog({
 						)}
 
 						{/* Field Verification Feedback - Only show when Field Case Verification is selected */}
-						{formData.deskVerificationActions ===
-							"Field Case Verification" && (
+						{hasDeskAction(
+							formData.deskVerificationActions,
+							FIELD_CASE_VERIFICATION
+						) && (
 							<>
 								<Separator />
 								<div className="space-y-4">

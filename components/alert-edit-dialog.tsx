@@ -51,6 +51,9 @@ import { useToast } from "@/hooks/use-toast";
 import {
 	DESK_VERIFICATION_OPTIONS,
 	FIELD_VERIFICATION_OPTIONS,
+	FIELD_CASE_VERIFICATION,
+	hasDeskAction,
+	toggleDeskAction,
 } from "@/lib/verification-options";
 
 interface AlertEditDialogProps {
@@ -186,7 +189,10 @@ export function AlertEditDialog({
 
 	useEffect(() => {
 		if (
-			formData.caseVerificationDesk !== "Field Case Verification" &&
+			!hasDeskAction(
+				formData.caseVerificationDesk,
+				FIELD_CASE_VERIFICATION
+			) &&
 			formData.fieldVerificationDecision
 		) {
 			setFormData((prev) => ({ ...prev, fieldVerificationDecision: "" }));
@@ -1220,38 +1226,49 @@ export function AlertEditDialog({
 							<Label className="text-sm font-medium">
 								Desk Verification Actions
 							</Label>
-							<RadioGroup
-								value={formData.caseVerificationDesk}
-								onValueChange={(value) =>
-									handleInputChange("caseVerificationDesk", value)
-								}
-								className="grid grid-cols-1 md:grid-cols-2 gap-2"
-							>
-								{DESK_VERIFICATION_OPTIONS.map((option) => (
-									<div
-										key={option}
-										className="flex items-center space-x-2"
-									>
-										<RadioGroupItem
-											value={option}
-											id={`edit-desk-${option
-												.toLowerCase()
-												.replace(/[^a-z0-9]/g, "-")}`}
-										/>
-										<Label
-											htmlFor={`edit-desk-${option
-												.toLowerCase()
-												.replace(/[^a-z0-9]/g, "-")}`}
-											className="text-sm"
+							<p className="text-xs text-gray-500">
+								Select all actions that apply.
+							</p>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+								{DESK_VERIFICATION_OPTIONS.map((option) => {
+									const id = `edit-desk-${option
+										.toLowerCase()
+										.replace(/[^a-z0-9]/g, "-")}`;
+									return (
+										<div
+											key={option}
+											className="flex items-center space-x-2"
 										>
-											{option}
-										</Label>
-									</div>
-								))}
-							</RadioGroup>
+											<Checkbox
+												id={id}
+												checked={hasDeskAction(
+													formData.caseVerificationDesk,
+													option
+												)}
+												onCheckedChange={(checked) =>
+													handleInputChange(
+														"caseVerificationDesk",
+														toggleDeskAction(
+															formData.caseVerificationDesk,
+															option,
+															checked === true
+														)
+													)
+												}
+											/>
+											<Label htmlFor={id} className="text-sm">
+												{option}
+											</Label>
+										</div>
+									);
+								})}
+							</div>
 						</div>
 
-						{formData.caseVerificationDesk === "Field Case Verification" && (
+						{hasDeskAction(
+							formData.caseVerificationDesk,
+							FIELD_CASE_VERIFICATION
+						) && (
 							<div className="space-y-3 rounded-lg border bg-gray-50 p-3">
 								<Label className="text-sm font-medium">
 									Field Verification Feedback
