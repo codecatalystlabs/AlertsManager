@@ -139,6 +139,29 @@ export function pickLinkedAlertId(obj: Record<string, unknown>): number | null {
 	return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+/**
+ * The alert a 6767 row should surface in its "In alerts" column. Prefer the
+ * verify-into-alerts linked alert; otherwise fall back to the forwarded alert,
+ * but only once the district has VERIFIED it. This mirrors how "verify into
+ * alerts" lights up the column with a green ALT id — so a forwarded alert that
+ * later gets verified downstream shows its assigned id here too, not just a
+ * "Verified" chip under the "Forwarded" column. Returns null when the row has no
+ * linked alert and no verified forwarded alert (a deleted forwarded alert has no
+ * live ref, so it correctly reads as "Not linked").
+ */
+export function resolveInAlertsRef(
+	message: Pick<EidsrMessage, "linkedAlertId" | "linkedAlert" | "forwardedAlert">
+): { id: number; alert: EidsrAlertRef | null } | null {
+	if (message.linkedAlertId != null) {
+		return { id: message.linkedAlertId, alert: message.linkedAlert };
+	}
+	const forwarded = message.forwardedAlert;
+	if (forwarded && forwarded.isVerified) {
+		return { id: forwarded.id, alert: forwarded };
+	}
+	return null;
+}
+
 function normalizeDataValues(
 	raw: Record<string, unknown>
 ): Record<string, string> {

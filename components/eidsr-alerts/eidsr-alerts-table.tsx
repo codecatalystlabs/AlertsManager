@@ -16,7 +16,10 @@ import {
 	dateRangeFilter,
 	exactStringFilter,
 } from "@/components/ui/data-table";
-import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
+import {
+	resolveInAlertsRef,
+	type EidsrMessage,
+} from "@/lib/eidsr-message-normalize";
 import { EIDSR_STATUS_FILTER_OPTIONS } from "@/constants/eidsr-alerts";
 import { LAYOUT } from "@/constants/layout";
 import { verifiedTableRowClass } from "@/lib/verified-row-style";
@@ -144,7 +147,7 @@ function createColumns(handlers: {
 		{
 			id: "inAlerts",
 			accessorFn: (row) =>
-				row.linkedAlertId != null ? "linked" : "unlinked",
+				resolveInAlertsRef(row) != null ? "linked" : "unlinked",
 			header: "In alerts",
 			filterFn: exactStringFilter,
 			meta: {
@@ -154,20 +157,24 @@ function createColumns(handlers: {
 					{ value: "unlinked", label: "Not linked" },
 				],
 			},
-			cell: ({ row }) =>
-				row.original.linkedAlertId != null ? (
+			cell: ({ row }) => {
+				// The verify-into-alerts linked alert, or — failing that — a
+				// forwarded alert the district has since verified. Both surface
+				// here as a green ALT id so a forwarded alert lights up "In
+				// alerts" once verified, the same way verify-into-alerts does.
+				const ref = resolveInAlertsRef(row.original);
+				return ref ? (
 					<div className="flex flex-col items-start gap-1">
 						<Badge className="bg-green-600 hover:bg-green-600">
-							ALT
-							{String(row.original.linkedAlertId).padStart(3, "0")}
+							ALT{String(ref.id).padStart(3, "0")}
 						</Badge>
-						{/* Verify-into-alerts marks the linked alert verified, but
-						    surface its live state for full traceability. */}
-						<AlertVerifyChip alert={row.original.linkedAlert} />
+						{/* Surface the alert's live verification state too. */}
+						<AlertVerifyChip alert={ref.alert} />
 					</div>
 				) : (
 					<Badge variant="secondary">Not linked</Badge>
-				),
+				);
+			},
 		},
 		{
 			id: "date",
