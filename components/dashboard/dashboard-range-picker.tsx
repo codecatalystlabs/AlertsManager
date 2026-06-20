@@ -104,7 +104,7 @@ export const DashboardRangePicker = memo<DashboardRangePickerProps>(
 		};
 
 		return (
-			<div className="flex flex-wrap items-end gap-2">
+			<div className="flex flex-wrap items-end gap-2 z-[10958743px]">
 				<div className="space-y-1">
 					<Label htmlFor="dashboard-range" className="text-[11px]">
 						Chart date range
@@ -113,10 +113,11 @@ export const DashboardRangePicker = memo<DashboardRangePickerProps>(
 						value={preset}
 						onValueChange={handlePreset}
 						disabled={disabled}
+
 					>
 						<SelectTrigger
 							id="dashboard-range"
-							className="h-8 w-[160px] text-xs"
+							className="h-8 w-[160px] text-xs "
 						>
 							<SelectValue />
 						</SelectTrigger>

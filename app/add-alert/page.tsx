@@ -1277,7 +1277,7 @@ export default function PublicAddAlertPage() {
 						className="w-full bg-gradient-to-r from-uganda-red to-uganda-yellow px-8 font-semibold text-white hover:from-uganda-red/90 hover:to-uganda-yellow/90 sm:w-auto"
 					>
 						{isSubmitting
-							? "Submitting Alert..."
+							? "Submitting Health Alert..."
 							: "Submit Health Alert"}
 					</Button>
 				</div>

@@ -300,12 +300,11 @@ export const createCallLogsTableColumns = (
 		cell: ({ row }) => {
 			const source = row.getValue("sourceOfAlert") as string;
 			return (
-				<Badge
-					variant="outline"
-					className="text-xs"
-				>
-					{source}
-				</Badge>
+				<div className="min-w-[160px]">
+					<Badge variant="outline" className="text-xs">
+						{source}
+					</Badge>
+				</div>
 			);
 		},
 	},

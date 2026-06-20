@@ -127,6 +127,8 @@ interface DataTableProps<TData, TValue> {
   data: TData[]
   searchKey?: string
   searchPlaceholder?: string
+  /** Hide the built-in toolbar row (search + column visibility) when the parent supplies its own. */
+  hideToolbar?: boolean
   enableHeaderFilters?: boolean
   pageSize?: number
   /** Server-driven pagination: parent owns page state and supplies total row count. */
@@ -344,6 +346,7 @@ export function DataTable<TData, TValue>({
   data,
   searchKey,
   searchPlaceholder = "Search...",
+  hideToolbar = false,
   enableHeaderFilters = false,
   pageSize = 10,
   manualPagination = false,
@@ -490,7 +493,8 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="w-full">
-      <div className="flex items-center gap-2 py-2">
+      {!hideToolbar && (
+      <div className="flex items-center gap-2 py-1">
         {searchKey && (
           <Input
             placeholder={searchPlaceholder}
@@ -527,6 +531,7 @@ export function DataTable<TData, TValue>({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      )}
 
       {/* Desktop / tablet: compact table with a sticky header */}
       <div className="hidden rounded-md border md:block">

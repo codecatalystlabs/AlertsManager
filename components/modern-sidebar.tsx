@@ -18,6 +18,7 @@ import {
 	PhoneCall,
 	User,
 	BarChart3,
+	Map as MapIcon,
 } from "lucide-react";
 import { MohLogo } from "@/components/moh-logo";
 
@@ -59,6 +60,7 @@ const navigationGroups: NavigationGroup[] = [
 			},
 			{ name: "Call Logs", href: "/dashboard/call-logs", icon: Phone, badge: "3" },
 			{ name: "6767 Alerts", href: "/dashboard/eidsr-alerts", icon: PhoneCall },
+			{ name: "Map", href: "/dashboard/map", icon: MapIcon },
 			{
 				name: "Summaries / Reports",
 				href: "/dashboard/reports",
@@ -330,7 +332,7 @@ function SidebarContent({
 				{!collapsed && (
 					<div className="min-w-0">
 						<h1 className="truncate text-sm font-bold leading-tight text-gray-900">
-							Health Alert
+							HEALTH ALERT
 						</h1>
 						<p className="truncate text-[11px] text-gray-500">
 							Ministry of Health Uganda

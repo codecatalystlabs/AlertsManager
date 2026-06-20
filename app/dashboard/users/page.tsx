@@ -8,7 +8,12 @@ import {
 	useCallback,
 } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
-import { DataTable } from "@/components/ui/data-table";
+import {
+	DataTable,
+	textIncludesFilter,
+	exactStringFilter,
+	dateRangeFilter,
+} from "@/components/ui/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +31,6 @@ import {
 	DialogContent,
 	DialogHeader,
 	DialogTitle,
-	DialogTrigger,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
@@ -39,7 +43,6 @@ import {
 	AuthService,
 	User,
 	type UpdateUserPayload,
-	type UsersPage,
 	ROLE_DISTRICT_BIOSTAT,
 	ROLE_REOC,
 } from "@/lib/auth";
@@ -49,7 +52,6 @@ import {
 	Plus,
 	Edit,
 	Trash2,
-	Search,
 	AlertCircle,
 	CheckCircle2,
 	Users,
@@ -199,10 +201,6 @@ export default function UsersPage() {
 	const [users, setUsers] = useState<User[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const [searchTerm, setSearchTerm] = useState("");
-	const [headerFilters, setHeaderFilters] = useState<UserHeaderFilters>({
-		...INITIAL_USER_HEADER_FILTERS,
-	});
 	const [isAddUserOpen, setIsAddUserOpen] = useState(false);
 	const [isEditUserOpen, setIsEditUserOpen] = useState(false);
 	const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -256,41 +254,8 @@ export default function UsersPage() {
 		loadStats();
 	}, [loadStats]);
 
-	// Server-side paginated table state.
-	const [page, setPage] = useState(1);
-	const [pageSize, setPageSize] = useState(10);
-	const [pageData, setPageData] = useState<UsersPage>({
-		users: [],
-		pagination: { page: 1, limit: 10, total: 0, pages: 1 },
-	});
-	const [tableLoading, setTableLoading] = useState(true);
-	const [debouncedSearch, setDebouncedSearch] = useState("");
-
-	// Debounce the search box so each keystroke doesn't hit the API.
-	useEffect(() => {
-		const t = setTimeout(() => setDebouncedSearch(searchTerm), 300);
-		return () => clearTimeout(t);
-	}, [searchTerm]);
-
-	const loadPage = useCallback(async () => {
-		try {
-			setTableLoading(true);
-			const data = await AuthService.fetchUsers({
-				page,
-				limit: pageSize,
-				search: debouncedSearch,
-			});
-			setPageData(data);
-		} catch (err) {
-			console.error("Error fetching users page:", err);
-		} finally {
-			setTableLoading(false);
-		}
-	}, [page, pageSize, debouncedSearch]);
-
-	useEffect(() => {
-		loadPage();
-	}, [loadPage]);
+	// Client-side table page size; the table filters/paginates the full user list.
+	const [pageSize] = useState(10);
 
 	const userTypeOptions = useMemo(
 		() =>
@@ -302,40 +267,6 @@ export default function UsersPage() {
 			Array.from(new Set(users.map((user) => user.level).filter(Boolean))).sort(),
 		[users]
 	);
-	const hasHeaderFilters = hasUserHeaderFilters(headerFilters);
-	const updateHeaderFilter = (
-		patch: Partial<UserHeaderFilters>
-	): void => {
-		setHeaderFilters((current) => ({ ...current, ...patch }));
-	};
-
-	const filteredUsers = users.filter((user) => {
-		const displayName = getDisplayName(user);
-		const search = searchTerm.trim().toLowerCase();
-		const matchesSearch =
-			!search ||
-			user.username.toLowerCase().includes(search) ||
-			user.email.toLowerCase().includes(search) ||
-			user.affiliation.toLowerCase().includes(search);
-
-		return (
-			matchesSearch &&
-			textIncludes(user.username, headerFilters.username) &&
-			textIncludes(displayName, headerFilters.name) &&
-			textIncludes(user.email, headerFilters.email) &&
-			textIncludes(user.affiliation, headerFilters.affiliation) &&
-			(headerFilters.userType === "all" ||
-				user.userType === headerFilters.userType) &&
-			(headerFilters.level === "all" ||
-				user.level === headerFilters.level) &&
-			matchesCreatedRange(
-				user.createdAt,
-				headerFilters.createdFrom,
-				headerFilters.createdTo
-			)
-		);
-	});
-
 	const handleAddUser = async () => {
 		if (
 			!newUser.username ||
@@ -387,8 +318,7 @@ export default function UsersPage() {
 			});
 
 			setUsers([...users, registeredUser]);
-			// Refresh the paginated table + stat counts to include the new user.
-			void loadPage();
+			// Refresh stat counts to include the new user.
 			void loadStats();
 			setNewUser({
 				username: "",
@@ -482,8 +412,7 @@ export default function UsersPage() {
 			setUsers((prev) =>
 				prev.map((u) => (u.id === updatedUser.id ? updatedUser : u))
 			);
-			// Reflect the edit in the paginated table + stat counts.
-			void loadPage();
+			// Reflect the edit in the stat counts.
 			void loadStats();
 			setIsEditUserOpen(false);
 			setEditingUser(null);
@@ -502,10 +431,6 @@ export default function UsersPage() {
 		if (confirm("Are you sure you want to delete this user?")) {
 			// For now, just remove from local state (no delete API yet).
 			setUsers(users.filter((user) => user.id !== userId));
-			setPageData((prev) => ({
-				...prev,
-				users: prev.users.filter((user) => user.id !== userId),
-			}));
 		}
 	};
 
@@ -549,6 +474,8 @@ export default function UsersPage() {
 		{
 			accessorKey: "username",
 			header: "Username",
+			filterFn: textIncludesFilter,
+			meta: { filterLabel: "Username", filterPlaceholder: "Username" },
 			cell: ({ row }) => (
 				<span className="font-medium">{row.original.username}</span>
 			),
@@ -556,18 +483,49 @@ export default function UsersPage() {
 		{
 			id: "name",
 			header: "Name",
+			accessorFn: (user) => getDisplayName(user),
+			filterFn: textIncludesFilter,
+			meta: { filterLabel: "Name", filterPlaceholder: "Name" },
 			cell: ({ row }) => getDisplayName(row.original),
 		},
-		{ accessorKey: "email", header: "Email" },
-		{ accessorKey: "affiliation", header: "Affiliation" },
+		{
+			accessorKey: "email",
+			header: "Email",
+			filterFn: textIncludesFilter,
+			meta: { filterLabel: "Email", filterPlaceholder: "Email" },
+		},
+		{
+			accessorKey: "affiliation",
+			header: "Affiliation",
+			filterFn: textIncludesFilter,
+			meta: { filterLabel: "Affiliation", filterPlaceholder: "Affiliation" },
+		},
 		{
 			accessorKey: "userType",
 			header: "User Type",
+			filterFn: exactStringFilter,
+			meta: {
+				filterLabel: "User Type",
+				filterVariant: "select",
+				filterOptions: userTypeOptions.map((value) => ({
+					label: value,
+					value,
+				})),
+			},
 			cell: ({ row }) => row.original.userType || "-",
 		},
 		{
 			accessorKey: "level",
 			header: "Level",
+			filterFn: exactStringFilter,
+			meta: {
+				filterLabel: "Level",
+				filterVariant: "select",
+				filterOptions: levelOptions.map((value) => ({
+					label: value,
+					value,
+				})),
+			},
 			cell: ({ row }) =>
 				row.original.level ? (
 					<Badge className={getRoleBadgeColor(row.original.level)}>
@@ -580,40 +538,54 @@ export default function UsersPage() {
 		{
 			id: "district",
 			header: "District",
+			accessorFn: (user) => user.district || "",
+			filterFn: textIncludesFilter,
+			meta: { filterLabel: "District", filterPlaceholder: "District" },
 			cell: ({ row }) => row.original.district || "-",
 		},
 		{
 			id: "region",
 			header: "Region",
+			accessorFn: (user) => user.region || "",
+			filterFn: textIncludesFilter,
+			meta: { filterLabel: "Region", filterPlaceholder: "Region" },
 			cell: ({ row }) => row.original.region || "-",
 		},
 		{
 			accessorKey: "createdAt",
 			header: "Created",
-			cell: ({ row }) => formatDate(row.original.createdAt),
+			filterFn: dateRangeFilter,
+			meta: { filterLabel: "Created", filterVariant: "dateRange" },
+			cell: ({ row }) => (
+				<span className="whitespace-nowrap">
+					{formatDate(row.original.createdAt)}
+				</span>
+			),
 		},
 		{
 			id: "actions",
 			header: "Actions",
 			enableSorting: false,
+			enableColumnFilter: false,
 			cell: ({ row }) => (
-				<div className="flex space-x-2">
+				<div className="flex space-x-1">
 					<Button
 						size="sm"
 						variant="outline"
+						className="h-7 w-7 p-0"
 						onClick={() => handleOpenEdit(row.original)}
 						aria-label={`Edit ${row.original.username}`}
 					>
-						<Edit className="w-4 h-4" />
+						<Edit className="w-3.5 h-3.5" />
 					</Button>
 					<Button
 						size="sm"
 						variant="outline"
-						className="text-red-600 hover:text-red-700"
+						className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
 						onClick={() => handleDeleteUser(row.original.id)}
 						aria-label={`Delete ${row.original.username}`}
 					>
-						<Trash2 className="w-4 h-4" />
+						<Trash2 className="w-3.5 h-3.5" />
 					</Button>
 				</div>
 			),
@@ -661,129 +633,92 @@ export default function UsersPage() {
 
 	return (
 		<div className="container mx-auto p-6">
-			<div className="mb-8">
-				<h1 className="text-3xl font-bold text-gray-900 mb-2">
-					User Management
-				</h1>
-				<p className="text-gray-600">
-					Manage user accounts and permissions
-				</p>
+			<div className="mb-6 flex items-start justify-between gap-4">
+				<div>
+					<h1 className="text-2xl font-bold text-gray-900 mb-1">
+						User Management
+					</h1>
+					<p className="text-sm text-gray-600">
+						Manage user accounts and permissions
+					</p>
+				</div>
+				<Button
+					className="bg-uganda-red hover:bg-uganda-red/90 shrink-0"
+					onClick={() => setIsAddUserOpen(true)}
+				>
+					<Plus className="w-4 h-4 mr-2" />
+					Add User
+				</Button>
 			</div>
 
 			{/* Stats */}
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+			<div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
 				<Card>
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium">
-							Total Users
-						</CardTitle>
-						<Users className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold">
-							{users.length}
+					<CardContent className="flex items-center justify-between p-3">
+						<div>
+							<p className="text-xs font-medium text-muted-foreground">
+								Total Users
+							</p>
+							<p className="text-2xl font-bold leading-none mt-1">
+								{users.length}
+							</p>
 						</div>
-						<p className="text-xs text-muted-foreground">
-							Registered in the system
-						</p>
+						<Users className="h-5 w-5 shrink-0 text-muted-foreground" />
 					</CardContent>
 				</Card>
 
 				<Card>
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium">
-							Admin Users
-						</CardTitle>
-						<Users className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold">
-							{
-								users.filter(
-									(user) =>
-										user.level?.toLowerCase() ===
-										"admin"
-								).length
-							}
+					<CardContent className="flex items-center justify-between p-3">
+						<div>
+							<p className="text-xs font-medium text-muted-foreground">
+								Admin Users
+							</p>
+							<p className="text-2xl font-bold leading-none mt-1">
+								{
+									users.filter(
+										(user) =>
+											user.level?.toLowerCase() ===
+											"admin"
+									).length
+								}
+							</p>
 						</div>
-						<p className="text-xs text-muted-foreground">
-							With admin privileges
-						</p>
+						<Users className="h-5 w-5 shrink-0 text-muted-foreground" />
 					</CardContent>
 				</Card>
 
 				<Card>
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium">
-							District Users
-						</CardTitle>
-						<Users className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold">
-							{
-								users.filter(
-									(user) =>
-										user.level?.toLowerCase() ===
-										"district"
-								).length
-							}
+					<CardContent className="flex items-center justify-between p-3">
+						<div>
+							<p className="text-xs font-medium text-muted-foreground">
+								District Users
+							</p>
+							<p className="text-2xl font-bold leading-none mt-1">
+								{
+									users.filter(
+										(user) =>
+											user.level?.toLowerCase() ===
+											"district"
+									).length
+								}
+							</p>
 						</div>
-						<p className="text-xs text-muted-foreground">
-							District level access
-						</p>
+						<Users className="h-5 w-5 shrink-0 text-muted-foreground" />
 					</CardContent>
 				</Card>
 			</div>
 
-			{/* Search and Add User */}
+			{/* Users table */}
 			<Card className="mb-6">
-				<CardHeader>
-					<CardTitle>Users</CardTitle>
+				<CardHeader className="p-4 pb-2">
+					<CardTitle className="text-lg">Users</CardTitle>
 				</CardHeader>
-				<CardContent>
-					<div className="flex justify-between items-center mb-4">
-						<div className="flex items-center gap-2">
-							<div className="relative">
-								<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-								<Input
-									placeholder="Search users..."
-									value={searchTerm}
-									onChange={(e) =>
-										setSearchTerm(e.target.value)
-									}
-									className="pl-10 w-64"
-								/>
-							</div>
-							{hasHeaderFilters && (
-								<Button
-									type="button"
-									variant="outline"
-									size="icon"
-									className="h-10 w-10"
-									aria-label="Clear table filters"
-									title="Clear table filters"
-									onClick={() =>
-										setHeaderFilters({
-											...INITIAL_USER_HEADER_FILTERS,
-										})
-									}
-								>
-									<X className="h-4 w-4" />
-								</Button>
-							)}
-						</div>
-						<Dialog
-							open={isAddUserOpen}
-							onOpenChange={setIsAddUserOpen}
-						>
-							<DialogTrigger asChild>
-								<Button className="bg-uganda-red hover:bg-uganda-red/90">
-									<Plus className="w-4 h-4 mr-2" />
-									Add User
-								</Button>
-							</DialogTrigger>
-							<DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+				<CardContent className="p-4 pt-0">
+					<Dialog
+						open={isAddUserOpen}
+						onOpenChange={setIsAddUserOpen}
+					>
+						<DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
 								<DialogHeader>
 									<DialogTitle>
 										Register New User
@@ -1518,22 +1453,14 @@ export default function UsersPage() {
 								)}
 							</DialogContent>
 						</Dialog>
-					</div>
 
 					<DataTable
 						columns={userColumns}
-						data={pageData.users}
+						data={users}
+						hideToolbar
+						enableHeaderFilters
 						pageSize={pageSize}
-						manualPagination
-						pageCount={pageData.pagination.pages}
-						totalRowCount={pageData.pagination.total}
-						pageIndex={page - 1}
-						onPageChange={(pageIndex) => setPage(pageIndex + 1)}
-						onPageSizeChange={(size) => {
-							setPageSize(size);
-							setPage(1);
-						}}
-						isLoading={tableLoading}
+						isLoading={loading}
 					/>
 				</CardContent>
 			</Card>
