@@ -83,7 +83,7 @@ export default function LoginPage() {
 
 			{/* Login Form */}
 			<Card className="w-full max-w-md mx-4 z-10 shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
-				<CardHeader className="text-center space-y-4">
+				<CardHeader className="flex flex-row items-center">
 					<div className="mx-auto rounded-full flex items-center justify-center">
 						<Image
 							src="/logo.png"
@@ -92,13 +92,17 @@ export default function LoginPage() {
 							height={150}
 						/>
 					</div>
-					<CardTitle className="text-2xl font-bold text-uganda-black">
-						Health Alert System
+				
+					<div>
+
+					<CardTitle className="text-gray-600">
+						Ministry of Health Uganda 
 					</CardTitle>
 					<CardDescription className="text-gray-600">
-						Ministry of Health Uganda - Alert Management
-						Portal
-					</CardDescription>
+					  Alert Management Portal
+
+						</CardDescription>
+					</div>
 				</CardHeader>
 				<CardContent>
 					<form

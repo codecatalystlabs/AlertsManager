@@ -31,10 +31,11 @@ const AlertsGeoMap = dynamic(
 );
 
 /**
- * Alerts Map — a zoom-driven map of alert volume across Uganda. The overview
- * shows one named pill per region; zooming in swaps to district boundaries (then
- * subcounty boundaries), and hovering any area shows its name. Counts honour the
- * same date window, canonical district matching and RBAC scope as the dashboard.
+ * Alerts Map — a click-to-drill map of alert volume across Uganda. The overview
+ * shows every region; clicking a region opens just that region's districts, and
+ * clicking a district opens just that district's subcounties. A breadcrumb climbs
+ * back up. Counts honour the same date window, canonical district matching and
+ * RBAC scope as the dashboard.
  */
 export default function MapPage(): React.JSX.Element {
 	const [range, setRange] = useState<DashboardRangeValue>(() =>
@@ -83,7 +84,7 @@ export default function MapPage(): React.JSX.Element {
 			<div className="flex flex-wrap items-center justify-end gap-2">
 				<div className="text-xs text-muted-foreground">
 					{regions
-						? `${regions.total.toLocaleString()} alerts plotted • zoom in for districts & subcounties`
+						? `${regions.total.toLocaleString()} alerts plotted • click a region to drill into its districts`
 						: "Loading…"}
 				</div>
 			</div>
@@ -98,10 +99,11 @@ export default function MapPage(): React.JSX.Element {
 			</div>
 
 			<p className="text-[11px] text-muted-foreground">
-				One pill per region at the overview; zoom in to reveal district then
-				subcounty boundaries (loaded on demand). Hover any area for its name and
-				count. Counts use the same canonical district matching and date window
-				as the dashboard; alerts whose location can&apos;t be matched to a
+				The overview shows every region. Click a region to open just its
+				districts, then click a district to open just its subcounties (loaded on
+				demand); use the breadcrumb to climb back up. Hover any area for its name
+				and count. Counts use the same canonical district matching and date
+				window as the dashboard; alerts whose location can&apos;t be matched to a
 				boundary aren&apos;t plotted.
 			</p>
 		</div>

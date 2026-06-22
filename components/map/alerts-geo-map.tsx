@@ -2,9 +2,11 @@
 
 import "leaflet/dist/leaflet.css";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import useSWR from "swr";
 import { MapContainer, useMap } from "react-leaflet";
 import L from "leaflet";
+import { ChevronRight, Home } from "lucide-react";
 
 import {
 	fetchGeoSubcounties,
@@ -15,13 +17,19 @@ import {
 
 const UGANDA_CENTER: [number, number] = [1.3733, 32.2903];
 
-// Zoom thresholds that swap the visible admin level. Below DISTRICT_ZOOM the map
-// shows regions (one pill each); from DISTRICT_ZOOM districts; from
-// SUBCOUNTY_ZOOM subcounties (fetched per visible district on demand).
-const DISTRICT_ZOOM = 8;
-const SUBCOUNTY_ZOOM = 10;
-
 type Level = "region" | "district" | "subcounty";
+
+/** A drill target carried in the breadcrumb (own UID + bbox to zoom to). */
+interface AreaRef {
+	uid: string;
+	name: string;
+	bbox: [number, number, number, number];
+}
+
+type Drill =
+	| { level: "region" }
+	| { level: "district"; region: AreaRef }
+	| { level: "subcounty"; region: AreaRef; district: AreaRef };
 
 // Sequential reds for the choropleth fill; 0 alerts → neutral grey.
 const RAMP = ["#fee5d9", "#fcae91", "#fb6a4a", "#de2d26", "#a50f15"];
@@ -88,28 +96,44 @@ function escapeHtml(value: string): string {
 	});
 }
 
-/** A named pill icon (label + count badge), used at the centroid of each area. */
-function pillIcon(label: string, count: number): L.DivIcon {
+/** A count badge, placed at the centroid of each area. Click falls through to
+ * the polygon underneath (pointer-events:none), so clicking the count drills. */
+function pillIcon(count: number): L.DivIcon {
 	const badge = count >= 100 ? "#a50f15" : count >= 25 ? "#de2d26" : "#fb6a4a";
-	const html = `<div style="position:absolute;transform:translate(-50%,-50%);white-space:nowrap;display:flex;align-items:center;gap:6px;background:#ffffff;border:1px solid rgba(0,0,0,.18);border-radius:9999px;padding:2px 4px 2px 10px;box-shadow:0 1px 4px rgba(0,0,0,.3);font-size:11px;font-weight:600;color:#1f2937">
-		<span style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(label)}</span>
-		<span style="background:${badge};color:#fff;border-radius:9999px;padding:1px 7px;font-weight:700">${count.toLocaleString()}</span>
-	</div>`;
+	const html = `<div style="position:absolute;transform:translate(-50%,-50%);pointer-events:none;white-space:nowrap;background:${badge};color:#fff;border:1px solid rgba(0,0,0,.18);border-radius:9999px;padding:1px 8px;box-shadow:0 1px 4px rgba(0,0,0,.3);font-size:11px;font-weight:700">${count.toLocaleString()}</div>`;
 	return L.divIcon({ html, className: "", iconSize: [0, 0] });
 }
 
-/** Does an area bbox [minLng,minLat,maxLng,maxLat] intersect the map view? */
-function bboxIntersects(
-	bbox: [number, number, number, number],
-	b: L.LatLngBounds
-): boolean {
+/** bbox [minLng,minLat,maxLng,maxLat] → Leaflet [[s,w],[n,e]] bounds. */
+function bboxToBounds(
+	bbox: [number, number, number, number]
+): L.LatLngBoundsExpression {
 	const [minLng, minLat, maxLng, maxLat] = bbox;
-	return (
-		maxLng >= b.getWest() &&
-		minLng <= b.getEast() &&
-		maxLat >= b.getSouth() &&
-		minLat <= b.getNorth()
-	);
+	return [
+		[minLat, minLng],
+		[maxLat, maxLng],
+	];
+}
+
+function featuresBounds(
+	features: GeoFeature[]
+): L.LatLngBoundsExpression | null {
+	let mnLat = Infinity,
+		mnLng = Infinity,
+		mxLat = -Infinity,
+		mxLng = -Infinity;
+	for (const f of features) {
+		const [a, b, c, d] = f.properties.bbox;
+		if (a < mnLng) mnLng = a;
+		if (b < mnLat) mnLat = b;
+		if (c > mxLng) mxLng = c;
+		if (d > mxLat) mxLat = d;
+	}
+	if (!Number.isFinite(mnLat)) return null;
+	return [
+		[mnLat, mnLng],
+		[mxLat, mxLng],
+	];
 }
 
 const CARTO_ATTR =
@@ -123,8 +147,7 @@ const ESRI_TOPO_ATTR = "Tiles &copy; Esri — Esri, DeLorme, NAVTEQ";
 /**
  * Adds a base-map switcher + overlay toggles (Leaflet's native layers control).
  * The default base (Light) is added on mount; the boundary/label groups are
- * shared with AdminLayers so the user can show/hide them. Imperative so the
- * native control and the imperatively-drawn layers stay in one place.
+ * shared with AdminLayers so the user can show/hide them.
  */
 function LayersControl({
 	boundary,
@@ -181,203 +204,109 @@ function LayersControl({
 }
 
 interface AdminLayersProps {
-	regions: GeoFeatureCollection | undefined;
-	districts: GeoFeatureCollection | undefined;
-	query: GeoQuery;
+	features: GeoFeature[];
+	maxCount: number;
+	drillable: boolean;
+	/** Identity of the current drill view; bumps trigger a fitBounds. */
+	focusKey: string;
+	focusBounds: L.LatLngBoundsExpression | null;
 	boundary: L.LayerGroup;
 	pills: L.LayerGroup;
-	onView: (v: { level: Level; maxCount: number }) => void;
+	onDrill: (f: GeoFeature) => void;
 }
 
 /**
- * Renders the admin level appropriate to the current zoom, imperatively into the
- * shared boundary/label layer groups — so we can lazy-load subcounties per
- * visible district and force exactly one pill per region at the overview.
+ * Draws the features of the current drill level imperatively into the shared
+ * boundary/label groups, and binds a click on each polygon (when drillable) to
+ * descend into that area. Fits the map to focusBounds whenever the drill view
+ * changes — so opening a region frames just that region's districts.
  */
 function AdminLayers({
-	regions,
-	districts,
-	query,
+	features,
+	maxCount,
+	drillable,
+	focusKey,
+	focusBounds,
 	boundary,
 	pills,
-	onView,
+	onDrill,
 }: AdminLayersProps) {
 	const map = useMap();
-	const subCache = useRef<Map<string, GeoFeature[]>>(new Map());
-	const generation = useRef(0);
-	const didFit = useRef(false);
-	// Latest props for the (stable) event handlers.
-	const propsRef = useRef({ regions, districts, query, onView });
-	propsRef.current = { regions, districts, query, onView };
+	// Keep the latest onDrill without forcing a redraw when only it changes.
+	const onDrillRef = useRef(onDrill);
+	onDrillRef.current = onDrill;
+	// Tracks which drill view has been framed, so we fit exactly once per view.
+	const fittedKey = useRef<string | null>(null);
 
+	// Re-fit when the drill view changes (or its bounds first become available).
 	useEffect(() => {
-		const handler = () => {
-			void redraw();
-		};
-		map.on("zoomend", handler);
-		map.on("moveend", handler);
-		void redraw();
-		return () => {
-			map.off("zoomend", handler);
-			map.off("moveend", handler);
-		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [map]);
+		if (!focusBounds) return;
+		if (fittedKey.current === focusKey) return;
+		map.fitBounds(focusBounds, { padding: [16, 16] });
+		fittedKey.current = focusKey;
+	}, [focusKey, focusBounds, map]);
 
-	// Date filter changed → counts are stale, drop the subcounty cache and redraw.
+	// Redraw whenever the feature set / level changes.
 	useEffect(() => {
-		subCache.current.clear();
-		void redraw();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [query.fromDate, query.toDate]);
-
-	// Region/district data arrived (or changed) → frame Uganda once, then redraw.
-	useEffect(() => {
-		if (!didFit.current && regions && regions.features.length) {
-			const bounds = featuresBounds(regions.features);
-			if (bounds) {
-				map.fitBounds(bounds, { padding: [20, 20] });
-				didFit.current = true;
-			}
-		}
-		void redraw();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [regions, districts]);
-
-	function featuresBounds(features: GeoFeature[]): L.LatLngBoundsExpression | null {
-		let mnLat = Infinity,
-			mnLng = Infinity,
-			mxLat = -Infinity,
-			mxLng = -Infinity;
-		for (const f of features) {
-			const [a, b, c, d] = f.properties.bbox;
-			if (a < mnLng) mnLng = a;
-			if (b < mnLat) mnLat = b;
-			if (c > mxLng) mxLng = c;
-			if (d > mxLat) mxLat = d;
-		}
-		if (!Number.isFinite(mnLat)) return null;
-		return [
-			[mnLat, mnLng],
-			[mxLat, mxLng],
-		];
-	}
-
-	function drawFeature(f: GeoFeature, colorFor: (n: number) => string) {
-		const base: L.PathOptions = {
-			fillColor: colorFor(f.properties.count),
-			fillOpacity: 0.45,
-			color: "#64748b",
-			weight: 1,
-		};
-		if (f.geometry) {
-			const poly = L.geoJSON(f.geometry as any, { style: () => base });
-			poly.bindTooltip(
-				`<strong>${escapeHtml(f.properties.name)}</strong><br/>${f.properties.count.toLocaleString()} alert${f.properties.count === 1 ? "" : "s"}`,
-				{ sticky: true }
-			);
-			poly.on("mouseover", () =>
-				poly.setStyle({ weight: 2.5, color: "#111827", fillOpacity: 0.62 })
-			);
-			poly.on("mouseout", () => poly.setStyle(base));
-			boundary.addLayer(poly);
-		}
-		const [lng, lat] = f.properties.centroid;
-		if (lat || lng) {
-			pills.addLayer(
-				L.marker([lat, lng], {
-					icon: pillIcon(f.properties.name, f.properties.count),
-					interactive: false,
-				})
-			);
-		}
-	}
-
-	async function redraw() {
-		const my = ++generation.current;
-		const { regions, districts, query, onView } = propsRef.current;
-		const zoom = map.getZoom();
-		const level: Level =
-			zoom >= SUBCOUNTY_ZOOM
-				? "subcounty"
-				: zoom >= DISTRICT_ZOOM
-					? "district"
-					: "region";
-
-		// Region overview: always all regions, one pill each.
-		if (level === "region") {
-			const scale = makeScale(regions?.maxCount ?? 0);
-			boundary.clearLayers();
-			pills.clearLayers();
-			for (const f of regions?.features ?? []) drawFeature(f, scale.colorFor);
-			onView({ level, maxCount: regions?.maxCount ?? 0 });
-			return;
-		}
-
-		const view = map.getBounds();
-
-		if (level === "district") {
-			const scale = makeScale(districts?.maxCount ?? 0);
-			const visible = (districts?.features ?? []).filter((f) =>
-				bboxIntersects(f.properties.bbox, view)
-			);
-			boundary.clearLayers();
-			pills.clearLayers();
-			for (const f of visible) drawFeature(f, scale.colorFor);
-			onView({ level, maxCount: districts?.maxCount ?? 0 });
-			return;
-		}
-
-		// Subcounty: fetch (once) the subcounties of each visible district.
-		const visibleDistricts = (districts?.features ?? []).filter((f) =>
-			bboxIntersects(f.properties.bbox, view)
-		);
-		await Promise.all(
-			visibleDistricts.map(async (d) => {
-				const uid = d.properties.uid;
-				if (subCache.current.has(uid)) return;
-				try {
-					const fc = await fetchGeoSubcounties(uid, query);
-					subCache.current.set(uid, fc.features);
-				} catch {
-					subCache.current.set(uid, []);
-				}
-			})
-		);
-		// A newer redraw started (zoom/pan/date) while we awaited — abandon this one.
-		if (my !== generation.current) return;
-		if (map.getZoom() < SUBCOUNTY_ZOOM) return;
-
-		let maxCount = 1;
-		const feats: GeoFeature[] = [];
-		for (const d of visibleDistricts) {
-			for (const f of subCache.current.get(d.properties.uid) ?? []) {
-				feats.push(f);
-				if (f.properties.count > maxCount) maxCount = f.properties.count;
-			}
-		}
 		const scale = makeScale(maxCount);
 		boundary.clearLayers();
 		pills.clearLayers();
-		// Faint parent-district outlines for context.
-		for (const d of visibleDistricts) {
-			if (!d.geometry) continue;
-			boundary.addLayer(
-				L.geoJSON(d.geometry as any, {
-					interactive: false,
-					style: () => ({
-						fill: false,
-						color: "#475569",
-						weight: 1.5,
-						opacity: 0.5,
-						dashArray: "4",
-					}),
-				})
-			);
+
+		for (const f of features) {
+			const count = f.properties.count;
+			// Zero-alert areas stay near-transparent so the chosen base skin
+			// (satellite/dark/etc.) shows through instead of a flat grey wash;
+			// areas with alerts keep a translucent shade you can still see the map under.
+			const base: L.PathOptions = {
+				fillColor: count > 0 ? scale.colorFor(count) : ZERO_COLOR,
+				fillOpacity: count > 0 ? 0.62 : 0.08,
+				color: "#475569",
+				weight: count > 0 ? 1 : 0.8,
+				opacity: 0.85,
+			};
+			if (f.geometry) {
+				const poly = L.geoJSON(f.geometry as any, { style: () => base });
+				const hint = drillable
+					? `<br/><span style="opacity:.7">click to drill in</span>`
+					: "";
+				poly.bindTooltip(
+					`<strong>${escapeHtml(f.properties.name)}</strong><br/>${count.toLocaleString()} alert${count === 1 ? "" : "s"}${hint}`,
+					{ sticky: true }
+				);
+				poly.on("mouseover", () =>
+					poly.setStyle({
+						weight: 2.5,
+						color: "#0f172a",
+						opacity: 1,
+						fillOpacity: count > 0 ? 0.72 : 0.18,
+					})
+				);
+				poly.on("mouseout", () => poly.setStyle(base));
+				if (drillable) {
+					poly.on("click", () => onDrillRef.current(f));
+					// Pointer cursor on the rendered SVG paths.
+					poly.eachLayer((l) => {
+						const el = (
+							l as unknown as { getElement?: () => Element | null }
+						).getElement?.();
+						if (el) (el as HTMLElement | SVGElement).style.cursor = "pointer";
+					});
+				}
+				boundary.addLayer(poly);
+			}
+			// Only badge areas that actually have alerts — "0" pills everywhere were
+			// pure clutter and hid the base skin.
+			const [lng, lat] = f.properties.centroid;
+			if (count > 0 && (lat || lng)) {
+				pills.addLayer(
+					L.marker([lat, lng], {
+						icon: pillIcon(count),
+						interactive: false,
+					})
+				);
+			}
 		}
-		for (const f of feats) drawFeature(f, scale.colorFor);
-		onView({ level, maxCount });
-	}
+	}, [features, maxCount, drillable, boundary, pills]);
 
 	return null;
 }
@@ -395,10 +324,72 @@ export function AlertsGeoMap({
 	query,
 	validating,
 }: AlertsGeoMapProps) {
-	const [view, setView] = useState<{ level: Level; maxCount: number }>({
-		level: "region",
-		maxCount: 0,
-	});
+	const [drill, setDrill] = useState<Drill>({ level: "region" });
+
+	// Subcounties aren't loaded up front — fetch the open district's on demand.
+	const openDistrictUid =
+		drill.level === "subcounty" ? drill.district.uid : null;
+	const subSWR = useSWR<GeoFeatureCollection>(
+		openDistrictUid
+			? ["geo-subcounties", openDistrictUid, query.fromDate, query.toDate]
+			: null,
+		() => fetchGeoSubcounties(openDistrictUid as string, query),
+		{ revalidateOnFocus: false }
+	);
+
+	// The features + colour scale for the level currently shown.
+	const { features, maxCount } = useMemo(() => {
+		if (drill.level === "region") {
+			return {
+				features: regions?.features ?? [],
+				maxCount: regions?.maxCount ?? 0,
+			};
+		}
+		if (drill.level === "district") {
+			const feats = (districts?.features ?? []).filter(
+				(f) => f.properties.regionUid === drill.region.uid
+			);
+			const max = feats.reduce((m, f) => Math.max(m, f.properties.count), 0);
+			return { features: feats, maxCount: max };
+		}
+		return {
+			features: subSWR.data?.features ?? [],
+			maxCount: subSWR.data?.maxCount ?? 0,
+		};
+	}, [drill, regions, districts, subSWR.data]);
+
+	// What the map should frame for this drill view.
+	const focus = useMemo((): {
+		key: string;
+		bounds: L.LatLngBoundsExpression | null;
+	} => {
+		if (drill.level === "region") {
+			return {
+				key: "region",
+				bounds: regions ? featuresBounds(regions.features) : null,
+			};
+		}
+		if (drill.level === "district") {
+			return { key: `d:${drill.region.uid}`, bounds: bboxToBounds(drill.region.bbox) };
+		}
+		return {
+			key: `s:${drill.district.uid}`,
+			bounds: bboxToBounds(drill.district.bbox),
+		};
+	}, [drill, regions]);
+
+	function handleDrill(f: GeoFeature) {
+		const ref: AreaRef = {
+			uid: f.properties.uid,
+			name: f.properties.name,
+			bbox: f.properties.bbox,
+		};
+		if (drill.level === "region") {
+			setDrill({ level: "district", region: ref });
+		} else if (drill.level === "district") {
+			setDrill({ level: "subcounty", region: drill.region, district: ref });
+		}
+	}
 
 	// Shared layer groups, created once, so both the layers control (toggle) and
 	// AdminLayers (draw) reference the same Leaflet groups.
@@ -407,13 +398,14 @@ export function AlertsGeoMap({
 	if (!boundaryRef.current) boundaryRef.current = L.layerGroup();
 	if (!pillRef.current) pillRef.current = L.layerGroup();
 
-	const scale = makeScale(view.maxCount);
+	const scale = makeScale(maxCount);
 	const levelLabel =
-		view.level === "region"
+		drill.level === "region"
 			? "Regions"
-			: view.level === "district"
+			: drill.level === "district"
 				? "Districts"
 				: "Subcounties";
+	const subLoading = drill.level === "subcounty" && subSWR.isLoading;
 
 	// `isolate` traps Leaflet's internal z-indexes (panes/controls reach 1000)
 	// in their own stacking context, so portalled UI like the date-range
@@ -423,33 +415,105 @@ export function AlertsGeoMap({
 			<MapContainer
 				center={UGANDA_CENTER}
 				zoom={7}
+				zoomSnap={0.5}
 				scrollWheelZoom
 				className="h-full w-full"
 				style={{ background: "#f8fafc" }}
 			>
 				<LayersControl boundary={boundaryRef.current} pills={pillRef.current} />
 				<AdminLayers
-					regions={regions}
-					districts={districts}
-					query={query}
+					features={features}
+					maxCount={maxCount}
+					drillable={drill.level !== "subcounty"}
+					focusKey={focus.key}
+					focusBounds={focus.bounds}
 					boundary={boundaryRef.current}
 					pills={pillRef.current}
-					onView={setView}
+					onDrill={handleDrill}
 				/>
 			</MapContainer>
 
-			<div className="pointer-events-none absolute left-3 top-3 z-[1000] rounded-md bg-white/90 px-2.5 py-1 text-xs shadow">
-				<span className="font-semibold text-gray-800">{levelLabel}</span>
-				<span className="ml-1 text-gray-500">· hover an area for its name · zoom to drill</span>
-			</div>
+			<MapBreadcrumb drill={drill} setDrill={setDrill} count={features.length} />
 
 			<MapLegend bins={scale.bins} level={levelLabel} />
 
-			{validating && (
+			{(validating || subLoading) && (
 				<div className="pointer-events-none absolute bottom-3 right-3 z-[1000] rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-gray-700 shadow">
-					Updating…
+					{subLoading ? "Loading subcounties…" : "Updating…"}
 				</div>
 			)}
+		</div>
+	);
+}
+
+/** Region › District trail; click a crumb to climb back up a level. */
+function MapBreadcrumb({
+	drill,
+	setDrill,
+	count,
+}: {
+	drill: Drill;
+	setDrill: (d: Drill) => void;
+	count: number;
+}) {
+	const region = drill.level !== "region" ? drill.region : null;
+	const district = drill.level === "subcounty" ? drill.district : null;
+
+	const childLabel =
+		drill.level === "region"
+			? `${count} region${count === 1 ? "" : "s"}`
+			: drill.level === "district"
+				? `${count} district${count === 1 ? "" : "s"}`
+				: `${count} subcount${count === 1 ? "y" : "ies"}`;
+
+	const crumb = "flex items-center gap-1 max-w-[40vw] truncate";
+	const link =
+		"font-medium text-gray-700 hover:text-uganda-red hover:underline";
+
+	return (
+		<div className="absolute left-[52px] top-3 z-[1000] flex max-w-[calc(100%-4rem)] items-center gap-1 rounded-md bg-white/95 px-2.5 py-1.5 text-xs shadow-md">
+			<button
+				type="button"
+				className={`${crumb} ${region ? link : "font-semibold text-gray-900"}`}
+				onClick={() => region && setDrill({ level: "region" })}
+				disabled={!region}
+			>
+				<Home className="h-3.5 w-3.5 shrink-0" />
+				Uganda
+			</button>
+
+			{region && (
+				<>
+					<ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+					<button
+						type="button"
+						className={`${crumb} ${district ? link : "font-semibold text-gray-900"}`}
+						onClick={() =>
+							district && setDrill({ level: "district", region })
+						}
+						disabled={!district}
+						title={region.name}
+					>
+						<span className="truncate">{region.name}</span>
+					</button>
+				</>
+			)}
+
+			{district && (
+				<>
+					<ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+					<span
+						className={`${crumb} font-semibold text-gray-900`}
+						title={district.name}
+					>
+						<span className="truncate">{district.name}</span>
+					</span>
+				</>
+			)}
+
+			<span className="ml-1 shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">
+				{childLabel}
+			</span>
 		</div>
 	);
 }
