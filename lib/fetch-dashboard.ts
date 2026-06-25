@@ -23,7 +23,8 @@ export interface DashboardSummary {
 	notVerified: number;
 	discarded: number;
 	alerts: number;
-	outcomes: DashboardCountItem[];
+	fieldVerification: DashboardCountItem[];
+	deskVerification: DashboardCountItem[];
 	verification: DashboardCountItem[];
 	status: DashboardCountItem[];
 	topDistricts: DashboardCountItem[];
@@ -42,6 +43,8 @@ export interface DashboardSummaryParams {
 	to_date?: string;
 	/** Case district name; omit or "all" for every district. */
 	district?: string;
+	/** Region name; omit or "all" for every region. */
+	region?: string;
 }
 
 class DashboardFetchError extends Error {
@@ -60,7 +63,8 @@ const EMPTY_SUMMARY: DashboardSummary = {
 	notVerified: 0,
 	discarded: 0,
 	alerts: 0,
-	outcomes: [],
+	fieldVerification: [],
+	deskVerification: [],
 	verification: [],
 	status: [],
 	topDistricts: [],
@@ -78,6 +82,9 @@ function buildSummaryUrl(apiBase: string, params: DashboardSummaryParams): strin
 	if (params.to_date) searchParams.set("to_date", params.to_date);
 	if (params.district && params.district !== "all") {
 		searchParams.set("district", params.district);
+	}
+	if (params.region && params.region !== "all") {
+		searchParams.set("region", params.region);
 	}
 	const query = searchParams.toString();
 	const path = `${apiBase}/dashboard/summary`;

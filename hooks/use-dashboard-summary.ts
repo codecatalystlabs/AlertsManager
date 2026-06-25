@@ -31,17 +31,25 @@ interface UseDashboardSummaryReturn {
  */
 export function useDashboardSummary(
 	range: DashboardRange,
-	district?: string
+	district?: string,
+	region?: string
 ): UseDashboardSummaryReturn {
 	useInvalidateAlerts();
 
 	const { data, error: swrError, isLoading, isValidating, mutate } = useSWR(
-		["dashboard-summary", range.from, range.to, district ?? "all"] as const,
-		([, from, to, dist]) =>
+		[
+			"dashboard-summary",
+			range.from,
+			range.to,
+			district ?? "all",
+			region ?? "all",
+		] as const,
+		([, from, to, dist, reg]) =>
 			fetchDashboardSummary({
 				from_date: from || undefined,
 				to_date: to || undefined,
 				district: dist,
+				region: reg,
 			}),
 		{ keepPreviousData: true }
 	);

@@ -10,18 +10,35 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { useDistrictOptions } from "@/hooks/use-district-options";
+import { useRegionOptions } from "@/hooks/use-region-options";
 
 interface DashboardDistrictPickerProps {
 	/** Selected district name, or "all" for no district filter. */
 	value: string;
 	onChange: (value: string) => void;
 	disabled?: boolean;
+	/**
+	 * Selected region name ("all"/undefined = none). When set, the district list
+	 * is scoped to that region's districts (Region → District cascade).
+	 */
+	region?: string;
 }
 
 export const DashboardDistrictPicker = memo<DashboardDistrictPickerProps>(
-	({ value, onChange, disabled = false }) => {
+	({ value, onChange, disabled = false, region }) => {
+		// Resolve the selected region name → id so the District list can be scoped
+		// to it, mirroring the call-logs Region → District cascade.
+		const { regionOptions } = useRegionOptions(
+			region === "all" ? "" : region
+		);
+		const selectedRegionId =
+			region && region !== "all"
+				? regionOptions.find((r) => r.name === region)?.id
+				: undefined;
+
 		const { districts, loading } = useDistrictOptions(
-			value === "all" ? "" : value
+			value === "all" ? "" : value,
+			selectedRegionId
 		);
 
 		return (

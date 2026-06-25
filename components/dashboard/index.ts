@@ -12,3 +12,4 @@ export {
 	type DashboardRangeValue,
 } from './dashboard-range-picker';
 export { DashboardDistrictPicker } from './dashboard-district-picker';
+export { DashboardRegionPicker } from './dashboard-region-picker';

@@ -120,24 +120,30 @@ function ChartEmptyState({ message }: { message: string }) {
 	);
 }
 
-function OutcomeBreakdownCard({ items }: { items: ChartCountItem[] }) {
+function VerificationBreakdownCard({
+	title,
+	description,
+	items,
+}: {
+	title: string;
+	description: string;
+	items: ChartCountItem[];
+}) {
 	const total = items.reduce((sum, item) => sum + item.count, 0);
 	const max = Math.max(...items.map((item) => item.count), 1);
 
 	return (
-		<Card className="lg:col-span-2">
+		<Card>
 			<CardHeader className="p-4 pb-2">
 				<div className="flex items-center gap-2">
 					<ListChecks className="h-4 w-4 text-uganda-red" />
-					<CardTitle className="text-base">Verification Outcomes</CardTitle>
+					<CardTitle className="text-base">{title}</CardTitle>
 				</div>
-				<CardDescription>
-					Desk and field verification decisions for verified signals
-				</CardDescription>
+				<CardDescription>{description}</CardDescription>
 			</CardHeader>
 			<CardContent className="p-4 pt-0">
 				{total === 0 ? (
-					<ChartEmptyState message="No verification outcomes recorded yet." />
+					<ChartEmptyState message="No verification decisions recorded yet." />
 				) : (
 					<div className="space-y-2">
 						{items.map((item) => (
@@ -169,13 +175,21 @@ function OutcomeBreakdownCard({ items }: { items: ChartCountItem[] }) {
 }
 
 export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
-	const outcomeData = useMemo<ChartCountItem[]>(
+	const fieldVerificationData = useMemo<ChartCountItem[]>(
 		() =>
-			summary.outcomes.map((item) => ({
+			summary.fieldVerification.map((item) => ({
 				...item,
 				color: OUTCOME_COLORS[item.label] ?? "#475569",
 			})),
-		[summary.outcomes]
+		[summary.fieldVerification]
+	);
+	const deskVerificationData = useMemo<ChartCountItem[]>(
+		() =>
+			summary.deskVerification.map((item) => ({
+				...item,
+				color: OUTCOME_COLORS[item.label] ?? "#475569",
+			})),
+		[summary.deskVerification]
 	);
 	const verificationData = summary.verification;
 	const statusData = summary.status;
@@ -195,7 +209,16 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 
 	return (
 		<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-			<OutcomeBreakdownCard items={outcomeData} />
+			<VerificationBreakdownCard
+				title="Field Verification"
+				description="Field team verification decisions (field_verification_decision)"
+				items={fieldVerificationData}
+			/>
+			<VerificationBreakdownCard
+				title="Desk Verification"
+				description="Desk triage actions — multiple allowed per alert"
+				items={deskVerificationData}
+			/>
 
 			<Card>
 				<CardHeader className="p-4 pb-2">

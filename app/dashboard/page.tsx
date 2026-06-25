@@ -10,13 +10,14 @@ import {
 	isRegionScopedRole,
 	type User,
 } from "@/lib/auth";
-import { downloadChartsAsPdf } from "@/lib/charts-pdf";
+import { downloadDashboardPdf, type DashboardPdfSection } from "@/lib/charts-pdf";
 import {
 	ErrorAlert,
 	StatsGrid,
 	RecentActivityCard,
 	DashboardRangePicker,
 	DashboardDistrictPicker,
+	DashboardRegionPicker,
 	resolveDashboardRange,
 	DEFAULT_RANGE_PRESET,
 	type DashboardRangeValue,
@@ -63,13 +64,18 @@ export default function DashboardPage(): React.JSX.Element {
 	const [range, setRange] = useState<DashboardRangeValue>(() =>
 		resolveDashboardRange(DEFAULT_RANGE_PRESET)
 	);
+	const [region, setRegion] = useState<string>("all");
 	const [district, setDistrict] = useState<string>("all");
 	const { summary, loading, error, refetch } = useDashboardSummary(
 		range,
-		district
+		district,
+		region
 	);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+	// The overview KPI row and the charts grid are captured as separate PDF
+	// sections so the export includes both the cards and every chart.
+	const overviewRef = useRef<HTMLDivElement>(null);
 	const chartsRef = useRef<HTMLDivElement>(null);
 
 	// Current user (resolved after mount — localStorage is client-only). A
@@ -94,20 +100,32 @@ export default function DashboardPage(): React.JSX.Element {
 		}
 	}, [refetch]);
 
-	const isUnbounded = !range.from && !range.to && district === "all";
+	const isUnbounded =
+		!range.from && !range.to && district === "all" && region === "all";
 
-	const handleDownloadCharts = useCallback(async () => {
-		if (!chartsRef.current) return;
+	const handleDownloadReport = useCallback(async () => {
+		if (!overviewRef.current && !chartsRef.current) return;
 		setIsDownloadingPdf(true);
 		try {
-			await downloadChartsAsPdf(chartsRef.current, {
-				title: "Health Alert Dashboard — Charts",
+			const sections: DashboardPdfSection[] = [];
+			if (overviewRef.current) {
+				sections.push({ container: overviewRef.current, heading: "Overview" });
+			}
+			if (chartsRef.current) {
+				sections.push({
+					container: chartsRef.current,
+					splitCards: true,
+					heading: "Trends & breakdowns",
+				});
+			}
+			await downloadDashboardPdf(sections, {
+				title: "Health Alert Dashboard",
 				subtitle: isUnbounded
 					? "All-time data"
 					: "Data for the selected date range",
 			});
 		} catch (err) {
-			console.error("Failed to export charts to PDF:", err);
+			console.error("Failed to export dashboard to PDF:", err);
 			window.alert("Could not generate the PDF. Please try again.");
 		} finally {
 			setIsDownloadingPdf(false);
@@ -158,6 +176,19 @@ export default function DashboardPage(): React.JSX.Element {
 						/>
 						<span className="hidden sm:inline">Refresh</span>
 					</Button>
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={handleDownloadReport}
+						disabled={!summary || isDownloadingPdf}
+						className="h-8 gap-2"
+						aria-label="Download dashboard report as PDF"
+					>
+						<Download className="h-4 w-4" />
+						<span className="hidden sm:inline">
+							{isDownloadingPdf ? "Preparing…" : "Download (PDF)"}
+						</span>
+					</Button>
 					{scopedToDistrict ? (
 						// District-scoped users can't change scope (enforced
 						// server-side), so show their district instead of the picker.
@@ -179,11 +210,24 @@ export default function DashboardPage(): React.JSX.Element {
 							<span>{assignedRegion || "No region assigned"}</span>
 						</div>
 					) : (
-						<DashboardDistrictPicker
-							value={district}
-							onChange={setDistrict}
-							disabled={loading}
-						/>
+						<>
+							<DashboardRegionPicker
+								value={region}
+								onChange={(value) => {
+									// Region scopes the district list, so reset the
+									// district whenever the region changes.
+									setRegion(value);
+									setDistrict("all");
+								}}
+								disabled={loading}
+							/>
+							<DashboardDistrictPicker
+								value={district}
+								onChange={setDistrict}
+								disabled={loading}
+								region={region}
+							/>
+						</>
 					)}
 					<DashboardRangePicker onChange={setRange} disabled={loading} />
 				</div>
@@ -197,30 +241,20 @@ export default function DashboardPage(): React.JSX.Element {
 				/>
 			)}
 
-			<StatsGrid
-				alertCounts={statCounts}
-				kpiLoading={loading && !summary}
-			/>
+			<div ref={overviewRef}>
+				<StatsGrid
+					alertCounts={statCounts}
+					kpiLoading={loading && !summary}
+				/>
+			</div>
 
 			{/* Recent-activity triage snapshot — its own rolling/custom window,
 			    independent of the page date range but scoped by district. */}
 			<RecentActivityCard district={district} />
 
-			<div className="flex flex-wrap items-center justify-between gap-2">
-				<h2 className="text-base font-semibold text-gray-900">
-					Trends &amp; breakdowns
-				</h2>
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={handleDownloadCharts}
-					disabled={!summary || isDownloadingPdf}
-					className="gap-2"
-				>
-					<Download className="h-4 w-4" />
-					{isDownloadingPdf ? "Preparing PDF..." : "Download charts (PDF)"}
-				</Button>
-			</div>
+			<h2 className="text-base font-semibold text-gray-900">
+				Trends &amp; breakdowns
+			</h2>
 
 			<div ref={chartsRef}>
 				{loading && !summary ? (

@@ -1,9 +1,10 @@
 /**
- * Export an on-screen charts area to a multi-page PDF. Charts are a mix of
- * recharts SVG and HTML, so we rasterise the DOM with html-to-image and place
- * each chart card into the PDF as an image — capturing per-card so no chart is
- * ever split across a page boundary. Both libraries are lazy-imported to keep
- * them out of the initial bundle.
+ * Export on-screen dashboard regions (the overview KPI cards + the charts) to a
+ * multi-page PDF. Charts are a mix of recharts SVG and HTML, so we rasterise the
+ * DOM with html-to-image and place each region into the PDF as an image. The
+ * charts grid is captured per-card so no chart is ever split across a page
+ * boundary; the KPI row is captured whole. Both libraries are lazy-imported to
+ * keep them out of the initial bundle.
  */
 
 const UGANDA_RED: [number, number, number] = [217, 0, 0];
@@ -14,6 +15,20 @@ export interface ChartsPdfOptions {
 	title?: string;
 	subtitle?: string;
 	filename?: string;
+}
+
+/** One captured region of the dashboard, rendered in order into the PDF. */
+export interface DashboardPdfSection {
+	/** The element to rasterise. */
+	container: HTMLElement;
+	/**
+	 * When true, each direct child card is captured on its own image so no chart
+	 * is split across a page boundary (the charts grid). When false/omitted the
+	 * whole node is captured as a single image (the overview KPI row).
+	 */
+	splitCards?: boolean;
+	/** Optional bold heading printed above the section. */
+	heading?: string;
 }
 
 function dateStamp(): string {
@@ -39,8 +54,8 @@ function collectChartNodes(container: HTMLElement): HTMLElement[] {
 	return [container];
 }
 
-export async function downloadChartsAsPdf(
-	container: HTMLElement,
+export async function downloadDashboardPdf(
+	sections: DashboardPdfSection[],
 	options: ChartsPdfOptions = {}
 ): Promise<void> {
 	if (typeof window === "undefined") {
@@ -52,14 +67,12 @@ export async function downloadChartsAsPdf(
 		import("jspdf"),
 	]);
 
-	const nodes = collectChartNodes(container);
-
 	const doc = new jsPDF({ unit: "mm", format: "a4" });
 	const pageWidth = doc.internal.pageSize.getWidth();
 	const pageHeight = doc.internal.pageSize.getHeight();
 	const margin = 12;
 	const usableWidth = pageWidth - margin * 2;
-	const title = options.title ?? "Dashboard Charts";
+	const title = options.title ?? "Dashboard";
 
 	// ---- Header (first page) --------------------------------------------
 	doc.setTextColor(...UGANDA_RED);
@@ -90,27 +103,49 @@ export async function downloadChartsAsPdf(
 		skipFonts: true,
 	} as const;
 
-	for (const node of nodes) {
-		const width = node.offsetWidth || node.clientWidth || 1;
-		const height = node.offsetHeight || node.clientHeight || 1;
-		const drawHeight = usableWidth * (height / width);
+	for (const section of sections) {
+		if (!section?.container) continue;
 
-		// New page when this card won't fit in the remaining space.
-		if (cursorY + drawHeight > pageHeight - margin) {
-			doc.addPage();
-			cursorY = margin;
+		// Optional bold heading above the section.
+		if (section.heading) {
+			if (cursorY + 8 > pageHeight - margin) {
+				doc.addPage();
+				cursorY = margin;
+			}
+			doc.setFont("helvetica", "bold");
+			doc.setFontSize(11);
+			doc.setTextColor(...INK);
+			doc.text(section.heading, margin, cursorY + 4);
+			cursorY += 9;
 		}
 
-		let dataUrl: string;
-		try {
-			dataUrl = await toPng(node, renderOpts);
-		} catch (err) {
-			console.error("Chart capture failed for a card:", err);
-			continue; // skip the problem card rather than failing the whole export
-		}
+		// Charts split into per-card images; the KPI row is captured whole.
+		const nodes = section.splitCards
+			? collectChartNodes(section.container)
+			: [section.container];
 
-		doc.addImage(dataUrl, "PNG", margin, cursorY, usableWidth, drawHeight);
-		cursorY += drawHeight + 6;
+		for (const node of nodes) {
+			const width = node.offsetWidth || node.clientWidth || 1;
+			const height = node.offsetHeight || node.clientHeight || 1;
+			const drawHeight = usableWidth * (height / width);
+
+			// New page when this node won't fit in the remaining space.
+			if (cursorY + drawHeight > pageHeight - margin) {
+				doc.addPage();
+				cursorY = margin;
+			}
+
+			let dataUrl: string;
+			try {
+				dataUrl = await toPng(node, renderOpts);
+			} catch (err) {
+				console.error("Capture failed for a section node:", err);
+				continue; // skip the problem node rather than failing the whole export
+			}
+
+			doc.addImage(dataUrl, "PNG", margin, cursorY, usableWidth, drawHeight);
+			cursorY += drawHeight + 6;
+		}
 	}
 
 	// ---- Footer on every page -------------------------------------------
@@ -130,5 +165,5 @@ export async function downloadChartsAsPdf(
 		});
 	}
 
-	doc.save(options.filename ?? `dashboard-charts-${dateStamp()}.pdf`);
+	doc.save(options.filename ?? `dashboard-${dateStamp()}.pdf`);
 }
