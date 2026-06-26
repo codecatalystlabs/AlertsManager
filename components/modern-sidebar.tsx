@@ -19,6 +19,8 @@ import {
 	User,
 	BarChart3,
 	Map as MapIcon,
+	HeartPulse,
+	Plane,
 } from "lucide-react";
 import { MohLogo } from "@/components/moh-logo";
 
@@ -60,6 +62,8 @@ const navigationGroups: NavigationGroup[] = [
 			},
 			{ name: "Call Logs", href: "/dashboard/call-logs", icon: Phone, badge: "3" },
 			{ name: "6767 Alerts", href: "/dashboard/eidsr-alerts", icon: PhoneCall },
+			{ name: "eCHIS Alerts", href: "/dashboard/echis-alerts", icon: HeartPulse },
+			{ name: "POE Alerts", href: "/dashboard/poe-alerts", icon: Plane },
 			{ name: "Map", href: "/dashboard/map", icon: MapIcon },
 			{
 				name: "Summaries / Reports",

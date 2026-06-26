@@ -1,0 +1,128 @@
+"use client";
+
+import { useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ErrorAlert } from "@/components/dashboard";
+import {
+	PoeAlertDetailsDialog,
+	PoeAlertsHeader,
+	PoeAlertsTable,
+} from "@/components/poe-alerts";
+import { NdwFilterBar } from "@/components/ndw-alerts/ndw-filter-bar";
+import { NdwAlertsStats } from "@/components/ndw-alerts/ndw-alerts-stats";
+import { POE_NDW_FILTER_FIELDS } from "@/constants/ndw-filter-fields";
+import { usePoeAlertsData } from "@/hooks/use-poe-alerts-data";
+import type { PoeAlertRow } from "@/lib/fetch-ndw-alerts";
+import { LAYOUT } from "@/constants/layout";
+import { CheckCircle2, CloudDownload } from "lucide-react";
+
+export default function PoeAlertsPage() {
+	const {
+		alerts,
+		stats,
+		filters,
+		pagination,
+		loading,
+		isSyncing,
+		error,
+		syncMessage,
+		syncProgress,
+		setSearch,
+		setNdwFilters,
+		setOperators,
+		clearFilters,
+		applyFilters,
+		setPage,
+		setPageSize,
+		refetch,
+		syncFromRemote,
+	} = usePoeAlertsData();
+
+	const [selected, setSelected] = useState<PoeAlertRow | null>(null);
+	const [detailsOpen, setDetailsOpen] = useState(false);
+	const [isRefreshing, setIsRefreshing] = useState(false);
+
+	const handleRefresh = async () => {
+		setIsRefreshing(true);
+		try {
+			await refetch();
+		} finally {
+			setIsRefreshing(false);
+		}
+	};
+
+	return (
+		<div className={LAYOUT.pageGap}>
+			<PoeAlertsHeader
+				onRefresh={() => void handleRefresh()}
+				onSyncFromRemote={() => void syncFromRemote()}
+				isRefreshing={isRefreshing}
+				isSyncing={isSyncing}
+			/>
+
+			{error ? (
+				<ErrorAlert error={error} onRetry={() => void refetch()} />
+			) : null}
+
+			{syncMessage ? (
+				<Alert>
+					<CheckCircle2 className="h-4 w-4" />
+					<AlertDescription>{syncMessage}</AlertDescription>
+				</Alert>
+			) : null}
+
+			{isSyncing && syncProgress ? (
+				<Alert>
+					<CloudDownload className="h-4 w-4 animate-pulse" />
+					<AlertDescription>
+						Syncing page {syncProgress.page}
+						{syncProgress.pageCount ? ` / ${syncProgress.pageCount}` : ""} — scanned{" "}
+						{syncProgress.scanned}, imported {syncProgress.imported}
+					</AlertDescription>
+				</Alert>
+			) : null}
+
+			<NdwAlertsStats
+				total={stats.total}
+				filtered={stats.filtered}
+				label="poe_alerts"
+				live={stats.live}
+			/>
+
+			<NdwFilterBar
+				fields={POE_NDW_FILTER_FIELDS}
+				search={filters.search}
+				searchPlaceholder="Search name, passport, port, flight…"
+				filters={filters.ndwFilters}
+				operators={filters.operators}
+				onSearchChange={setSearch}
+				onFiltersChange={setNdwFilters}
+				onOperatorsChange={setOperators}
+				onApply={() => void applyFilters()}
+				onClear={() => void clearFilters()}
+				isLoading={loading}
+			/>
+
+			<PoeAlertsTable
+				alerts={alerts}
+				totalCount={pagination.total}
+				page={pagination.page}
+				pageSize={pagination.limit}
+				totalPages={pagination.totalPages}
+				isLoading={loading}
+				onPageChange={setPage}
+				onPageSizeChange={setPageSize}
+				onView={(a) => {
+					setSelected(a);
+					setDetailsOpen(true);
+				}}
+			/>
+
+			<PoeAlertDetailsDialog
+				alert={selected}
+				open={detailsOpen}
+				onOpenChange={setDetailsOpen}
+			/>
+		</div>
+	);
+}
