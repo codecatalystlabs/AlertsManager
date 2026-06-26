@@ -47,9 +47,24 @@ export interface User {
 /** Canonical role names (compared case-insensitively against User.level). */
 export const ROLE_ADMIN = "admin"
 export const ROLE_DISTRICT_BIOSTAT = "district biostat"
+/**
+ * District: district-scoped user BELOW the District Biostat. May verify and add
+ * alerts but may NOT delete or forward them.
+ */
+export const ROLE_DISTRICT = "district"
 export const ROLE_REOC = "reoc"
 /** Emergency Operations Centre: admin-like rights but NO user management. */
 export const ROLE_EOC = "eoc"
+
+/** Lower-cased, trimmed role of the user (User.level), or "". */
+function normalizedLevel(user: User | null): string {
+    return (user?.level ?? "").trim().toLowerCase()
+}
+
+/** True for the plain District role (the one below District Biostat). */
+export function isDistrictRole(user: User | null): boolean {
+    return normalizedLevel(user) === ROLE_DISTRICT
+}
 
 /** True if the user's role is the unscoped Admin role. */
 export function isAdminRole(user: User | null): boolean {
@@ -75,7 +90,26 @@ export function canManageUsers(user: User | null): boolean {
 
 /** True if the user may only ever see data for their own assigned district. */
 export function isDistrictScopedRole(user: User | null): boolean {
-    return (user?.level ?? "").trim().toLowerCase() === ROLE_DISTRICT_BIOSTAT
+    const level = normalizedLevel(user)
+    return level === ROLE_DISTRICT_BIOSTAT || level === ROLE_DISTRICT
+}
+
+/**
+ * True if the user may delete alerts. Only the unscoped admin-like roles
+ * qualify; the District role explicitly may not (mirrors the backend, which
+ * gates DELETE /alerts/:id to admin/EOC).
+ */
+export function canDeleteAlerts(user: User | null): boolean {
+    return isAdminRole(user) || isEOCRole(user)
+}
+
+/**
+ * True if the user may forward alerts/6767 events to a district. Everyone except
+ * the plain District role (mirrors the backend ForbidRole(RoleDistrict) on the
+ * forward endpoints).
+ */
+export function canForwardAlerts(user: User | null): boolean {
+    return !isDistrictRole(user)
 }
 
 /** True if the user may only ever see data for their own assigned region (REOC). */

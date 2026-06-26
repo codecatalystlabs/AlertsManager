@@ -164,15 +164,14 @@ export async function getEidsr6767Stats(
 		/* use events totals */
 	}
 
+	// Fallback only (the backend /stats endpoint is preferred): linked is counted
+	// from the loaded page, so it's approximate when the dataset spans many pages.
 	const total = eventsTotal ?? messages.length;
 	const linked = messages.filter((m) => isEidsr6767LinkedToAlert(m)).length;
 	return {
-		total,
 		totalMessages: total,
 		linked,
-		verified: linked,
 		unlinked: Math.max(0, total - linked),
-		unverified: Math.max(0, total - linked),
 	};
 }
 

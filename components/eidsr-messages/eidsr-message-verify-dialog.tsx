@@ -320,8 +320,8 @@ export function EidsrMessageVerifyDialog({
 				)}
 
 				{linkedAlertId != null && (
-					<Alert className="border-green-200 bg-green-50">
-						<AlertDescription className="text-green-800">
+					<Alert className="surface-success">
+						<AlertDescription className="text-success">
 							Verified — linked alert{" "}
 							<Link href="/dashboard/alerts" className="underline font-medium">
 								ALT{String(linkedAlertId).padStart(3, "0")}

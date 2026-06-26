@@ -1,6 +1,6 @@
 import React, { memo, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageSquare, CheckCircle2, Clock, Cloud } from "lucide-react";
+import { MessageSquare, CheckCircle2, Clock, Cloud, Link2, Unlink } from "lucide-react";
 import {
 	EIDSR_MESSAGE_STAT_LABELS,
 } from "@/constants/eidsr-messages";
@@ -17,6 +17,8 @@ interface EidsrMessagesStatsProps {
 const STAT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
 	total: MessageSquare,
 	totalMessages: MessageSquare,
+	linked: Link2,
+	unlinked: Unlink,
 	verified: CheckCircle2,
 	verifiedMessages: CheckCircle2,
 	unverified: Clock,
@@ -27,25 +29,28 @@ const STAT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
 };
 
 const STAT_COLORS: Record<string, { border: string; text: string; icon: string }> = {
-	total: { border: "border-l-blue-500", text: "text-blue-700", icon: "text-blue-500" },
-	totalMessages: { border: "border-l-blue-500", text: "text-blue-700", icon: "text-blue-500" },
-	verified: { border: "border-l-green-500", text: "text-green-700", icon: "text-green-500" },
-	verifiedMessages: { border: "border-l-green-500", text: "text-green-700", icon: "text-green-500" },
-	unverified: { border: "border-l-amber-500", text: "text-amber-700", icon: "text-amber-500" },
-	unverifiedMessages: { border: "border-l-amber-500", text: "text-amber-700", icon: "text-amber-500" },
-	synced: { border: "border-l-purple-500", text: "text-purple-700", icon: "text-purple-500" },
-	syncedMessages: { border: "border-l-purple-500", text: "text-purple-700", icon: "text-purple-500" },
-	pending: { border: "border-l-amber-500", text: "text-amber-700", icon: "text-amber-500" },
+	total: { border: "border-l-primary", text: "text-primary", icon: "text-primary" },
+	totalMessages: { border: "border-l-primary", text: "text-primary", icon: "text-primary" },
+	linked: { border: "border-l-success", text: "text-success", icon: "text-success" },
+	unlinked: { border: "border-l-warning", text: "text-warning", icon: "text-warning" },
+	verified: { border: "border-l-success", text: "text-success", icon: "text-success" },
+	verifiedMessages: { border: "border-l-success", text: "text-success", icon: "text-success" },
+	unverified: { border: "border-l-warning", text: "text-warning", icon: "text-warning" },
+	unverifiedMessages: { border: "border-l-warning", text: "text-warning", icon: "text-warning" },
+	synced: { border: "border-l-muted-foreground", text: "text-muted-foreground", icon: "text-muted-foreground" },
+	syncedMessages: { border: "border-l-muted-foreground", text: "text-muted-foreground", icon: "text-muted-foreground" },
+	pending: { border: "border-l-warning", text: "text-warning", icon: "text-warning" },
 };
 
 function statFilterForKey(
 	key: string
 ): "all" | "linked" | "unlinked" | null {
 	const k = key.toLowerCase();
-	if (k.includes("unverified") || k === "pending" || k.includes("unlinked")) {
+	// Check "unlinked"/"unverified" first — they contain "linked"/"verified".
+	if (k.includes("unlinked") || k.includes("unverified") || k === "pending") {
 		return "unlinked";
 	}
-	if (k.includes("verified") && !k.includes("unverified")) return "linked";
+	if (k.includes("linked") || k.includes("verified")) return "linked";
 	return null;
 }
 

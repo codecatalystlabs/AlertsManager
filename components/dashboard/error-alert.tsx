@@ -11,9 +11,9 @@ interface ErrorAlertProps {
 
 export const ErrorAlert = memo<ErrorAlertProps>(({ error, onRetry, retrying = false }) => {
   return (
-    <Alert className="border-red-200 bg-red-50">
-      <AlertCircle className="h-4 w-4 text-red-600" />
-      <AlertDescription className="text-red-700 flex items-center justify-between">
+    <Alert className="surface-danger">
+      <AlertCircle className="h-4 w-4 text-destructive" />
+      <AlertDescription className="text-destructive flex items-center justify-between">
         <span>{error}</span>
         {onRetry && (
           <Button
@@ -21,7 +21,7 @@ export const ErrorAlert = memo<ErrorAlertProps>(({ error, onRetry, retrying = fa
             size="sm"
             onClick={onRetry}
             disabled={retrying}
-            className="ml-4 border-red-300 text-red-700 hover:bg-red-100"
+            className="ml-4 border-destructive/30 text-destructive hover:bg-destructive/10"
           >
             <RefreshCw className={`h-3 w-3 mr-1 ${retrying ? 'animate-spin' : ''}`} />
             {retrying ? 'Retrying...' : 'Retry'}

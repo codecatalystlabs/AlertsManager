@@ -13,6 +13,7 @@ export interface ExportableAlert {
 	personReporting: string;
 	contactNumber: string;
 	sourceOfAlert: string;
+	region?: string;
 	alertCaseDistrict?: string;
 	subCounty?: string;
 	alertCaseName?: string;
@@ -45,6 +46,7 @@ const EXPORT_COLUMNS: ExportColumn[] = [
 	{ header: "Reporter", getValue: (a) => a.personReporting ?? "" },
 	{ header: "Contact Number", getValue: (a) => a.contactNumber ?? "" },
 	{ header: "Source", getValue: (a) => a.sourceOfAlert ?? "" },
+	{ header: "Region", getValue: (a) => a.region ?? "" },
 	{ header: "District", getValue: (a) => a.alertCaseDistrict ?? "" },
 	{ header: "Case Name", getValue: (a) => a.alertCaseName ?? "" },
 	{ header: "Age", getValue: (a) => a.alertCaseAge ?? "" },
@@ -67,9 +69,11 @@ const EXPORT_COLUMNS: ExportColumn[] = [
 ];
 
 const EXCEL_COLUMNS: ExportColumn[] = [
-	...EXPORT_COLUMNS.slice(0, 8),
+	// Columns 0-8 run Alert ID … Source, Region, District; Subcounty slots in
+	// right after District, then the remaining columns (Case Name onward).
+	...EXPORT_COLUMNS.slice(0, 9),
 	{ header: "Subcounty", getValue: (a) => a.subCounty ?? "" },
-	...EXPORT_COLUMNS.slice(8),
+	...EXPORT_COLUMNS.slice(9),
 ];
 
 export interface ExportRange {

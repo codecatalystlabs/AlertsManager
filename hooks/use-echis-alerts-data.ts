@@ -43,6 +43,7 @@ export function useEchisAlertsData() {
 		swrKey,
 		async () => {
 			const hasNdwFilters = countActiveNdwFilters(applied.ndwFilters) > 0;
+			const hasLocalFilters = Object.keys(applied.local).length > 0;
 			const [list, stats] = await Promise.all([
 				listEchisAlerts({
 					page,
@@ -50,6 +51,7 @@ export function useEchisAlertsData() {
 					search: applied.search || undefined,
 					live: hasNdwFilters || undefined,
 					ndwFilters: hasNdwFilters ? applied.ndwFilters : undefined,
+					localFilters: hasLocalFilters ? applied.local : undefined,
 				}),
 				getEchisStats().catch(() => ({ totalAlerts: 0, note: undefined })),
 			]);
@@ -125,6 +127,18 @@ export function useEchisAlertsData() {
 			setFilters((f) => ({ ...f, ndwFilters })),
 		setOperators: (operators: Record<string, string>) =>
 			setFilters((f) => ({ ...f, operators })),
+		// Inline local filters apply immediately by updating `applied`, which
+		// changes the SWR key and refetches against the local DB list endpoint.
+		applyLocalFilters: (local: Record<string, string>) => {
+			setFilters((f) => ({ ...f, local }));
+			setApplied((a) => ({ ...a, local }));
+			setPage(1);
+		},
+		clearLocalFilters: () => {
+			setFilters((f) => ({ ...f, local: {} }));
+			setApplied((a) => ({ ...a, local: {} }));
+			setPage(1);
+		},
 		clearFilters: () => {
 			setFilters(ECHIS_INITIAL_NDW_FILTERS);
 			setApplied(ECHIS_INITIAL_NDW_FILTERS);

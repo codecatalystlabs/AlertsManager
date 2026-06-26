@@ -21,6 +21,8 @@ export const EIDSR_MESSAGES_API_PATHS = {
 export const EIDSR_MESSAGE_STAT_LABELS: Record<string, string> = {
 	total: "Total messages",
 	totalMessages: "Total messages",
+	linked: "Linked",
+	unlinked: "Not linked",
 	verified: "Verified",
 	verifiedMessages: "Verified messages",
 	unverified: "Unverified",

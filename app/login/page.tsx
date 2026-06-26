@@ -82,7 +82,7 @@ export default function LoginPage() {
 			</div>
 
 			{/* Login Form */}
-			<Card className="w-full max-w-md mx-4 z-10 shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
+			<Card className="w-full max-w-sm mx-4 z-10 shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
 				<CardHeader className="flex flex-row items-center">
 					<div className="mx-auto rounded-full flex items-center justify-center">
 						<Image
@@ -110,18 +110,18 @@ export default function LoginPage() {
 						className="space-y-4"
 					>
 						{error && (
-							<Alert className="border-red-200 bg-red-50">
-								<AlertCircle className="h-4 w-4 text-red-600" />
-								<AlertDescription className="text-red-700">
+							<Alert className="surface-danger">
+								<AlertCircle className="h-4 w-4 text-destructive" />
+								<AlertDescription className="text-destructive">
 									{error}
 								</AlertDescription>
 							</Alert>
 						)}
 
 						{success && (
-							<Alert className="border-green-200 bg-green-50">
-								<CheckCircle2 className="h-4 w-4 text-green-600" />
-								<AlertDescription className="text-green-700">
+							<Alert className="surface-success">
+								<CheckCircle2 className="h-4 w-4 text-success" />
+								<AlertDescription className="text-success">
 									{success}
 								</AlertDescription>
 							</Alert>
@@ -144,7 +144,7 @@ export default function LoginPage() {
 								}
 								required
 								disabled={isLoading}
-								className="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow"
+								className="h-10 border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow"
 							/>
 						</div>
 						<div className="space-y-2">
@@ -164,7 +164,7 @@ export default function LoginPage() {
 								}
 								required
 								disabled={isLoading}
-								className="border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow"
+								className="h-10 border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow"
 							/>
 						</div>
 						<Button

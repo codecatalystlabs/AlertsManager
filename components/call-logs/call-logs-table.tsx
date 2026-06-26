@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from "react";
-import { type SortingState } from "@tanstack/react-table";
+import { type SortingState, type ColumnFiltersState } from "@tanstack/react-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { AlertLog, type CallLogsSort } from "@/hooks/use-call-logs-data";
@@ -10,6 +10,8 @@ import {
 	type CallLogsTableCallbacks,
 } from "@/constants/call-logs";
 import { verifiedTableRowClass } from "@/lib/verified-row-style";
+import { canDeleteAlerts } from "@/lib/auth";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 // Table column id <-> API sort_by key. Only the columns the server can sort on
 // are listed; clicking any other header's sort toggle is ignored.
@@ -39,6 +41,8 @@ interface CallLogsTableProps {
 	onEditAlert: (alert: AlertLog) => void;
 	onVerifyAlert: (alert: AlertLog) => void;
 	onDeleteAlert: (alertId: number) => Promise<void>;
+	/** Receives per-column header filter changes so they query the whole dataset. */
+	onColumnFiltersChange?: (filters: ColumnFiltersState) => void;
 }
 
 export const CallLogsTable = memo<CallLogsTableProps>(
@@ -57,15 +61,18 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 		onEditAlert,
 		onVerifyAlert,
 		onDeleteAlert,
+		onColumnFiltersChange,
 	}) => {
+		const canDelete = canDeleteAlerts(useCurrentUser());
 		const callbacks: CallLogsTableCallbacks = useMemo(
 			() => ({
 				onViewDetails,
 				onEditAlert,
 				onVerifyAlert,
 				onDeleteAlert,
+				canDelete,
 			}),
-			[onViewDetails, onEditAlert, onVerifyAlert, onDeleteAlert]
+			[onViewDetails, onEditAlert, onVerifyAlert, onDeleteAlert, canDelete]
 		);
 
 		const columns = useMemo(
@@ -109,11 +116,13 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 						searchPlaceholder="Search reporters..."
 						pageSize={pageSize}
 						manualPagination
+						manualFiltering
 						pageCount={totalPages}
 						totalRowCount={totalCount}
 						pageIndex={page - 1}
 						onPageChange={(pageIndex) => onPageChange(pageIndex + 1)}
 						onPageSizeChange={onPageSizeChange}
+						onColumnFiltersChange={onColumnFiltersChange}
 						manualSorting
 						sorting={sortingState}
 						onSortingChange={handleSortingChange}

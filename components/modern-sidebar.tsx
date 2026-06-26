@@ -10,17 +10,17 @@ import { AuthService, canManageUsers } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import {
 	LayoutDashboard,
-	AlertTriangle,
-	FileText,
-	Users,
+	BellPlus,
+	Siren,
+	UsersRound,
 	X,
-	Phone,
-	PhoneCall,
-	User,
-	BarChart3,
+	PhoneIncoming,
+	Headset,
+	CircleUser,
+	FileBarChart,
 	Map as MapIcon,
-	HeartPulse,
-	Plane,
+	Stethoscope,
+	PlaneLanding,
 } from "lucide-react";
 import { MohLogo } from "@/components/moh-logo";
 
@@ -48,7 +48,7 @@ const navigationGroups: NavigationGroup[] = [
 		label: "Main",
 		items: [
 			{ name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-			{ name: "Add Alert", href: "/add-alert", icon: AlertTriangle },
+			{ name: "Add Alert", href: "/add-alert", icon: BellPlus },
 		],
 	},
 	{
@@ -57,26 +57,26 @@ const navigationGroups: NavigationGroup[] = [
 			{
 				name: "View Alerts",
 				href: "/dashboard/alerts",
-				icon: FileText,
+				icon: Siren,
 				dynamicBadge: "total",
 			},
-			{ name: "Call Logs", href: "/dashboard/call-logs", icon: Phone, badge: "3" },
-			{ name: "6767 Alerts", href: "/dashboard/eidsr-alerts", icon: PhoneCall },
-			{ name: "eCHIS Alerts", href: "/dashboard/echis-alerts", icon: HeartPulse },
-			{ name: "POE Alerts", href: "/dashboard/poe-alerts", icon: Plane },
+			{ name: "Call Logs", href: "/dashboard/call-logs", icon: PhoneIncoming, badge: "3" },
+			{ name: "6767 Alerts", href: "/dashboard/eidsr-alerts", icon: Headset },
+			{ name: "eCHIS Alerts", href: "/dashboard/echis-alerts", icon: Stethoscope },
+			{ name: "POE Alerts", href: "/dashboard/poe-alerts", icon: PlaneLanding },
 			{ name: "Map", href: "/dashboard/map", icon: MapIcon },
 			{
 				name: "Summaries / Reports",
 				href: "/dashboard/reports",
-				icon: BarChart3,
+				icon: FileBarChart,
 			},
 		],
 	},
 	{
 		label: "Administration",
 		items: [
-			{ name: "Manage Users", href: "/dashboard/users", icon: Users, adminOnly: true },
-			{ name: "Profile", href: "/dashboard/profile", icon: User },
+			{ name: "Manage Users", href: "/dashboard/users", icon: UsersRound, adminOnly: true },
+			{ name: "Profile", href: "/dashboard/profile", icon: CircleUser },
 		],
 	},
 ];

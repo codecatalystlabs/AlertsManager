@@ -1,5 +1,7 @@
 import React, { memo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { HeartPulse, HeartOff, HelpCircle, ClipboardList } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { LAYOUT } from "@/constants/layout";
 
 interface AlertsStatsProps {
@@ -14,32 +16,31 @@ interface AlertsStatsProps {
 interface StatCardProps {
 	title: string;
 	value: number;
-	icon: string;
-	gradient: string;
-	iconBg: string;
+	icon: React.ComponentType<{ className?: string }>;
+	borderColor: string;
 	textColor: string;
+	iconColor: string;
 }
 
+// Styled to match the Call Logs stat cards: plain white card with a colour-coded
+// left border, a lucide icon, and a colour-coded value (no gradient fills).
 const StatCard = memo<StatCardProps>(
-	({ title, value, icon, gradient, iconBg, textColor }) => (
-		<Card className={`bg-gradient-to-br ${gradient} border-opacity-50 shadow-sm min-w-0`}>
+	({ title, value, icon: Icon, borderColor, textColor, iconColor }) => (
+		<Card
+			className={cn(
+				"min-w-0 border-l-4",
+				borderColor,
+				"transition-shadow hover:shadow-md"
+			)}
+		>
 			<CardContent className="p-2">
 				<div className="flex items-center gap-2 min-w-0">
-					<div
-						className={`h-7 w-7 ${iconBg} rounded-full flex items-center justify-center shrink-0`}
-					>
-						<span className="text-white font-bold text-xs">{icon}</span>
-					</div>
+					<Icon className={cn("h-5 w-5 shrink-0", iconColor)} />
 					<div className="min-w-0">
-						<p
-							className={`${textColor.replace(
-								"700",
-								"600"
-							)} text-[11px] font-medium truncate leading-tight`}
-						>
+						<p className="text-[11px] font-medium text-gray-600 truncate leading-tight">
 							{title}
 						</p>
-						<p className={`text-lg font-bold leading-tight ${textColor}`}>
+						<p className={cn("text-lg font-bold leading-tight", textColor)}>
 							{value.toLocaleString()}
 						</p>
 					</div>
@@ -56,34 +57,34 @@ export const AlertsStats = memo<AlertsStatsProps>(({ stats }) => {
 		{
 			title: "Alive Cases",
 			value: stats.alive,
-			icon: "A",
-			gradient: "from-green-50 to-green-100",
-			iconBg: "bg-green-500",
-			textColor: "text-green-700",
+			icon: HeartPulse,
+			borderColor: "border-l-success",
+			textColor: "text-success",
+			iconColor: "text-success",
 		},
 		{
 			title: "Dead Cases",
 			value: stats.dead,
-			icon: "D",
-			gradient: "from-red-50 to-red-100",
-			iconBg: "bg-red-500",
-			textColor: "text-red-700",
+			icon: HeartOff,
+			borderColor: "border-l-destructive",
+			textColor: "text-destructive",
+			iconColor: "text-destructive",
 		},
 		{
 			title: "Unknown Cases",
 			value: stats.unknown,
-			icon: "U",
-			gradient: "from-yellow-50 to-yellow-100",
-			iconBg: "bg-yellow-500",
-			textColor: "text-yellow-700",
+			icon: HelpCircle,
+			borderColor: "border-l-warning",
+			textColor: "text-warning",
+			iconColor: "text-warning",
 		},
 		{
 			title: "Total Alerts",
 			value: stats.total,
-			icon: "T",
-			gradient: "from-blue-50 to-blue-100",
-			iconBg: "bg-blue-500",
-			textColor: "text-blue-700",
+			icon: ClipboardList,
+			borderColor: "border-l-primary",
+			textColor: "text-primary",
+			iconColor: "text-primary",
 		},
 	];
 

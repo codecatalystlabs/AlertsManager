@@ -222,7 +222,7 @@ export default function DashboardAddAlertPage() {
 	};
 
 	return (
-		<div className="max-w-6xl mx-auto space-y-6">
+		<div className="max-w-6xl mx-auto space-y-4">
 			{/* Header */}
 			<div className="flex items-center justify-between">
 				<div className="flex items-center space-x-4">
@@ -236,7 +236,7 @@ export default function DashboardAddAlertPage() {
 						</Button>
 					</Link>
 					<div>
-						<h1 className="text-2xl font-bold text-uganda-black">
+						<h1 className="text-xl font-bold text-uganda-black">
 							Create New Alert
 						</h1>
 						<p className="text-gray-600">
@@ -251,22 +251,22 @@ export default function DashboardAddAlertPage() {
 				<Alert
 					className={
 						submitStatus.type === "success"
-							? "border-green-200 bg-green-50"
-							: "border-red-200 bg-red-50"
+							? "surface-success"
+							: "surface-danger"
 					}
 				>
 					<AlertTriangleIcon
 						className={`h-4 w-4 ${
 							submitStatus.type === "success"
-								? "text-green-600"
-								: "text-red-600"
+								? "text-success"
+								: "text-destructive"
 						}`}
 					/>
 					<AlertDescription
 						className={
 							submitStatus.type === "success"
-								? "text-green-700"
-								: "text-red-700"
+								? "text-success"
+								: "text-destructive"
 						}
 					>
 						{submitStatus.message}
@@ -285,7 +285,7 @@ export default function DashboardAddAlertPage() {
 				<CardContent className="p-6">
 					<form
 						onSubmit={handleSubmit}
-						className="space-y-6"
+						className="space-y-4"
 					>
 						{/* Basic Information */}
 						<div className="space-y-4">

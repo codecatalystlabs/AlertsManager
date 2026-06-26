@@ -159,6 +159,8 @@ export interface CallLogsTableCallbacks {
 	onEditAlert: (alert: AlertLog) => void;
 	onVerifyAlert: (alert: AlertLog) => void;
 	onDeleteAlert: (alertId: number) => Promise<void>;
+	/** Whether the current user may delete alerts (admin/EOC only). */
+	canDelete?: boolean;
 }
 
 export const createCallLogsTableColumns = (
@@ -476,15 +478,19 @@ export const createCallLogsTableColumns = (
 								Verify alert
 							</DropdownMenuItem>
 						)}
-						<DropdownMenuSeparator />
-						<DropdownMenuItem
-							className="text-red-600 focus:text-red-600"
-							onClick={() =>
-								callbacks.onDeleteAlert(alertItem.id)
-							}
-						>
-							Delete alert
-						</DropdownMenuItem>
+						{callbacks.canDelete && (
+							<>
+								<DropdownMenuSeparator />
+								<DropdownMenuItem
+									className="text-red-600 focus:text-red-600"
+									onClick={() =>
+										callbacks.onDeleteAlert(alertItem.id)
+									}
+								>
+									Delete alert
+								</DropdownMenuItem>
+							</>
+						)}
 						<DropdownMenuSeparator />
 						<DropdownMenuItem>Export to PDF</DropdownMenuItem>
 					</DropdownMenuContent>

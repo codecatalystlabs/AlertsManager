@@ -94,6 +94,13 @@ export interface NdwListParams {
 	search?: string;
 	live?: boolean;
 	ndwFilters?: Record<string, string>;
+	/**
+	 * Inline filters applied to the locally synced rows. Keys are backend query
+	 * params (e.g. district, county, verificationStatus, from_date, to_date for
+	 * eCHIS; port, nation, risk, from_date, to_date for POE). These deliberately
+	 * avoid the NDW column names so the request is NOT switched to the live proxy.
+	 */
+	localFilters?: Record<string, string>;
 }
 
 async function ndwRequest<T>(path: string, init?: RequestInit): Promise<T> {
@@ -129,6 +136,11 @@ function buildQuery(params?: NdwListParams): string {
 	if (params?.live) sp.set("live", "true");
 	if (params?.ndwFilters) {
 		for (const [k, v] of Object.entries(params.ndwFilters)) {
+			if (v.trim()) sp.set(k, v);
+		}
+	}
+	if (params?.localFilters) {
+		for (const [k, v] of Object.entries(params.localFilters)) {
 			if (v.trim()) sp.set(k, v);
 		}
 	}

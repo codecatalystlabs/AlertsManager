@@ -24,6 +24,8 @@ import { EIDSR_STATUS_FILTER_OPTIONS } from "@/constants/eidsr-alerts";
 import { LAYOUT } from "@/constants/layout";
 import { verifiedTableRowClass } from "@/lib/verified-row-style";
 import { isEidsr6767Verified } from "@/lib/eidsr-verified-state";
+import { canForwardAlerts } from "@/lib/auth";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { AlertVerifyChip } from "@/components/eidsr-alerts/alert-verify-chip";
 import {
 	Eye,
@@ -57,6 +59,7 @@ function createColumns(handlers: {
 	onVerify: (m: EidsrMessage) => void;
 	onForward: (m: EidsrMessage) => void;
 	verifyInProgressId: number | null;
+	canForward: boolean;
 }): ColumnDef<EidsrMessage>[] {
 	return [
 		{
@@ -165,7 +168,7 @@ function createColumns(handlers: {
 				const ref = resolveInAlertsRef(row.original);
 				return ref ? (
 					<div className="flex flex-col items-start gap-1">
-						<Badge className="bg-green-600 hover:bg-green-600">
+						<Badge className="bg-success hover:bg-success">
 							ALT{String(ref.id).padStart(3, "0")}
 						</Badge>
 						{/* Surface the alert's live verification state too. */}
@@ -253,14 +256,18 @@ function createColumns(handlers: {
 									<Pencil className="h-4 w-4" />
 									Edit
 								</DropdownMenuItem>
-								<DropdownMenuSeparator />
-								<DropdownMenuItem
-									className="flex items-center gap-2"
-									onClick={() => handlers.onForward(m)}
-								>
-									<Send className="h-4 w-4" />
-									Forward to district
-								</DropdownMenuItem>
+								{handlers.canForward && (
+									<>
+										<DropdownMenuSeparator />
+										<DropdownMenuItem
+											className="flex items-center gap-2"
+											onClick={() => handlers.onForward(m)}
+										>
+											<Send className="h-4 w-4" />
+											Forward to district
+										</DropdownMenuItem>
+									</>
+								)}
 								<DropdownMenuSeparator />
 								<DropdownMenuItem
 									className="flex items-center gap-2 text-uganda-red focus:text-uganda-red"
@@ -296,6 +303,7 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 		onVerify,
 		onForward,
 	}) => {
+		const canForward = canForwardAlerts(useCurrentUser());
 		const columns = useMemo(
 			() =>
 				createColumns({
@@ -304,8 +312,9 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 					onVerify,
 					onForward,
 					verifyInProgressId,
+					canForward,
 				}),
-			[onView, onEdit, onVerify, onForward, verifyInProgressId]
+			[onView, onEdit, onVerify, onForward, verifyInProgressId, canForward]
 		);
 		const handleColumnFiltersChange = useCallback(
 			(filters: ColumnFiltersState) => {

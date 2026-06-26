@@ -75,7 +75,7 @@ export function UserMenu() {
 					<span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-uganda-yellow to-uganda-red text-xs font-semibold text-white">
 						{initials}
 						<span
-							className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-green-500"
+							className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-success"
 							aria-label="Online"
 						/>
 					</span>
@@ -101,7 +101,7 @@ export function UserMenu() {
 						handleLogout();
 					}}
 					disabled={isLoggingOut}
-					className="cursor-pointer text-red-600 focus:bg-red-50 focus:text-red-700"
+					className="cursor-pointer text-destructive focus:bg-destructive/10 focus:text-destructive"
 				>
 					<LogOut className="mr-2 h-4 w-4" />
 					{isLoggingOut ? "Signing Out..." : "Sign Out"}

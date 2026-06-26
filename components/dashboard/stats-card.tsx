@@ -17,15 +17,15 @@ interface StatsCardProps {
 // Soft tinted chip per config colour. Must be LITERAL class strings — Tailwind
 // only generates CSS for class names it can see in source (no runtime `.replace`).
 const CHIP_STYLES: Record<string, { bg: string; text: string }> = {
-  'bg-green-500': { bg: 'bg-green-100', text: 'text-green-600' },
-  'bg-red-500': { bg: 'bg-red-100', text: 'text-red-600' },
-  'bg-blue-500': { bg: 'bg-blue-100', text: 'text-blue-600' },
-  'bg-purple-500': { bg: 'bg-purple-100', text: 'text-purple-600' },
-  'bg-indigo-500': { bg: 'bg-indigo-100', text: 'text-indigo-600' },
-  'bg-teal-500': { bg: 'bg-teal-100', text: 'text-teal-600' },
+  'bg-green-500': { bg: 'bg-success/15', text: 'text-success' },
+  'bg-red-500': { bg: 'bg-destructive/15', text: 'text-destructive' },
+  'bg-blue-500': { bg: 'bg-primary/15', text: 'text-primary' },
+  'bg-purple-500': { bg: 'bg-primary/15', text: 'text-primary' },
+  'bg-indigo-500': { bg: 'bg-primary/15', text: 'text-primary' },
+  'bg-teal-500': { bg: 'bg-success/15', text: 'text-success' },
 };
 
-const DEFAULT_CHIP = { bg: 'bg-gray-100', text: 'text-gray-600' };
+const DEFAULT_CHIP = { bg: 'bg-muted', text: 'text-muted-foreground' };
 
 export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, className, isLoading }) => {
   const { title, key, icon: Icon, iconBg } = config;

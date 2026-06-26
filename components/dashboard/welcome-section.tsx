@@ -16,7 +16,7 @@ export const WelcomeSection = memo<WelcomeSectionProps>(({
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
       <div className="flex items-start gap-3">
-        <div className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-uganda-red to-uganda-yellow text-white shadow-sm sm:flex">
+        <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-uganda-red to-uganda-yellow text-white shadow-sm sm:flex">
           <Activity className="h-5 w-5" />
         </div>
         <div className="min-w-0">
@@ -28,7 +28,7 @@ export const WelcomeSection = memo<WelcomeSectionProps>(({
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
               System Active
             </span>
             <span className="flex items-center gap-1.5">

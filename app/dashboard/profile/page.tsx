@@ -82,13 +82,13 @@ function getInitials(user: User): string {
 function getRoleBadgeClass(level: string): string {
 	switch (level.toLowerCase()) {
 		case "admin":
-			return "border-red-200 bg-red-50 text-red-700";
+			return "border-destructive/30 bg-destructive/15 text-destructive";
 		case "district":
-			return "border-blue-200 bg-blue-50 text-blue-700";
+			return "border-border bg-muted text-foreground";
 		case "reoc":
-			return "border-emerald-200 bg-emerald-50 text-emerald-700";
+			return "border-success/30 bg-success/15 text-success";
 		case "eoc":
-			return "border-purple-200 bg-purple-50 text-purple-700";
+			return "border-border bg-muted text-foreground";
 		default:
 			return "border-slate-200 bg-slate-50 text-slate-700";
 	}
@@ -266,7 +266,7 @@ export default function ProfilePage() {
 
 	if (loading) {
 		return (
-			<div className="mx-auto w-full max-w-6xl p-4 sm:p-6">
+			<div className="mx-auto w-full max-w-6xl p-4">
 				<div className="grid gap-4 lg:grid-cols-[22rem_1fr]">
 					<div className="h-64 animate-pulse rounded-md border bg-slate-100" />
 					<div className="h-64 animate-pulse rounded-md border bg-slate-100" />
@@ -277,15 +277,15 @@ export default function ProfilePage() {
 
 	if (!user) {
 		return (
-			<div className="mx-auto w-full max-w-3xl p-4 sm:p-6">
-				<Card className="border-red-200 bg-red-50">
+			<div className="mx-auto w-full max-w-3xl p-4">
+				<Card className="surface-danger">
 					<CardContent className="flex items-start gap-3 p-4">
-						<AlertCircle className="mt-0.5 h-5 w-5 text-red-600" />
+						<AlertCircle className="mt-0.5 h-5 w-5 text-destructive" />
 						<div>
-							<h1 className="font-semibold text-red-950">
+							<h1 className="font-semibold text-destructive">
 								Profile unavailable
 							</h1>
-							<p className="text-sm text-red-800">
+							<p className="text-sm text-destructive">
 								{error || "No user data is available for this session."}
 							</p>
 						</div>
@@ -299,7 +299,7 @@ export default function ProfilePage() {
 	const level = user.level || "User";
 
 	return (
-		<div className="mx-auto w-full max-w-6xl space-y-4 p-4 sm:p-6">
+		<div className="mx-auto w-full max-w-6xl space-y-4 p-4">
 			<section className="overflow-hidden rounded-md border bg-white shadow-sm">
 				<div className="border-b bg-slate-950 px-4 py-4 text-white sm:px-5">
 					<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -312,7 +312,7 @@ export default function ProfilePage() {
 							</Avatar>
 							<div className="min-w-0">
 								<div className="flex flex-wrap items-center gap-2">
-									<h1 className="truncate text-2xl font-semibold tracking-tight">
+									<h1 className="truncate text-xl font-semibold tracking-tight">
 										{fullName}
 									</h1>
 									<Badge
@@ -399,8 +399,8 @@ export default function ProfilePage() {
 					className={cn(
 						"flex items-start gap-2 rounded-md border px-3 py-2 text-sm",
 						error
-							? "border-red-200 bg-red-50 text-red-800"
-							: "border-emerald-200 bg-emerald-50 text-emerald-800"
+							? "surface-danger text-destructive"
+							: "surface-success text-success"
 					)}
 				>
 					{error ? (
@@ -515,7 +515,7 @@ export default function ProfilePage() {
 					<Card className="shadow-sm">
 						<CardContent className="p-4">
 							<div className="mb-3 flex items-center gap-2">
-								<ShieldCheck className="h-4 w-4 text-emerald-600" />
+								<ShieldCheck className="h-4 w-4 text-success" />
 								<h2 className="text-sm font-semibold text-slate-950">
 									Access Summary
 								</h2>
@@ -572,7 +572,7 @@ export default function ProfilePage() {
 									</p>
 									<div className="mt-2 h-2 rounded-full bg-slate-100">
 										<div
-											className="h-2 rounded-full bg-emerald-500"
+											className="h-2 rounded-full bg-success"
 											style={{ width: `${completeness}%` }}
 										/>
 									</div>

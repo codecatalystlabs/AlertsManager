@@ -2,8 +2,8 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ErrorAlert } from "@/components/dashboard";
+import { SyncProgressPanel } from "@/components/sync";
 import {
 	EidsrAlertsFilters,
 	EidsrAlertsHeader,
@@ -23,7 +23,6 @@ import { getEidsr6767ById } from "@/lib/fetch-eidsr-6767";
 import { resolveEidsrVerifyId } from "@/lib/eidsr-message-normalize";
 import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
 import { LAYOUT } from "@/constants/layout";
-import { CheckCircle2, CloudDownload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const AlertVerificationDialog = dynamic(
@@ -187,39 +186,16 @@ export default function EidsrAlertsPage() {
 				onFilterChange={setVerificationFilter}
 			/>
 
-			{isSyncing && (
-				<Alert className="border-blue-200 bg-blue-50">
-					<CloudDownload className="h-4 w-4 text-blue-600 animate-pulse" />
-					<AlertDescription className="text-blue-700">
-						{!syncProgress || syncProgress.phase === "starting"
-							? "Starting sync…"
-							: `Syncing ${
-									syncProgress.incremental
-										? "(incremental)"
-										: "(full re-scan)"
-							  } — ${
-									syncProgress.pageCount > 0
-										? `page ${syncProgress.page}/${syncProgress.pageCount}, `
-										: ""
-							  }scanned ${syncProgress.scanned.toLocaleString()}${
-									syncProgress.remoteTotal
-										? ` of ${syncProgress.remoteTotal.toLocaleString()}`
-										: ""
-							  } · ${syncProgress.imported.toLocaleString()} new`}
-					</AlertDescription>
-				</Alert>
-			)}
+			<SyncProgressPanel
+				source="EIDSR"
+				isSyncing={isSyncing}
+				progress={syncProgress}
+				summaryMessage={syncMessage}
+			/>
 
-			{!isSyncing && syncMessage && (
-				<Alert className="border-green-200 bg-green-50">
-					<CheckCircle2 className="h-4 w-4 text-green-600" />
-					<AlertDescription className="text-green-700">
-						{syncMessage}
-					</AlertDescription>
-				</Alert>
-			)}
-
-			{error && (
+			{/* Load errors only — sync failures are surfaced by the panel above
+			    (its progress carries phase === "error"). */}
+			{error && syncProgress?.phase !== "error" && (
 				<ErrorAlert
 					error={error}
 					onRetry={handleRefresh}

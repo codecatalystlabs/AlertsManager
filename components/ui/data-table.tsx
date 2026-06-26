@@ -139,6 +139,13 @@ interface DataTableProps<TData, TValue> {
   onPageChange?: (pageIndex: number) => void
   onPageSizeChange?: (pageSize: number) => void
   onColumnFiltersChange?: (filters: ColumnFiltersState) => void
+  /**
+   * Server-driven column filtering: the header filters are sent to the parent
+   * (via onColumnFiltersChange) which re-fetches a filtered page, instead of
+   * filtering only the rows already loaded on the current page. Pair with
+   * manualPagination so a column filter scopes the whole dataset.
+   */
+  manualFiltering?: boolean
   /** Server-driven sorting: parent owns sort state and re-fetches sorted pages. */
   manualSorting?: boolean
   sorting?: SortingState
@@ -356,6 +363,7 @@ export function DataTable<TData, TValue>({
   onPageChange,
   onPageSizeChange,
   onColumnFiltersChange,
+  manualFiltering = false,
   manualSorting = false,
   sorting: controlledSorting,
   onSortingChange,
@@ -423,6 +431,7 @@ export function DataTable<TData, TValue>({
     data,
     columns,
     manualPagination,
+    manualFiltering,
     manualSorting,
     pageCount: manualPagination ? controlledPageCount : undefined,
     onSortingChange: (updater) => {
@@ -474,9 +483,12 @@ export function DataTable<TData, TValue>({
     : table.getPageCount()
   const currentPage = table.getState().pagination.pageIndex
   const pageSizeValue = table.getState().pagination.pageSize
-  const hasActiveClientFilters = columnFilters.some((filter) =>
-    hasFilterValue(filter.value)
-  )
+  // Only relevant when filtering is client-side: with manualFiltering the server
+  // already returned the correct filtered page, so we render it as-is and report
+  // the server's totals rather than a "filtered rows on this page" subset.
+  const hasActiveClientFilters =
+    !manualFiltering &&
+    columnFilters.some((filter) => hasFilterValue(filter.value))
   const clientFilteredRows = table.getFilteredRowModel().rows
   const pageRows = manualPagination
     ? hasActiveClientFilters

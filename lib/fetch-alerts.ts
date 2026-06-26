@@ -28,6 +28,22 @@ export interface AlertsListParams {
 	source?: string;
 	/** Free-text search across reporter, case name, contact, CIF, district, id. */
 	search?: string;
+	/** Partial match on the alert id (per-column "Alert ID" filter). */
+	alert_id?: string;
+	/** Partial match on the case name (per-column filter). */
+	alert_case_name?: string;
+	/** Partial match on the person reporting (per-column filter). */
+	person_reporting?: string;
+	/** Partial match on the case district (per-column filter). */
+	alert_case_district?: string;
+	/** Partial match on the contact number (per-column filter). */
+	contact_number?: string;
+	/** Partial match on the case age (per-column filter). */
+	age?: string;
+	/** Partial match on the response/disease (per-column filter). */
+	response?: string;
+	/** Partial match on the alert time (per-column filter). */
+	time?: string;
 	/** Case sex (e.g. "Male", "Female"). */
 	sex?: string;
 	/** Inclusive minimum case age. */
@@ -90,6 +106,30 @@ function appendAlertFilterParams(
 	}
 	if (params.search) {
 		searchParams.set("search", params.search);
+	}
+	if (params.alert_id) {
+		searchParams.set("alert_id", params.alert_id);
+	}
+	if (params.alert_case_name) {
+		searchParams.set("alert_case_name", params.alert_case_name);
+	}
+	if (params.person_reporting) {
+		searchParams.set("person_reporting", params.person_reporting);
+	}
+	if (params.alert_case_district) {
+		searchParams.set("alert_case_district", params.alert_case_district);
+	}
+	if (params.contact_number) {
+		searchParams.set("contact_number", params.contact_number);
+	}
+	if (params.age) {
+		searchParams.set("age", params.age);
+	}
+	if (params.response) {
+		searchParams.set("response", params.response);
+	}
+	if (params.time) {
+		searchParams.set("time", params.time);
 	}
 	if (params.sex) {
 		searchParams.set("sex", params.sex);

@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, Arial, sans-serif;
 }
 
 @layer utilities {
@@ -16,80 +17,116 @@ body {
   }
 }
 
+/* Theme-only status surfaces — use these for banners/panels/cards that need
+   status emphasis, instead of raw tailwind colors (bg-red-50, bg-green-50…).
+   They derive from the theme tokens so the palette stays consistent. */
+@layer components {
+  .surface-danger {
+    border-color: hsl(var(--destructive) / 0.25);
+    background-color: hsl(var(--destructive) / 0.06);
+    color: hsl(var(--foreground));
+  }
+  .surface-success {
+    border-color: hsl(var(--success) / 0.3);
+    background-color: hsl(var(--success) / 0.1);
+    color: hsl(var(--foreground));
+  }
+  .surface-warning {
+    border-color: hsl(var(--warning) / 0.4);
+    background-color: hsl(var(--warning) / 0.12);
+    color: hsl(var(--foreground));
+  }
+  .surface-info {
+    border-color: hsl(var(--border));
+    background-color: hsl(var(--muted));
+    color: hsl(var(--foreground));
+  }
+}
+
 @layer base {
   :root {
+    /* Refined Crimson theme — single source of truth for the whole app.
+       Primary #C1272D, warm-stone neutrals, DM Sans. */
     --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    --foreground: 0 0% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 0 0% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 358 66% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 30 9% 96%;
+    --secondary-foreground: 0 0% 12%;
+    --muted: 30 9% 96%;
+    --muted-foreground: 20 5% 42%;
+    --accent: 30 9% 96%;
+    --accent-foreground: 0 0% 12%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 10%;
+    --border: 20 6% 90%;
+    --input: 20 6% 90%;
+    --ring: 358 66% 45%;
+    --chart-1: 358 66% 45%;
     --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 217 60% 50%;
+    --chart-5: 142 60% 40%;
     --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-    /* Editorial loader accent stripes — Uganda flag (red / yellow / green), oklch. */
+    --sidebar-background: 30 9% 98%;
+    --sidebar-foreground: 0 0% 25%;
+    --sidebar-primary: 358 66% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 30 9% 95%;
+    --sidebar-accent-foreground: 358 66% 45%;
+    --sidebar-border: 20 6% 90%;
+    --sidebar-ring: 358 66% 45%;
+    /* Uganda flag accents (red / yellow / green), oklch — loader + sparing highlights. */
     --accent-red: 0.55 0.2 25;
     --accent-yellow: 0.82 0.17 85;
     --accent-green: 0.5 0.12 155;
   }
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --background: 20 14% 4%;
+    --foreground: 0 0% 95%;
+    --card: 20 14% 6%;
+    --card-foreground: 0 0% 95%;
+    --popover: 20 14% 6%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 356 71% 57%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 20 6% 14%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 20 6% 14%;
+    --muted-foreground: 20 5% 60%;
+    --accent: 20 6% 14%;
+    --accent-foreground: 0 0% 95%;
+    --destructive: 0 62% 45%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --success: 142 60% 45%;
+    --success-foreground: 0 0% 10%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 0 0% 10%;
+    --border: 20 6% 16%;
+    --input: 20 6% 16%;
+    --ring: 356 71% 57%;
+    --chart-1: 356 71% 57%;
+    --chart-2: 173 58% 45%;
+    --chart-3: 38 92% 55%;
+    --chart-4: 217 70% 60%;
+    --chart-5: 142 60% 50%;
+    --sidebar-background: 20 14% 6%;
+    --sidebar-foreground: 0 0% 85%;
+    --sidebar-primary: 356 71% 57%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-    /* Editorial loader accent stripes — Uganda flag (red / yellow / green), oklch. */
+    --sidebar-accent: 20 6% 14%;
+    --sidebar-accent-foreground: 356 71% 57%;
+    --sidebar-border: 20 6% 16%;
+    --sidebar-ring: 356 71% 57%;
+    /* Uganda flag accents (red / yellow / green), oklch — loader + sparing highlights. */
     --accent-red: 0.62 0.2 25;
     --accent-yellow: 0.85 0.17 85;
     --accent-green: 0.58 0.12 155;
@@ -126,4 +163,30 @@ body {
 .loader-bar-green {
   animation: loader-sweep 2.2s cubic-bezier(0.65, 0, 0.35, 1) infinite;
   animation-delay: 0.7s;
+}
+
+/* Indeterminate sync bar — a single accent block sweeps the track while the
+   remote total is still unknown (used by SyncProgressPanel). */
+@keyframes sync-indeterminate {
+  0% {
+    left: -45%;
+    width: 45%;
+  }
+  50% {
+    left: 30%;
+    width: 55%;
+  }
+  100% {
+    left: 100%;
+    width: 45%;
+  }
+}
+.sync-bar-track {
+  position: relative;
+}
+.sync-bar-indeterminate {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  animation: sync-indeterminate 1.3s ease-in-out infinite;
 }

@@ -525,10 +525,10 @@ export function AlertVerificationDialog({
 			open={isOpen}
 			onOpenChange={onClose}
 		>
-			<DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+			<DialogContent className="max-w-2xl max-h-[88vh] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
-						<AlertTriangleIcon className="h-5 w-5 text-uganda-red" />
+						<AlertTriangleIcon className="h-4 w-4 text-uganda-red" />
 						{isEidsrMode ? (
 							<>Verify 6767 SMS #{eidsrMessageId}</>
 						) : (
@@ -547,18 +547,18 @@ export function AlertVerificationDialog({
 
 				{/* Status Messages */}
 				{error && (
-					<Alert className="border-red-200 bg-red-50">
-						<XCircleIcon className="h-4 w-4 text-red-600" />
-						<AlertDescription className="text-red-700">
+					<Alert className="surface-danger">
+						<XCircleIcon className="h-4 w-4 text-destructive" />
+						<AlertDescription className="text-destructive">
 							{error}
 						</AlertDescription>
 					</Alert>
 				)}
 
 				{success && (
-					<Alert className="border-green-200 bg-green-50">
-						<CheckCircleIcon className="h-4 w-4 text-green-600" />
-						<AlertDescription className="text-green-700">
+					<Alert className="surface-success">
+						<CheckCircleIcon className="h-4 w-4 text-success" />
+						<AlertDescription className="text-success">
 							{success}
 						</AlertDescription>
 					</Alert>
@@ -566,10 +566,10 @@ export function AlertVerificationDialog({
 
 				{/* Loading State */}
 				{isGeneratingToken && (
-					<div className="flex items-center justify-center p-8">
+					<div className="flex items-center justify-center p-5">
 						<div className="text-center">
 							<Loader2 className="h-8 w-8 animate-spin text-uganda-red mx-auto mb-4" />
-							<p className="text-gray-600">
+							<p className="text-muted-foreground">
 								Generating verification token...
 							</p>
 						</div>
@@ -578,17 +578,17 @@ export function AlertVerificationDialog({
 
 				{/* Verification Form */}
 				{showVerificationForm && (
-					<div className="space-y-6">
+					<div className="space-y-3">
 						{/* Basic Information */}
-						<div className="space-y-4">
+						<div className="space-y-3">
 							<div className="flex items-center gap-3">
-								<AlertTriangleIcon className="h-5 w-5 text-uganda-red" />
-								<h3 className="text-lg font-semibold">
+								<AlertTriangleIcon className="h-4 w-4 text-uganda-red" />
+								<h3 className="text-sm font-semibold uppercase tracking-wide">
 									Verification Details
 								</h3>
 							</div>
 
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+							<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 								<div className="space-y-2">
 									<Label
 										htmlFor="status"
@@ -665,7 +665,7 @@ export function AlertVerificationDialog({
 								</div>
 							</div>
 
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 								<div className="space-y-2">
 									<Label
 										htmlFor="verificationDate"
@@ -721,10 +721,10 @@ export function AlertVerificationDialog({
 						<Separator />
 
 						{/* Case Information */}
-						<div className="space-y-4">
+						<div className="space-y-3">
 							<div className="flex items-center gap-3">
-								<UserIcon className="h-5 w-5 text-uganda-red" />
-								<h3 className="text-lg font-semibold">
+								<UserIcon className="h-4 w-4 text-uganda-red" />
+								<h3 className="text-sm font-semibold uppercase tracking-wide">
 									Case Information
 								</h3>
 							</div>
@@ -758,7 +758,7 @@ export function AlertVerificationDialog({
 								</Select>
 							</div>
 
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+							<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 								<div className="space-y-2">
 									<Label
 										htmlFor="alertCaseName"
@@ -812,7 +812,7 @@ export function AlertVerificationDialog({
 												value
 											)
 										}
-										className="flex gap-4 mt-2"
+										className="flex gap-3 mt-2"
 									>
 										<div className="flex items-center space-x-2">
 											<RadioGroupItem
@@ -867,15 +867,15 @@ export function AlertVerificationDialog({
 						<Separator />
 
 						{/* Reporter Information */}
-						<div className="space-y-4">
+						<div className="space-y-3">
 							<div className="flex items-center gap-3">
-								<UserIcon className="h-5 w-5 text-uganda-red" />
-								<h3 className="text-lg font-semibold">
+								<UserIcon className="h-4 w-4 text-uganda-red" />
+								<h3 className="text-sm font-semibold uppercase tracking-wide">
 									Reporter Information
 								</h3>
 							</div>
 
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+							<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 								<div className="space-y-2">
 									<Label
 										htmlFor="personReporting"
@@ -953,15 +953,15 @@ export function AlertVerificationDialog({
 						<Separator />
 
 						{/* Location Information */}
-						<div className="space-y-4">
+						<div className="space-y-3">
 							<div className="flex items-center gap-3">
-								<UserIcon className="h-5 w-5 text-uganda-red" />
-								<h3 className="text-lg font-semibold">
+								<UserIcon className="h-4 w-4 text-uganda-red" />
+								<h3 className="text-sm font-semibold uppercase tracking-wide">
 									Location Information
 								</h3>
 							</div>
 
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+							<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 								<div className="space-y-2">
 									<Label htmlFor="village" className="text-sm font-medium">
 										Village (Reporter)
@@ -983,7 +983,7 @@ export function AlertVerificationDialog({
 									/>
 								</div>
 							</div>
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+							<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 								<CaseLocationSelect
 									value={{
 										region: formData.region,
@@ -1001,7 +1001,7 @@ export function AlertVerificationDialog({
 									labelClassName="text-sm font-medium"
 								/>
 							</div>
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+							<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 								<div className="space-y-2">
 									<Label htmlFor="alertCaseVillage" className="text-sm font-medium">
 										Case Village
@@ -1038,15 +1038,15 @@ export function AlertVerificationDialog({
 						<Separator />
 
 						{/* Point of Contact Information */}
-						<div className="space-y-4">
+						<div className="space-y-3">
 							<div className="flex items-center gap-3">
-								<UserIcon className="h-5 w-5 text-uganda-red" />
-								<h3 className="text-lg font-semibold">
+								<UserIcon className="h-4 w-4 text-uganda-red" />
+								<h3 className="text-sm font-semibold uppercase tracking-wide">
 									Point of Contact Information
 								</h3>
 							</div>
 
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+							<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 								<div className="space-y-2">
 									<Label
 										htmlFor="pointOfContactName"
@@ -1113,15 +1113,15 @@ export function AlertVerificationDialog({
 						<Separator />
 
 						{/* Medical Information */}
-						<div className="space-y-4">
+						<div className="space-y-3">
 							<div className="flex items-center gap-3">
-								<HeartIcon className="h-5 w-5 text-uganda-red" />
-								<h3 className="text-lg font-semibold">
+								<HeartIcon className="h-4 w-4 text-uganda-red" />
+								<h3 className="text-sm font-semibold uppercase tracking-wide">
 									Medical Information
 								</h3>
 							</div>
 
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 								<div className="space-y-2">
 									<Label
 										htmlFor="alertCasePregnantDuration"
@@ -1169,7 +1169,7 @@ export function AlertVerificationDialog({
 								</div>
 							</div>
 
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 								<div className="space-y-2">
 									<Label
 										htmlFor="healthFacilityVisit"
@@ -1220,19 +1220,19 @@ export function AlertVerificationDialog({
 						<Separator />
 
 						{/* Desk Verification Actions */}
-						<div className="space-y-4">
+						<div className="space-y-3">
 							<div className="flex items-center gap-3">
-								<AlertTriangleIcon className="h-5 w-5 text-uganda-red" />
-								<h3 className="text-lg font-semibold">
+								<AlertTriangleIcon className="h-4 w-4 text-uganda-red" />
+								<h3 className="text-sm font-semibold uppercase tracking-wide">
 									Desk Verification Actions
 								</h3>
 							</div>
 
-							<div className="bg-gray-50 p-4 rounded-lg">
-								<p className="text-xs text-gray-500 mb-3">
+							<div className="bg-muted p-4 rounded-lg">
+								<p className="text-xs text-muted-foreground mb-3">
 									Select all actions that apply.
 								</p>
-								<div className="flex flex-wrap gap-6">
+								<div className="flex flex-wrap gap-3">
 									{DESK_VERIFICATION_OPTIONS.map(
 										(option) => {
 											const id = `desk-${option
@@ -1284,17 +1284,17 @@ export function AlertVerificationDialog({
 						{showVhfForm && (
 							<>
 								<Separator />
-								<div className="space-y-4">
+								<div className="space-y-3">
 									<div className="flex items-center gap-3">
-										<AlertTriangleIcon className="h-5 w-5 text-uganda-red" />
-										<h3 className="text-lg font-semibold">
+										<AlertTriangleIcon className="h-4 w-4 text-uganda-red" />
+										<h3 className="text-sm font-semibold uppercase tracking-wide">
 											VHF Case Investigation
 											Form
 										</h3>
 									</div>
 
-									<div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-										<p className="text-sm text-blue-800 mb-2">
+									<div className="surface-info p-4 rounded-lg">
+										<p className="text-sm text-foreground mb-2">
 											<strong>Note:</strong>{" "}
 											Complete the VHF (Viral
 											Hemorrhagic Fever) Case
@@ -1414,7 +1414,7 @@ export function AlertVerificationDialog({
 										>
 											Cancel VHF Form
 										</Button>
-										<p className="text-sm text-gray-600">
+										<p className="text-sm text-muted-foreground">
 											The form will close
 											automatically after
 											successful submission
@@ -1431,10 +1431,10 @@ export function AlertVerificationDialog({
 						) && (
 							<>
 								<Separator />
-								<div className="space-y-4">
+								<div className="space-y-3">
 									<div className="flex items-center gap-3">
-										<UserIcon className="h-5 w-5 text-uganda-red" />
-										<h3 className="text-lg font-semibold">
+										<UserIcon className="h-4 w-4 text-uganda-red" />
+										<h3 className="text-sm font-semibold uppercase tracking-wide">
 											VHF Case Code
 										</h3>
 									</div>
@@ -1461,11 +1461,11 @@ export function AlertVerificationDialog({
 											placeholder="Enter VHF case code (e.g., VHF-20250816-8022)"
 											className={
 												vhfCaseCode
-													? "bg-green-50 border-green-300"
+													? "bg-success/10 border-success"
 													: ""
 											}
 										/>
-										<p className="text-xs text-gray-500">
+										<p className="text-xs text-muted-foreground">
 											{vhfCaseCode
 												? "This code was automatically captured from the VHF form submission. You can edit it if needed."
 												: "Enter the case code manually or complete the VHF form above for automatic capture."}
@@ -1479,20 +1479,20 @@ export function AlertVerificationDialog({
 						{vhfCaseCode && (
 							<>
 								<Separator />
-								<div className="space-y-4">
+								<div className="space-y-3">
 									<div className="flex items-center gap-3">
-										<CheckCircleIcon className="h-5 w-5 text-green-600" />
-										<h3 className="text-lg font-semibold text-green-800">
+										<CheckCircleIcon className="h-5 w-5 text-success" />
+										<h3 className="text-sm font-semibold uppercase tracking-wide text-success">
 											VHF Case Investigation
 											Completed
 										</h3>
 									</div>
 
-									<div className="bg-green-50 p-4 rounded-lg border border-green-200">
+									<div className="surface-success p-4 rounded-lg">
 										<div className="flex items-center gap-2">
-											<CheckCircleIcon className="h-5 w-5 text-green-600" />
+											<CheckCircleIcon className="h-5 w-5 text-success" />
 											<div>
-												<p className="text-sm font-medium text-green-800">
+												<p className="text-sm font-medium text-success">
 													VHF Case Code:{" "}
 													<span className="font-mono">
 														{
@@ -1500,7 +1500,7 @@ export function AlertVerificationDialog({
 														}
 													</span>
 												</p>
-												<p className="text-xs text-green-600 mt-1">
+												<p className="text-xs text-success mt-1">
 													The VHF Case
 													Investigation
 													Form has been
@@ -1523,16 +1523,16 @@ export function AlertVerificationDialog({
 						) && (
 							<>
 								<Separator />
-								<div className="space-y-4">
+								<div className="space-y-3">
 									<div className="flex items-center gap-3">
-										<CheckCircleIcon className="h-5 w-5 text-uganda-red" />
-										<h3 className="text-lg font-semibold">
+										<CheckCircleIcon className="h-4 w-4 text-uganda-red" />
+										<h3 className="text-sm font-semibold uppercase tracking-wide">
 											Field Verification
 											Feedback
 										</h3>
 									</div>
 
-									<div className="bg-gray-50 p-4 rounded-lg">
+									<div className="bg-muted p-4 rounded-lg">
 										<RadioGroup
 											value={
 												formData.fieldVerificationFeedback
@@ -1543,7 +1543,7 @@ export function AlertVerificationDialog({
 													value
 												)
 											}
-											className="flex flex-wrap gap-6"
+											className="flex flex-wrap gap-3"
 										>
 											{FIELD_VERIFICATION_OPTIONS.map((option) => (
 												<div
@@ -1583,15 +1583,15 @@ export function AlertVerificationDialog({
 						<Separator />
 
 						{/* Additional Information */}
-						<div className="space-y-4">
+						<div className="space-y-3">
 							<div className="flex items-center gap-3">
-								<HeartIcon className="h-5 w-5 text-uganda-red" />
-								<h3 className="text-lg font-semibold">
+								<HeartIcon className="h-4 w-4 text-uganda-red" />
+								<h3 className="text-sm font-semibold uppercase tracking-wide">
 									Additional Information
 								</h3>
 							</div>
 
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 								<div className="space-y-2">
 									<Label
 										htmlFor="actions"

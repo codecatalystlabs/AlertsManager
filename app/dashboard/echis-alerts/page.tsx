@@ -1,20 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ErrorAlert } from "@/components/dashboard";
 import {
 	EchisAlertDetailsDialog,
+	EchisAlertsFilters,
 	EchisAlertsHeader,
 	EchisAlertsTable,
 } from "@/components/echis-alerts";
 import { NdwFilterBar } from "@/components/ndw-alerts/ndw-filter-bar";
 import { NdwAlertsStats } from "@/components/ndw-alerts/ndw-alerts-stats";
+import { SyncProgressPanel } from "@/components/sync";
 import { ECHIS_NDW_FILTER_FIELDS } from "@/constants/ndw-filter-fields";
 import { useEchisAlertsData } from "@/hooks/use-echis-alerts-data";
 import type { EchisAlertRow } from "@/lib/fetch-ndw-alerts";
 import { LAYOUT } from "@/constants/layout";
-import { CheckCircle2, CloudDownload } from "lucide-react";
 
 export default function EchisAlertsPage() {
 	const {
@@ -32,6 +32,8 @@ export default function EchisAlertsPage() {
 		setOperators,
 		clearFilters,
 		applyFilters,
+		applyLocalFilters,
+		clearLocalFilters,
 		setPage,
 		setPageSize,
 		refetch,
@@ -64,30 +66,17 @@ export default function EchisAlertsPage() {
 				<ErrorAlert error={error} onRetry={() => void refetch()} />
 			) : null}
 
-			{syncMessage ? (
-				<Alert>
-					<CheckCircle2 className="h-4 w-4" />
-					<AlertDescription>{syncMessage}</AlertDescription>
-				</Alert>
-			) : null}
-
-			{isSyncing && syncProgress ? (
-				<Alert>
-					<CloudDownload className="h-4 w-4 animate-pulse" />
-					<AlertDescription>
-						Syncing page {syncProgress.page}
-						{syncProgress.pageCount ? ` / ${syncProgress.pageCount}` : ""} — scanned{" "}
-						{syncProgress.scanned}, imported {syncProgress.imported}
-					</AlertDescription>
-				</Alert>
-			) : null}
+			<SyncProgressPanel
+				source="NDW"
+				isSyncing={isSyncing}
+				progress={syncProgress}
+				summaryMessage={syncMessage}
+			/>
 
 			<NdwAlertsStats
 				total={stats.total}
 				filtered={stats.filtered}
-				label="cht_signal_verification"
 				live={stats.live}
-				note={stats.note}
 			/>
 
 			<NdwFilterBar
@@ -101,6 +90,12 @@ export default function EchisAlertsPage() {
 				onOperatorsChange={setOperators}
 				onApply={() => void applyFilters()}
 				onClear={() => void clearFilters()}
+				isLoading={loading}
+			/>
+
+			<EchisAlertsFilters
+				onApply={applyLocalFilters}
+				onClear={clearLocalFilters}
 				isLoading={loading}
 			/>
 

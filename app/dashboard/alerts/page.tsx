@@ -58,6 +58,7 @@ export default function AlertsPage(): React.JSX.Element {
 		isValidating,
 		error,
 		deletingId,
+		setColumnFilters,
 		setFilters,
 		setPage,
 		setPageSize,
@@ -177,6 +178,7 @@ export default function AlertsPage(): React.JSX.Element {
 				isLoading={loading || isValidating}
 				onPageChange={setPage}
 				onPageSizeChange={setPageSize}
+				onColumnFiltersChange={setColumnFilters}
 				deletingId={deletingId}
 				onDeleteAlert={handleDeleteAlert}
 				onViewAlert={handleViewAlert}

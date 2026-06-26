@@ -134,7 +134,7 @@ function createColumns(handlers: {
 			},
 			cell: ({ row }) =>
 				row.original.isVerified ? (
-					<Badge className="bg-green-600 hover:bg-green-600">Verified</Badge>
+					<Badge className="bg-success hover:bg-success">Verified</Badge>
 				) : (
 					<Badge variant="secondary">Unverified</Badge>
 				),

@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import useSWR from 'swr';
+import type { ColumnFiltersState } from '@tanstack/react-table';
 import { AuthService } from '@/lib/auth';
 import { exportAlertsToCsv, exportAlertsToExcel } from '@/lib/alert-export';
 import {
@@ -12,6 +13,7 @@ import {
     fetchAlertsStats,
     type AlertsListParams,
 } from '@/lib/fetch-alerts';
+import { columnFiltersToAlertParams } from '@/lib/alert-column-filters';
 import { sourceFilterValues } from '@/lib/source-of-alert';
 import { useInvalidateAlerts } from '@/hooks/use-invalidate-alerts';
 
@@ -107,6 +109,9 @@ interface UseCallLogsDataReturn {
     isValidating: boolean;
     error: string | null;
     selectedAlert: AlertLog | null;
+    /** Per-column header filters (server-side; scope the whole dataset). */
+    columnFilters: ColumnFiltersState;
+    setColumnFilters: (filters: ColumnFiltersState) => void;
     setFilters: (filters: Partial<CallLogsFilters>) => void;
     setSort: (sort: CallLogsSort) => void;
     setSelectedAlert: (alert: AlertLog | null) => void;
@@ -310,14 +315,16 @@ async function fetchCallLogsPage(
     filters: CallLogsFilters,
     sort: CallLogsSort,
     page: number,
-    limit: number
+    limit: number,
+    columnFilters: ColumnFiltersState
 ): Promise<CallLogsPagination & { data: AlertLog[] }> {
-    // Every filter (verified status included) is applied server-side, so a
-    // single page request is enough — the returned pagination total already
-    // reflects the active filters.
-    const result = await fetchAlertsPage(
-        toApiParams(filters, page, limit, { sort })
-    );
+    // Every filter (verified status + per-column header filters included) is
+    // applied server-side, so a single page request is enough — the returned
+    // pagination total already reflects the active filters.
+    const result = await fetchAlertsPage({
+        ...toApiParams(filters, page, limit, { sort }),
+        ...columnFiltersToAlertParams(columnFilters),
+    });
     return {
         ...result,
         data: result.data as AlertLog[],
@@ -332,6 +339,7 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         ...CALL_LOGS_DEFAULT_SORT,
     });
     const [selectedAlert, setSelectedAlert] = useState<AlertLog | null>(null);
+    const [columnFilters, setColumnFiltersState] = useState<ColumnFiltersState>([]);
     const [page, setPageState] = useState(1);
     const [limit, setLimitState] = useState<number>(CALL_LOGS_CONFIG.ITEMS_PER_PAGE);
     const [exporting, setExporting] = useState<'csv' | 'excel' | null>(null);
@@ -340,14 +348,16 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
     filtersRef.current = filters;
     const sortRef = useRef(sort);
     sortRef.current = sort;
+    const columnFiltersRef = useRef(columnFilters);
+    columnFiltersRef.current = columnFilters;
 
     const invalidateAlerts = useInvalidateAlerts();
 
     // Keep the "alerts" root so alert mutations invalidate this view too.
     const { data, error: swrError, isLoading, isValidating, mutate } = useSWR(
-        ['alerts', 'call-logs', filters, sort, page, limit] as const,
-        ([, , currentFilters, currentSort, currentPage, currentLimit]) =>
-            fetchCallLogsPage(currentFilters, currentSort, currentPage, currentLimit),
+        ['alerts', 'call-logs', filters, sort, page, limit, columnFilters] as const,
+        ([, , currentFilters, currentSort, currentPage, currentLimit, currentColumnFilters]) =>
+            fetchCallLogsPage(currentFilters, currentSort, currentPage, currentLimit, currentColumnFilters),
         { keepPreviousData: true }
     );
 
@@ -356,9 +366,12 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
     // change the totals, so paging the table doesn't refetch the stats. Shares
     // the "alerts" root so alert mutations revalidate the cards too.
     const { data: statsData } = useSWR(
-        ['alerts', 'call-logs-stats', filters] as const,
-        ([, , currentFilters]) =>
-            fetchAlertsStats(toApiParams(currentFilters, 1, 1)),
+        ['alerts', 'call-logs-stats', filters, columnFilters] as const,
+        ([, , currentFilters, currentColumnFilters]) =>
+            fetchAlertsStats({
+                ...toApiParams(currentFilters, 1, 1),
+                ...columnFiltersToAlertParams(currentColumnFilters),
+            }),
         { keepPreviousData: true }
     );
 
@@ -385,11 +398,12 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         const MAX_EXPORT_PAGES = 200; // safety cap → up to 100k rows
 
         const fetchExportPage = (targetPage: number) =>
-            fetchAlertsPage(
-                toApiParams(filtersRef.current, targetPage, EXPORT_PAGE_LIMIT, {
+            fetchAlertsPage({
+                ...toApiParams(filtersRef.current, targetPage, EXPORT_PAGE_LIMIT, {
                     sort: sortRef.current,
-                })
-            );
+                }),
+                ...columnFiltersToAlertParams(columnFiltersRef.current),
+            });
 
         const first = await fetchExportPage(1);
         const collected: AlertLog[] = [...(first.data as AlertLog[])];
@@ -434,6 +448,12 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         setPageState(1);
     }, []);
 
+    const setColumnFilters = useCallback((next: ColumnFiltersState) => {
+        // A column filter re-scopes the whole dataset, so reset to the first page.
+        setColumnFiltersState(next);
+        setPageState(1);
+    }, []);
+
     const setSort = useCallback((nextSort: CallLogsSort) => {
         setSortState(nextSort);
         setPageState(1);
@@ -442,6 +462,7 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
     const clearFilters = useCallback(() => {
         setFiltersState({ ...CALL_LOGS_INITIAL_FILTERS });
         setSortState({ ...CALL_LOGS_DEFAULT_SORT });
+        setColumnFiltersState([]);
         setPageState(1);
     }, []);
 
@@ -539,6 +560,8 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         isValidating,
         error,
         selectedAlert,
+        columnFilters,
+        setColumnFilters,
         setFilters,
         setSort,
         setSelectedAlert,

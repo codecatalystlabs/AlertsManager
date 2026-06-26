@@ -1,6 +1,6 @@
 import React, { memo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { PhoneIncoming, PhoneOutgoing, PhoneCall, Phone } from "lucide-react";
+import { HeartPulse, HeartCrack, ShieldCheck, Clock } from "lucide-react";
 import {
 	type CallLogsStatFilter,
 	getActiveStatFromFilters,
@@ -98,37 +98,37 @@ export const CallLogsStats = memo<CallLogsStatsProps>(
 				statKey: "alive",
 				title: "Cases Alive",
 				value: stats.alive,
-				icon: PhoneIncoming,
-				borderColor: "border-l-green-500",
-				textColor: "text-green-600",
-				iconColor: "text-green-600",
+				icon: HeartPulse,
+				borderColor: "border-l-success",
+				textColor: "text-success",
+				iconColor: "text-success",
 			},
 			{
 				statKey: "other",
 				title: "Other Status",
 				value: stats.other,
-				icon: PhoneOutgoing,
-				borderColor: "border-l-red-500",
-				textColor: "text-red-600",
-				iconColor: "text-red-600",
+				icon: HeartCrack,
+				borderColor: "border-l-destructive",
+				textColor: "text-destructive",
+				iconColor: "text-destructive",
 			},
 			{
 				statKey: "verified",
 				title: "Verified",
 				value: stats.verified,
-				icon: PhoneCall,
-				borderColor: "border-l-blue-500",
-				textColor: "text-blue-600",
-				iconColor: "text-blue-600",
+				icon: ShieldCheck,
+				borderColor: "border-l-success",
+				textColor: "text-success",
+				iconColor: "text-success",
 			},
 			{
 				statKey: "pending",
 				title: "Pending Verification",
 				value: stats.pending,
-				icon: Phone,
-				borderColor: "border-l-yellow-500",
-				textColor: "text-yellow-600",
-				iconColor: "text-yellow-600",
+				icon: Clock,
+				borderColor: "border-l-warning",
+				textColor: "text-warning",
+				iconColor: "text-warning",
 			},
 		];
 

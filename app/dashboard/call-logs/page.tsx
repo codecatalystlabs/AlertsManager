@@ -73,6 +73,7 @@ export default function CallLogsPage(): React.JSX.Element {
 		isValidating,
 		error,
 		selectedAlert,
+		setColumnFilters,
 		setFilters,
 		setSort,
 		setSelectedAlert,
@@ -247,6 +248,7 @@ export default function CallLogsPage(): React.JSX.Element {
 					isLoading={loading || isValidating}
 					onPageChange={setPage}
 					onPageSizeChange={setPageSize}
+					onColumnFiltersChange={setColumnFilters}
 					onViewDetails={handleViewDetails}
 					onEditAlert={handleEditAlert}
 					onVerifyAlert={handleVerifyAlert}

@@ -32,7 +32,8 @@ interface UseDashboardSummaryReturn {
 export function useDashboardSummary(
 	range: DashboardRange,
 	district?: string,
-	region?: string
+	region?: string,
+	response?: string
 ): UseDashboardSummaryReturn {
 	useInvalidateAlerts();
 
@@ -43,13 +44,15 @@ export function useDashboardSummary(
 			range.to,
 			district ?? "all",
 			region ?? "all",
+			response ?? "all",
 		] as const,
-		([, from, to, dist, reg]) =>
+		([, from, to, dist, reg, resp]) =>
 			fetchDashboardSummary({
 				from_date: from || undefined,
 				to_date: to || undefined,
 				district: dist,
 				region: reg,
+				response: resp,
 			}),
 		{ keepPreviousData: true }
 	);

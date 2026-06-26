@@ -29,7 +29,7 @@ const caseDefinitions = [
 		id: "community",
 		title: "Community Case Definition",
 		icon: Users,
-		color: "bg-blue-500",
+		color: "bg-muted-foreground",
 		description: "Basic definition for community-level identification",
 		criteria: {
 			primary: "Illness with onset of fever and no response to treatment",
@@ -43,7 +43,7 @@ const caseDefinitions = [
 		id: "suspect",
 		title: "Suspect Case Definition",
 		icon: AlertTriangle,
-		color: "bg-yellow-500",
+		color: "bg-warning",
 		description: "Detailed criteria for suspected EVD cases",
 		criteria: {
 			primary: "Illness with onset of fever and no response to treatment for usual causes of fever",
@@ -83,7 +83,7 @@ const caseDefinitions = [
 		id: "probable",
 		title: "Probable Case",
 		icon: Stethoscope,
-		color: "bg-orange-500",
+		color: "bg-warning",
 		description:
 			"Cases with epidemiological links but no lab confirmation",
 		criteria: {
@@ -94,7 +94,7 @@ const caseDefinitions = [
 		id: "confirmed",
 		title: "Confirmed Case",
 		icon: CheckCircle,
-		color: "bg-green-500",
+		color: "bg-success",
 		description: "Laboratory-confirmed EVD cases",
 		criteria: {
 			primary: "A suspected case with a positive laboratory result for either:",
@@ -197,10 +197,10 @@ export default function EVDDefinitionPage() {
 				</div>
 			</div>
 
-			<div className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-				<div className="space-y-8">
+			<div className="max-w-6xl mx-auto py-5 px-4 sm:px-6 lg:px-8">
+				<div className="space-y-5">
 					{/* Header */}
-					<div className="bg-gradient-to-r from-red-600 via-red-700 to-red-800 rounded-2xl p-8 text-white relative overflow-hidden">
+					<div className="bg-gradient-to-r from-destructive via-destructive to-destructive rounded-2xl p-5 text-white relative overflow-hidden">
 						<div className="absolute inset-0 bg-black/10"></div>
 						<div className="relative">
 							<div className="flex items-center space-x-4 mb-4">
@@ -208,16 +208,16 @@ export default function EVDDefinitionPage() {
 									<Stethoscope className="h-8 w-8 text-white" />
 								</div>
 								<div>
-									<h1 className="text-3xl font-bold mb-2">
+									<h1 className="text-2xl font-bold mb-2">
 										Public Health
 									</h1>
-									<p className="text-red-100 text-lg">
+									<p className="text-white/80 text-lg">
 										Case Definitions and Clinical
 										Guidelines
 									</p>
 								</div>
 							</div>
-							<div className="flex items-center space-x-6 mt-6">
+							<div className="flex items-center space-x-6 mt-4">
 								<Badge
 									variant="secondary"
 									className="bg-white/20 text-white border-white/30"
@@ -244,7 +244,7 @@ export default function EVDDefinitionPage() {
 					<Card>
 						<CardHeader>
 							<CardTitle className="flex items-center gap-2">
-								<Microscope className="h-5 w-5 text-red-600" />
+								<Microscope className="h-5 w-5 text-destructive" />
 								Key Symptoms Quick Reference
 							</CardTitle>
 						</CardHeader>
@@ -256,22 +256,22 @@ export default function EVDDefinitionPage() {
 										className={`p-4 rounded-lg border-2 text-center transition-all hover:shadow-md ${
 											symptom.severity ===
 											"critical"
-												? "border-red-200 bg-red-50 hover:border-red-300"
+												? "surface-danger"
 												: symptom.severity ===
 												  "high"
-												? "border-orange-200 bg-orange-50 hover:border-orange-300"
-												: "border-yellow-200 bg-yellow-50 hover:border-yellow-300"
+												? "surface-warning"
+												: "surface-warning"
 										}`}
 									>
 										<symptom.icon
 											className={`h-8 w-8 mx-auto mb-2 ${
 												symptom.severity ===
 												"critical"
-													? "text-red-600"
+													? "text-destructive"
 													: symptom.severity ===
 													  "high"
-													? "text-orange-600"
-													: "text-yellow-600"
+													? "text-warning"
+													: "text-warning"
 											}`}
 										/>
 										<p className="text-sm font-medium text-gray-900">
@@ -282,11 +282,11 @@ export default function EVDDefinitionPage() {
 											className={`mt-1 text-xs ${
 												symptom.severity ===
 												"critical"
-													? "bg-red-100 text-red-700"
+													? "bg-destructive/15 text-destructive"
 													: symptom.severity ===
 													  "high"
-													? "bg-orange-100 text-orange-700"
-													: "bg-yellow-100 text-yellow-700"
+													? "bg-warning/15 text-warning"
+													: "bg-warning/15 text-warning"
 											}`}
 										>
 											{symptom.severity}
@@ -298,7 +298,7 @@ export default function EVDDefinitionPage() {
 					</Card>
 
 					{/* Case Definitions */}
-					<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 						{caseDefinitions.map((definition, index) => (
 							<Card
 								key={definition.id}
@@ -368,7 +368,7 @@ export default function EVDDefinitionPage() {
 																		}
 																		className="flex items-center space-x-2"
 																	>
-																		<div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+																		<div className="h-2 w-2 bg-muted-foreground rounded-full"></div>
 																		<span className="text-sm text-gray-700">
 																			{
 																				sign
@@ -402,7 +402,7 @@ export default function EVDDefinitionPage() {
 																	key={
 																		idx
 																	}
-																	className="bg-blue-50 p-3 rounded-lg"
+																	className="surface-info p-3 rounded-lg"
 																>
 																	{typeof item ===
 																	"string" ? (
@@ -430,7 +430,7 @@ export default function EVDDefinitionPage() {
 																							}
 																							className="flex items-center space-x-2"
 																						>
-																							<div className="h-1.5 w-1.5 bg-red-500 rounded-full"></div>
+																							<div className="h-1.5 w-1.5 bg-destructive rounded-full"></div>
 																							<span className="text-xs text-gray-600">
 																								{
 																									sign
@@ -468,9 +468,9 @@ export default function EVDDefinitionPage() {
 																	key={
 																		idx
 																	}
-																	className="flex items-center space-x-2 bg-green-50 p-2 rounded"
+																	className="flex items-center space-x-2 surface-success p-2 rounded"
 																>
-																	<Microscope className="h-4 w-4 text-green-600" />
+																	<Microscope className="h-4 w-4 text-success" />
 																	<span className="text-sm text-gray-700">
 																		{
 																			test
@@ -490,36 +490,36 @@ export default function EVDDefinitionPage() {
 					</div>
 
 					{/* Important Notes */}
-					<Card className="bg-gradient-to-r from-red-50 to-orange-50 border-red-200">
+					<Card className="surface-danger">
 						<CardHeader>
-							<CardTitle className="flex items-center gap-2 text-red-800">
+							<CardTitle className="flex items-center gap-2 text-destructive">
 								<AlertTriangle className="h-5 w-5" />
 								Important Clinical Notes
 							</CardTitle>
 						</CardHeader>
 						<CardContent>
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 								<div>
-									<h4 className="font-semibold text-red-800 mb-3">
+									<h4 className="font-semibold text-destructive mb-3">
 										Immediate Actions Required:
 									</h4>
-									<ul className="space-y-2 text-sm text-red-700">
+									<ul className="space-y-2 text-sm text-destructive">
 										<li className="flex items-start space-x-2">
-											<div className="h-1.5 w-1.5 bg-red-600 rounded-full mt-2"></div>
+											<div className="h-1.5 w-1.5 bg-destructive rounded-full mt-2"></div>
 											<span>
 												Isolate suspected
 												cases immediately
 											</span>
 										</li>
 										<li className="flex items-start space-x-2">
-											<div className="h-1.5 w-1.5 bg-red-600 rounded-full mt-2"></div>
+											<div className="h-1.5 w-1.5 bg-destructive rounded-full mt-2"></div>
 											<span>
 												Use appropriate PPE
 												for all interactions
 											</span>
 										</li>
 										<li className="flex items-start space-x-2">
-											<div className="h-1.5 w-1.5 bg-red-600 rounded-full mt-2"></div>
+											<div className="h-1.5 w-1.5 bg-destructive rounded-full mt-2"></div>
 											<span>
 												Report to health
 												authorities within
@@ -527,7 +527,7 @@ export default function EVDDefinitionPage() {
 											</span>
 										</li>
 										<li className="flex items-start space-x-2">
-											<div className="h-1.5 w-1.5 bg-red-600 rounded-full mt-2"></div>
+											<div className="h-1.5 w-1.5 bg-destructive rounded-full mt-2"></div>
 											<span>
 												Collect samples for
 												laboratory testing
@@ -536,12 +536,12 @@ export default function EVDDefinitionPage() {
 									</ul>
 								</div>
 								<div>
-									<h4 className="font-semibold text-red-800 mb-3">
+									<h4 className="font-semibold text-destructive mb-3">
 										Contact Tracing:
 									</h4>
-									<ul className="space-y-2 text-sm text-red-700">
+									<ul className="space-y-2 text-sm text-destructive">
 										<li className="flex items-start space-x-2">
-											<div className="h-1.5 w-1.5 bg-red-600 rounded-full mt-2"></div>
+											<div className="h-1.5 w-1.5 bg-destructive rounded-full mt-2"></div>
 											<span>
 												Identify all close
 												contacts in past 21
@@ -549,21 +549,21 @@ export default function EVDDefinitionPage() {
 											</span>
 										</li>
 										<li className="flex items-start space-x-2">
-											<div className="h-1.5 w-1.5 bg-red-600 rounded-full mt-2"></div>
+											<div className="h-1.5 w-1.5 bg-destructive rounded-full mt-2"></div>
 											<span>
 												Monitor contacts for
 												symptoms daily
 											</span>
 										</li>
 										<li className="flex items-start space-x-2">
-											<div className="h-1.5 w-1.5 bg-red-600 rounded-full mt-2"></div>
+											<div className="h-1.5 w-1.5 bg-destructive rounded-full mt-2"></div>
 											<span>
 												Document all contact
 												information
 											</span>
 										</li>
 										<li className="flex items-start space-x-2">
-											<div className="h-1.5 w-1.5 bg-red-600 rounded-full mt-2"></div>
+											<div className="h-1.5 w-1.5 bg-destructive rounded-full mt-2"></div>
 											<span>
 												Provide health
 												education to

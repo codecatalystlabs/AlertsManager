@@ -44,6 +44,7 @@ import {
 	User,
 	type UpdateUserPayload,
 	ROLE_DISTRICT_BIOSTAT,
+	ROLE_DISTRICT,
 	ROLE_REOC,
 } from "@/lib/auth";
 import { useDistrictOptions } from "@/hooks/use-district-options";
@@ -60,9 +61,12 @@ import {
 	X,
 } from "lucide-react";
 
-/** True when an access level is the district-scoped role that needs a district. */
+/** True when an access level is a district-scoped role that needs a district. */
 function isDistrictScopedLevel(level?: string | null): boolean {
-	return (level ?? "").trim().toLowerCase() === ROLE_DISTRICT_BIOSTAT;
+	const normalized = (level ?? "").trim().toLowerCase();
+	return (
+		normalized === ROLE_DISTRICT_BIOSTAT || normalized === ROLE_DISTRICT
+	);
 }
 
 /** True when an access level is the region-scoped role (REOC) that needs a region. */
@@ -282,7 +286,7 @@ export default function UsersPage() {
 
 		if (isDistrictScopedLevel(newUser.level) && !newUser.district) {
 			setRegistrationError(
-				"A District Biostat must be assigned a district"
+				"A district-scoped user must be assigned a district"
 			);
 			return;
 		}
@@ -391,7 +395,7 @@ export default function UsersPage() {
 			isDistrictScopedLevel(editingUser.level) &&
 			!editingUser.district
 		) {
-			setUpdateError("A District Biostat must be assigned a district");
+			setUpdateError("A district-scoped user must be assigned a district");
 			return;
 		}
 
@@ -439,13 +443,13 @@ export default function UsersPage() {
 
 		switch (level.toLowerCase()) {
 			case "admin":
-				return "bg-red-100 text-red-800";
+				return "bg-destructive/15 text-destructive";
 			case "district":
-				return "bg-blue-100 text-blue-800";
+				return "bg-muted text-foreground";
 			case "reoc":
-				return "bg-green-100 text-green-800";
+				return "bg-success/15 text-success";
 			case "eoc":
-				return "bg-purple-100 text-purple-800";
+				return "bg-muted text-foreground";
 			default:
 				return "bg-gray-100 text-gray-800";
 		}
@@ -581,7 +585,7 @@ export default function UsersPage() {
 					<Button
 						size="sm"
 						variant="outline"
-						className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
+						className="h-7 w-7 p-0 text-destructive hover:text-destructive/80"
 						onClick={() => handleDeleteUser(row.original.id)}
 						aria-label={`Delete ${row.original.username}`}
 					>
@@ -594,7 +598,7 @@ export default function UsersPage() {
 
 	if (loading) {
 		return (
-			<div className="container mx-auto p-6">
+			<div className="container mx-auto p-4">
 				<div className="flex items-center justify-center h-64">
 					<div className="text-center">
 						<Loader2 className="h-12 w-12 animate-spin text-uganda-red mx-auto mb-4" />
@@ -607,11 +611,11 @@ export default function UsersPage() {
 
 	if (error) {
 		return (
-			<div className="container mx-auto p-6">
+			<div className="container mx-auto p-4">
 				<Card>
 					<CardContent className="p-6">
 						<div className="text-center">
-							<div className="text-red-500 mb-4">
+							<div className="text-destructive mb-4">
 								<AlertCircle className="h-16 w-16 mx-auto" />
 							</div>
 							<h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -632,10 +636,10 @@ export default function UsersPage() {
 	}
 
 	return (
-		<div className="container mx-auto p-6">
-			<div className="mb-6 flex items-start justify-between gap-4">
+		<div className="container mx-auto p-4">
+			<div className="mb-4 flex items-start justify-between gap-4">
 				<div>
-					<h1 className="text-2xl font-bold text-gray-900 mb-1">
+					<h1 className="text-xl font-bold text-gray-900 mb-1">
 						User Management
 					</h1>
 					<p className="text-sm text-gray-600">
@@ -709,7 +713,7 @@ export default function UsersPage() {
 			</div>
 
 			{/* Users table */}
-			<Card className="mb-6">
+			<Card className="mb-4">
 				<CardHeader className="p-4 pb-2">
 					<CardTitle className="text-lg">Users</CardTitle>
 				</CardHeader>
@@ -726,18 +730,18 @@ export default function UsersPage() {
 								</DialogHeader>
 								<div className="space-y-3">
 									{registrationError && (
-										<Alert className="border-red-200 bg-red-50">
-											<AlertCircle className="h-4 w-4 text-red-600" />
-											<AlertDescription className="text-red-700">
+										<Alert className="surface-danger">
+											<AlertCircle className="h-4 w-4 text-destructive" />
+											<AlertDescription className="text-destructive">
 												{registrationError}
 											</AlertDescription>
 										</Alert>
 									)}
 
 									{registrationSuccess && (
-										<Alert className="border-green-200 bg-green-50">
-											<CheckCircle2 className="h-4 w-4 text-green-600" />
-											<AlertDescription className="text-green-700">
+										<Alert className="surface-success">
+											<CheckCircle2 className="h-4 w-4 text-success" />
+											<AlertDescription className="text-success">
 												{
 													registrationSuccess
 												}
@@ -1036,8 +1040,8 @@ export default function UsersPage() {
 												</SelectContent>
 											</Select>
 											<p className="mt-1 text-xs text-muted-foreground">
-												A District Biostat can only see
-												data for this district.
+												A district-scoped user can only
+												see data for this district.
 											</p>
 										</div>
 									)}
@@ -1135,9 +1139,9 @@ export default function UsersPage() {
 								{editingUser && (
 									<div className="space-y-4">
 										{updateError && (
-											<Alert className="border-red-200 bg-red-50">
-												<AlertCircle className="h-4 w-4 text-red-600" />
-												<AlertDescription className="text-red-700">
+											<Alert className="surface-danger">
+												<AlertCircle className="h-4 w-4 text-destructive" />
+												<AlertDescription className="text-destructive">
 													{updateError}
 												</AlertDescription>
 											</Alert>
@@ -1353,8 +1357,8 @@ export default function UsersPage() {
 													</SelectContent>
 												</Select>
 												<p className="mt-1 text-xs text-muted-foreground">
-													A District Biostat can only see data
-													for this district.
+													A district-scoped user can only see
+													data for this district.
 												</p>
 											</div>
 										)}

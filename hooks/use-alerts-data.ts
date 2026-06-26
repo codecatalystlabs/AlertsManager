@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import useSWR from 'swr';
+import type { ColumnFiltersState } from '@tanstack/react-table';
 import { AuthService, Alert as AlertType } from '@/lib/auth';
 import { exportAlertsToCsv, exportAlertsToExcel } from '@/lib/alert-export';
 import { ALERTS_CONFIG } from '@/constants/alerts';
@@ -9,6 +10,7 @@ import {
     fetchAlertsStats,
     type AlertsListParams,
 } from '@/lib/fetch-alerts';
+import { columnFiltersToAlertParams } from '@/lib/alert-column-filters';
 import { useInvalidateAlerts } from '@/hooks/use-invalidate-alerts';
 
 interface AlertsFilters {
@@ -44,6 +46,9 @@ interface UseAlertsDataReturn {
     isValidating: boolean;
     error: string | null;
     deletingId: number | null;
+    /** Per-column header filters (server-side; scope the whole dataset). */
+    columnFilters: ColumnFiltersState;
+    setColumnFilters: (filters: ColumnFiltersState) => void;
     setFilters: (filters: Partial<AlertsFilters>) => void;
     setPage: (page: number) => void;
     setPageSize: (limit: number) => void;
@@ -105,14 +110,27 @@ function toApiParams(
 
 export const useAlertsData = (): UseAlertsDataReturn => {
     const [filters, setFiltersState] = useState<AlertsFilters>(initialFilters);
+    const [columnFilters, setColumnFiltersState] = useState<ColumnFiltersState>([]);
     const [page, setPageState] = useState(1);
     const [limit, setLimitState] = useState<number>(ALERTS_CONFIG.ITEMS_PER_PAGE);
     const [deletingId, setDeletingId] = useState<number | null>(null);
 
     const filtersRef = useRef(filters);
     filtersRef.current = filters;
+    const columnFiltersRef = useRef(columnFilters);
+    columnFiltersRef.current = columnFilters;
 
     const invalidateAlerts = useInvalidateAlerts();
+
+    // Merge the filter-bar params with the per-column header filters so both
+    // scope the whole dataset server-side. Column filters win on overlap.
+    const listParams = useMemo(
+        () => ({
+            ...toApiParams(filters, page, limit),
+            ...columnFiltersToAlertParams(columnFilters),
+        }),
+        [filters, page, limit, columnFilters]
+    );
 
     const {
         data,
@@ -121,7 +139,7 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         isValidating,
         mutate,
     } = useSWR(
-        ['alerts', toApiParams(filters, page, limit)] as const,
+        ['alerts', listParams] as const,
         ([, params]) => fetchAlertsPage(params),
         { keepPreviousData: true }
     );
@@ -130,10 +148,16 @@ export const useAlertsData = (): UseAlertsDataReturn => {
     // not just the current page. Keyed on filters only — page/limit don't change
     // the totals, so paging the table never refetches the stats. Shares the
     // "alerts" root so alert create/verify/delete revalidates the cards too.
+    const statsParams = useMemo(
+        () => ({
+            ...toApiParams(filters, 1, 1),
+            ...columnFiltersToAlertParams(columnFilters),
+        }),
+        [filters, columnFilters]
+    );
     const { data: statsData } = useSWR(
-        ['alerts', 'alerts-stats', filters] as const,
-        ([, , currentFilters]) =>
-            fetchAlertsStats(toApiParams(currentFilters, 1, 1)),
+        ['alerts', 'alerts-stats', statsParams] as const,
+        ([, , params]) => fetchAlertsStats(params),
         { keepPreviousData: true }
     );
 
@@ -157,6 +181,7 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         // covers the whole filtered dataset rather than the current page.
         const result = await fetchAlertsPage({
             ...toApiParams(filtersRef.current, 1, limit),
+            ...columnFiltersToAlertParams(columnFiltersRef.current),
             page: 1,
             limit: 10_000,
         });
@@ -184,6 +209,13 @@ export const useAlertsData = (): UseAlertsDataReturn => {
             ...currentFilters,
             ...newFilters,
         }));
+        setPageState(1);
+    }, []);
+
+    const setColumnFilters = useCallback((next: ColumnFiltersState) => {
+        // Changing a column filter re-scopes the whole dataset, so go back to the
+        // first page of the new result set.
+        setColumnFiltersState(next);
         setPageState(1);
     }, []);
 
@@ -261,6 +293,8 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         isValidating,
         error,
         deletingId,
+        columnFilters,
+        setColumnFilters,
         setFilters,
         setPage,
         setPageSize,

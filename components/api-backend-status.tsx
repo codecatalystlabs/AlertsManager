@@ -4,10 +4,10 @@ import { cn } from "@/lib/utils";
 import { useApiBackendStatus } from "@/hooks/use-api-backend-status";
 
 const STATUS_STYLES = {
-	checking: "bg-amber-500",
-	online: "bg-green-500",
-	offline: "bg-red-500",
-	error: "bg-amber-500",
+	checking: "bg-warning",
+	online: "bg-success",
+	offline: "bg-destructive",
+	error: "bg-warning",
 } as const;
 
 export function ApiBackendStatus() {

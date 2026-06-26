@@ -118,7 +118,7 @@ export const RecentActivityCard = memo<RecentActivityCardProps>(
 							Choose a start and end date to see recent activity.
 						</p>
 					) : error ? (
-						<p className="text-xs text-red-600">{error}</p>
+						<p className="text-xs text-destructive">{error}</p>
 					) : (
 						<div className="grid grid-cols-2 gap-2.5">
 							<Metric
@@ -126,7 +126,7 @@ export const RecentActivityCard = memo<RecentActivityCardProps>(
 								value={activity?.pending}
 								caption="Awaiting triage"
 								icon={Clock}
-								tint={{ bg: "bg-amber-100", text: "text-amber-600" }}
+								tint={{ bg: "bg-warning/15", text: "text-warning" }}
 								loading={showSkeleton}
 							/>
 							<Metric
@@ -134,7 +134,7 @@ export const RecentActivityCard = memo<RecentActivityCardProps>(
 								value={activity?.verified}
 								caption="Outcome recorded"
 								icon={ShieldCheck}
-								tint={{ bg: "bg-green-100", text: "text-green-600" }}
+								tint={{ bg: "bg-success/15", text: "text-success" }}
 								loading={showSkeleton}
 							/>
 						</div>

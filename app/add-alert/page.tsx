@@ -1194,24 +1194,24 @@ export default function PublicAddAlertPage() {
 									className={
 										submitStatus.type ===
 										"success"
-											? "border-green-200 bg-green-50"
-											: "border-red-200 bg-red-50"
+											? "surface-success"
+											: "surface-danger"
 									}
 								>
 									<AlertTriangleIcon
 										className={`h-4 w-4 ${
 											submitStatus.type ===
 											"success"
-												? "text-green-600"
-												: "text-red-600"
+												? "text-success"
+												: "text-destructive"
 										}`}
 									/>
 									<AlertDescription
 										className={
 											submitStatus.type ===
 											"success"
-												? "text-green-700"
-												: "text-red-700"
+												? "text-success"
+												: "text-destructive"
 										}
 									>
 										{submitStatus.message}
@@ -1220,8 +1220,8 @@ export default function PublicAddAlertPage() {
 
 								{submitStatus.type === "success" &&
 									submittedAlert && (
-										<div className="mt-3 flex flex-col gap-2 rounded-lg border border-green-200 bg-green-50/60 p-4 sm:flex-row sm:items-center sm:justify-between">
-											<p className="text-sm text-green-800">
+										<div className="mt-3 flex flex-col gap-2 rounded-lg surface-success p-4 sm:flex-row sm:items-center sm:justify-between">
+											<p className="text-sm text-success">
 												Would you like a copy for
 												your records? Download a PDF
 												of the alert you just
@@ -1242,7 +1242,7 @@ export default function PublicAddAlertPage() {
 									)}
 
 								{pdfError && (
-									<p className="mt-2 text-sm text-red-600">
+									<p className="mt-2 text-sm text-destructive">
 										{pdfError}
 									</p>
 								)}
@@ -1252,9 +1252,9 @@ export default function PublicAddAlertPage() {
 				</Card>
 
 				{/* Emergency Contact */}
-				<Alert className="mt-4 border-red-200 bg-red-50">
-					<AlertTriangleIcon className="h-4 w-4 text-red-700" />
-					<AlertDescription className="text-sm text-red-800">
+				<Alert className="mt-4 surface-danger">
+					<AlertTriangleIcon className="h-4 w-4 text-destructive" />
+					<AlertDescription className="text-sm text-destructive">
 						<strong>Emergency Contact:</strong>{" "}
 						For immediate medical emergencies, please call{" "}
 						<strong>0800-100-066</strong>, SMS <strong>6767</strong>, or visit

@@ -59,7 +59,7 @@ export const EidsrMessageDetailsDialog = memo<EidsrMessageDetailsDialogProps>(
 
 					<div className="flex flex-wrap gap-2 items-center">
 						{verified ? (
-							<Badge className="bg-green-600 hover:bg-green-600">Verified</Badge>
+							<Badge className="bg-success/15 text-success hover:bg-success/15">Verified</Badge>
 						) : (
 							<Badge variant="secondary">Unverified</Badge>
 						)}

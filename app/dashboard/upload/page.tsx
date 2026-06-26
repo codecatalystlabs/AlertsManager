@@ -52,9 +52,9 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-4">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-uganda-black">Upload Alerts CSV</h1>
+        <h1 className="text-xl font-bold text-uganda-black">Upload Alerts CSV</h1>
         <Button onClick={downloadTemplate} variant="outline">
           <Download className="w-4 h-4 mr-2" />
           Download Template
@@ -67,9 +67,9 @@ export default function UploadPage() {
           <CardTitle>Upload Instructions</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <h3 className="font-semibold text-blue-900 mb-2">Before uploading:</h3>
-            <ul className="list-disc list-inside space-y-1 text-blue-800">
+          <div className="surface-info p-4 rounded-lg">
+            <h3 className="font-semibold text-foreground mb-2">Before uploading:</h3>
+            <ul className="list-disc list-inside space-y-1 text-muted-foreground">
               <li>Download the CSV template to ensure proper formatting</li>
               <li>Fill in all required fields</li>
               <li>Use the exact column headers as shown in the template</li>
@@ -78,9 +78,9 @@ export default function UploadPage() {
             </ul>
           </div>
 
-          <div className="bg-yellow-50 p-4 rounded-lg">
-            <h3 className="font-semibold text-yellow-900 mb-2">Required Fields:</h3>
-            <p className="text-yellow-800">
+          <div className="surface-warning p-4 rounded-lg">
+            <h3 className="font-semibold text-warning mb-2">Required Fields:</h3>
+            <p className="text-foreground">
               Date, Call Time, Name of Person Reporting, Number of Person Reporting, District, Source of Alert, Case
               Name, Case Age, Case Sex
             </p>
@@ -94,7 +94,7 @@ export default function UploadPage() {
           <CardTitle>Select CSV File</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-5 text-center">
             <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
             <div className="space-y-2">
               <Label htmlFor="file-upload" className="cursor-pointer">
@@ -115,7 +115,7 @@ export default function UploadPage() {
           {file && (
             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
               <div className="flex items-center space-x-3">
-                <FileText className="h-8 w-8 text-blue-600" />
+                <FileText className="h-8 w-8 text-muted-foreground" />
                 <div>
                   <p className="font-medium text-gray-900">{file.name}</p>
                   <p className="text-sm text-gray-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
@@ -137,16 +137,16 @@ export default function UploadPage() {
           )}
 
           {uploadStatus === "success" && (
-            <div className="flex items-center space-x-2 p-4 bg-green-50 rounded-lg">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              <span className="text-green-800 font-medium">File uploaded successfully! Processing alerts...</span>
+            <div className="flex items-center space-x-2 p-4 surface-success rounded-lg">
+              <CheckCircle className="h-5 w-5 text-success" />
+              <span className="text-success font-medium">File uploaded successfully! Processing alerts...</span>
             </div>
           )}
 
           {uploadStatus === "error" && (
-            <div className="flex items-center space-x-2 p-4 bg-red-50 rounded-lg">
-              <AlertCircle className="h-5 w-5 text-red-600" />
-              <span className="text-red-800 font-medium">
+            <div className="flex items-center space-x-2 p-4 surface-danger rounded-lg">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              <span className="text-destructive font-medium">
                 Upload failed. Please check your file format and try again.
               </span>
             </div>
@@ -176,23 +176,23 @@ export default function UploadPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <div className="flex items-center space-x-3">
-                <FileText className="h-5 w-5 text-blue-600" />
+                <FileText className="h-5 w-5 text-muted-foreground" />
                 <div>
                   <p className="font-medium">alerts_batch_001.csv</p>
                   <p className="text-sm text-gray-500">Uploaded 2 hours ago • 150 records</p>
                 </div>
               </div>
-              <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Processed</span>
+              <span className="px-2 py-1 bg-success/15 text-success rounded-full text-xs font-medium">Processed</span>
             </div>
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <div className="flex items-center space-x-3">
-                <FileText className="h-5 w-5 text-blue-600" />
+                <FileText className="h-5 w-5 text-muted-foreground" />
                 <div>
                   <p className="font-medium">alerts_batch_002.csv</p>
                   <p className="text-sm text-gray-500">Uploaded 1 day ago • 89 records</p>
                 </div>
               </div>
-              <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Processed</span>
+              <span className="px-2 py-1 bg-success/15 text-success rounded-full text-xs font-medium">Processed</span>
             </div>
           </div>
         </CardContent>

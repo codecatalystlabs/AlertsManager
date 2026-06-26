@@ -1,20 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ErrorAlert } from "@/components/dashboard";
 import {
 	PoeAlertDetailsDialog,
+	PoeAlertsFilters,
 	PoeAlertsHeader,
 	PoeAlertsTable,
 } from "@/components/poe-alerts";
 import { NdwFilterBar } from "@/components/ndw-alerts/ndw-filter-bar";
 import { NdwAlertsStats } from "@/components/ndw-alerts/ndw-alerts-stats";
+import { SyncProgressPanel } from "@/components/sync";
 import { POE_NDW_FILTER_FIELDS } from "@/constants/ndw-filter-fields";
 import { usePoeAlertsData } from "@/hooks/use-poe-alerts-data";
 import type { PoeAlertRow } from "@/lib/fetch-ndw-alerts";
 import { LAYOUT } from "@/constants/layout";
-import { CheckCircle2, CloudDownload } from "lucide-react";
 
 export default function PoeAlertsPage() {
 	const {
@@ -32,6 +32,8 @@ export default function PoeAlertsPage() {
 		setOperators,
 		clearFilters,
 		applyFilters,
+		applyLocalFilters,
+		clearLocalFilters,
 		setPage,
 		setPageSize,
 		refetch,
@@ -64,28 +66,16 @@ export default function PoeAlertsPage() {
 				<ErrorAlert error={error} onRetry={() => void refetch()} />
 			) : null}
 
-			{syncMessage ? (
-				<Alert>
-					<CheckCircle2 className="h-4 w-4" />
-					<AlertDescription>{syncMessage}</AlertDescription>
-				</Alert>
-			) : null}
-
-			{isSyncing && syncProgress ? (
-				<Alert>
-					<CloudDownload className="h-4 w-4 animate-pulse" />
-					<AlertDescription>
-						Syncing page {syncProgress.page}
-						{syncProgress.pageCount ? ` / ${syncProgress.pageCount}` : ""} — scanned{" "}
-						{syncProgress.scanned}, imported {syncProgress.imported}
-					</AlertDescription>
-				</Alert>
-			) : null}
+			<SyncProgressPanel
+				source="NDW"
+				isSyncing={isSyncing}
+				progress={syncProgress}
+				summaryMessage={syncMessage}
+			/>
 
 			<NdwAlertsStats
 				total={stats.total}
 				filtered={stats.filtered}
-				label="poe_alerts"
 				live={stats.live}
 			/>
 
@@ -100,6 +90,12 @@ export default function PoeAlertsPage() {
 				onOperatorsChange={setOperators}
 				onApply={() => void applyFilters()}
 				onClear={() => void clearFilters()}
+				isLoading={loading}
+			/>
+
+			<PoeAlertsFilters
+				onApply={applyLocalFilters}
+				onClear={clearLocalFilters}
 				isLoading={loading}
 			/>
 

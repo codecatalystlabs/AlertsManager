@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
@@ -11,22 +10,72 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
-	AlertTriangleIcon,
-	UserIcon,
-	MapPinIcon,
-	PhoneIcon,
-	CalendarIcon,
-	ClockIcon,
-	CheckCircleIcon,
-	XCircleIcon,
+	Siren,
+	Info,
+	CircleUser,
+	MapPin,
+	Stethoscope,
+	Phone,
+	Calendar,
+	Clock,
+	Activity,
+	ShieldCheck,
 } from "lucide-react";
-import { Label } from "@/components/ui/label";
+import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 import { Alert } from "@/lib/auth";
 
 interface AlertDetailsDialogProps {
 	isOpen: boolean;
 	onClose: () => void;
 	alert: Alert;
+}
+
+/** A labelled section header: small consistent lucide icon + uppercase title. */
+function SectionHeader({
+	icon: Icon,
+	title,
+	className,
+}: {
+	icon: LucideIcon;
+	title: string;
+	className?: string;
+}) {
+	return (
+		<div className="flex items-center gap-1.5">
+			<Icon className={cn("h-4 w-4 text-uganda-red", className)} />
+			<h3 className="text-xs font-semibold uppercase tracking-wide text-foreground">
+				{title}
+			</h3>
+		</div>
+	);
+}
+
+/** Compact label/value pair. */
+function Field({
+	label,
+	value,
+	children,
+}: {
+	label: string;
+	value?: string | number | null;
+	children?: ReactNode;
+}) {
+	return (
+		<div className="min-w-0">
+			<p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+				{label}
+			</p>
+			{children ?? (
+				<p className="truncate text-sm text-foreground">
+					{value === undefined || value === null || value === ""
+						? "—"
+						: value}
+				</p>
+			)}
+		</div>
+	);
 }
 
 export function AlertDetailsDialog({
@@ -48,401 +97,259 @@ export function AlertDetailsDialog({
 			alert.fieldVerificationDecision
 	);
 
-	const formatDate = (dateString: string) => {
-		return new Date(dateString).toLocaleDateString();
-	};
-
-	const formatTime = (timeString: string) => {
-		return new Date(timeString).toLocaleTimeString();
-	};
+	const formatDate = (dateString: string) =>
+		new Date(dateString).toLocaleDateString();
+	const formatTime = (timeString: string) =>
+		new Date(timeString).toLocaleTimeString();
 
 	return (
-		<Dialog
-			open={isOpen}
-			onOpenChange={onClose}
-		>
-			<DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-				<DialogHeader>
-					<DialogTitle className="flex items-center gap-2">
-						<AlertTriangleIcon className="h-5 w-5 text-uganda-red" />
-						Alert Details - ALT
-						{String(alert.id).padStart(3, "0")}
+		<Dialog open={isOpen} onOpenChange={onClose}>
+			<DialogContent className="max-w-2xl max-h-[88vh] gap-0 overflow-y-auto p-0">
+				<DialogHeader className="border-b px-4 py-3">
+					<DialogTitle className="flex items-center gap-2 text-base">
+						<Siren className="h-4 w-4 text-uganda-red" />
+						Alert Details — ALT{String(alert.id).padStart(3, "0")}
 					</DialogTitle>
-					<DialogDescription>
+					<DialogDescription className="text-xs">
 						Complete information about this health alert
 					</DialogDescription>
 				</DialogHeader>
 
-				<div className="space-y-6">
-					{/* Status and Verification */}
-					<div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-						<div className="flex items-center gap-4">
+				<div className="space-y-3 px-4 py-3">
+					{/* Status and verification */}
+					<div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted px-3 py-2">
+						<div className="flex items-center gap-1.5">
 							<Badge
-								variant={
+								className={cn(
+									"text-[11px]",
 									alert.status === "Alive"
-										? "default"
-										: "destructive"
-								}
-								className={
-									alert.status === "Alive"
-										? "bg-green-100 text-green-800"
-										: "bg-red-100 text-red-800"
-								}
+										? "bg-success/15 text-success"
+										: "bg-destructive/15 text-destructive"
+								)}
 							>
 								{alert.status || "Pending"}
 							</Badge>
 							<Badge
-								variant={
+								className={cn(
+									"text-[11px]",
 									alert.isVerified
-										? "default"
-										: "destructive"
-								}
-								className={
-									alert.isVerified
-										? "bg-green-100 text-green-800"
-										: "bg-yellow-100 text-yellow-800"
-								}
+										? "bg-success/15 text-success"
+										: "bg-warning/15 text-warning"
+								)}
 							>
 								{alert.isVerified
 									? "Verified"
 									: "Pending Verification"}
 							</Badge>
 						</div>
-						<div className="flex items-center gap-2 text-sm text-gray-600">
-							<CalendarIcon className="h-4 w-4" />
+						<div className="flex items-center gap-1 text-xs text-muted-foreground">
+							<Calendar className="h-3.5 w-3.5" />
 							{formatDate(alert.date)}
-							<ClockIcon className="h-4 w-4 ml-2" />
+							<Clock className="ml-1.5 h-3.5 w-3.5" />
 							{formatTime(alert.time)}
 						</div>
 					</div>
 
-					{/* Basic Information */}
-					<div className="space-y-4">
-						<div className="flex items-center gap-3">
-							<CalendarIcon className="h-5 w-5 text-uganda-red" />
-							<h3 className="text-lg font-semibold">
-								Basic Information
-							</h3>
+					{/* Basic information */}
+					<section className="space-y-2">
+						<SectionHeader icon={Info} title="Basic Information" />
+						<div className="grid grid-cols-2 gap-x-6 gap-y-2">
+							<Field
+								label="Alert Reported Before"
+								value={alert.alertReportedBefore}
+							/>
+							<Field
+								label="Response Type"
+								value={alert.response}
+							/>
 						</div>
-
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div>
-								<Label className="text-sm font-medium text-gray-600">
-									Alert Reported Before
-								</Label>
-								<p className="text-sm">
-									{alert.alertReportedBefore ||
-										"Not specified"}
-								</p>
-							</div>
-							<div>
-								<Label className="text-sm font-medium text-gray-600">
-									Response Type
-								</Label>
-								<p className="text-sm">
-									{alert.response || "Not specified"}
-								</p>
-							</div>
-						</div>
-					</div>
+					</section>
 
 					<Separator />
 
-					{/* Reporter Information */}
-					<div className="space-y-4">
-						<div className="flex items-center gap-3">
-							<UserIcon className="h-5 w-5 text-uganda-red" />
-							<h3 className="text-lg font-semibold">
-								Reporter Information
-							</h3>
-						</div>
-
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div>
-								<Label className="text-sm font-medium text-gray-600">
-									Reporter Name
-								</Label>
-								<p className="text-sm">
-									{alert.personReporting ||
-										"Not specified"}
+					{/* Reporter information */}
+					<section className="space-y-2">
+						<SectionHeader
+							icon={CircleUser}
+							title="Reporter Information"
+						/>
+						<div className="grid grid-cols-2 gap-x-6 gap-y-2">
+							<Field
+								label="Reporter Name"
+								value={alert.personReporting}
+							/>
+							<Field label="Contact Number">
+								<p className="flex items-center gap-1.5 truncate text-sm">
+									<Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+									{alert.contactNumber || "Not provided"}
 								</p>
-							</div>
-							<div>
-								<Label className="text-sm font-medium text-gray-600">
-									Contact Number
-								</Label>
-								<p className="text-sm flex items-center gap-2">
-									<PhoneIcon className="h-4 w-4" />
-									{alert.contactNumber ||
-										"Not provided"}
-								</p>
-							</div>
-							<div>
-								<Label className="text-sm font-medium text-gray-600">
-									Source of Alert
-								</Label>
-								<Badge
-									variant="outline"
-									className="text-xs"
-								>
-									{alert.sourceOfAlert ||
-										"Not specified"}
+							</Field>
+							<Field label="Source of Alert">
+								<Badge variant="outline" className="text-[11px]">
+									{alert.sourceOfAlert || "Not specified"}
 								</Badge>
-							</div>
-							<div>
-								<Label className="text-sm font-medium text-gray-600">
-									Channel of Reporting
-								</Label>
-								<p className="text-sm">
-									{alert.channelOfReporting ||
-										"Not specified"}
-								</p>
-							</div>
+							</Field>
+							<Field
+								label="Channel of Reporting"
+								value={alert.channelOfReporting}
+							/>
 						</div>
-					</div>
+					</section>
 
 					<Separator />
 
-					{/* Location Information */}
-					<div className="space-y-4">
-						<div className="flex items-center gap-3">
-							<MapPinIcon className="h-5 w-5 text-uganda-red" />
-							<h3 className="text-lg font-semibold">
-								Location Information
-							</h3>
+					{/* Location information */}
+					<section className="space-y-2">
+						<SectionHeader
+							icon={MapPin}
+							title="Location Information"
+						/>
+						<div className="grid grid-cols-2 gap-x-6 gap-y-2">
+							<Field
+								label="District"
+								value={alert.alertCaseDistrict}
+							/>
+							<Field
+								label="Subcounty/Division"
+								value={alert.subCounty}
+							/>
+							<Field
+								label="Village"
+								value={alert.alertCaseVillage}
+							/>
+							<Field
+								label="Parish"
+								value={alert.alertCaseParish}
+							/>
 						</div>
-
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div>
-								<Label className="text-sm font-medium text-gray-600">
-									District
-								</Label>
-								<p className="text-sm">
-									{alert.alertCaseDistrict ||
-										"Not specified"}
-								</p>
-							</div>
-							<div>
-								<Label className="text-sm font-medium text-gray-600">
-									Subcounty/Division
-								</Label>
-								<p className="text-sm">
-									{alert.subCounty ||
-										"Not specified"}
-								</p>
-							</div>
-							<div>
-								<Label className="text-sm font-medium text-gray-600">
-									Village
-								</Label>
-								<p className="text-sm">
-									{alert.alertCaseVillage ||
-										"Not specified"}
-								</p>
-							</div>
-							<div>
-								<Label className="text-sm font-medium text-gray-600">
-									Parish
-								</Label>
-								<p className="text-sm">
-									{alert.alertCaseParish ||
-										"Not specified"}
-								</p>
-							</div>
-						</div>
-					</div>
+					</section>
 
 					<Separator />
 
-					{/* Case Information */}
-					<div className="space-y-4">
-						<div className="flex items-center gap-3">
-							<AlertTriangleIcon className="h-5 w-5 text-uganda-red" />
-							<h3 className="text-lg font-semibold">
-								Case Information
-							</h3>
-						</div>
-
-						<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-							<div>
-								<Label className="text-sm font-medium text-gray-600">
-									Patient Name
-								</Label>
-								<p className="text-sm">
-									{alert.alertCaseName ||
-										"Not specified"}
-								</p>
-							</div>
-							<div>
-								<Label className="text-sm font-medium text-gray-600">
-									Patient Age
-								</Label>
-								<p className="text-sm">
-									{alert.alertCaseAge ||
-										"Not specified"}{" "}
-									years
-								</p>
-							</div>
-							<div>
-								<Label className="text-sm font-medium text-gray-600">
-									Patient Sex
-								</Label>
-								<p className="text-sm">
-									{alert.alertCaseSex ||
-										"Not specified"}
-								</p>
-							</div>
-						</div>
-
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<div>
-								<Label className="text-sm font-medium text-gray-600">
-									Next of Kin Name
-								</Label>
-								<p className="text-sm">
-									{alert.pointOfContactName ||
-										"Not specified"}
-								</p>
-							</div>
-							<div>
-								<Label className="text-sm font-medium text-gray-600">
-									Next of Kin Phone
-								</Label>
-								<p className="text-sm">
-									{alert.pointOfContactPhone ||
-										"Not provided"}
-								</p>
-							</div>
+					{/* Case information */}
+					<section className="space-y-2">
+						<SectionHeader
+							icon={Stethoscope}
+							title="Case Information"
+						/>
+						<div className="grid grid-cols-3 gap-x-6 gap-y-2">
+							<Field
+								label="Patient Name"
+								value={alert.alertCaseName}
+							/>
+							<Field
+								label="Patient Age"
+								value={
+									alert.alertCaseAge
+										? `${alert.alertCaseAge} years`
+										: null
+								}
+							/>
+							<Field
+								label="Patient Sex"
+								value={alert.alertCaseSex}
+							/>
+							<Field
+								label="Next of Kin Name"
+								value={alert.pointOfContactName}
+							/>
+							<Field
+								label="Next of Kin Phone"
+								value={alert.pointOfContactPhone}
+							/>
+							<Field
+								label="Lab Samples Collected"
+								value={alert.labSamplesCollected}
+							/>
 						</div>
 
 						<div>
-							<Label className="text-sm font-medium text-gray-600">
-								Laboratory Samples Collected
-							</Label>
-							<p className="text-sm">
-								{alert.labSamplesCollected ||
-									"Not specified"}
-							</p>
-						</div>
-
-						<div>
-							<Label className="text-sm font-medium text-gray-600">
+							<p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
 								Case Description
-							</Label>
-							<p className="text-sm mt-1 p-3 bg-gray-50 rounded-lg">
-								{alert.history ||
-									"No description provided"}
+							</p>
+							<p className="mt-1 rounded-md bg-muted px-3 py-2 text-sm">
+								{alert.history || "No description provided"}
 							</p>
 						</div>
 
 						{alert.narrative && (
 							<div>
-								<Label className="text-sm font-medium text-gray-600">
+								<p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
 									Additional Notes
-								</Label>
-								<p className="text-sm mt-1 p-3 bg-gray-50 rounded-lg">
+								</p>
+								<p className="mt-1 rounded-md bg-muted px-3 py-2 text-sm">
 									{alert.narrative}
 								</p>
 							</div>
 						)}
-					</div>
+					</section>
 
 					{/* Symptoms */}
 					{alert.symptoms && (
 						<>
 							<Separator />
-							<div className="space-y-4">
-								<div className="flex items-center gap-3">
-									<CheckCircleIcon className="h-5 w-5 text-uganda-red" />
-									<h3 className="text-lg font-semibold">
-										Signs and Symptoms
-									</h3>
-								</div>
-								<div className="flex flex-wrap gap-2">
+							<section className="space-y-2">
+								<SectionHeader
+									icon={Activity}
+									title="Signs and Symptoms"
+								/>
+								<div className="flex flex-wrap gap-1.5">
 									{alert.symptoms
 										.split(", ")
-										.map(
-											(
-												symptom: string,
-												index: number
-											) => (
-												<Badge
-													key={index}
-													variant="secondary"
-													className="bg-uganda-yellow/20 text-uganda-black"
-												>
-													{symptom}
-												</Badge>
-											)
-										)}
+										.map((symptom: string, index: number) => (
+											<Badge
+												key={index}
+												variant="secondary"
+												className="bg-uganda-yellow/20 text-[11px] text-uganda-black"
+											>
+												{symptom}
+											</Badge>
+										))}
 								</div>
-							</div>
+							</section>
 						</>
 					)}
 
-					{/* Verification Information */}
+					{/* Verification information */}
 					{hasVerificationInfo && (
 						<>
 							<Separator />
-							<div className="space-y-4">
-								<div className="flex items-center gap-3">
-									<CheckCircleIcon className="h-5 w-5 text-green-600" />
-									<h3 className="text-lg font-semibold text-green-600">
-										Verification Information
-									</h3>
-								</div>
-
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-									<div>
-										<Label className="text-sm font-medium text-gray-600">
-											Verified By
-										</Label>
-										<p className="text-sm">
-											{alert.verifiedBy ||
-												"Not specified"}
-										</p>
-									</div>
-									<div>
-										<Label className="text-sm font-medium text-gray-600">
-											CIF Number
-										</Label>
-										<p className="text-sm">
-											{alert.cifNo ||
-												"Not specified"}
-										</p>
-									</div>
+							<section className="space-y-2">
+								<SectionHeader
+									icon={ShieldCheck}
+									title="Verification Information"
+									className="text-success"
+								/>
+								<div className="grid grid-cols-2 gap-x-6 gap-y-2">
+									<Field
+										label="Verified By"
+										value={alert.verifiedBy}
+									/>
+									<Field label="CIF Number" value={alert.cifNo} />
 									{alert.verificationDate && (
-										<div>
-											<Label className="text-sm font-medium text-gray-600">
-												Verification Date
-											</Label>
-											<p className="text-sm">
-												{formatDate(
-													alert.verificationDate
-												)}
-											</p>
-										</div>
+										<Field
+											label="Verification Date"
+											value={formatDate(
+												alert.verificationDate
+											)}
+										/>
 									)}
 									{alert.verificationTime && (
-										<div>
-											<Label className="text-sm font-medium text-gray-600">
-												Verification Time
-											</Label>
-											<p className="text-sm">
-												{formatTime(
-													alert.verificationTime
-												)}
-											</p>
-										</div>
+										<Field
+											label="Verification Time"
+											value={formatTime(
+												alert.verificationTime
+											)}
+										/>
 									)}
 								</div>
 
 								{alert.actions && (
 									<div>
-										<Label className="text-sm font-medium text-gray-600">
+										<p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
 											Actions Taken
-										</Label>
-										<p className="text-sm mt-1 p-3 bg-gray-50 rounded-lg">
+										</p>
+										<p className="mt-1 rounded-md bg-muted px-3 py-2 text-sm">
 											{alert.actions}
 										</p>
 									</div>
@@ -450,47 +357,41 @@ export function AlertDetailsDialog({
 
 								{alert.feedback && (
 									<div>
-										<Label className="text-sm font-medium text-gray-600">
+										<p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
 											Feedback
-										</Label>
-										<p className="text-sm mt-1 p-3 bg-gray-50 rounded-lg">
+										</p>
+										<p className="mt-1 rounded-md bg-muted px-3 py-2 text-sm">
 											{alert.feedback}
 										</p>
 									</div>
 								)}
-							</div>
+							</section>
 						</>
 					)}
 
-					{/* System Information */}
+					{/* System information */}
 					<Separator />
-					<div className="space-y-4">
-						<h3 className="text-lg font-semibold">
-							System Information
-						</h3>
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-							<div>
-								<Label className="text-sm font-medium text-gray-600">
-									Created At
-								</Label>
-								<p className="text-sm">
-									{alert.createdAt
+					<section className="space-y-2">
+						<SectionHeader icon={Clock} title="System Information" />
+						<div className="grid grid-cols-2 gap-x-6 gap-y-2">
+							<Field
+								label="Created At"
+								value={
+									alert.createdAt
 										? formatDate(alert.createdAt)
-										: "Not available"}
-								</p>
-							</div>
-							<div>
-								<Label className="text-sm font-medium text-gray-600">
-									Last Updated
-								</Label>
-								<p className="text-sm">
-									{alert.updatedAt
+										: "Not available"
+								}
+							/>
+							<Field
+								label="Last Updated"
+								value={
+									alert.updatedAt
 										? formatDate(alert.updatedAt)
-										: "Not available"}
-								</p>
-							</div>
+										: "Not available"
+								}
+							/>
 						</div>
-					</div>
+					</section>
 				</div>
 			</DialogContent>
 		</Dialog>

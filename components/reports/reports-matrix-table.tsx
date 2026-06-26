@@ -196,7 +196,7 @@ export const ReportsMatrixTable = memo<ReportsMatrixTableProps>(
 												rowIndex % 2 === 0
 													? "bg-white"
 													: "bg-slate-50/90",
-												"hover:bg-amber-50/60"
+												"hover:bg-warning/10"
 											)}
 										>
 											<TableCell className="h-8 px-2 font-medium text-slate-900 sticky left-0 z-10 bg-inherit border-r border-slate-200 whitespace-nowrap">

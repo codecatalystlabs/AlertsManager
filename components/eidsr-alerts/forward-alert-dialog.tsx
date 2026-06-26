@@ -95,8 +95,8 @@ export function ForwardAlertDialog({
 
 				<div className="space-y-4">
 					{alreadyForwarded && (
-						<Alert className="border-amber-200 bg-amber-50">
-							<AlertDescription className="text-amber-800">
+						<Alert className="surface-warning">
+							<AlertDescription className="text-warning">
 								Already forwarded to {alreadyForwarded}.
 								Forwarding again will create another call log.
 							</AlertDescription>

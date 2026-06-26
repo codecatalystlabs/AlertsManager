@@ -40,7 +40,7 @@ export function AlertVerifyChip({
 	if (alert.isVerified) {
 		return (
 			<Badge
-				className="gap-1 whitespace-nowrap bg-green-100 text-green-800 hover:bg-green-100"
+				className="gap-1 whitespace-nowrap bg-success/15 text-success hover:bg-success/15"
 				title={alertVerifyTitle(alert)}
 			>
 				<ShieldCheck className="h-3 w-3" />
@@ -51,7 +51,7 @@ export function AlertVerifyChip({
 
 	return (
 		<Badge
-			className="gap-1 whitespace-nowrap bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+			className="gap-1 whitespace-nowrap bg-warning/15 text-warning hover:bg-warning/15"
 			title={alertVerifyTitle(alert)}
 		>
 			<Clock className="h-3 w-3" />

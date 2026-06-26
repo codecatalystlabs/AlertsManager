@@ -62,6 +62,8 @@ export interface AlertsTableCallbacks {
 	onView?: (alert: AlertType) => void;
 	onEdit?: (alert: AlertType) => void;
 	deletingId: number | null;
+	/** Whether the current user may delete alerts (admin/EOC only). */
+	canDelete?: boolean;
 }
 
 export const createAlertsTableColumns = (
@@ -402,6 +404,8 @@ export const createAlertsTableColumns = (
 								Edit Alert
 							</DropdownMenuItem>
 						)}
+						{callbacks.canDelete && (
+						<>
 						<DropdownMenuSeparator />
 						<AlertDialog>
 							<AlertDialogTrigger asChild>
@@ -462,6 +466,8 @@ export const createAlertsTableColumns = (
 								</AlertDialogFooter>
 							</AlertDialogContent>
 						</AlertDialog>
+						</>
+						)}
 					</DropdownMenuContent>
 				</DropdownMenu>
 			);

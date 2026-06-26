@@ -365,7 +365,7 @@ export function AlertEditDialog({
 			open={isOpen}
 			onOpenChange={onClose}
 		>
-			<DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+			<DialogContent className="max-w-4xl max-h-[88vh] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						<AlertTriangleIcon className="h-4 w-4 text-uganda-red" />
@@ -379,18 +379,18 @@ export function AlertEditDialog({
 
 				{/* Status Messages */}
 				{error && (
-					<Alert className="border-red-200 bg-red-50">
-						<XCircleIcon className="h-4 w-4 text-red-600" />
-						<AlertDescription className="text-red-700">
+					<Alert className="surface-danger">
+						<XCircleIcon className="h-4 w-4 text-destructive" />
+						<AlertDescription className="text-destructive">
 							{error}
 						</AlertDescription>
 					</Alert>
 				)}
 
 				{success && (
-					<Alert className="border-green-200 bg-green-50">
-						<CheckCircleIcon className="h-4 w-4 text-green-600" />
-						<AlertDescription className="text-green-700">
+					<Alert className="surface-success">
+						<CheckCircleIcon className="h-4 w-4 text-success" />
+						<AlertDescription className="text-success">
 							{success}
 						</AlertDescription>
 					</Alert>
@@ -700,8 +700,8 @@ export function AlertEditDialog({
 								<SelectContent>
 									{alertResponse?.map((response) => (
 										<SelectItem
-											key={response.name}
-											value={response.name}
+											key={response.code}
+											value={response.code}
 										>
 											{response.name}
 										</SelectItem>

@@ -87,7 +87,7 @@ export default function DashboardLayout({
 									<ApiBackendStatus />
 								) : (
 									<div className="hidden sm:flex sm:items-center sm:space-x-2">
-										<div className="h-2 w-2 bg-green-500 rounded-full animate-pulse" />
+										<div className="h-2 w-2 bg-success rounded-full animate-pulse" />
 										<span className="text-sm text-gray-700">
 											System Online
 										</span>

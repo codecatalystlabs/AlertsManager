@@ -34,6 +34,8 @@ export interface DashboardSummary {
 	sex: DashboardCountItem[];
 	timeline: DashboardTimePoint[];
 	granularity: "daily" | "monthly";
+	/** Distinct response (disease/condition) values available in scope — populates the Response type filter. */
+	responseTypes: string[];
 }
 
 export interface DashboardSummaryParams {
@@ -45,6 +47,8 @@ export interface DashboardSummaryParams {
 	district?: string;
 	/** Region name; omit or "all" for every region. */
 	region?: string;
+	/** Alert response (disease/condition) value; omit or "all" for every type. */
+	response?: string;
 }
 
 class DashboardFetchError extends Error {
@@ -74,6 +78,7 @@ const EMPTY_SUMMARY: DashboardSummary = {
 	sex: [],
 	timeline: [],
 	granularity: "daily",
+	responseTypes: [],
 };
 
 function buildSummaryUrl(apiBase: string, params: DashboardSummaryParams): string {
@@ -85,6 +90,9 @@ function buildSummaryUrl(apiBase: string, params: DashboardSummaryParams): strin
 	}
 	if (params.region && params.region !== "all") {
 		searchParams.set("region", params.region);
+	}
+	if (params.response && params.response !== "all") {
+		searchParams.set("response", params.response);
 	}
 	const query = searchParams.toString();
 	const path = `${apiBase}/dashboard/summary`;

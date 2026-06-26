@@ -5,6 +5,13 @@ import dynamic from "next/dynamic";
 import { Download, MapPin, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import {
 	AuthService,
 	isDistrictScopedRole,
 	isRegionScopedRole,
@@ -66,11 +73,14 @@ export default function DashboardPage(): React.JSX.Element {
 	);
 	const [region, setRegion] = useState<string>("all");
 	const [district, setDistrict] = useState<string>("all");
+	const [response, setResponse] = useState<string>("all");
 	const { summary, loading, error, refetch } = useDashboardSummary(
 		range,
 		district,
-		region
+		region,
+		response
 	);
+	const responseTypes = summary?.responseTypes ?? [];
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 	// The overview KPI row and the charts grid are captured as separate PDF
@@ -230,6 +240,26 @@ export default function DashboardPage(): React.JSX.Element {
 						</>
 					)}
 					<DashboardRangePicker onChange={setRange} disabled={loading} />
+					<Select
+						value={response}
+						onValueChange={setResponse}
+						disabled={loading}
+					>
+						<SelectTrigger
+							className="h-8 w-[160px] text-xs"
+							aria-label="Filter by response type"
+						>
+							<SelectValue placeholder="All response types" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">All response types</SelectItem>
+							{responseTypes.map((rt) => (
+								<SelectItem key={rt} value={rt}>
+									{rt}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
 				</div>
 			</div>
 

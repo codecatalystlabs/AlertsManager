@@ -105,12 +105,12 @@ export const NdwFilterBar = memo<NdwFilterBarProps>(
 		};
 
 		return (
-			<div className="rounded-lg border bg-card p-3 space-y-2">
+			<div className="rounded-lg border bg-card p-2">
 				<div className="flex flex-col sm:flex-row gap-2 sm:items-center">
 					<div className="relative flex-1 min-w-0">
 						<Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
 						<Input
-							className="h-9 pl-8 text-sm"
+							className="h-8 pl-8 text-sm"
 							placeholder={searchPlaceholder}
 							value={search}
 							onChange={(e) => onSearchChange(e.target.value)}
@@ -123,7 +123,7 @@ export const NdwFilterBar = memo<NdwFilterBarProps>(
 								<Button
 									variant="outline"
 									size="sm"
-									className="h-9 gap-1.5"
+									className="h-8 gap-1.5"
 									onClick={openSheet}
 								>
 									<Filter className="h-3.5 w-3.5" />
@@ -239,7 +239,7 @@ export const NdwFilterBar = memo<NdwFilterBarProps>(
 						</Sheet>
 						<Button
 							size="sm"
-							className="h-9"
+							className="h-8"
 							onClick={onApply}
 							disabled={isLoading}
 						>
@@ -249,7 +249,7 @@ export const NdwFilterBar = memo<NdwFilterBarProps>(
 							<Button
 								variant="ghost"
 								size="sm"
-								className="h-9 px-2"
+								className="h-8 px-2"
 								onClick={clearAll}
 								disabled={isLoading}
 							>
@@ -258,16 +258,6 @@ export const NdwFilterBar = memo<NdwFilterBarProps>(
 						)}
 					</div>
 				</div>
-				{activeCount > 0 ? (
-					<p className="text-[11px] text-muted-foreground">
-						{activeCount} NDW filter{activeCount === 1 ? "" : "s"} active — querying
-						live API
-					</p>
-				) : (
-					<p className="text-[11px] text-muted-foreground">
-						No advanced filters — showing locally synced records
-					</p>
-				)}
 			</div>
 		);
 	}
