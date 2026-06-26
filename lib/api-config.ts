@@ -4,7 +4,7 @@
  * - Browser: always use same-origin `/api/v1` (Next.js rewrite proxy).
  * - Server rewrite target: `API_BASE_URL` in `.env`, defaulting to the deployed backend.
  */
-export const CLIENT_API_BASE = "http://localhost:8089/api/v1";
+export const CLIENT_API_BASE = "/api/v1";
 
 /** Default upstream: the deployed backend. Set `API_BASE_URL` in `.env` to use a local API. */
 export const DEFAULT_API_BASE_URL = "https://alerts.health.go.ug/api/v1";
