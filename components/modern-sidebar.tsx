@@ -29,7 +29,6 @@ interface NavigationItem {
 	href: string;
 	icon: React.ComponentType<{ className?: string }>;
 	badge?: string | null;
-	dynamicBadge?: "verified" | "notVerified" | "total";
 	/**
 	 * Only shown to users who can manage other users (Admin). EOC is excluded —
 	 * it has admin-like alert rights but no user management. The backend also
@@ -58,9 +57,8 @@ const navigationGroups: NavigationGroup[] = [
 				name: "View Alerts",
 				href: "/dashboard/alerts",
 				icon: Siren,
-				dynamicBadge: "total",
 			},
-			{ name: "Call Logs", href: "/dashboard/call-logs", icon: PhoneIncoming, badge: "3" },
+			{ name: "Call Logs", href: "/dashboard/call-logs", icon: PhoneIncoming },
 			{ name: "6767 Alerts", href: "/dashboard/eidsr-alerts", icon: Headset },
 			{ name: "eCHIS Alerts", href: "/dashboard/echis-alerts", icon: Stethoscope },
 			{ name: "POE Alerts", href: "/dashboard/poe-alerts", icon: PlaneLanding },
@@ -87,41 +85,15 @@ interface ModernSidebarProps {
 	collapsed: boolean;
 }
 
-type AlertCounts = { verified: number; notVerified: number; total: number };
-
 export function ModernSidebar({
 	mobileOpen,
 	onMobileClose,
 	collapsed,
 }: ModernSidebarProps) {
 	const pathname = usePathname();
-	const [alertCounts, setAlertCounts] = useState<AlertCounts>({
-		verified: 0,
-		notVerified: 0,
-		total: 0,
-	});
 	const mobilePanelRef = useRef<HTMLDivElement>(null);
 	const closeButtonRef = useRef<HTMLButtonElement>(null);
 
-	useEffect(() => {
-		if (!AuthService.isAuthenticated()) return;
-
-		const loadCounts = async () => {
-			try {
-				const counts = await AuthService.fetchAlertCounts();
-				setAlertCounts({
-					verified: counts.verified,
-					notVerified: counts.notVerified,
-					total: counts.total,
-				});
-			} catch (error) {
-				console.error("Error fetching alert counts for sidebar:", error);
-				setAlertCounts({ verified: 0, notVerified: 0, total: 0 });
-			}
-		};
-
-		loadCounts();
-	}, []);
 
 	useEffect(() => {
 		if (!mobileOpen) return;
@@ -143,12 +115,7 @@ export function ModernSidebar({
 	}, [mobileOpen, onMobileClose]);
 
 	const getBadgeValue = (item: NavigationItem): string | null => {
-		if (item.badge) return item.badge;
-		if (item.dynamicBadge) {
-			const count = alertCounts[item.dynamicBadge];
-			return count > 0 ? count.toString() : null;
-		}
-		return null;
+		return item.badge ?? null;
 	};
 
 	const contentProps = {

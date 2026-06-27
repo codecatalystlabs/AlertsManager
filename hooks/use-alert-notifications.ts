@@ -6,6 +6,9 @@ import { fetchAlertsPage } from "@/lib/fetch-alerts";
 import type { Alert } from "@/lib/auth";
 import { useIsAuthenticated } from "@/hooks/use-auth-status";
 import { toast } from "@/hooks/use-toast";
+import { playNotificationSound } from "@/lib/notification-sound";
+
+const SOUND_PREF_KEY = "alert_notif_sound";
 
 export interface AlertNotification {
 	id: number;
@@ -37,6 +40,30 @@ export function useAlertNotifications() {
 	// Highest alert id already accounted for; null until the first successful poll.
 	const baselineRef = useRef<number | null>(null);
 
+	// Sound preference (default on), persisted in localStorage. Read after mount
+	// to avoid a hydration mismatch. A ref mirrors it so the detection effect can
+	// read the latest value without re-subscribing.
+	const [soundEnabled, setSoundEnabledState] = useState(true);
+	const soundEnabledRef = useRef(true);
+	useEffect(() => {
+		const stored =
+			typeof window !== "undefined"
+				? window.localStorage.getItem(SOUND_PREF_KEY)
+				: null;
+		const enabled = stored !== "off";
+		setSoundEnabledState(enabled);
+		soundEnabledRef.current = enabled;
+	}, []);
+	const setSoundEnabled = useCallback((enabled: boolean) => {
+		setSoundEnabledState(enabled);
+		soundEnabledRef.current = enabled;
+		try {
+			window.localStorage.setItem(SOUND_PREF_KEY, enabled ? "on" : "off");
+		} catch {
+			/* storage disabled — keep the in-memory preference */
+		}
+	}, []);
+
 	const { data } = useSWR(
 		isAuthenticated ? ["alert-notifications"] : null,
 		() =>
@@ -46,7 +73,13 @@ export function useAlertNotifications() {
 				sort_by: "id",
 				order: "desc",
 			}),
-		{ refreshInterval: POLL_MS, revalidateOnFocus: true }
+		{
+			refreshInterval: POLL_MS,
+			revalidateOnFocus: true,
+			// Keep polling even when the dashboard is a background tab, so new
+			// alerts still notify when the user is working elsewhere.
+			refreshWhenHidden: true,
+		}
 	);
 
 	useEffect(() => {
@@ -79,6 +112,10 @@ export function useAlertNotifications() {
 		setNotifications((prev) => [...fresh, ...prev].slice(0, MAX_LIST));
 		setUnseenCount((c) => c + fresh.length);
 
+		if (soundEnabledRef.current) {
+			playNotificationSound();
+		}
+
 		// One concise toast — a summary when several land at once, so a burst of
 		// new alerts doesn't flood the screen.
 		if (fresh.length === 1) {
@@ -104,5 +141,12 @@ export function useAlertNotifications() {
 		setUnseenCount(0);
 	}, []);
 
-	return { notifications, unseenCount, markAllRead, clearAll };
+	return {
+		notifications,
+		unseenCount,
+		markAllRead,
+		clearAll,
+		soundEnabled,
+		setSoundEnabled,
+	};
 }

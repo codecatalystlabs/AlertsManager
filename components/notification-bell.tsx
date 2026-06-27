@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Siren } from "lucide-react";
+import { Bell, Siren, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
 	Popover,
@@ -28,8 +28,14 @@ function timeAgo(iso?: string): string {
 
 export function NotificationBell() {
 	const router = useRouter();
-	const { notifications, unseenCount, markAllRead, clearAll } =
-		useAlertNotifications();
+	const {
+		notifications,
+		unseenCount,
+		markAllRead,
+		clearAll,
+		soundEnabled,
+		setSoundEnabled,
+	} = useAlertNotifications();
 	const [open, setOpen] = useState(false);
 
 	const handleOpenChange = (next: boolean) => {
@@ -67,15 +73,38 @@ export function NotificationBell() {
 			<PopoverContent align="end" className="w-80 p-0">
 				<div className="flex items-center justify-between border-b px-3 py-2">
 					<span className="text-sm font-semibold">New alerts</span>
-					{notifications.length > 0 && (
+					<div className="flex items-center gap-2">
 						<button
 							type="button"
-							onClick={clearAll}
-							className="text-xs text-muted-foreground hover:text-foreground"
+							onClick={() => setSoundEnabled(!soundEnabled)}
+							className="text-muted-foreground hover:text-foreground"
+							aria-label={
+								soundEnabled
+									? "Mute notification sound"
+									: "Unmute notification sound"
+							}
+							title={
+								soundEnabled
+									? "Sound on — click to mute"
+									: "Sound off — click to unmute"
+							}
 						>
-							Clear all
+							{soundEnabled ? (
+								<Volume2 className="h-4 w-4" />
+							) : (
+								<VolumeX className="h-4 w-4" />
+							)}
 						</button>
-					)}
+						{notifications.length > 0 && (
+							<button
+								type="button"
+								onClick={clearAll}
+								className="text-xs text-muted-foreground hover:text-foreground"
+							>
+								Clear all
+							</button>
+						)}
+					</div>
 				</div>
 
 				{notifications.length === 0 ? (
