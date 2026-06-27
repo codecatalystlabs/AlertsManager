@@ -47,9 +47,11 @@ export default function LoginPage() {
 
 			if (response.token) {
 				setSuccess("Login successful! Redirecting to dashboard...");
-				setTimeout(() => {
-					window.location.href = "/dashboard";
-				}, 1500);
+				// SPA navigation. AuthService.login already persisted the token and
+				// flipped the auth store, so this avoids a full-page hard reload
+				// (the old setTimeout + window.location.href re-downloaded the whole
+				// bundle on a route the user was already being routed to).
+				router.replace("/dashboard");
 			} else {
 				setError("Login failed. No token received.");
 			}

@@ -814,16 +814,18 @@ export class AuthService {
         }
     }
 
+    // PURE: no side effects. It is read from useSyncExternalStore's getSnapshot
+    // during render, so it must never mutate storage or dispatch events (that
+    // violates React's snapshot purity and is fragile under concurrent rendering).
+    // Proactive cleanup of an expired/invalid token lives in clearSessionIfExpired,
+    // which is called from an effect.
     static isAuthenticated(): boolean {
         try {
             const token = this.getToken()
             if (!token) return false
 
             const payload = this.decodeJwtPayload(token)
-            if (!payload) {
-                this.clearLocalStorage()
-                return false
-            }
+            if (!payload) return false
 
             if (typeof payload.exp === 'number') {
                 return payload.exp > Date.now() / 1000
@@ -833,6 +835,25 @@ export class AuthService {
             return true
         } catch {
             return false
+        }
+    }
+
+    /**
+     * Drop an expired or malformed token (and the cached user/SWR data) from
+     * storage. Safe to call from an effect — NOT from render — because
+     * clearLocalStorage dispatches an auth-change event. Without this an expired
+     * token lingered until the next API call happened to 401.
+     */
+    static clearSessionIfExpired(): void {
+        if (typeof window === 'undefined') return
+        const token = this.getToken()
+        if (!token) return
+        const payload = this.decodeJwtPayload(token)
+        const expired =
+            !payload ||
+            (typeof payload.exp === 'number' && payload.exp <= Date.now() / 1000)
+        if (expired) {
+            this.clearLocalStorage()
         }
     }
 

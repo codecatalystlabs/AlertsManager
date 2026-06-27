@@ -36,6 +36,10 @@ interface AlertsPagination {
     totalPages: number;
 }
 
+/** Server-side sort: `by` is a backend-whitelisted key (id|date|name|status…). */
+export type AlertsSort = { by: string; order: 'asc' | 'desc' };
+export const ALERTS_DEFAULT_SORT: AlertsSort = { by: '', order: 'desc' };
+
 interface UseAlertsDataReturn {
     alerts: AlertType[];
     filteredAlerts: AlertType[];
@@ -50,6 +54,8 @@ interface UseAlertsDataReturn {
     columnFilters: ColumnFiltersState;
     setColumnFilters: (filters: ColumnFiltersState) => void;
     setFilters: (filters: Partial<AlertsFilters>) => void;
+    sort: AlertsSort;
+    setSort: (sort: AlertsSort) => void;
     setPage: (page: number) => void;
     setPageSize: (limit: number) => void;
     refetch: () => Promise<void>;
@@ -70,9 +76,17 @@ const initialFilters: AlertsFilters = {
 function toApiParams(
     filters: AlertsFilters,
     page: number,
-    limit: number
+    limit: number,
+    options?: { sort?: AlertsSort }
 ): AlertsListParams {
     const params: AlertsListParams = { page, limit };
+
+    // Server-side sort so a header sort orders the WHOLE dataset, not just the
+    // loaded page. The backend whitelists sort_by, so an empty `by` is ignored.
+    if (options?.sort?.by) {
+        params.sort_by = options.sort.by;
+        params.order = options.sort.order;
+    }
 
     if (filters.region && filters.region !== 'all') {
         params.region = filters.region;
@@ -111,6 +125,7 @@ function toApiParams(
 export const useAlertsData = (): UseAlertsDataReturn => {
     const [filters, setFiltersState] = useState<AlertsFilters>(initialFilters);
     const [columnFilters, setColumnFiltersState] = useState<ColumnFiltersState>([]);
+    const [sort, setSortState] = useState<AlertsSort>(ALERTS_DEFAULT_SORT);
     const [page, setPageState] = useState(1);
     const [limit, setLimitState] = useState<number>(ALERTS_CONFIG.ITEMS_PER_PAGE);
     const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -119,6 +134,8 @@ export const useAlertsData = (): UseAlertsDataReturn => {
     filtersRef.current = filters;
     const columnFiltersRef = useRef(columnFilters);
     columnFiltersRef.current = columnFilters;
+    const sortRef = useRef(sort);
+    sortRef.current = sort;
 
     const invalidateAlerts = useInvalidateAlerts();
 
@@ -126,10 +143,10 @@ export const useAlertsData = (): UseAlertsDataReturn => {
     // scope the whole dataset server-side. Column filters win on overlap.
     const listParams = useMemo(
         () => ({
-            ...toApiParams(filters, page, limit),
+            ...toApiParams(filters, page, limit, { sort }),
             ...columnFiltersToAlertParams(columnFilters),
         }),
-        [filters, page, limit, columnFilters]
+        [filters, page, limit, columnFilters, sort]
     );
 
     const {
@@ -177,16 +194,37 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         : null;
 
     const loadAlertsForExport = useCallback(async (): Promise<AlertType[]> => {
-        // Same server-side filters as the table, just unpaginated, so the export
-        // covers the whole filtered dataset rather than the current page.
-        const result = await fetchAlertsPage({
-            ...toApiParams(filtersRef.current, 1, limit),
-            ...columnFiltersToAlertParams(columnFiltersRef.current),
-            page: 1,
-            limit: 10_000,
-        });
-        return result.data as AlertType[];
-    }, [limit]);
+        // Page through every result in the current filter set. A single huge
+        // `limit` is unreliable because the backend caps page size, which
+        // silently truncated exports (the same bug call-logs already fixed).
+        const EXPORT_PAGE_LIMIT = 500;
+        const MAX_EXPORT_PAGES = 200; // safety cap → up to 100k rows
+
+        const fetchExportPage = (targetPage: number) =>
+            fetchAlertsPage({
+                ...toApiParams(filtersRef.current, targetPage, EXPORT_PAGE_LIMIT, {
+                    sort: sortRef.current,
+                }),
+                ...columnFiltersToAlertParams(columnFiltersRef.current),
+            });
+
+        const first = await fetchExportPage(1);
+        const collected: AlertType[] = [...(first.data as AlertType[])];
+
+        const lastPage = Math.min(Math.max(first.totalPages ?? 1, 1), MAX_EXPORT_PAGES);
+        if (lastPage > 1) {
+            const rest = await Promise.all(
+                Array.from({ length: lastPage - 1 }, (_, index) =>
+                    fetchExportPage(index + 2)
+                )
+            );
+            for (const pageResult of rest) {
+                collected.push(...(pageResult.data as AlertType[]));
+            }
+        }
+
+        return collected;
+    }, []);
 
     const deleteAlert = useCallback(
         async (alertId: number) => {
@@ -219,6 +257,12 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         setPageState(1);
     }, []);
 
+    const setSort = useCallback((next: AlertsSort) => {
+        // Re-sorting reorders the whole dataset server-side, so reset to page 1.
+        setSortState(next);
+        setPageState(1);
+    }, []);
+
     const setPage = useCallback((nextPage: number) => {
         setPageState(nextPage);
     }, []);
@@ -229,13 +273,16 @@ export const useAlertsData = (): UseAlertsDataReturn => {
     }, []);
 
     const filteredAlerts = useMemo(() => {
-        // Filtering and pagination are server-side (see toApiParams), so the page
-        // is already the correct slice. Just float pending (unverified) alerts to
-        // the top, preserving the server's order within each group.
+        // Filtering, sorting and pagination are server-side (see toApiParams), so
+        // the page is already the correct slice. When the user has NOT chosen an
+        // explicit column sort, float pending (unverified) alerts to the top
+        // (preserving server order within each group). When they HAVE chosen a
+        // sort, respect it exactly rather than overriding it with the float.
+        if (sort.by) return alerts;
         return [...alerts].sort(
             (a, b) => Number(!!a.isVerified) - Number(!!b.isVerified)
         );
-    }, [alerts]);
+    }, [alerts, sort.by]);
 
     const stats = useMemo(
         (): AlertsStats => ({
@@ -296,6 +343,8 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         columnFilters,
         setColumnFilters,
         setFilters,
+        sort,
+        setSort,
         setPage,
         setPageSize,
         refetch,

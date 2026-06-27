@@ -52,6 +52,16 @@ export function resolveDashboardRange(
 	if (preset === "all") return { from: "", to: "" };
 	if (preset === "custom") return { from: customFrom, to: customTo };
 
+	// Subtract whole months without JS date overflow: e.g. Aug 31 minus 6 months
+	// must be Feb 28/29, not "Feb 31" → March 3. Clamp the day to the target month.
+	function subtractMonths(d: Date, months: number) {
+		const day = d.getDate();
+		d.setDate(1);
+		d.setMonth(d.getMonth() - months);
+		const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+		d.setDate(Math.min(day, daysInMonth));
+	}
+
 	const to = new Date();
 	const from = new Date();
 	switch (preset) {
@@ -62,11 +72,11 @@ export function resolveDashboardRange(
 			from.setDate(from.getDate() - 89);
 			break;
 		case "6m":
-			from.setMonth(from.getMonth() - 6);
+			subtractMonths(from, 6);
 			break;
 		case "12m":
 		default:
-			from.setMonth(from.getMonth() - 12);
+			subtractMonths(from, 12);
 			break;
 	}
 	return { from: toYmd(from), to: toYmd(to) };
@@ -104,7 +114,7 @@ export const DashboardRangePicker = memo<DashboardRangePickerProps>(
 		};
 
 		return (
-			<div className="flex flex-wrap items-end gap-2 z-[10958743px]">
+			<div className="relative z-10 flex flex-wrap items-end gap-2">
 				<div className="space-y-1">
 					<Label htmlFor="dashboard-range" className="text-[11px]">
 						Chart date range

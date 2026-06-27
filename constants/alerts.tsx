@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { Alert as AlertType } from "@/lib/auth";
 import {
@@ -5,14 +6,7 @@ import {
 	exactStringFilter,
 	textIncludesFilter,
 } from "@/components/ui/data-table";
-import {
-	ArrowUpDown,
-	MoreHorizontal,
-	Eye,
-	Edit,
-	Trash2,
-	Loader2,
-} from "lucide-react";
+import { ArrowUpDown, MoreHorizontal, Eye, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -24,17 +18,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-	AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { DeleteAlertDialog } from "@/components/alerts/delete-alert-dialog";
 
 export const ALERTS_CONFIG = {
 	PAGE_TITLE: "Alerts Management",
@@ -360,117 +344,105 @@ export const createAlertsTableColumns = (
 		id: "actions",
 		header: "Actions",
 		enableColumnFilter: false,
-		cell: ({ row }) => {
-			const alert = row.original;
-
-			return (
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<Button
-							variant="ghost"
-							className="h-8 w-8 p-0 hover:bg-uganda-yellow/10"
-						>
-							<span className="sr-only"> Open menu </span>
-							<MoreHorizontal className="h-4 w-4" />
-						</Button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end">
-						<DropdownMenuLabel>Actions </DropdownMenuLabel>
-						<DropdownMenuItem
-							onClick={() =>
-								navigator.clipboard.writeText(
-									alert.id?.toString() || ""
-								)
-							}
-						>
-							Copy Alert ID
-						</DropdownMenuItem>
-						<DropdownMenuSeparator />
-						{callbacks.onView && (
-							<DropdownMenuItem
-								className="flex items-center gap-2"
-								onClick={() => callbacks.onView!(alert)}
-							>
-								<Eye className="h-4 w-4" />
-								View Details
-							</DropdownMenuItem>
-						)}
-						{callbacks.onEdit && (
-							<DropdownMenuItem
-								className="flex items-center gap-2"
-								onClick={() => callbacks.onEdit!(alert)}
-							>
-								<Edit className="h-4 w-4" />
-								Edit Alert
-							</DropdownMenuItem>
-						)}
-						{callbacks.canDelete && (
-						<>
-						<DropdownMenuSeparator />
-						<AlertDialog>
-							<AlertDialogTrigger asChild>
-								<DropdownMenuItem
-									className="flex items-center gap-2 text-red-600 focus:text-red-600"
-									onSelect={(e) =>
-										e.preventDefault()
-									}
-								>
-									<Trash2 className="h-4 w-4" />
-									Delete Alert
-								</DropdownMenuItem>
-							</AlertDialogTrigger>
-							<AlertDialogContent>
-								<AlertDialogHeader>
-									<AlertDialogTitle>
-										Are you absolutely sure ?{" "}
-									</AlertDialogTitle>
-									<AlertDialogDescription>
-										This action cannot be
-										undone.This will permanently
-										delete the alert ALT
-										{String(alert.id).padStart(
-											3,
-											"0"
-										)}{" "}
-										and remove it from our
-										servers.
-									</AlertDialogDescription>
-								</AlertDialogHeader>
-								<AlertDialogFooter>
-									<AlertDialogCancel>
-										Cancel{" "}
-									</AlertDialogCancel>
-									<AlertDialogAction
-										onClick={() =>
-											alert.id &&
-											callbacks.onDelete(
-												alert.id
-											)
-										}
-										className="bg-red-600 hover:bg-red-700"
-										disabled={
-											callbacks.deletingId ===
-											alert.id
-										}
-									>
-										{callbacks.deletingId ===
-										alert.id ? (
-											<>
-												<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-												Deleting...
-											</>
-										) : (
-											"Delete Alert"
-										)}
-									</AlertDialogAction>
-								</AlertDialogFooter>
-							</AlertDialogContent>
-						</AlertDialog>
-						</>
-						)}
-					</DropdownMenuContent>
-				</DropdownMenu>
-			);
-		},
+		cell: ({ row }) => (
+			<AlertRowActions alert={row.original} callbacks={callbacks} />
+		),
 	},
 ];
+
+/**
+ * Row action menu for a single alert. The delete confirmation lives OUTSIDE the
+ * dropdown (controlled by local state) so the destructive button renders and
+ * focuses correctly — an AlertDialog nested in DropdownMenuContent breaks that.
+ */
+function AlertRowActions({
+	alert,
+	callbacks,
+}: {
+	alert: AlertType;
+	callbacks: AlertsTableCallbacks;
+}) {
+	const [menuOpen, setMenuOpen] = useState(false);
+	const [deleteOpen, setDeleteOpen] = useState(false);
+	const isDeleting = callbacks.deletingId === alert.id;
+
+	const handleConfirmDelete = async () => {
+		if (!alert.id) return;
+		await callbacks.onDelete(alert.id);
+		setDeleteOpen(false);
+	};
+
+	return (
+		<>
+			<DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+				<DropdownMenuTrigger asChild>
+					<Button
+						variant="ghost"
+						className="h-8 w-8 p-0 hover:bg-uganda-yellow/10"
+					>
+						<span className="sr-only"> Open menu </span>
+						<MoreHorizontal className="h-4 w-4" />
+					</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end">
+					<DropdownMenuLabel>Actions </DropdownMenuLabel>
+					<DropdownMenuItem
+						onClick={() =>
+							navigator.clipboard.writeText(alert.id?.toString() || "")
+						}
+					>
+						Copy Alert ID
+					</DropdownMenuItem>
+					<DropdownMenuSeparator />
+					{callbacks.onView && (
+						<DropdownMenuItem
+							className="flex items-center gap-2"
+							onClick={() => callbacks.onView!(alert)}
+						>
+							<Eye className="h-4 w-4" />
+							View Details
+						</DropdownMenuItem>
+					)}
+					{callbacks.onEdit && (
+						<DropdownMenuItem
+							className="flex items-center gap-2"
+							onClick={() => callbacks.onEdit!(alert)}
+						>
+							<Edit className="h-4 w-4" />
+							Edit Alert
+						</DropdownMenuItem>
+					)}
+					{callbacks.canDelete && (
+						<>
+							<DropdownMenuSeparator />
+							<DropdownMenuItem
+								className="flex items-center gap-2 text-destructive focus:text-destructive"
+								onSelect={(e) => {
+									// Close the menu ourselves, then open the dialog —
+									// avoids the focus hand-off race between the two.
+									e.preventDefault();
+									setMenuOpen(false);
+									setDeleteOpen(true);
+								}}
+							>
+								<Trash2 className="h-4 w-4" />
+								Delete Alert
+							</DropdownMenuItem>
+						</>
+					)}
+				</DropdownMenuContent>
+			</DropdownMenu>
+
+			{callbacks.canDelete && (
+				<DeleteAlertDialog
+					open={deleteOpen}
+					onOpenChange={setDeleteOpen}
+					alertCode={`ALT${String(alert.id).padStart(3, "0")}`}
+					caseName={alert.alertCaseName}
+					isDeleting={isDeleting}
+					onConfirm={() => void handleConfirmDelete()}
+				/>
+			)}
+		</>
+	);
+}

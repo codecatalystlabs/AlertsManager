@@ -111,6 +111,8 @@ interface UseCallLogsDataReturn {
     selectedAlert: AlertLog | null;
     /** Per-column header filters (server-side; scope the whole dataset). */
     columnFilters: ColumnFiltersState;
+    /** Increments on clearFilters so the table can reset its own header-filter UI. */
+    filtersResetKey: number;
     setColumnFilters: (filters: ColumnFiltersState) => void;
     setFilters: (filters: Partial<CallLogsFilters>) => void;
     setSort: (sort: CallLogsSort) => void;
@@ -161,15 +163,17 @@ function toApiParams(
         params.to_date = filters.toDate;
     }
 
-    // Map concrete statuses to the server `status` param so they filter the
-    // whole dataset. "other" (= any status that isn't Alive) has no single
-    // server value, so it stays a client-side page filter via applyClientFilters.
+    // Map every status filter to a SERVER param so it scopes the whole dataset
+    // (and the pagination totals/cards), not just the loaded page. "other" =
+    // any status that isn't Alive (incl. NULL/blank) → status_not=Alive.
     const statusMap: Record<string, string> = {
         alive: 'Alive',
         dead: 'Dead',
         unknown: 'Unknown',
     };
-    if (filters.status && statusMap[filters.status]) {
+    if (filters.status === 'other') {
+        params.status_not = 'Alive';
+    } else if (filters.status && statusMap[filters.status]) {
         params.status = statusMap[filters.status];
     }
 
@@ -232,10 +236,11 @@ function applyClientFilters(alerts: AlertLog[], filters: CallLogsFilters): Alert
             (filters.verification === 'verified' && alert.isVerified) ||
             (filters.verification === 'pending' && !alert.isVerified);
 
-        const matchesStatus =
-            filters.status === 'all' ||
-            (filters.status === 'other' && alert.status !== 'Alive') ||
-            (alert.status ?? '').toLowerCase() === filters.status.toLowerCase();
+        // Status (including "other" = not Alive) is now fully server-side via the
+        // status / status_not params, so it scopes the whole dataset and the
+        // pagination totals. Re-filtering here would only risk dropping rows the
+        // server already matched (e.g. case differences), so this is a no-op.
+        const matchesStatus = true;
 
         const matchesSource =
             filters.source === 'all' ||
@@ -340,6 +345,8 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
     });
     const [selectedAlert, setSelectedAlert] = useState<AlertLog | null>(null);
     const [columnFilters, setColumnFiltersState] = useState<ColumnFiltersState>([]);
+    // Bumped on clearFilters so the DataTable resets its own header-filter UI.
+    const [filtersResetKey, setFiltersResetKey] = useState(0);
     const [page, setPageState] = useState(1);
     const [limit, setLimitState] = useState<number>(CALL_LOGS_CONFIG.ITEMS_PER_PAGE);
     const [exporting, setExporting] = useState<'csv' | 'excel' | null>(null);
@@ -463,6 +470,7 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         setFiltersState({ ...CALL_LOGS_INITIAL_FILTERS });
         setSortState({ ...CALL_LOGS_DEFAULT_SORT });
         setColumnFiltersState([]);
+        setFiltersResetKey((k) => k + 1);
         setPageState(1);
     }, []);
 
@@ -561,6 +569,7 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         error,
         selectedAlert,
         columnFilters,
+        filtersResetKey,
         setColumnFilters,
         setFilters,
         setSort,

@@ -150,6 +150,13 @@ interface DataTableProps<TData, TValue> {
   manualSorting?: boolean
   sorting?: SortingState
   onSortingChange?: (sorting: SortingState) => void
+  /**
+   * Bump this (e.g. increment a counter) when the parent clears its filters, so
+   * the table also clears its internal column-filter state — otherwise the header
+   * funnel icons stay highlighted and the popover inputs keep their stale text
+   * even though the data was already refetched unfiltered.
+   */
+  filtersResetKey?: number
   isLoading?: boolean
   /** e.g. green background for verified rows */
   getRowClassName?: (row: Row<TData>) => string | undefined
@@ -336,13 +343,49 @@ function HeaderFilterInput<TData, TValue>({
   }
 
   return (
-    <Input
+    <DebouncedTextFilter
       value={typeof filterValue === "string" ? filterValue : ""}
-      onChange={(event) => {
-        column.setFilterValue(event.target.value)
+      placeholder={meta?.filterPlaceholder ?? `Search ${label}`}
+      onCommit={(next) => {
+        column.setFilterValue(next || undefined)
         onFilterChange()
       }}
-      placeholder={meta?.filterPlaceholder ?? `Search ${label}`}
+    />
+  )
+}
+
+// DebouncedTextFilter keeps the keystrokes local and only commits (which, with
+// manualFiltering, triggers a server refetch) after the user pauses — instead of
+// firing one request per character.
+function DebouncedTextFilter({
+  value,
+  placeholder,
+  onCommit,
+}: {
+  value: string
+  placeholder: string
+  onCommit: (value: string) => void
+}) {
+  const [local, setLocal] = React.useState(value)
+  const onCommitRef = React.useRef(onCommit)
+  onCommitRef.current = onCommit
+
+  // Sync when the external value changes (e.g. the parent cleared all filters).
+  React.useEffect(() => {
+    setLocal(value)
+  }, [value])
+
+  React.useEffect(() => {
+    if (local === value) return
+    const id = setTimeout(() => onCommitRef.current(local), 350)
+    return () => clearTimeout(id)
+  }, [local, value])
+
+  return (
+    <Input
+      value={local}
+      onChange={(event) => setLocal(event.target.value)}
+      placeholder={placeholder}
       className="h-8 text-xs"
     />
   )
@@ -367,6 +410,7 @@ export function DataTable<TData, TValue>({
   manualSorting = false,
   sorting: controlledSorting,
   onSortingChange,
+  filtersResetKey,
   isLoading = false,
   getRowClassName,
 }: DataTableProps<TData, TValue>) {
@@ -426,6 +470,18 @@ export function DataTable<TData, TValue>({
   React.useEffect(() => {
     onColumnFiltersChange?.(columnFilters)
   }, [columnFilters, onColumnFiltersChange])
+
+  // Clear the table's own column-filter state when the parent signals a reset, so
+  // the header funnel icons + popover inputs visually clear too. Skip the initial
+  // mount (filters already start empty).
+  const didMountResetRef = React.useRef(false)
+  React.useEffect(() => {
+    if (!didMountResetRef.current) {
+      didMountResetRef.current = true
+      return
+    }
+    setColumnFilters([])
+  }, [filtersResetKey])
 
   const table = useReactTable({
     data,

@@ -260,9 +260,18 @@ export async function verifyEidsrMessage(
 		}
 
 		if (response.ok) {
-			const json = (await response.json()) as EidsrMessageVerifyResult;
+			// Guard a 204 / empty body: response.json() throws "Unexpected end of
+			// JSON input" on an empty body, which would report a failure even though
+			// the verification succeeded.
 			notifyAlertsChanged();
-			return json ?? {};
+			if (response.status === 204) {
+				return {};
+			}
+			const text = await response.text();
+			if (!text) {
+				return {};
+			}
+			return JSON.parse(text) as EidsrMessageVerifyResult;
 		}
 
 		const bodyText = await response.text().catch(() => "");

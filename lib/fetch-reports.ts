@@ -2,6 +2,7 @@ import { AuthService } from "@/lib/auth";
 import { getClientApiBaseUrl } from "@/lib/api-config";
 import { formatAlertsFetchError } from "@/lib/api-errors";
 import { canonicalDistrictName } from "@/lib/district-name";
+import { toLocalISODate } from "@/lib/date-range-presets";
 
 class ReportsFetchError extends Error {
 	constructor(
@@ -69,7 +70,10 @@ export interface ReportsQueryParams {
 }
 
 export function todayIsoDate(): string {
-	return new Date().toISOString().split("T")[0];
+	// Local date, NOT UTC: toISOString() would return yesterday for the first few
+	// hours of the day in Uganda (UTC+3), defaulting reports to the wrong day and
+	// blocking selection of "today" via the date input's max.
+	return toLocalISODate(new Date());
 }
 
 /** Default 6-day window ending today (matches API timeseries default). */
@@ -78,8 +82,8 @@ export function defaultReportDateRange(): ReportsDateRange {
 	const from = new Date();
 	from.setDate(from.getDate() - 5);
 	return {
-		fromDate: from.toISOString().split("T")[0],
-		toDate: to.toISOString().split("T")[0],
+		fromDate: toLocalISODate(from),
+		toDate: toLocalISODate(to),
 	};
 }
 

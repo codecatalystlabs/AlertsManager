@@ -1,10 +1,12 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ColumnFiltersState } from "@tanstack/react-table";
 import useSWR from "swr";
 import {
 	EIDSR_ALERTS_CONFIG,
 	EIDSR_INITIAL_FILTERS,
 	type EidsrAlertsFilterState,
 } from "@/constants/eidsr-alerts";
+import { columnFiltersToEidsrParams } from "@/lib/eidsr-column-filters";
 import {
 	enrichEidsrMessage,
 	type EidsrMessage,
@@ -56,6 +58,11 @@ interface UseEidsrEventsDataReturn {
 	verificationFilter: EidsrLinkFilter;
 	setVerificationFilter: (f: EidsrLinkFilter) => void;
 	setFilters: (patch: Partial<EidsrAlertsFilterState>) => void;
+	/** Per-column header filters (Status, Location, In-alerts, Received) routed
+	 *  to the server so they scope the whole dataset, not just the loaded page. */
+	setColumnFilters: (filters: ColumnFiltersState) => void;
+	/** Increments on clearFilters so the table clears its header funnel UI. */
+	filtersResetKey: number;
 	clearFilters: () => void;
 	applyFilters: () => Promise<void>;
 	setPage: (page: number) => void;
@@ -155,7 +162,8 @@ async function fetchEidsr6767(
 	filters: EidsrAlertsFilterState,
 	verificationFilter: EidsrLinkFilter,
 	page: number,
-	limit: number
+	limit: number,
+	columnParams: Partial<EidsrEventsListParams> = {}
 ): Promise<EidsrFetchResult> {
 	const localId = filters.localId.trim();
 
@@ -176,9 +184,12 @@ async function fetchEidsr6767(
 		};
 	}
 
-	const pageResult = await listEidsr6767(
-		toEventsApiParams(filters, verificationFilter, page, limit)
-	);
+	const pageResult = await listEidsr6767({
+		// Column header filters win on overlap (e.g. a Status column filter
+		// overrides the filter-bar status), matching the Alerts/Call-Logs tables.
+		...toEventsApiParams(filters, verificationFilter, page, limit),
+		...columnParams,
+	});
 	const loaded = pageResult.messages.map((m) => enrichEidsrMessage(m));
 	return {
 		allMessages: loaded,
@@ -196,6 +207,11 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 	});
 	const [verificationFilter, setVerificationFilterState] =
 		useState<EidsrLinkFilter>("all");
+	const [columnFilters, setColumnFiltersState] = useState<ColumnFiltersState>(
+		[]
+	);
+	// Bumped on clearFilters so the data-table clears its header funnel UI too.
+	const [filtersResetKey, setFiltersResetKey] = useState(0);
 	const [page, setPageState] = useState(1);
 	const [limit, setLimitState] = useState<number>(
 		EIDSR_ALERTS_CONFIG.ITEMS_PER_PAGE
@@ -209,9 +225,27 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 	// Errors from actions (sync) that aren't part of the SWR fetch lifecycle.
 	const [actionError, setActionError] = useState<string | null>(null);
 
+	// The sync-progress poll below is an open-ended loop (up to 20 min). Track
+	// mount state so it stops issuing requests + setState once the component
+	// unmounts instead of running to completion in the background.
+	const mountedRef = useRef(true);
+	useEffect(() => {
+		mountedRef.current = true;
+		return () => {
+			mountedRef.current = false;
+		};
+	}, []);
+
+	// Mapped once so the SWR key only changes when the resulting server params
+	// change (not on every referentially-new ColumnFiltersState array).
+	const columnParams = useMemo(
+		() => columnFiltersToEidsrParams(columnFilters),
+		[columnFilters]
+	);
+
 	const { data, error: swrError, isLoading, isValidating, mutate } = useSWR(
-		["eidsr-6767", filters, verificationFilter, page, limit] as const,
-		([, f, vf, p, l]) => fetchEidsr6767(f, vf, p, l),
+		["eidsr-6767", filters, verificationFilter, page, limit, columnParams] as const,
+		([, f, vf, p, l, cp]) => fetchEidsr6767(f, vf, p, l, cp),
 		{
 			keepPreviousData: true,
 			// Poll while the page is visible instead of refreshing on every
@@ -275,9 +309,18 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 		setPageState(1);
 	}, []);
 
+	const setColumnFilters = useCallback((next: ColumnFiltersState) => {
+		// Changing a column filter re-scopes the whole dataset, so jump back to
+		// the first page of the new result set.
+		setColumnFiltersState(next);
+		setPageState(1);
+	}, []);
+
 	const clearFilters = useCallback(() => {
 		setFiltersState({ ...EIDSR_INITIAL_FILTERS });
 		setVerificationFilterState("all");
+		setColumnFiltersState([]);
+		setFiltersResetKey((k) => k + 1);
 		setPageState(1);
 	}, []);
 
@@ -317,6 +360,8 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 				let final: EidsrSyncProgress = start.progress;
 				for (;;) {
 					await new Promise((resolve) => setTimeout(resolve, 1200));
+					// Stop polling once the component has unmounted (navigated away).
+					if (!mountedRef.current) return;
 					let status: EidsrSyncProgress;
 					try {
 						status = await getEidsr6767SyncStatus();
@@ -324,6 +369,7 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 						if (Date.now() > deadline) break;
 						continue; // transient poll error — keep watching
 					}
+					if (!mountedRef.current) return;
 					setSyncProgress(status);
 					final = status;
 					if (!status.running || Date.now() > deadline) break;
@@ -350,18 +396,20 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 	const loadMessagesForExport = useCallback(async (): Promise<
 		EidsrMessage[]
 	> => {
-		// Server applies all filters (status, dates, link status, search), so the
-		// exported set matches what the table shows — no client re-filtering.
-		const pageResult = await listEidsr6767(
-			toEventsApiParams(
+		// Server applies all filters (status, dates, link status, search) plus the
+		// per-column header filters, so the exported set matches what the table
+		// shows — no client re-filtering. Column filters win on overlap.
+		const pageResult = await listEidsr6767({
+			...toEventsApiParams(
 				filters,
 				verificationFilter,
 				1,
 				EIDSR_ALERTS_CONFIG.EXPORT_MAX_ROWS
-			)
-		);
+			),
+			...columnParams,
+		});
 		return pageResult.messages.map((m) => enrichEidsrMessage(m));
-	}, [filters, verificationFilter]);
+	}, [filters, verificationFilter, columnParams]);
 
 	const exportToCsv = useCallback(async () => {
 		setIsExporting(true);
@@ -498,6 +546,8 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 		verificationFilter,
 		setVerificationFilter,
 		setFilters,
+		setColumnFilters,
+		filtersResetKey,
 		clearFilters,
 		applyFilters,
 		setPage,

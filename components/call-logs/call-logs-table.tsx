@@ -43,6 +43,8 @@ interface CallLogsTableProps {
 	onDeleteAlert: (alertId: number) => Promise<void>;
 	/** Receives per-column header filter changes so they query the whole dataset. */
 	onColumnFiltersChange?: (filters: ColumnFiltersState) => void;
+	/** Bumped when the parent clears filters, so the table resets its header-filter UI. */
+	filtersResetKey?: number;
 }
 
 export const CallLogsTable = memo<CallLogsTableProps>(
@@ -62,6 +64,7 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 		onVerifyAlert,
 		onDeleteAlert,
 		onColumnFiltersChange,
+		filtersResetKey,
 	}) => {
 		const canDelete = canDeleteAlerts(useCurrentUser());
 		const callbacks: CallLogsTableCallbacks = useMemo(
@@ -123,6 +126,7 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 						onPageChange={(pageIndex) => onPageChange(pageIndex + 1)}
 						onPageSizeChange={onPageSizeChange}
 						onColumnFiltersChange={onColumnFiltersChange}
+						filtersResetKey={filtersResetKey}
 						manualSorting
 						sorting={sortingState}
 						onSortingChange={handleSortingChange}

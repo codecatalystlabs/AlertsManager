@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo } from "react";
+import React, { memo, useMemo } from "react";
 import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import {
 	DataTable,
 	dateRangeFilter,
 	exactStringFilter,
+	textIncludesFilter,
 } from "@/components/ui/data-table";
 import {
 	resolveInAlertsRef,
@@ -47,6 +48,10 @@ interface EidsrAlertsTableProps {
 	onPageChange: (page: number) => void;
 	onPageSizeChange: (pageSize: number) => void;
 	onInAlertsFilterChange?: (filter: "all" | "linked" | "unlinked") => void;
+	/** Receives per-column header filter changes so they query the whole dataset. */
+	onColumnFiltersChange?: (filters: ColumnFiltersState) => void;
+	/** Bumped when the filter bar is cleared, to also clear the header funnels. */
+	filtersResetKey?: number;
 	onView: (message: EidsrMessage) => void;
 	onEdit: (message: EidsrMessage) => void;
 	onVerify: (message: EidsrMessage) => void;
@@ -65,6 +70,7 @@ function createColumns(handlers: {
 		{
 			accessorKey: "id",
 			header: "ID",
+			enableColumnFilter: false,
 			cell: ({ row }) => (
 				<span className="font-medium">{row.original.id}</span>
 			),
@@ -72,22 +78,21 @@ function createColumns(handlers: {
 		{
 			accessorKey: "messageId",
 			header: "Message ID",
+			enableColumnFilter: false,
 			cell: ({ row }) => row.original.messageId || "—",
 		},
 		{
 			accessorKey: "personReporting",
 			header: "Reporter",
-			meta: {
-				filterPlaceholder: "Reporter name",
-			},
+			// No dedicated server filter — searchable via the top filter bar.
+			enableColumnFilter: false,
 			cell: ({ row }) => row.original.personReporting || "—",
 		},
 		{
 			accessorKey: "contactNumber",
 			header: "Phone",
-			meta: {
-				filterPlaceholder: "Phone number",
-			},
+			// No dedicated server filter — searchable via the top filter bar.
+			enableColumnFilter: false,
 			cell: ({ row }) => row.original.contactNumber || "—",
 		},
 		{
@@ -95,8 +100,9 @@ function createColumns(handlers: {
 			accessorFn: (row) =>
 				[row.village, row.alertCaseDistrict].filter(Boolean).join(", "),
 			header: "Location",
+			filterFn: textIncludesFilter,
 			meta: {
-				filterPlaceholder: "Village or district",
+				filterPlaceholder: "District",
 			},
 			cell: ({ row }) => {
 				const text = [row.original.village, row.original.alertCaseDistrict]
@@ -115,9 +121,8 @@ function createColumns(handlers: {
 		{
 			accessorKey: "messageText",
 			header: "Message",
-			meta: {
-				filterPlaceholder: "Message text",
-			},
+			// No dedicated server filter — searchable via the top filter bar.
+			enableColumnFilter: false,
 			cell: ({ row }) => {
 				const text = row.original.messageText || "—";
 				return (
@@ -298,6 +303,8 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 		onPageChange,
 		onPageSizeChange,
 		onInAlertsFilterChange,
+		onColumnFiltersChange,
+		filtersResetKey,
 		onView,
 		onEdit,
 		onVerify,
@@ -316,18 +323,15 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 				}),
 			[onView, onEdit, onVerify, onForward, verifyInProgressId, canForward]
 		);
-		const handleColumnFiltersChange = useCallback(
-			(filters: ColumnFiltersState) => {
-				if (!onInAlertsFilterChange) return;
-
-				const value = filters.find((filter) => filter.id === "inAlerts")
-					?.value;
-				onInAlertsFilterChange(
-					value === "linked" || value === "unlinked" ? value : "all"
-				);
-			},
-			[onInAlertsFilterChange]
-		);
+		// This table is server-paginated, so header filters run server-side
+		// (manualFiltering): onColumnFiltersChange routes them to the hook, which
+		// re-queries the WHOLE dataset, not just the loaded page. Only the columns
+		// the backend can filter expose a funnel (Status, Location, In-alerts,
+		// Received); the free-text columns opt out (enableColumnFilter: false) and
+		// stay searchable via the dedicated EidsrAlertsFilters bar. The legacy
+		// onInAlertsFilterChange prop is kept for API compatibility but unused —
+		// the In-alerts column header filter now covers it.
+		void onInAlertsFilterChange;
 
 		return (
 			<Card className={LAYOUT.card}>
@@ -341,6 +345,9 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 						columns={columns}
 						data={messages}
 						enableHeaderFilters
+						manualFiltering
+						onColumnFiltersChange={onColumnFiltersChange}
+						filtersResetKey={filtersResetKey}
 						pageSize={pageSize}
 						manualPagination
 						pageCount={totalPages}
@@ -348,7 +355,6 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 						pageIndex={page - 1}
 						onPageChange={(pageIndex) => onPageChange(pageIndex + 1)}
 						onPageSizeChange={onPageSizeChange}
-						onColumnFiltersChange={handleColumnFiltersChange}
 						isLoading={isLoading}
 						getRowClassName={(row) =>
 							verifiedTableRowClass(isEidsr6767Verified(row.original))

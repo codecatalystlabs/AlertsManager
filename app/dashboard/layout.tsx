@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ApiBackendStatus } from "@/components/api-backend-status";
 import { UserMenu } from "@/components/user-menu";
+import { NotificationBell } from "@/components/notification-bell";
 
 export default function DashboardLayout({
 	children,
@@ -93,6 +94,7 @@ export default function DashboardLayout({
 										</span>
 									</div>
 								)}
+								<NotificationBell />
 								<div className="h-6 w-px bg-gray-200" aria-hidden />
 								<UserMenu />
 							</div>

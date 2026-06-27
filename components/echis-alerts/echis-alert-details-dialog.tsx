@@ -36,15 +36,25 @@ export function EchisAlertDetailsDialog({
 	];
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+			<DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle>eCHIS alert #{alert.id}</DialogTitle>
 				</DialogHeader>
-				<dl className="grid grid-cols-1 gap-2 text-sm">
+				{/* Compact two-column grid; long free-text/hash fields span both. */}
+				<dl className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-sm">
 					{rows.map(([k, v]) => (
-						<div key={k}>
-							<dt className="text-xs text-muted-foreground">{k}</dt>
-							<dd className="whitespace-pre-wrap break-words">{v || "—"}</dd>
+						<div
+							key={k}
+							className={`min-w-0 ${
+								["Description", "Additional info", "Record hash"].includes(k)
+									? "col-span-2"
+									: ""
+							}`}
+						>
+							<dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+								{k}
+							</dt>
+							<dd className="break-words font-medium">{v || "—"}</dd>
 						</div>
 					))}
 				</dl>

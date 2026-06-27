@@ -60,6 +60,8 @@ export default function AlertsPage(): React.JSX.Element {
 		deletingId,
 		setColumnFilters,
 		setFilters,
+		sort,
+		setSort,
 		setPage,
 		setPageSize,
 		refetch,
@@ -179,6 +181,8 @@ export default function AlertsPage(): React.JSX.Element {
 				onPageChange={setPage}
 				onPageSizeChange={setPageSize}
 				onColumnFiltersChange={setColumnFilters}
+				sort={sort}
+				onSortChange={setSort}
 				deletingId={deletingId}
 				onDeleteAlert={handleDeleteAlert}
 				onViewAlert={handleViewAlert}

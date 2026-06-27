@@ -50,7 +50,7 @@ export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, classNam
       case 'discarded':
         return `${data.discarded} verified signals discarded`;
       case 'alerts':
-        return `${data.total} signals minus ${data.discarded} discarded`;
+        return `${data.verified} verified minus ${data.discarded} discarded`;
       case 'total':
         return `${data.verified} verified, ${data.notVerified} unverified`;
       default:

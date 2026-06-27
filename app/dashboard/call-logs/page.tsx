@@ -85,6 +85,7 @@ export default function CallLogsPage(): React.JSX.Element {
 		exportToCSV,
 		exporting,
 		clearFilters,
+		filtersResetKey,
 	} = useCallLogsData();
 
 	// Revalidates every alerts-derived SWR key (this list + its stats, the Alerts
@@ -249,6 +250,7 @@ export default function CallLogsPage(): React.JSX.Element {
 					onPageChange={setPage}
 					onPageSizeChange={setPageSize}
 					onColumnFiltersChange={setColumnFilters}
+					filtersResetKey={filtersResetKey}
 					onViewDetails={handleViewDetails}
 					onEditAlert={handleEditAlert}
 					onVerifyAlert={handleVerifyAlert}

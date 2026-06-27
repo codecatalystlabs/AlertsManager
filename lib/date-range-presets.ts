@@ -28,7 +28,7 @@ export interface ResolvedRange {
 }
 
 /** Local-time YYYY-MM-DD (avoids the UTC shift that toISOString() introduces). */
-function toLocalISODate(d: Date): string {
+export function toLocalISODate(d: Date): string {
 	const year = d.getFullYear();
 	const month = String(d.getMonth() + 1).padStart(2, "0");
 	const day = String(d.getDate()).padStart(2, "0");

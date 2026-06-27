@@ -25,11 +25,18 @@ import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Alert } from "@/lib/auth";
+import { alertResponse } from "@/constants";
 
 interface AlertDetailsDialogProps {
 	isOpen: boolean;
 	onClose: () => void;
 	alert: Alert;
+}
+
+/** Resolve a response code (e.g. "ViralHemorrhagicFever") to its display name. */
+function responseDisplayName(code?: string | null): string | undefined {
+	if (!code) return undefined;
+	return alertResponse.find((d) => d.code === code)?.name ?? code;
 }
 
 /** A labelled section header: small consistent lucide icon + uppercase title. */
@@ -160,7 +167,7 @@ export function AlertDetailsDialog({
 							/>
 							<Field
 								label="Response Type"
-								value={alert.response}
+								value={responseDisplayName(alert.response)}
 							/>
 						</div>
 					</section>

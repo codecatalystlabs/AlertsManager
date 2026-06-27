@@ -92,6 +92,12 @@ export function useAuthStatus(): AuthStatus {
 
 	const [forcedReady, setForcedReady] = useState(false);
 
+	// Proactively drop an expired/invalid token from storage. Done here in an
+	// effect (not in the store's getSnapshot) so the snapshot read stays pure.
+	useEffect(() => {
+		AuthService.clearSessionIfExpired();
+	}, []);
+
 	useEffect(() => {
 		if (status.isReady) return;
 		const id = window.setTimeout(() => setForcedReady(true), AUTH_CHECK_TIMEOUT_MS);

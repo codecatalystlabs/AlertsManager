@@ -48,6 +48,8 @@ export default function EidsrAlertsPage() {
 		verificationFilter,
 		setVerificationFilter,
 		setFilters,
+		setColumnFilters,
+		filtersResetKey,
 		clearFilters,
 		applyFilters,
 		setPage,
@@ -227,6 +229,8 @@ export default function EidsrAlertsPage() {
 				onPageChange={setPage}
 				onPageSizeChange={setPageSize}
 				onInAlertsFilterChange={setVerificationFilter}
+				onColumnFiltersChange={setColumnFilters}
+				filtersResetKey={filtersResetKey}
 				onView={handleView}
 				onEdit={handleEdit}
 				onVerify={handleVerify}

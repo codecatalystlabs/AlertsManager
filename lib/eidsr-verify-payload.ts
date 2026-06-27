@@ -8,7 +8,13 @@ export function buildEidsrVerifyPayload(
 		riskAssessmentLevel?: string;
 	}
 ): EidsrMessageVerifyPayload {
-	const verificationDate = new Date(String(formData.verificationDate));
+	// Guard against an empty/invalid date: new Date("").toISOString() throws
+	// RangeError. When invalid, omit verificationDate (the field is optional and
+	// the backend tolerates a missing date).
+	const parsedDate = new Date(String(formData.verificationDate ?? ""));
+	const verificationDate = Number.isNaN(parsedDate.getTime())
+		? undefined
+		: parsedDate;
 	const verificationTime = new Date();
 	const timeStr = String(formData.verificationTime ?? "");
 	const [hours, minutes] = timeStr.split(":");
@@ -28,7 +34,7 @@ export function buildEidsrVerifyPayload(
 
 	const payload: EidsrMessageVerifyPayload = {
 		status: String(formData.status || "") || undefined,
-		verificationDate: verificationDate.toISOString(),
+		verificationDate: verificationDate?.toISOString(),
 		verificationTime: verificationTime.toISOString(),
 		personReporting: String(formData.personReporting || "") || undefined,
 		contactNumber: String(formData.contactNumber || "") || undefined,

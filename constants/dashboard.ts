@@ -2,8 +2,8 @@ import {
     LucideIcon,
     CheckCircle,
     Clock,
-    FileWarning,
-    ShieldAlert,
+    Files,
+    Siren,
     XCircle,
 } from 'lucide-react';
 
@@ -33,7 +33,7 @@ export const STAT_CARDS: StatCardConfig[] = [
         id: 'total',
         title: 'Total Signals',
         key: 'total',
-        icon: FileWarning,
+        icon: Files,
         gradient: 'from-blue-50 to-blue-100',
         iconBg: 'bg-blue-500',
         textColor: 'text-blue-700',
@@ -73,7 +73,7 @@ export const STAT_CARDS: StatCardConfig[] = [
         id: 'alerts',
         title: 'Alerts',
         key: 'alerts',
-        icon: ShieldAlert,
+        icon: Siren,
         gradient: 'from-purple-50 to-purple-100',
         iconBg: 'bg-purple-500',
         textColor: 'text-purple-700',

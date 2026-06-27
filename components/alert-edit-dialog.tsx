@@ -199,13 +199,10 @@ export function AlertEditDialog({
 		}
 	}, [formData.caseVerificationDesk, formData.fieldVerificationDecision]);
 
-	useEffect(() => {
-		if (!formData.caseVerificationDesk) return;
-		setFormData((prev) => ({
-			...prev,
-			actions: prev.caseVerificationDesk,
-		}));
-	}, [formData.caseVerificationDesk]);
+	// NOTE: "Actions Taken" (free text) is intentionally INDEPENDENT of the desk
+	// verification selection. Previously an effect overwrote `actions` with
+	// `caseVerificationDesk` on every desk change, making the textarea useless;
+	// the desk selection is submitted separately as caseVerificationDesk.
 
 	const handleInputChange = (field: string, value: string) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
@@ -306,7 +303,7 @@ export function AlertEditDialog({
 				verificationTime: formData.verificationTime
 					? formatTime(formData.verificationTime)
 					: alert.verificationTime ?? null,
-				actions: formData.caseVerificationDesk || formData.actions,
+				actions: formData.actions,
 				feedback: formData.feedback,
 				caseVerificationDesk: formData.caseVerificationDesk,
 				fieldVerification: formData.fieldVerification,

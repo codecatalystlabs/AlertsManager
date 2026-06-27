@@ -32,6 +32,9 @@ import {
 	Loader2,
 	UserIcon,
 	HeartIcon,
+	Stethoscope,
+	MapPin,
+	Contact,
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
 import { verifyEidsrMessage } from "@/lib/fetch-eidsr-messages";
@@ -352,10 +355,12 @@ export function AlertVerificationDialog({
 			!formData.sourceOfAlert ||
 			!formData.response ||
 			!formData.alertCaseName ||
-			!formData.alertCaseAge ||
+			// Age 0 (an infant) is valid — only reject a missing/NaN age.
+			!Number.isFinite(Number(formData.alertCaseAge)) ||
 			!formData.alertCaseSex ||
 			!formData.history ||
 			!formData.verifiedBy ||
+			!formData.verificationDate ||
 			!formData.deskVerificationActions
 		) {
 			setError("Please fill in all required fields");
@@ -423,8 +428,13 @@ export function AlertVerificationDialog({
 				return;
 			}
 
-			// Format dates for API
+			// Format dates for API. Guard against an invalid/cleared date so
+			// .toISOString() can't throw RangeError ("Invalid time value").
 			const verificationDate = new Date(formData.verificationDate);
+			if (Number.isNaN(verificationDate.getTime())) {
+				setError("Please provide a valid verification date");
+				return;
+			}
 			const verificationTime = new Date();
 			const [hours, minutes] = formData.verificationTime.split(":");
 			verificationTime.setHours(
@@ -525,7 +535,7 @@ export function AlertVerificationDialog({
 			open={isOpen}
 			onOpenChange={onClose}
 		>
-			<DialogContent className="max-w-2xl max-h-[88vh] overflow-y-auto">
+			<DialogContent className="max-w-2xl lg:max-w-4xl max-h-[88vh] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						<AlertTriangleIcon className="h-4 w-4 text-uganda-red" />
@@ -723,7 +733,7 @@ export function AlertVerificationDialog({
 						{/* Case Information */}
 						<div className="space-y-3">
 							<div className="flex items-center gap-3">
-								<UserIcon className="h-4 w-4 text-uganda-red" />
+								<Stethoscope className="h-4 w-4 text-uganda-red" />
 								<h3 className="text-sm font-semibold uppercase tracking-wide">
 									Case Information
 								</h3>
@@ -955,7 +965,7 @@ export function AlertVerificationDialog({
 						{/* Location Information */}
 						<div className="space-y-3">
 							<div className="flex items-center gap-3">
-								<UserIcon className="h-4 w-4 text-uganda-red" />
+								<MapPin className="h-4 w-4 text-uganda-red" />
 								<h3 className="text-sm font-semibold uppercase tracking-wide">
 									Location Information
 								</h3>
@@ -1040,7 +1050,7 @@ export function AlertVerificationDialog({
 						{/* Point of Contact Information */}
 						<div className="space-y-3">
 							<div className="flex items-center gap-3">
-								<UserIcon className="h-4 w-4 text-uganda-red" />
+								<Contact className="h-4 w-4 text-uganda-red" />
 								<h3 className="text-sm font-semibold uppercase tracking-wide">
 									Point of Contact Information
 								</h3>

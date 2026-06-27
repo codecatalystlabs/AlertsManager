@@ -77,6 +77,7 @@ export default function EchisAlertsPage() {
 				total={stats.total}
 				filtered={stats.filtered}
 				live={stats.live}
+				note={stats.note}
 			/>
 
 			<NdwFilterBar

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import {
 	ECHIS_ALERTS_CONFIG,
@@ -34,6 +34,19 @@ export function useEchisAlertsData() {
 	const [syncMessage, setSyncMessage] = useState<string | null>(null);
 	const [syncProgress, setSyncProgress] = useState<NdwSyncProgress | null>(null);
 
+	// Track the recursive sync-status poll so it can be cancelled on unmount —
+	// otherwise it keeps firing requests + setState on an unmounted component until
+	// the backend reports running:false (possibly never).
+	const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const mountedRef = useRef(true);
+	useEffect(() => {
+		mountedRef.current = true;
+		return () => {
+			mountedRef.current = false;
+			if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+		};
+	}, []);
+
 	const swrKey = useMemo(
 		() => ["echis-alerts", applied, page, limit] as const,
 		[applied, page, limit]
@@ -51,7 +64,11 @@ export function useEchisAlertsData() {
 					search: applied.search || undefined,
 					live: hasNdwFilters || undefined,
 					ndwFilters: hasNdwFilters ? applied.ndwFilters : undefined,
-					localFilters: hasLocalFilters ? applied.local : undefined,
+					// Live (NDW proxy) and local-DB filtering are mutually exclusive:
+					// the inline local filters aren't NDW columns, so sending them with
+					// a live request is a silent no-op. Only send them outside live mode.
+					localFilters:
+						!hasNdwFilters && hasLocalFilters ? applied.local : undefined,
 				}),
 				getEchisStats().catch(() => ({ totalAlerts: 0, note: undefined })),
 			]);
@@ -76,9 +93,10 @@ export function useEchisAlertsData() {
 
 	const pollSync = useCallback(async () => {
 		const progress = await getEchisSyncStatus();
+		if (!mountedRef.current) return;
 		setSyncProgress(progress);
 		if (progress.running) {
-			setTimeout(() => void pollSync(), 2000);
+			pollTimerRef.current = setTimeout(() => void pollSync(), 2000);
 			return;
 		}
 		setIsSyncing(false);
@@ -97,7 +115,7 @@ export function useEchisAlertsData() {
 				);
 				setSyncProgress(res.progress);
 				if (res.progress.running) {
-					setTimeout(() => void pollSync(), 1500);
+					pollTimerRef.current = setTimeout(() => void pollSync(), 1500);
 				} else {
 					setIsSyncing(false);
 					setSyncMessage(summarizeSync(res.progress));
@@ -123,15 +141,19 @@ export function useEchisAlertsData() {
 		syncMessage,
 		syncProgress,
 		setSearch: (search: string) => setFilters((f) => ({ ...f, search })),
+		// Building an NDW (live) filter set drops any inline local filters, since
+		// the two modes are mutually exclusive (see the fetcher).
 		setNdwFilters: (ndwFilters: Record<string, string>) =>
-			setFilters((f) => ({ ...f, ndwFilters })),
+			setFilters((f) => ({ ...f, ndwFilters, local: {} })),
 		setOperators: (operators: Record<string, string>) =>
 			setFilters((f) => ({ ...f, operators })),
 		// Inline local filters apply immediately by updating `applied`, which
 		// changes the SWR key and refetches against the local DB list endpoint.
+		// They also clear NDW (live) filters so the local filter actually takes
+		// effect rather than being ignored by a live request.
 		applyLocalFilters: (local: Record<string, string>) => {
-			setFilters((f) => ({ ...f, local }));
-			setApplied((a) => ({ ...a, local }));
+			setFilters((f) => ({ ...f, local, ndwFilters: {} }));
+			setApplied((a) => ({ ...a, local, ndwFilters: {} }));
 			setPage(1);
 		},
 		clearLocalFilters: () => {
@@ -145,9 +167,11 @@ export function useEchisAlertsData() {
 			setPage(1);
 		},
 		applyFilters: async () => {
+			// Committing filters changes the SWR key (applied/page), which itself
+			// triggers the refetch — an explicit mutate() here would only revalidate
+			// the STALE key (old filters), wasting a request.
 			setApplied(filters);
 			setPage(1);
-			await mutate();
 		},
 		setPage,
 		setPageSize: (n: number) => {

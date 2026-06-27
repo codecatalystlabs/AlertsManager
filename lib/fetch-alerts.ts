@@ -24,6 +24,8 @@ export interface AlertsListParams {
 	from_date?: string;
 	to_date?: string;
 	status?: string;
+	/** Exclude rows with this status (NULL/blank count as excluded too). Powers the call-logs "Other" = not-Alive filter server-side. */
+	status_not?: string;
 	/** Sent as `source_of_alert` — comma-separated list for an IN match. */
 	source?: string;
 	/** Free-text search across reporter, case name, contact, CIF, district, id. */
