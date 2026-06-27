@@ -328,11 +328,10 @@ export const createAlertsTableColumns = (
 			const isVerified = row.getValue("isVerified") as boolean;
 			return (
 				<Badge
-					variant={isVerified ? "default" : "destructive"}
 					className={
 						isVerified
-							? "bg-green-100 text-green-800"
-							: "bg-yellow-100 text-yellow-800"
+							? "rounded-full border-transparent bg-success text-white hover:bg-success"
+							: "rounded-full border-transparent bg-warning text-warning-foreground hover:bg-warning"
 					}
 				>
 					{isVerified ? "Yes" : "Pending"}

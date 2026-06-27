@@ -6,6 +6,13 @@ const config: Config = {
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    // constants/, lib/ and hooks/ also contain JSX with Tailwind classes (e.g.
+    // table column cells defined in constants/*.tsx). Without these globs those
+    // classes are never generated and render unstyled — the cause of the missing
+    // verified/status pills.
+    "./constants/**/*.{js,ts,jsx,tsx,mdx}",
+    "./lib/**/*.{js,ts,jsx,tsx,mdx}",
+    "./hooks/**/*.{js,ts,jsx,tsx,mdx}",
     "*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
