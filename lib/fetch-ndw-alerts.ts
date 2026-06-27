@@ -1,5 +1,7 @@
 import { AuthService } from "@/lib/auth";
 import { getClientApiBaseUrl } from "@/lib/api-config";
+import { notifyAlertsChanged } from "@/lib/alerts-events";
+import type { EidsrMessageVerifyPayload } from "@/lib/fetch-eidsr-messages";
 
 export class NdwFetchError extends Error {
 	constructor(
@@ -36,6 +38,20 @@ export interface NdwPagination {
 	totalPages: number;
 }
 
+/**
+ * Live snapshot of the call-log alert an eCHIS/POE signal was forwarded into, so
+ * the table can show the downstream verification outcome. Shape matches the
+ * backend models.ForwardedAlertRef and is accepted by AlertVerifyChip.
+ */
+export interface ForwardedAlertRef {
+	id: number;
+	isVerified: boolean;
+	status?: string;
+	verifiedBy?: string;
+	verificationDate?: string;
+	district?: string;
+}
+
 export interface EchisAlertRow {
 	id: number;
 	recordHash?: string;
@@ -56,6 +72,14 @@ export interface EchisAlertRow {
 	updatedAt?: string;
 	rawPayload?: string;
 	live?: boolean;
+	// Verify-into-alerts tracking (the verified call-log alert this signal became).
+	linkedAlertId?: number;
+	linkedAlert?: ForwardedAlertRef;
+	// Forward-to-district tracking (most recent forward).
+	forwardedAlertId?: number;
+	forwardedToDistrict?: string;
+	forwardedAt?: string;
+	forwardedAlert?: ForwardedAlertRef;
 }
 
 export interface PoeAlertRow {
@@ -86,6 +110,14 @@ export interface PoeAlertRow {
 	rawPayload?: string;
 	live?: boolean;
 	addressInUganda?: string;
+	// Verify-into-alerts tracking (the verified call-log alert this signal became).
+	linkedAlertId?: number;
+	linkedAlert?: ForwardedAlertRef;
+	// Forward-to-district tracking (most recent forward).
+	forwardedAlertId?: number;
+	forwardedToDistrict?: string;
+	forwardedAt?: string;
+	forwardedAlert?: ForwardedAlertRef;
 }
 
 export interface NdwListParams {
@@ -263,4 +295,102 @@ export async function syncPoeAlerts(
 
 export async function getPoeSyncStatus(): Promise<NdwSyncProgress> {
 	return ndwRequest(`/ndw/poe/sync/status`);
+}
+
+export interface ForwardNdwResult {
+	alertId: number;
+	district: string;
+}
+
+/**
+ * Forward an eCHIS signal to a district as a new call-log alert (it then appears
+ * in that district's Call Logs and can be verified through the normal flow).
+ * POST /ndw/echis/:id/forward. Notifies alerts-derived views so the new alert
+ * shows up without a manual refresh.
+ */
+export async function forwardEchisAlert(
+	id: number,
+	payload: { district: string; note?: string }
+): Promise<ForwardNdwResult> {
+	const json = await ndwRequest<{ alertId?: number; district?: string }>(
+		`/ndw/echis/${id}/forward`,
+		{
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(payload),
+		}
+	);
+	notifyAlertsChanged();
+	return {
+		alertId: Number(json.alertId ?? 0),
+		district: json.district ?? payload.district,
+	};
+}
+
+/**
+ * Forward a POE traveller alert to a district as a new call-log alert.
+ * POST /ndw/poe/:id/forward. See forwardEchisAlert.
+ */
+export async function forwardPoeAlert(
+	id: number,
+	payload: { district: string; note?: string }
+): Promise<ForwardNdwResult> {
+	const json = await ndwRequest<{ alertId?: number; district?: string }>(
+		`/ndw/poe/${id}/forward`,
+		{
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(payload),
+		}
+	);
+	notifyAlertsChanged();
+	return {
+		alertId: Number(json.alertId ?? 0),
+		district: json.district ?? payload.district,
+	};
+}
+
+export interface VerifyNdwResult {
+	alertId: number;
+}
+
+/**
+ * Verify an eCHIS signal INTO the alerts table as a verified call-log alert.
+ * POST /ndw/echis/:id/verify. Re-verifying updates the same linked alert. The
+ * payload is the shared verification form (built by buildEidsrVerifyPayload).
+ */
+export async function verifyEchisAlert(
+	id: number,
+	payload: EidsrMessageVerifyPayload
+): Promise<VerifyNdwResult> {
+	const json = await ndwRequest<{ alertId?: number }>(
+		`/ndw/echis/${id}/verify`,
+		{
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(payload),
+		}
+	);
+	notifyAlertsChanged();
+	return { alertId: Number(json.alertId ?? 0) };
+}
+
+/**
+ * Verify a POE traveller alert INTO the alerts table. POST /ndw/poe/:id/verify.
+ * See verifyEchisAlert.
+ */
+export async function verifyPoeAlert(
+	id: number,
+	payload: EidsrMessageVerifyPayload
+): Promise<VerifyNdwResult> {
+	const json = await ndwRequest<{ alertId?: number }>(
+		`/ndw/poe/${id}/verify`,
+		{
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(payload),
+		}
+	);
+	notifyAlertsChanged();
+	return { alertId: Number(json.alertId ?? 0) };
 }

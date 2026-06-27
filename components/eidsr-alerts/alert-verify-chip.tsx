@@ -1,21 +1,32 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Clock, ShieldCheck } from "lucide-react";
-import type { EidsrAlertRef } from "@/lib/eidsr-message-normalize";
+
+/**
+ * Minimal shape this chip needs from a downstream alert. Both EidsrAlertRef
+ * (6767 linked/forwarded alerts) and ForwardedAlertRef (eCHIS/POE forwarded
+ * alerts) satisfy it, so the same chip renders verification status everywhere.
+ */
+export interface VerifiableAlertRef {
+	id: number;
+	isVerified: boolean;
+	verifiedBy?: string;
+	verificationDate?: string;
+}
 
 function altCode(id: number): string {
 	return `ALT${String(id).padStart(3, "0")}`;
 }
 
 /** RFC3339 → short local date; empty/invalid → "". */
-function shortDate(value: string): string {
+function shortDate(value: string | undefined): string {
 	if (!value) return "";
 	const d = new Date(value);
 	return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString();
 }
 
 /** Human title describing the downstream alert's verification state. */
-export function alertVerifyTitle(alert: EidsrAlertRef): string {
+export function alertVerifyTitle(alert: VerifiableAlertRef): string {
 	if (!alert.isVerified) return `${altCode(alert.id)} not yet verified`;
 	const who = alert.verifiedBy?.trim();
 	const when = shortDate(alert.verificationDate);
@@ -33,7 +44,7 @@ export function alertVerifyTitle(alert: EidsrAlertRef): string {
 export function AlertVerifyChip({
 	alert,
 }: {
-	alert: EidsrAlertRef | null | undefined;
+	alert: VerifiableAlertRef | null | undefined;
 }) {
 	if (!alert) return null;
 

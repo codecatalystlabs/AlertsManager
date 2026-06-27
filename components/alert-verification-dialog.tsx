@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
 import { verifyEidsrMessage } from "@/lib/fetch-eidsr-messages";
+import { verifyEchisAlert, verifyPoeAlert } from "@/lib/fetch-ndw-alerts";
 import { buildEidsrVerifyPayload } from "@/lib/eidsr-verify-payload";
 import { CaseLocationSelect } from "@/components/case-location-select";
 import {
@@ -69,6 +70,9 @@ interface AlertVerificationDialogProps {
 	eidsrEventLocalId?: number;
 	onEidsrVerified?: (alertId: number | null) => void;
 	onVerifyingChange?: (verifying: boolean) => void;
+	/** When set, verifies an NDW signal via POST /ndw/{echis|poe}/:id/verify (JWT only). */
+	ndwSource?: "echis" | "poe";
+	ndwId?: number;
 }
 
 const signsAndSymptoms = [
@@ -111,8 +115,14 @@ export function AlertVerificationDialog({
 	eidsrEventLocalId,
 	onEidsrVerified,
 	onVerifyingChange,
+	ndwSource,
+	ndwId,
 }: AlertVerificationDialogProps) {
 	const isEidsrMode = verificationMode === "eidsr";
+	const isNdwMode = !!ndwSource;
+	// EIDSR and NDW both verify via a JWT-only endpoint that builds the alert
+	// server-side, so neither needs the per-alert verification token.
+	const isTokenlessMode = isEidsrMode || isNdwMode;
 	const { toast } = useToast();
 	const [verificationToken, setVerificationToken] = useState<string>("");
 	const [isGeneratingToken, setIsGeneratingToken] = useState(false);
@@ -215,13 +225,13 @@ export function AlertVerificationDialog({
 			setError(null);
 			setSuccess(null);
 
-			if (isEidsrMode) {
-				setVerificationToken("eidsr-jwt");
+			if (isTokenlessMode) {
+				setVerificationToken("ndw-jwt");
 			} else {
 				generateTokenAutomatically();
 			}
 		}
-	}, [isOpen, alert, isEidsrMode]);
+	}, [isOpen, alert, isTokenlessMode]);
 
 	// Show VHF form when Field Case Verification is one of the selected actions
 	useEffect(() => {
@@ -248,7 +258,7 @@ export function AlertVerificationDialog({
 	}, [formData.deskVerificationActions]);
 
 	const generateTokenAutomatically = async () => {
-		if (isEidsrMode || !alert?.id) return;
+		if (isTokenlessMode || !alert?.id) return;
 
 		setIsGeneratingToken(true);
 		setError(null);
@@ -329,9 +339,13 @@ export function AlertVerificationDialog({
 	}, [showVhfForm]);
 
 	const handleVerification = async () => {
-		if (isEidsrMode) {
-			if (!eidsrMessageId) {
+		if (isEidsrMode || isNdwMode) {
+			if (isEidsrMode && !eidsrMessageId) {
 				setError("EIDSR message ID is missing.");
+				return;
+			}
+			if (isNdwMode && !ndwId) {
+				setError("NDW alert ID is missing.");
 				return;
 			}
 			if (!formData.deskVerificationActions) {
@@ -421,6 +435,33 @@ export function AlertVerificationDialog({
 				});
 
 				onEidsrVerified?.(alertId ?? null);
+				setTimeout(() => {
+					onVerificationComplete();
+					onClose();
+				}, 1500);
+				return;
+			}
+
+			if (isNdwMode) {
+				const payload = buildEidsrVerifyPayload(
+					formData as unknown as Record<string, unknown>
+				);
+				const result =
+					ndwSource === "echis"
+						? await verifyEchisAlert(ndwId!, payload)
+						: await verifyPoeAlert(ndwId!, payload);
+				const alertId = result.alertId || null;
+
+				setSuccess("Verified into alerts successfully.");
+				toast({
+					title: "Verified into alerts",
+					description:
+						alertId != null
+							? `Saved as alert ALT${String(alertId).padStart(3, "0")}.`
+							: "Signal verified into alerts.",
+					duration: 5000,
+				});
+
 				setTimeout(() => {
 					onVerificationComplete();
 					onClose();
@@ -528,7 +569,7 @@ export function AlertVerificationDialog({
 	};
 
 	const showVerificationForm =
-		(verificationToken || isEidsrMode) && !isGeneratingToken;
+		(verificationToken || isTokenlessMode) && !isGeneratingToken;
 
 	return (
 		<Dialog
@@ -541,6 +582,11 @@ export function AlertVerificationDialog({
 						<AlertTriangleIcon className="h-4 w-4 text-uganda-red" />
 						{isEidsrMode ? (
 							<>Verify 6767 SMS #{eidsrMessageId}</>
+						) : isNdwMode ? (
+							<>
+								Verify {ndwSource === "echis" ? "eCHIS" : "POE"}{" "}
+								signal into alerts
+							</>
 						) : (
 							<>
 								Verify Alert - ALT
@@ -551,6 +597,8 @@ export function AlertVerificationDialog({
 					<DialogDescription>
 						{isEidsrMode
 							? "Verify this SMS into the alerts table. Empty fields may be filled from the message by the server."
+							: isNdwMode
+							? "Verify this signal into the alerts table as a call log. It will then appear under Call Logs / Alerts."
 							: "Complete the verification process for this health alert"}
 					</DialogDescription>
 				</DialogHeader>
@@ -1663,7 +1711,7 @@ export function AlertVerificationDialog({
 									<Loader2 className="h-4 w-4 animate-spin mr-2" />
 									Verifying...
 								</>
-							) : isEidsrMode ? (
+							) : isEidsrMode || isNdwMode ? (
 								"Verify into alerts"
 							) : (
 								"Verify Alert"

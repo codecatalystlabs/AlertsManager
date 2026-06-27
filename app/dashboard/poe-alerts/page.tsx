@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { ErrorAlert } from "@/components/dashboard";
 import {
@@ -10,11 +11,21 @@ import {
 } from "@/components/poe-alerts";
 import { NdwFilterBar } from "@/components/ndw-alerts/ndw-filter-bar";
 import { NdwAlertsStats } from "@/components/ndw-alerts/ndw-alerts-stats";
+import { ForwardNdwAlertDialog } from "@/components/ndw-alerts/forward-ndw-alert-dialog";
 import { SyncProgressPanel } from "@/components/sync";
 import { POE_NDW_FILTER_FIELDS } from "@/constants/ndw-filter-fields";
 import { usePoeAlertsData } from "@/hooks/use-poe-alerts-data";
-import type { PoeAlertRow } from "@/lib/fetch-ndw-alerts";
+import { forwardPoeAlert, type PoeAlertRow } from "@/lib/fetch-ndw-alerts";
+import { poeToAlertShape } from "@/lib/ndw-alert-to-shape";
 import { LAYOUT } from "@/constants/layout";
+
+const AlertVerificationDialog = dynamic(
+	() =>
+		import("@/components/alert-verification-dialog").then(
+			(m) => m.AlertVerificationDialog
+		),
+	{ ssr: false }
+);
 
 export default function PoeAlertsPage() {
 	const {
@@ -42,6 +53,10 @@ export default function PoeAlertsPage() {
 
 	const [selected, setSelected] = useState<PoeAlertRow | null>(null);
 	const [detailsOpen, setDetailsOpen] = useState(false);
+	const [forwardTarget, setForwardTarget] = useState<PoeAlertRow | null>(null);
+	const [forwardOpen, setForwardOpen] = useState(false);
+	const [verifyTarget, setVerifyTarget] = useState<PoeAlertRow | null>(null);
+	const [verifyOpen, setVerifyOpen] = useState(false);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 
 	const handleRefresh = async () => {
@@ -112,6 +127,14 @@ export default function PoeAlertsPage() {
 					setSelected(a);
 					setDetailsOpen(true);
 				}}
+				onForward={(a) => {
+					setForwardTarget(a);
+					setForwardOpen(true);
+				}}
+				onVerify={(a) => {
+					setVerifyTarget(a);
+					setVerifyOpen(true);
+				}}
 			/>
 
 			<PoeAlertDetailsDialog
@@ -119,6 +142,31 @@ export default function PoeAlertsPage() {
 				open={detailsOpen}
 				onOpenChange={setDetailsOpen}
 			/>
+
+			<ForwardNdwAlertDialog
+				isOpen={forwardOpen}
+				onClose={() => setForwardOpen(false)}
+				sourceLabel="POE alert"
+				alreadyForwarded={forwardTarget?.forwardedToDistrict ?? null}
+				onForward={(district, note) =>
+					forwardPoeAlert(forwardTarget!.id, { district, note })
+				}
+				onForwarded={() => void refetch()}
+			/>
+
+			{verifyOpen && verifyTarget && (
+				<AlertVerificationDialog
+					isOpen={verifyOpen}
+					onClose={() => {
+						setVerifyOpen(false);
+						setVerifyTarget(null);
+					}}
+					alert={poeToAlertShape(verifyTarget)}
+					ndwSource="poe"
+					ndwId={verifyTarget.id}
+					onVerificationComplete={() => void refetch()}
+				/>
+			)}
 		</div>
 	);
 }

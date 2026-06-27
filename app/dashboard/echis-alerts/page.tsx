@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { ErrorAlert } from "@/components/dashboard";
 import {
@@ -10,11 +11,21 @@ import {
 } from "@/components/echis-alerts";
 import { NdwFilterBar } from "@/components/ndw-alerts/ndw-filter-bar";
 import { NdwAlertsStats } from "@/components/ndw-alerts/ndw-alerts-stats";
+import { ForwardNdwAlertDialog } from "@/components/ndw-alerts/forward-ndw-alert-dialog";
 import { SyncProgressPanel } from "@/components/sync";
 import { ECHIS_NDW_FILTER_FIELDS } from "@/constants/ndw-filter-fields";
 import { useEchisAlertsData } from "@/hooks/use-echis-alerts-data";
-import type { EchisAlertRow } from "@/lib/fetch-ndw-alerts";
+import { forwardEchisAlert, type EchisAlertRow } from "@/lib/fetch-ndw-alerts";
+import { echisToAlertShape } from "@/lib/ndw-alert-to-shape";
 import { LAYOUT } from "@/constants/layout";
+
+const AlertVerificationDialog = dynamic(
+	() =>
+		import("@/components/alert-verification-dialog").then(
+			(m) => m.AlertVerificationDialog
+		),
+	{ ssr: false }
+);
 
 export default function EchisAlertsPage() {
 	const {
@@ -42,6 +53,10 @@ export default function EchisAlertsPage() {
 
 	const [selected, setSelected] = useState<EchisAlertRow | null>(null);
 	const [detailsOpen, setDetailsOpen] = useState(false);
+	const [forwardTarget, setForwardTarget] = useState<EchisAlertRow | null>(null);
+	const [forwardOpen, setForwardOpen] = useState(false);
+	const [verifyTarget, setVerifyTarget] = useState<EchisAlertRow | null>(null);
+	const [verifyOpen, setVerifyOpen] = useState(false);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 
 	const handleRefresh = async () => {
@@ -113,6 +128,14 @@ export default function EchisAlertsPage() {
 					setSelected(a);
 					setDetailsOpen(true);
 				}}
+				onForward={(a) => {
+					setForwardTarget(a);
+					setForwardOpen(true);
+				}}
+				onVerify={(a) => {
+					setVerifyTarget(a);
+					setVerifyOpen(true);
+				}}
 			/>
 
 			<EchisAlertDetailsDialog
@@ -120,6 +143,32 @@ export default function EchisAlertsPage() {
 				open={detailsOpen}
 				onOpenChange={setDetailsOpen}
 			/>
+
+			<ForwardNdwAlertDialog
+				isOpen={forwardOpen}
+				onClose={() => setForwardOpen(false)}
+				sourceLabel="eCHIS signal"
+				defaultDistrict={forwardTarget?.district || ""}
+				alreadyForwarded={forwardTarget?.forwardedToDistrict ?? null}
+				onForward={(district, note) =>
+					forwardEchisAlert(forwardTarget!.id, { district, note })
+				}
+				onForwarded={() => void refetch()}
+			/>
+
+			{verifyOpen && verifyTarget && (
+				<AlertVerificationDialog
+					isOpen={verifyOpen}
+					onClose={() => {
+						setVerifyOpen(false);
+						setVerifyTarget(null);
+					}}
+					alert={echisToAlertShape(verifyTarget)}
+					ndwSource="echis"
+					ndwId={verifyTarget.id}
+					onVerificationComplete={() => void refetch()}
+				/>
+			)}
 		</div>
 	);
 }

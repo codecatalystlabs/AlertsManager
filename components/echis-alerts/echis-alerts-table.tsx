@@ -6,13 +6,17 @@ import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import type { EchisAlertRow } from "@/lib/fetch-ndw-alerts";
 import { LAYOUT } from "@/constants/layout";
-import { Eye, MoreHorizontal } from "lucide-react";
+import { Eye, MoreHorizontal, Send, ShieldCheck } from "lucide-react";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { AlertVerifyChip } from "@/components/eidsr-alerts/alert-verify-chip";
+import { canForwardAlerts } from "@/lib/auth";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 function fmtDate(v?: string) {
 	if (!v) return "—";
@@ -30,6 +34,8 @@ interface EchisAlertsTableProps {
 	onPageChange: (page: number) => void;
 	onPageSizeChange: (pageSize: number) => void;
 	onView: (alert: EchisAlertRow) => void;
+	onForward?: (alert: EchisAlertRow) => void;
+	onVerify?: (alert: EchisAlertRow) => void;
 }
 
 export const EchisAlertsTable = memo<EchisAlertsTableProps>(
@@ -43,7 +49,10 @@ export const EchisAlertsTable = memo<EchisAlertsTableProps>(
 		onPageChange,
 		onPageSizeChange,
 		onView,
+		onForward,
+		onVerify,
 	}) => {
+		const canForward = canForwardAlerts(useCurrentUser());
 		const columns = useMemo<ColumnDef<EchisAlertRow>[]>(
 			() => [
 				{
@@ -84,6 +93,37 @@ export const EchisAlertsTable = memo<EchisAlertsTableProps>(
 					),
 				},
 				{
+					id: "inAlerts",
+					header: "In alerts",
+					cell: ({ row }) =>
+						row.original.linkedAlert ? (
+							<AlertVerifyChip alert={row.original.linkedAlert} />
+						) : (
+							<span className="text-muted-foreground">—</span>
+						),
+				},
+				{
+					id: "forwarded",
+					header: "Forwarded",
+					cell: ({ row }) => {
+						const a = row.original;
+						if (!a.forwardedToDistrict)
+							return <span className="text-muted-foreground">—</span>;
+						return (
+							<div className="flex flex-col items-start gap-1">
+								<Badge
+									variant="outline"
+									className="gap-1 whitespace-nowrap text-[10px] font-normal"
+								>
+									<Send className="h-3 w-3" />
+									{a.forwardedToDistrict}
+								</Badge>
+								<AlertVerifyChip alert={a.forwardedAlert} />
+							</div>
+						);
+					},
+				},
+				{
 					id: "actions",
 					header: "",
 					cell: ({ row }) => (
@@ -98,12 +138,32 @@ export const EchisAlertsTable = memo<EchisAlertsTableProps>(
 									<Eye className="h-4 w-4 mr-2" />
 									View
 								</DropdownMenuItem>
+								{canForward && onForward && !row.original.live && (
+									<DropdownMenuItem
+										onClick={() => onForward(row.original)}
+									>
+										<Send className="h-4 w-4 mr-2" />
+										Forward to district
+									</DropdownMenuItem>
+								)}
+								{onVerify && !row.original.live && (
+									<>
+										<DropdownMenuSeparator />
+										<DropdownMenuItem
+											className="text-uganda-red focus:text-uganda-red"
+											onClick={() => onVerify(row.original)}
+										>
+											<ShieldCheck className="h-4 w-4 mr-2" />
+											Verify into alerts
+										</DropdownMenuItem>
+									</>
+								)}
 							</DropdownMenuContent>
 						</DropdownMenu>
 					),
 				},
 			],
-			[onView]
+			[onView, onForward, onVerify, canForward]
 		);
 
 		return (
