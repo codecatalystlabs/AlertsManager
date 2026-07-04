@@ -6,7 +6,19 @@ import {
 	exactStringFilter,
 	textIncludesFilter,
 } from "@/components/ui/data-table";
-import { ArrowUpDown, MoreHorizontal, Eye, Edit, Shield } from "lucide-react";
+import {
+	ArrowUpDown,
+	MoreHorizontal,
+	Eye,
+	Edit,
+	Shield,
+	FileDown,
+} from "lucide-react";
+import { alertResponse } from "@/constants";
+import {
+	downloadAlertConfirmationPdf,
+	type AlertPdfData,
+} from "@/lib/alert-pdf";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -161,6 +173,62 @@ export interface CallLogsTableCallbacks {
 	onDeleteAlert: (alertId: number) => Promise<void>;
 	/** Whether the current user may delete alerts (admin/EOC only). */
 	canDelete?: boolean;
+}
+
+/** Resolve a response code (e.g. "ViralHemorrhagicFever") to its display name. */
+function responseDisplayName(code?: string | null): string {
+	if (!code) return "";
+	return alertResponse.find((d) => d.code === code)?.name ?? code;
+}
+
+/**
+ * Parse an ISO timestamp to a Date, returning undefined for missing/invalid
+ * values. An Invalid Date must never reach the PDF generator: alertPdfFilename
+ * calls .toISOString() on it unconditionally, which throws.
+ */
+function parseTimestamp(value?: string | null): Date | undefined {
+	if (!value) return undefined;
+	const d = new Date(value);
+	return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
+/**
+ * Map a call-logs row to the shape the shared alert PDF generator expects.
+ * Field sourcing mirrors the AlertDetailsDialog so the exported PDF matches
+ * what the user sees in "View details".
+ */
+export function alertLogToPdfData(alert: AlertLog): AlertPdfData {
+	return {
+		referenceId: alert.id,
+		submittedAt: parseTimestamp(alert.createdAt),
+		date: alert.date,
+		time: alert.time,
+		status: alert.status,
+		callTaker: alert.callTaker,
+		alertReportedBefore: alert.alertReportedBefore,
+		personReporting: alert.personReporting,
+		contactNumber: alert.contactNumber,
+		sourceOfAlert: alert.sourceOfAlert,
+		response: responseDisplayName(alert.response),
+		region: alert.region,
+		district: alert.alertCaseDistrict,
+		subCounty: alert.subCounty,
+		village: alert.alertCaseVillage,
+		parish: alert.alertCaseParish,
+		caseName: alert.alertCaseName,
+		caseAge: alert.alertCaseAge,
+		caseSex: alert.alertCaseSex,
+		nextOfKinName: alert.pointOfContactName,
+		nextOfKinPhone: alert.pointOfContactPhone,
+		caseDescription: alert.history,
+		narrative: alert.narrative,
+		symptoms: alert.symptoms
+			? alert.symptoms
+					.split(",")
+					.map((s) => s.trim())
+					.filter(Boolean)
+			: [],
+	};
 }
 
 export const createCallLogsTableColumns = (
@@ -491,7 +559,21 @@ export const createCallLogsTableColumns = (
 							</>
 						)}
 						<DropdownMenuSeparator />
-						<DropdownMenuItem>Export to PDF</DropdownMenuItem>
+						<DropdownMenuItem
+							onClick={() => {
+								void downloadAlertConfirmationPdf(
+									alertLogToPdfData(alertItem)
+								).catch((err) => {
+									console.error(
+										"Failed to export alert PDF",
+										err
+									);
+								});
+							}}
+						>
+							<FileDown className="h-4 w-4 mr-2" />
+							Export to PDF
+						</DropdownMenuItem>
 					</DropdownMenuContent>
 				</DropdownMenu>
 			);
