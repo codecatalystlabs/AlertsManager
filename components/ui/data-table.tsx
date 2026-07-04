@@ -22,6 +22,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ListFilter,
+  Loader2,
   X,
 } from "lucide-react"
 
@@ -555,6 +556,31 @@ export function DataTable<TData, TValue>({
   const endRow = Math.min((currentPage + 1) * pageSizeValue, filteredCount)
   const pageRange = getPaginationRange(currentPage, pageCount)
 
+  // With manual (server) pagination the footer/page-index flips instantly on a
+  // page click while the new page's data is still in flight, briefly showing the
+  // previous page's rows under the new page number. Detect that gap — the table's
+  // own pageIndex has moved ahead of the page the current `data` reflects — and
+  // dim the body with a spinner until the fetch lands.
+  const isPageTransition =
+    manualPagination &&
+    controlledPageIndex !== undefined &&
+    currentPage !== controlledPageIndex
+  const showBodyLoader = isLoading || isPageTransition
+
+  // The row-actions column is pinned to the right edge so its menu stays reachable
+  // when a wide table scrolls horizontally. All tables key it as id "actions".
+  const stickyActionsClass = (columnId: string, base: "head" | "cell") =>
+    columnId === "actions"
+      ? cn(
+          "sticky right-0",
+          base === "head"
+            ? "z-20 bg-muted"
+            : "z-[5] bg-background",
+          "before:absolute before:inset-y-0 before:left-0 before:w-px before:bg-border",
+          "shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.15)]"
+        )
+      : undefined
+
   const headerGroups = table.getHeaderGroups()
   const leafHeaders = headerGroups[headerGroups.length - 1]?.headers ?? []
   const headerByColumnId = new Map(leafHeaders.map((h) => [h.column.id, h]))
@@ -602,7 +628,12 @@ export function DataTable<TData, TValue>({
       )}
 
       {/* Desktop / tablet: compact table with a sticky header */}
-      <div className="hidden rounded-md border md:block">
+      <div className="relative hidden rounded-md border md:block">
+        {isPageTransition && (
+          <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-background/45 backdrop-blur-[1px]">
+            <Loader2 className="h-5 w-5 animate-spin text-uganda-red" />
+          </div>
+        )}
         <Table containerClassName="max-h-[65vh]">
           <TableHeader>
             {headerGroups.map((headerGroup) => (
@@ -611,7 +642,10 @@ export function DataTable<TData, TValue>({
                   return (
                     <TableHead
                       key={header.id}
-                      className="sticky top-0 z-10 h-9 whitespace-nowrap bg-muted px-3 text-[11px] font-semibold uppercase tracking-wide"
+                      className={cn(
+                        "sticky top-0 z-10 h-9 whitespace-nowrap bg-muted px-3 text-[11px] font-semibold uppercase tracking-wide",
+                        stickyActionsClass(header.column.id, "head")
+                      )}
                     >
                       {header.isPlaceholder ? null : (
                         <div className="flex items-center gap-1">
@@ -656,7 +690,14 @@ export function DataTable<TData, TValue>({
                   className={getRowClassName?.(row)}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} data-cell className="px-3 py-1.5 text-sm">
+                    <TableCell
+                      key={cell.id}
+                      data-cell
+                      className={cn(
+                        "px-3 py-1.5 text-sm",
+                        stickyActionsClass(cell.column.id, "cell")
+                      )}
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}

@@ -582,7 +582,7 @@ export function AlertVerificationDialog({
 			open={isOpen}
 			onOpenChange={onClose}
 		>
-			<DialogContent className="max-w-2xl lg:max-w-4xl max-h-[88vh] overflow-y-auto">
+			<DialogContent className="max-w-2xl lg:max-w-4xl max-h-[88vh] flex flex-col overflow-hidden">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						<AlertTriangleIcon className="h-4 w-4 text-uganda-red" />
@@ -628,6 +628,9 @@ export function AlertVerificationDialog({
 					</Alert>
 				)}
 
+				{/* Scrollable form body — header + status + footer stay pinned so the
+				    Verify button and any validation error remain visible on this long form. */}
+				<div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
 				{/* Loading State */}
 				{isGeneratingToken && (
 					<div className="flex items-center justify-center p-5">
@@ -1699,7 +1702,9 @@ export function AlertVerificationDialog({
 					</div>
 				)}
 
-				<DialogFooter>
+				</div>
+
+				<DialogFooter className="border-t pt-4">
 					<Button
 						variant="outline"
 						onClick={onClose}
