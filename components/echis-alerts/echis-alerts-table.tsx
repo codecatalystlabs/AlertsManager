@@ -1,9 +1,14 @@
 import { memo, useMemo } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/ui/data-table";
+import {
+	DataTable,
+	dateRangeFilter,
+	exactStringFilter,
+	textIncludesFilter,
+} from "@/components/ui/data-table";
 import type { EchisAlertRow } from "@/lib/fetch-ndw-alerts";
 import { LAYOUT } from "@/constants/layout";
 import { Eye, MoreHorizontal, Send, ShieldCheck } from "lucide-react";
@@ -33,6 +38,10 @@ interface EchisAlertsTableProps {
 	isLoading?: boolean;
 	onPageChange: (page: number) => void;
 	onPageSizeChange: (pageSize: number) => void;
+	/** Receives per-column header filter changes so they query the whole dataset. */
+	onColumnFiltersChange?: (filters: ColumnFiltersState) => void;
+	/** Bumped when the filter bar is cleared, to also clear the header funnels. */
+	filtersResetKey?: number;
 	onView: (alert: EchisAlertRow) => void;
 	onForward?: (alert: EchisAlertRow) => void;
 	onVerify?: (alert: EchisAlertRow) => void;
@@ -48,6 +57,8 @@ export const EchisAlertsTable = memo<EchisAlertsTableProps>(
 		isLoading,
 		onPageChange,
 		onPageSizeChange,
+		onColumnFiltersChange,
+		filtersResetKey,
 		onView,
 		onForward,
 		onVerify,
@@ -58,25 +69,53 @@ export const EchisAlertsTable = memo<EchisAlertsTableProps>(
 				{
 					accessorKey: "date",
 					header: "Date",
+					filterFn: dateRangeFilter,
+					meta: { filterVariant: "dateRange" },
 					cell: ({ row }) => fmtDate(row.original.date),
 				},
-				{ accessorKey: "district", header: "District" },
-				{ accessorKey: "county", header: "County" },
-				{ accessorKey: "subCounty", header: "Sub-county" },
-				{ accessorKey: "healthFacility", header: "Health facility" },
+				{
+					accessorKey: "district",
+					header: "District",
+					filterFn: textIncludesFilter,
+					meta: { filterPlaceholder: "District" },
+				},
+				{
+					accessorKey: "county",
+					header: "County",
+					filterFn: textIncludesFilter,
+					meta: { filterPlaceholder: "County" },
+				},
+				{
+					accessorKey: "subCounty",
+					header: "Sub-county",
+					filterFn: textIncludesFilter,
+					meta: { filterPlaceholder: "Sub-county" },
+				},
+				{
+					accessorKey: "healthFacility",
+					header: "Health facility",
+					filterFn: textIncludesFilter,
+					meta: { filterPlaceholder: "Health facility" },
+				},
 				{
 					accessorKey: "vhtName",
 					header: "VHT name",
+					filterFn: textIncludesFilter,
+					meta: { filterPlaceholder: "VHT name" },
 					cell: ({ row }) => row.original.vhtName || "—",
 				},
 				{
 					accessorKey: "vhtPhone",
 					header: "VHT phone",
+					filterFn: textIncludesFilter,
+					meta: { filterPlaceholder: "VHT phone" },
 					cell: ({ row }) => row.original.vhtPhone || "—",
 				},
 				{
 					accessorKey: "verificationStatus",
 					header: "Verification",
+					filterFn: textIncludesFilter,
+					meta: { filterPlaceholder: "Verification status" },
 					cell: ({ row }) => (
 						<Badge variant="outline" className="text-[10px] font-normal">
 							{row.original.verificationStatus || "—"}
@@ -86,6 +125,8 @@ export const EchisAlertsTable = memo<EchisAlertsTableProps>(
 				{
 					accessorKey: "briefDescription",
 					header: "Description",
+					filterFn: textIncludesFilter,
+					meta: { filterPlaceholder: "Description" },
 					cell: ({ row }) => (
 						<span className="line-clamp-2 max-w-[240px] text-xs">
 							{row.original.briefDescription || "—"}
@@ -94,7 +135,17 @@ export const EchisAlertsTable = memo<EchisAlertsTableProps>(
 				},
 				{
 					id: "inAlerts",
+					accessorFn: (row) =>
+						row.linkedAlertId ? "linked" : "unlinked",
 					header: "In alerts",
+					filterFn: exactStringFilter,
+					meta: {
+						filterVariant: "select",
+						filterOptions: [
+							{ value: "linked", label: "Linked" },
+							{ value: "unlinked", label: "Not linked" },
+						],
+					},
 					cell: ({ row }) =>
 						row.original.linkedAlert ? (
 							<AlertVerifyChip alert={row.original.linkedAlert} />
@@ -105,6 +156,7 @@ export const EchisAlertsTable = memo<EchisAlertsTableProps>(
 				{
 					id: "forwarded",
 					header: "Forwarded",
+					enableColumnFilter: false,
 					cell: ({ row }) => {
 						const a = row.original;
 						if (!a.forwardedToDistrict)
@@ -126,6 +178,7 @@ export const EchisAlertsTable = memo<EchisAlertsTableProps>(
 				{
 					id: "actions",
 					header: "",
+					enableColumnFilter: false,
 					cell: ({ row }) => (
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
@@ -178,6 +231,10 @@ export const EchisAlertsTable = memo<EchisAlertsTableProps>(
 						columns={columns}
 						data={alerts}
 						hideToolbar
+						enableHeaderFilters
+						manualFiltering
+						onColumnFiltersChange={onColumnFiltersChange}
+						filtersResetKey={filtersResetKey}
 						pageSize={pageSize}
 						manualPagination
 						pageCount={totalPages}

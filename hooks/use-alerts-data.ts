@@ -18,7 +18,8 @@ interface AlertsFilters {
     region: string;
     district: string;
     source: string;
-    date: string;
+    fromDate: string;
+    toDate: string;
     verification: string;
 }
 
@@ -38,7 +39,10 @@ interface AlertsPagination {
 
 /** Server-side sort: `by` is a backend-whitelisted key (id|date|name|status…). */
 export type AlertsSort = { by: string; order: 'asc' | 'desc' };
-export const ALERTS_DEFAULT_SORT: AlertsSort = { by: '', order: 'desc' };
+// Default to newest-added first (created_at = insertion time), matching the
+// app-wide "newest synced first" ordering. A non-empty `by` also bypasses the
+// pending-float re-sort below, so the newest alerts stay on top.
+export const ALERTS_DEFAULT_SORT: AlertsSort = { by: 'created_at', order: 'desc' };
 
 interface UseAlertsDataReturn {
     alerts: AlertType[];
@@ -69,7 +73,8 @@ const initialFilters: AlertsFilters = {
     region: '',
     district: '',
     source: '',
-    date: '',
+    fromDate: '',
+    toDate: '',
     verification: 'all',
 };
 
@@ -114,9 +119,13 @@ function toApiParams(
         params.source = sourceFilterValues(filters.source).join(',');
     }
 
-    if (filters.date) {
-        params.from_date = filters.date;
-        params.to_date = filters.date;
+    // Date is a custom range: from/to are independent, and either bound alone
+    // still filters (open-ended range). Mirrors the call-logs date filter.
+    if (filters.fromDate) {
+        params.from_date = filters.fromDate;
+    }
+    if (filters.toDate) {
+        params.to_date = filters.toDate;
     }
 
     return params;

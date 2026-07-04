@@ -163,7 +163,7 @@ export default function AlertsPage(): React.JSX.Element {
 			)}
 
 			{loading ? (
-				<FiltersSkeleton fields={5} />
+				<FiltersSkeleton fields={7} />
 			) : (
 				<AlertsFilters
 					filters={filters}

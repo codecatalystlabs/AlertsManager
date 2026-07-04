@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ErrorAlert } from "@/components/dashboard";
 import {
 	PoeAlertDetailsDialog,
@@ -45,6 +45,8 @@ export default function PoeAlertsPage() {
 		applyFilters,
 		applyLocalFilters,
 		clearLocalFilters,
+		setColumnFilters,
+		filtersResetKey,
 		setPage,
 		setPageSize,
 		refetch,
@@ -58,6 +60,14 @@ export default function PoeAlertsPage() {
 	const [verifyTarget, setVerifyTarget] = useState<PoeAlertRow | null>(null);
 	const [verifyOpen, setVerifyOpen] = useState(false);
 	const [isRefreshing, setIsRefreshing] = useState(false);
+
+	// Stabilize the prefill shape so the verify dialog isn't handed a brand-new
+	// object on every SWR auto-refresh (belt-and-suspenders alongside the dialog's
+	// id-keyed reset effect).
+	const verifyAlertShape = useMemo(
+		() => (verifyTarget ? poeToAlertShape(verifyTarget) : null),
+		[verifyTarget]
+	);
 
 	const handleRefresh = async () => {
 		setIsRefreshing(true);
@@ -123,6 +133,8 @@ export default function PoeAlertsPage() {
 				isLoading={loading}
 				onPageChange={setPage}
 				onPageSizeChange={setPageSize}
+				onColumnFiltersChange={setColumnFilters}
+				filtersResetKey={filtersResetKey}
 				onView={(a) => {
 					setSelected(a);
 					setDetailsOpen(true);
@@ -154,14 +166,14 @@ export default function PoeAlertsPage() {
 				onForwarded={() => void refetch()}
 			/>
 
-			{verifyOpen && verifyTarget && (
+			{verifyOpen && verifyTarget && verifyAlertShape && (
 				<AlertVerificationDialog
 					isOpen={verifyOpen}
 					onClose={() => {
 						setVerifyOpen(false);
 						setVerifyTarget(null);
 					}}
-					alert={poeToAlertShape(verifyTarget)}
+					alert={verifyAlertShape}
 					ndwSource="poe"
 					ndwId={verifyTarget.id}
 					onVerificationComplete={() => void refetch()}

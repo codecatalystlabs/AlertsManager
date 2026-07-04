@@ -32,6 +32,7 @@ import {
 import { useDashboardSummary } from "@/hooks/use-dashboard-summary";
 import type { AlertCounts } from "@/app/dashboard/types";
 import { LAYOUT } from "@/constants/layout";
+import { alertResponse } from "@/constants";
 import { ChartSkeleton } from "@/components/ui/skeletons";
 
 /** Loading placeholder mirroring the DashboardCharts grid. */
@@ -80,7 +81,6 @@ export default function DashboardPage(): React.JSX.Element {
 		region,
 		response
 	);
-	const responseTypes = summary?.responseTypes ?? [];
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 	// The overview KPI row and the charts grid are captured as separate PDF
@@ -253,9 +253,12 @@ export default function DashboardPage(): React.JSX.Element {
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value="all">All response types</SelectItem>
-							{responseTypes.map((rt) => (
-								<SelectItem key={rt} value={rt}>
-									{rt}
+							{/* Canonical response taxonomy (same list as the Add/Edit/Verify
+							    forms) — value is the disease code, which the backend matches
+							    by folding stored responses onto the same canonical bucket. */}
+							{alertResponse.map((r) => (
+								<SelectItem key={r.code} value={r.code}>
+									{r.name}
 								</SelectItem>
 							))}
 						</SelectContent>

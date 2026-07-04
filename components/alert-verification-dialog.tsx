@@ -231,7 +231,13 @@ export function AlertVerificationDialog({
 				generateTokenAutomatically();
 			}
 		}
-	}, [isOpen, alert, isTokenlessMode]);
+		// Key off the stable alert id, NOT the `alert` object reference. Callers
+		// like the eCHIS/POE pages rebuild the alert shape (echisToAlertShape) on
+		// every render, so depending on `alert` would re-run this reset on each
+		// SWR auto-refresh (60s interval / focus revalidation) and wipe whatever
+		// the user has typed. The id is enough to detect a genuinely new signal.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [isOpen, alert?.id, isTokenlessMode]);
 
 	// Show VHF form when Field Case Verification is one of the selected actions
 	useEffect(() => {

@@ -1,10 +1,16 @@
 import { memo, useMemo } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
+import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/ui/data-table";
+import {
+	DataTable,
+	dateRangeFilter,
+	exactStringFilter,
+	textIncludesFilter,
+} from "@/components/ui/data-table";
 import type { PoeAlertRow } from "@/lib/fetch-ndw-alerts";
+import { POE_RISK_LEVEL_OPTIONS } from "@/constants/poe-alerts";
 import { LAYOUT } from "@/constants/layout";
 import { Eye, MoreHorizontal, Send, ShieldCheck } from "lucide-react";
 import {
@@ -40,6 +46,10 @@ interface PoeAlertsTableProps {
 	isLoading?: boolean;
 	onPageChange: (page: number) => void;
 	onPageSizeChange: (pageSize: number) => void;
+	/** Receives per-column header filter changes so they query the whole dataset. */
+	onColumnFiltersChange?: (filters: ColumnFiltersState) => void;
+	/** Bumped when the filter bar is cleared, to also clear the header funnels. */
+	filtersResetKey?: number;
 	onView: (alert: PoeAlertRow) => void;
 	onForward?: (alert: PoeAlertRow) => void;
 	onVerify?: (alert: PoeAlertRow) => void;
@@ -55,6 +65,8 @@ export const PoeAlertsTable = memo<PoeAlertsTableProps>(
 		isLoading,
 		onPageChange,
 		onPageSizeChange,
+		onColumnFiltersChange,
+		filtersResetKey,
 		onView,
 		onForward,
 		onVerify,
@@ -65,32 +77,88 @@ export const PoeAlertsTable = memo<PoeAlertsTableProps>(
 				{
 					accessorKey: "createdAtRemote",
 					header: "Created",
+					filterFn: dateRangeFilter,
+					meta: { filterVariant: "dateRange" },
 					cell: ({ row }) => fmtDate(row.original.createdAtRemote),
 				},
-				{ accessorKey: "fullName", header: "Traveller" },
-				{ accessorKey: "passportNumber", header: "Passport" },
-				{ accessorKey: "nationality", header: "Nationality" },
-				{ accessorKey: "portOfEntry", header: "Port of entry" },
+				{
+					accessorKey: "fullName",
+					header: "Traveller",
+					filterFn: textIncludesFilter,
+					meta: { filterPlaceholder: "Traveller name" },
+				},
+				{
+					accessorKey: "passportNumber",
+					header: "Passport",
+					filterFn: textIncludesFilter,
+					meta: { filterPlaceholder: "Passport" },
+				},
+				{
+					accessorKey: "nationality",
+					header: "Nationality",
+					filterFn: textIncludesFilter,
+					meta: { filterPlaceholder: "Nationality" },
+				},
+				{
+					accessorKey: "portOfEntry",
+					header: "Port of entry",
+					filterFn: textIncludesFilter,
+					meta: { filterPlaceholder: "Port of entry" },
+				},
 				{
 					accessorKey: "arrivalDate",
 					header: "Arrival",
+					filterFn: dateRangeFilter,
+					meta: { filterVariant: "dateRange" },
 					cell: ({ row }) => fmtDate(row.original.arrivalDate),
 				},
-				{ accessorKey: "flightNumber", header: "Flight" },
+				{
+					accessorKey: "flightNumber",
+					header: "Flight",
+					filterFn: textIncludesFilter,
+					meta: { filterPlaceholder: "Flight" },
+				},
 				{
 					accessorKey: "riskLevel",
 					header: "Risk",
+					filterFn: exactStringFilter,
+					meta: {
+						filterVariant: "select",
+						filterOptions: POE_RISK_LEVEL_OPTIONS.map((level) => ({
+							value: level,
+							label: level.charAt(0).toUpperCase() + level.slice(1),
+						})),
+					},
 					cell: ({ row }) => (
 						<Badge variant={riskVariant(row.original.riskLevel)}>
 							{row.original.riskLevel || "—"}
 						</Badge>
 					),
 				},
-				{ accessorKey: "symptomsText", header: "Symptoms" },
-				{ accessorKey: "refCode", header: "Ref" },
+				{
+					accessorKey: "symptomsText",
+					header: "Symptoms",
+					filterFn: textIncludesFilter,
+					meta: { filterPlaceholder: "Symptoms" },
+				},
+				{
+					accessorKey: "refCode",
+					header: "Ref",
+					filterFn: textIncludesFilter,
+					meta: { filterPlaceholder: "Ref code" },
+				},
 				{
 					id: "inAlerts",
+					accessorFn: (row) => (row.linkedAlertId ? "linked" : "unlinked"),
 					header: "In alerts",
+					filterFn: exactStringFilter,
+					meta: {
+						filterVariant: "select",
+						filterOptions: [
+							{ value: "linked", label: "Linked" },
+							{ value: "unlinked", label: "Not linked" },
+						],
+					},
 					cell: ({ row }) =>
 						row.original.linkedAlert ? (
 							<AlertVerifyChip alert={row.original.linkedAlert} />
@@ -101,6 +169,7 @@ export const PoeAlertsTable = memo<PoeAlertsTableProps>(
 				{
 					id: "forwarded",
 					header: "Forwarded",
+					enableColumnFilter: false,
 					cell: ({ row }) => {
 						const a = row.original;
 						if (!a.forwardedToDistrict)
@@ -122,6 +191,7 @@ export const PoeAlertsTable = memo<PoeAlertsTableProps>(
 				{
 					id: "actions",
 					header: "",
+					enableColumnFilter: false,
 					cell: ({ row }) => (
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
@@ -174,6 +244,10 @@ export const PoeAlertsTable = memo<PoeAlertsTableProps>(
 						columns={columns}
 						data={alerts}
 						hideToolbar
+						enableHeaderFilters
+						manualFiltering
+						onColumnFiltersChange={onColumnFiltersChange}
+						filtersResetKey={filtersResetKey}
 						pageSize={pageSize}
 						manualPagination
 						pageCount={totalPages}

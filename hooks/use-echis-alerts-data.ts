@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
+import type { ColumnFiltersState } from "@tanstack/react-table";
 import {
 	ECHIS_ALERTS_CONFIG,
 	ECHIS_INITIAL_NDW_FILTERS,
@@ -14,6 +15,7 @@ import {
 	type NdwSyncProgress,
 } from "@/lib/fetch-ndw-alerts";
 import { countActiveNdwFilters } from "@/constants/ndw-filter-fields";
+import { columnFiltersToEchisLocalParams } from "@/lib/echis-column-filters";
 
 function summarizeSync(p: NdwSyncProgress): string {
 	const mode = p.incremental ? "Incremental sync" : "Full sync";
@@ -28,6 +30,11 @@ function summarizeSync(p: NdwSyncProgress): string {
 export function useEchisAlertsData() {
 	const [filters, setFilters] = useState<NdwAlertsFilterState>(ECHIS_INITIAL_NDW_FILTERS);
 	const [applied, setApplied] = useState<NdwAlertsFilterState>(ECHIS_INITIAL_NDW_FILTERS);
+	// Per-column header filters (server-side, mirroring the 6767 table): they scope
+	// the whole synced dataset, not just the loaded page.
+	const [columnFilters, setColumnFiltersState] = useState<ColumnFiltersState>([]);
+	// Bumped on clear so the data-table clears its header funnel UI too.
+	const [filtersResetKey, setFiltersResetKey] = useState(0);
 	const [page, setPage] = useState(1);
 	const [limit, setLimit] = useState<number>(ECHIS_ALERTS_CONFIG.ITEMS_PER_PAGE);
 	const [isSyncing, setIsSyncing] = useState(false);
@@ -47,16 +54,27 @@ export function useEchisAlertsData() {
 		};
 	}, []);
 
+	// Mapped once so the SWR key only changes when the resulting server params
+	// change (not on every referentially-new ColumnFiltersState array).
+	const columnParams = useMemo(
+		() => columnFiltersToEchisLocalParams(columnFilters),
+		[columnFilters]
+	);
+
 	const swrKey = useMemo(
-		() => ["echis-alerts", applied, page, limit] as const,
-		[applied, page, limit]
+		() => ["echis-alerts", applied, page, limit, columnParams] as const,
+		[applied, page, limit, columnParams]
 	);
 
 	const { data, error, isLoading, isValidating, mutate } = useSWR(
 		swrKey,
 		async () => {
 			const hasNdwFilters = countActiveNdwFilters(applied.ndwFilters) > 0;
-			const hasLocalFilters = Object.keys(applied.local).length > 0;
+			// The inline "filter synced records" card and the per-column header
+			// filters both produce local query params; merge them, with the column
+			// filters winning on overlap (mirrors the Alerts/6767 convention).
+			const mergedLocal = { ...applied.local, ...columnParams };
+			const hasLocalFilters = Object.keys(mergedLocal).length > 0;
 			const [list, stats] = await Promise.all([
 				listEchisAlerts({
 					page,
@@ -65,10 +83,10 @@ export function useEchisAlertsData() {
 					live: hasNdwFilters || undefined,
 					ndwFilters: hasNdwFilters ? applied.ndwFilters : undefined,
 					// Live (NDW proxy) and local-DB filtering are mutually exclusive:
-					// the inline local filters aren't NDW columns, so sending them with
-					// a live request is a silent no-op. Only send them outside live mode.
+					// the local filters aren't NDW columns, so sending them with a live
+					// request is a silent no-op. Only send them outside live mode.
 					localFilters:
-						!hasNdwFilters && hasLocalFilters ? applied.local : undefined,
+						!hasNdwFilters && hasLocalFilters ? mergedLocal : undefined,
 				}),
 				getEchisStats().catch(() => ({ totalAlerts: 0, note: undefined })),
 			]);
@@ -140,6 +158,12 @@ export function useEchisAlertsData() {
 		error: error instanceof Error ? error.message : error ? String(error) : null,
 		syncMessage,
 		syncProgress,
+		filtersResetKey,
+		// Header column filters re-scope the whole dataset, so reset to page 1.
+		setColumnFilters: (next: ColumnFiltersState) => {
+			setColumnFiltersState(next);
+			setPage(1);
+		},
 		setSearch: (search: string) => setFilters((f) => ({ ...f, search })),
 		// Building an NDW (live) filter set drops any inline local filters, since
 		// the two modes are mutually exclusive (see the fetcher).
@@ -164,6 +188,9 @@ export function useEchisAlertsData() {
 		clearFilters: () => {
 			setFilters(ECHIS_INITIAL_NDW_FILTERS);
 			setApplied(ECHIS_INITIAL_NDW_FILTERS);
+			// Also drop any per-column header filters and reset the table's funnel UI.
+			setColumnFiltersState([]);
+			setFiltersResetKey((k) => k + 1);
 			setPage(1);
 		},
 		applyFilters: async () => {
