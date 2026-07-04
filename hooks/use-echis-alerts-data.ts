@@ -147,6 +147,15 @@ export function useEchisAlertsData() {
 		[mutate, pollSync]
 	);
 
+	// Memoized so its identity is stable across renders. The DataTable reports its
+	// column-filter state via an effect keyed on the callback identity; an inline
+	// (unstable) callback would make that effect fire every render and call
+	// setPage(1), pinning the table on page 1 (pagination could never advance).
+	const setColumnFilters = useCallback((next: ColumnFiltersState) => {
+		setColumnFiltersState(next);
+		setPage(1);
+	}, []);
+
 	return {
 		alerts,
 		stats,
@@ -160,10 +169,7 @@ export function useEchisAlertsData() {
 		syncProgress,
 		filtersResetKey,
 		// Header column filters re-scope the whole dataset, so reset to page 1.
-		setColumnFilters: (next: ColumnFiltersState) => {
-			setColumnFiltersState(next);
-			setPage(1);
-		},
+		setColumnFilters,
 		setSearch: (search: string) => setFilters((f) => ({ ...f, search })),
 		// Building an NDW (live) filter set drops any inline local filters, since
 		// the two modes are mutually exclusive (see the fetcher).
