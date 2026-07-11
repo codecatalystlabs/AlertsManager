@@ -16,10 +16,29 @@ import { cn } from "@/lib/utils";
 import { useRecentActivity } from "@/hooks/use-recent-activity";
 import type { RecentActivityWindow } from "@/lib/fetch-recent-activity";
 
-const WINDOW_PRESETS: { id: RecentActivityWindow; label: string }[] = [
+/**
+ * Dropdown selection. Most map straight to a `RecentActivityWindow`; "hours" is a
+ * UI-only sentinel that pairs with the free-form hours input, and "custom" opens
+ * the calendar-day range pickers.
+ */
+type WindowPreset =
+	| "1h"
+	| "3h"
+	| "10h"
+	| "24h"
+	| "7d"
+	| "30d"
+	| "hours"
+	| "custom";
+
+const WINDOW_PRESETS: { id: WindowPreset; label: string }[] = [
+	{ id: "1h", label: "Last 1 hour" },
+	{ id: "3h", label: "Last 3 hours" },
+	{ id: "10h", label: "Last 10 hours" },
 	{ id: "24h", label: "Last 24 hours" },
 	{ id: "7d", label: "Last 7 days" },
 	{ id: "30d", label: "Last 30 days" },
+	{ id: "hours", label: "Custom hours" },
 	{ id: "custom", label: "Custom range" },
 ];
 
@@ -37,19 +56,44 @@ interface RecentActivityCardProps {
  */
 export const RecentActivityCard = memo<RecentActivityCardProps>(
 	({ district = "all", className }) => {
-		const [window, setWindow] = useState<RecentActivityWindow>("24h");
+		const [preset, setPreset] = useState<WindowPreset>("24h");
+		const [customHours, setCustomHours] = useState("");
 		const [fromDate, setFromDate] = useState("");
 		const [toDate, setToDate] = useState("");
+
+		const isCustomRange = preset === "custom";
+		const isCustomHours = preset === "hours";
+
+		// The free-form hours input must be a whole number ≥ 1 before we query.
+		const hoursNum = Number(customHours);
+		const hoursValid =
+			customHours.trim() !== "" &&
+			Number.isInteger(hoursNum) &&
+			hoursNum >= 1;
+
+		// The effective window string sent to the API: the custom-hours input
+		// becomes `${N}h`; the day/hour presets are already valid window values.
+		const window: RecentActivityWindow = isCustomRange
+			? "custom"
+			: isCustomHours
+				? (`${hoursValid ? hoursNum : 24}h` as RecentActivityWindow)
+				: (preset as RecentActivityWindow);
+
+		// Idle while the custom-hours input is empty/invalid (the hook also gates
+		// the custom range on both dates being set).
+		const enabled = !isCustomHours || hoursValid;
 
 		const { activity, loading, error } = useRecentActivity({
 			window,
 			fromDate,
 			toDate,
 			district,
+			enabled,
 		});
 
-		const isCustom = window === "custom";
-		const awaitingCustom = isCustom && (!fromDate || !toDate);
+		const awaitingCustom =
+			(isCustomRange && (!fromDate || !toDate)) ||
+			(isCustomHours && !hoursValid);
 		const showSkeleton = loading && !activity;
 
 		const subtitle =
@@ -72,8 +116,8 @@ export const RecentActivityCard = memo<RecentActivityCardProps>(
 					</div>
 					<div className="flex flex-wrap items-center justify-end gap-2">
 						<Select
-							value={window}
-							onValueChange={(v) => setWindow(v as RecentActivityWindow)}
+							value={preset}
+							onValueChange={(v) => setPreset(v as WindowPreset)}
 						>
 							<SelectTrigger
 								className="h-8 w-[150px] text-xs"
@@ -89,7 +133,25 @@ export const RecentActivityCard = memo<RecentActivityCardProps>(
 								))}
 							</SelectContent>
 						</Select>
-						{isCustom && (
+						{isCustomHours && (
+							<div className="flex items-center gap-1.5">
+								<Input
+									type="number"
+									min={1}
+									step={1}
+									inputMode="numeric"
+									value={customHours}
+									onChange={(e) => setCustomHours(e.target.value)}
+									placeholder="6"
+									className="h-8 w-[70px] text-xs"
+									aria-label="Number of hours"
+								/>
+								<span className="text-xs text-muted-foreground">
+									hours
+								</span>
+							</div>
+						)}
+						{isCustomRange && (
 							<>
 								<Input
 									type="date"
@@ -115,7 +177,9 @@ export const RecentActivityCard = memo<RecentActivityCardProps>(
 				<CardContent className="p-3 pt-0">
 					{awaitingCustom ? (
 						<p className="rounded-lg border border-dashed border-gray-200 bg-gray-50/60 px-3 py-3 text-center text-xs text-muted-foreground">
-							Choose a start and end date to see recent activity.
+							{isCustomHours
+								? "Enter a whole number of hours to see recent activity."
+								: "Choose a start and end date to see recent activity."}
 						</p>
 					) : error ? (
 						<p className="text-xs text-destructive">{error}</p>

@@ -12,6 +12,11 @@ interface UseRecentActivityArgs {
 	fromDate?: string;
 	toDate?: string;
 	district?: string;
+	/**
+	 * When false, stay idle instead of fetching (e.g. the "custom hours" input is
+	 * empty/invalid). Defaults to true.
+	 */
+	enabled?: boolean;
 }
 
 interface UseRecentActivityReturn {
@@ -31,12 +36,15 @@ export function useRecentActivity({
 	fromDate = "",
 	toDate = "",
 	district = "all",
+	enabled = true,
 }: UseRecentActivityArgs): UseRecentActivityReturn {
 	useInvalidateAlerts();
 
-	// The custom window can't be queried until both dates are set; stay idle
-	// (null SWR key) until then so we don't fire an invalid request.
-	const ready = window !== "custom" || (!!fromDate && !!toDate);
+	// Stay idle (null SWR key) when the caller isn't ready — the custom window
+	// needs both dates set, and `enabled` gates the custom-hours input — so we
+	// never fire an invalid request.
+	const ready =
+		enabled && (window !== "custom" || (!!fromDate && !!toDate));
 
 	const { data, error: swrError, isLoading } = useSWR(
 		ready

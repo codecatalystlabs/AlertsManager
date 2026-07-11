@@ -2,8 +2,13 @@ import { AuthService } from "@/lib/auth";
 import { getClientApiBaseUrl } from "@/lib/api-config";
 import { formatAlertsFetchError } from "@/lib/api-errors";
 
-/** Selectable window for the dashboard "Recent activity" card. */
-export type RecentActivityWindow = "24h" | "7d" | "30d" | "custom";
+/**
+ * Selectable window for the dashboard "Recent activity" card. A rolling window is
+ * `${N}h` (hours) or one of the day presets, e.g. "1h", "3h", "10h", "24h", "7d",
+ * "30d"; "custom" is an explicit calendar-day range. The `${number}h` form also
+ * covers the user-entered "custom hours" value.
+ */
+export type RecentActivityWindow = "7d" | "30d" | "custom" | `${number}h`;
 
 /** Payload from GET /dashboard/recent-activity. */
 export interface RecentActivity {
