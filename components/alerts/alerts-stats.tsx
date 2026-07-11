@@ -55,7 +55,7 @@ StatCard.displayName = "StatCard";
 export const AlertsStats = memo<AlertsStatsProps>(({ stats }) => {
 	const statCards = [
 		{
-			title: "Alive Cases",
+			title: "Alive Signals",
 			value: stats.alive,
 			icon: HeartPulse,
 			borderColor: "border-l-success",
@@ -63,7 +63,7 @@ export const AlertsStats = memo<AlertsStatsProps>(({ stats }) => {
 			iconColor: "text-success",
 		},
 		{
-			title: "Dead Cases",
+			title: "Dead Signals",
 			value: stats.dead,
 			icon: HeartOff,
 			borderColor: "border-l-destructive",
@@ -71,7 +71,7 @@ export const AlertsStats = memo<AlertsStatsProps>(({ stats }) => {
 			iconColor: "text-destructive",
 		},
 		{
-			title: "Unknown Cases",
+			title: "Unknown Signals",
 			value: stats.unknown,
 			icon: HelpCircle,
 			borderColor: "border-l-warning",

@@ -425,7 +425,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 				<CardHeader className="p-4 pb-2">
 					<div className="flex items-center gap-2">
 						<Stethoscope className="h-4 w-4 text-uganda-red" />
-						<CardTitle className="text-base">Alerts by Disease</CardTitle>
+						<CardTitle className="text-base">Signals by Disease</CardTitle>
 					</div>
 					<CardDescription>
 						Top suspected diseases / syndromes
@@ -469,7 +469,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 				<CardHeader className="p-4 pb-2">
 					<div className="flex items-center gap-2">
 						<Megaphone className="h-4 w-4 text-uganda-red" />
-						<CardTitle className="text-base">Alerts by Source</CardTitle>
+						<CardTitle className="text-base">Signals by Source</CardTitle>
 					</div>
 					<CardDescription>
 						How alerts reach the system

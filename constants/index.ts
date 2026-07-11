@@ -75,6 +75,14 @@ const alertResponse = [
     { code: "ClusterOfUnwell", name: "Cluster of unwell people or animals with similar symptoms" },
     { code: "HumanInfluenzaNewSubtype", name: "Human influenza due to a new subtype" },
     { code: "PublicHealthEventOfConcern", name: "Any public health event of international or national concern (infectious, zoonotic, foodborne, chemical, radiological, or due to an unknown condition)" },
+    // Environmental hazards, injuries and community events. New codes: the value
+    // stored on the alert IS the code; the backend canonicalises it (splitCamelCase)
+    // to the display label, so "FoodPoisoning" → "Food Poisoning" folds together.
+    { code: "Drowning", name: "Drowning" },
+    { code: "Floods", name: "Floods" },
+    { code: "Landslides", name: "Landslides" },
+    { code: "FoodPoisoning", name: "Food poisoning" },
+    { code: "SuddenDeath", name: "Sudden death" },
 ]
 
 const alertStatus = [

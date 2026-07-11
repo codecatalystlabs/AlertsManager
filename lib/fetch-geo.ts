@@ -49,6 +49,10 @@ export interface GeoFeatureCollection {
 export interface GeoQuery {
 	fromDate?: string;
 	toDate?: string;
+	/** Selected alertResponse codes/labels; empty/undefined = every type. */
+	responses?: string[];
+	/** Selected verification-outcome buckets (see GEO_OUTCOME_FILTER_OPTIONS); empty/undefined = every outcome. */
+	outcomes?: string[];
 }
 
 class GeoFetchError extends Error {
@@ -65,6 +69,12 @@ function buildQuery(q: GeoQuery, extra: Record<string, string> = {}): string {
 	const params = new URLSearchParams();
 	if (q.fromDate) params.set("from_date", q.fromDate);
 	if (q.toDate) params.set("to_date", q.toDate);
+	// Multi-select filters are sent comma-joined; the taxonomy codes and outcome
+	// buckets never contain commas, so the backend splits them back cleanly.
+	if (q.responses && q.responses.length)
+		params.set("response", q.responses.join(","));
+	if (q.outcomes && q.outcomes.length)
+		params.set("outcome", q.outcomes.join(","));
 	for (const [key, value] of Object.entries(extra)) {
 		if (value) params.set(key, value);
 	}

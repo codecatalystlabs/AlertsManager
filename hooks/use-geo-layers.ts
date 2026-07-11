@@ -28,14 +28,17 @@ export interface UseGeoLayersReturn {
 export function useGeoLayers(query: GeoQuery): UseGeoLayersReturn {
 	const from = query.fromDate || "";
 	const to = query.toDate || "";
+	// Stable, order-independent cache keys for the multi-select filters.
+	const responses = [...(query.responses ?? [])].sort().join(",");
+	const outcomes = [...(query.outcomes ?? [])].sort().join(",");
 
 	const regions = useSWR<GeoFeatureCollection>(
-		["geo-regions", from, to],
+		["geo-regions", from, to, responses, outcomes],
 		() => fetchGeoRegions(query),
 		{ keepPreviousData: true, revalidateOnFocus: false }
 	);
 	const districts = useSWR<GeoFeatureCollection>(
-		["geo-districts-all", from, to],
+		["geo-districts-all", from, to, responses, outcomes],
 		() => fetchGeoDistricts("", query),
 		{ keepPreviousData: true, revalidateOnFocus: false }
 	);

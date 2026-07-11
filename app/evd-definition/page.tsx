@@ -85,7 +85,7 @@ const caseDefinitions = [
 		icon: Stethoscope,
 		color: "bg-warning",
 		description:
-			"Cases with epidemiological links but no lab confirmation",
+			"Signals with epidemiological links but no lab confirmation",
 		criteria: {
 			primary: "Any person who died from a 'suspected' EVD and had an epidemiological link to a confirmed case but was not tested and did not have laboratory confirmation of the disease",
 		},

@@ -270,7 +270,7 @@ function AdminLayers({
 					? `<br/><span style="opacity:.7">click to drill in</span>`
 					: "";
 				poly.bindTooltip(
-					`<strong>${escapeHtml(f.properties.name)}</strong><br/>${count.toLocaleString()} alert${count === 1 ? "" : "s"}${hint}`,
+					`<strong>${escapeHtml(f.properties.name)}</strong><br/>${count.toLocaleString()} signal${count === 1 ? "" : "s"}${hint}`,
 					{ sticky: true }
 				);
 				poly.on("mouseover", () =>
@@ -331,7 +331,14 @@ export function AlertsGeoMap({
 		drill.level === "subcounty" ? drill.district.uid : null;
 	const subSWR = useSWR<GeoFeatureCollection>(
 		openDistrictUid
-			? ["geo-subcounties", openDistrictUid, query.fromDate, query.toDate]
+			? [
+					"geo-subcounties",
+					openDistrictUid,
+					query.fromDate,
+					query.toDate,
+					[...(query.responses ?? [])].sort().join(","),
+					[...(query.outcomes ?? [])].sort().join(","),
+				]
 			: null,
 		() => fetchGeoSubcounties(openDistrictUid as string, query),
 		{ revalidateOnFocus: false }
@@ -521,7 +528,7 @@ function MapBreadcrumb({
 function MapLegend({ bins, level }: { bins: LegendBin[]; level: string }) {
 	return (
 		<div className="absolute bottom-3 left-3 z-[1000] rounded-md bg-white/95 px-2.5 py-2 text-[11px] shadow-md">
-			<div className="mb-1 font-semibold text-gray-700">Alerts · {level}</div>
+			<div className="mb-1 font-semibold text-gray-700">Signals · {level}</div>
 			<div className="space-y-0.5">
 				{bins.map((b, i) => (
 					<div key={`${i}-${b.label}`} className="flex items-center gap-1.5">
