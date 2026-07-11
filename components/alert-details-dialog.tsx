@@ -20,12 +20,14 @@ import {
 	Clock,
 	Activity,
 	ShieldCheck,
+	History,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Alert } from "@/lib/auth";
 import { alertResponse } from "@/constants";
+import { SignalTimeline } from "@/components/alerts/signal-timeline";
 
 interface AlertDetailsDialogProps {
 	isOpen: boolean;
@@ -375,6 +377,13 @@ export function AlertDetailsDialog({
 							</section>
 						</>
 					)}
+
+					{/* Signal traceability — full lifecycle audit trail */}
+					<Separator />
+					<section className="space-y-2">
+						<SectionHeader icon={History} title="Signal Traceability" />
+						<SignalTimeline alertId={alert.id} enabled={isOpen} />
+					</section>
 
 					{/* System information */}
 					<Separator />

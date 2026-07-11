@@ -6,7 +6,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import { MapContainer, useMap } from "react-leaflet";
 import L from "leaflet";
-import { ChevronRight, Home } from "lucide-react";
+import { ChevronRight, Home, Info } from "lucide-react";
 
 import {
 	fetchGeoSubcounties,
@@ -413,6 +413,11 @@ export function AlertsGeoMap({
 				? "Districts"
 				: "Subcounties";
 	const subLoading = drill.level === "subcounty" && subSWR.isLoading;
+	// Signals in the drilled district that can't be placed on a subcounty polygon
+	// (blank/unmatched subcounty). Surfaced so the total doesn't appear to vanish
+	// on drill-in — ~43% of signals carry no subcounty.
+	const unassigned =
+		drill.level === "subcounty" ? (subSWR.data?.unassigned ?? 0) : 0;
 
 	// `isolate` traps Leaflet's internal z-indexes (panes/controls reach 1000)
 	// in their own stacking context, so portalled UI like the date-range
@@ -443,6 +448,17 @@ export function AlertsGeoMap({
 			<MapBreadcrumb drill={drill} setDrill={setDrill} count={features.length} />
 
 			<MapLegend bins={scale.bins} level={levelLabel} />
+
+			{drill.level === "subcounty" && unassigned > 0 && !subLoading && (
+				<div className="pointer-events-none absolute bottom-3 left-1/2 z-[1000] flex max-w-[70%] -translate-x-1/2 items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50/95 px-2.5 py-1.5 text-[11px] text-amber-900 shadow-md">
+					<Info className="h-3.5 w-3.5 shrink-0" />
+					<span>
+						<strong>{unassigned.toLocaleString()}</strong> signal
+						{unassigned === 1 ? "" : "s"} in {drill.district.name} not mapped to
+						a subcounty
+					</span>
+				</div>
+			)}
 
 			{(validating || subLoading) && (
 				<div className="pointer-events-none absolute bottom-3 right-3 z-[1000] rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-gray-700 shadow">

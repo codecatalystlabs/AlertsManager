@@ -166,7 +166,9 @@ export default function DashboardPage(): React.JSX.Element {
 						{scopedToDistrict && assignedDistrict
 							? `Showing data for ${assignedDistrict} district only`
 							: scopedToRegion && assignedRegion
-								? `Showing data for ${assignedRegion} region only`
+								? district !== "all"
+									? `Showing data for ${district} district (${assignedRegion} region)`
+									: `Showing data for ${assignedRegion} region only`
 								: isUnbounded
 									? "Showing all-time data"
 									: "Showing data for the selected range"}
@@ -211,14 +213,23 @@ export default function DashboardPage(): React.JSX.Element {
 						</div>
 					) : scopedToRegion ? (
 						// REOC users are locked to their region (enforced
-						// server-side), so show the region instead of the picker.
-						<div
-							className="flex h-8 items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2.5 text-xs font-medium text-gray-700"
-							title="You can only see data for your assigned region"
-						>
-							<MapPin className="h-3.5 w-3.5 text-uganda-red" />
-							<span>{assignedRegion || "No region assigned"}</span>
-						</div>
+						// server-side), so show the region as a static chip — but
+						// still let them narrow to a district *within* that region.
+						<>
+							<div
+								className="flex h-8 items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2.5 text-xs font-medium text-gray-700"
+								title="You can only see data for your assigned region"
+							>
+								<MapPin className="h-3.5 w-3.5 text-uganda-red" />
+								<span>{assignedRegion || "No region assigned"}</span>
+							</div>
+							<DashboardDistrictPicker
+								value={district}
+								onChange={setDistrict}
+								disabled={loading}
+								region={assignedRegion || "all"}
+							/>
+						</>
 					) : (
 						<>
 							<DashboardRegionPicker

@@ -44,6 +44,12 @@ export interface GeoFeatureCollection {
 	maxCount: number;
 	total: number;
 	features: GeoFeature[];
+	/**
+	 * Subcounty level only: signals in the drilled district that couldn't be
+	 * placed on any subcounty polygon (blank/unmatched subcounty). Lets the UI
+	 * keep the drill-in total honest instead of silently dropping ~43% of signals.
+	 */
+	unassigned?: number;
 }
 
 export interface GeoQuery {
