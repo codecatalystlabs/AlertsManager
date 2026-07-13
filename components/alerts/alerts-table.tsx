@@ -9,9 +9,10 @@ import {
 	type AlertsTableCallbacks,
 } from "@/constants/alerts";
 import { LAYOUT } from "@/constants/layout";
-import { verifiedTableRowClass } from "@/lib/verified-row-style";
+import { alertSlaRowClass } from "@/lib/alert-sla";
 import { canDeleteAlerts } from "@/lib/auth";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { useTickingNow } from "@/hooks/use-ticking-now";
 import type { AlertsSort } from "@/hooks/use-alerts-data";
 
 // Only columns the backend can sort on (alertOrderClause whitelist) are wired;
@@ -70,6 +71,7 @@ export const AlertsTable = memo<AlertsTableProps>(
 		onSortChange,
 	}) => {
 		const canDelete = canDeleteAlerts(useCurrentUser());
+		const now = useTickingNow();
 		const callbacks: AlertsTableCallbacks = useMemo(
 			() => ({
 				onDelete: onDeleteAlert,
@@ -110,7 +112,7 @@ export const AlertsTable = memo<AlertsTableProps>(
 			<Card className={LAYOUT.card}>
 				<CardHeader className={LAYOUT.cardHeader}>
 					<CardTitle className={LAYOUT.cardTitle}>
-						All Alerts ({totalCount.toLocaleString()})
+						Verified Alerts ({totalCount.toLocaleString()})
 					</CardTitle>
 				</CardHeader>
 				<CardContent className={LAYOUT.cardContent}>
@@ -133,9 +135,10 @@ export const AlertsTable = memo<AlertsTableProps>(
 						sorting={sortingState}
 						onSortingChange={handleSortingChange}
 						isLoading={isLoading}
-						getRowClassName={(row) =>
-							verifiedTableRowClass(!!row.original.isVerified)
-						}
+						// Tint each row by how long the alert has been in the system:
+						// green <=2h, yellow 2-6h, red >6h. `now` ticks every minute so a
+						// pending row re-tints as it ages, without waiting for a refetch.
+						getRowClassName={(row) => alertSlaRowClass(row.original, now)}
 					/>
 				</CardContent>
 			</Card>
