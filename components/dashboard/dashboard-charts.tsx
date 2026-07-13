@@ -112,6 +112,24 @@ function truncateLabel(value: string, max = 22): string {
 	return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 }
 
+/**
+ * Height for a horizontal (layout="vertical") bar chart, grown to fit its rows.
+ *
+ * These charts are fixed-category lists (top districts / diseases / sources), and a
+ * fixed height silently broke them: with ~9 rows in 220px, Recharts' default category
+ * tick `interval` ("preserveEnd") decided the labels wouldn't fit and dropped every
+ * other one, leaving bars with no name against them. The axes now render every tick
+ * (interval={0}), so the container has to actually give each row the space its label
+ * needs — hence a height that scales with the row count instead of a constant.
+ */
+const BAR_ROW_HEIGHT = 30; // per category row: bar + breathing room for its label
+const BAR_CHART_CHROME = 44; // x-axis + margins
+const BAR_CHART_MIN_HEIGHT = 220;
+
+function barChartHeight(rowCount: number): number {
+	return Math.max(BAR_CHART_MIN_HEIGHT, rowCount * BAR_ROW_HEIGHT + BAR_CHART_CHROME);
+}
+
 function ChartEmptyState({ message }: { message: string }) {
 	return (
 		<div className="flex h-[220px] items-center justify-center rounded-lg border border-dashed bg-muted/30 px-4 text-center text-sm text-muted-foreground">
@@ -392,7 +410,11 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 					{districtData.length === 0 ? (
 						<ChartEmptyState message="No district data available in signals." />
 					) : (
-						<ChartContainer config={districtConfig} className="h-[220px] w-full">
+						<ChartContainer
+							config={districtConfig}
+							className="w-full"
+							style={{ height: barChartHeight(districtData.length) }}
+						>
 							<BarChart
 								data={districtData}
 								layout="vertical"
@@ -407,8 +429,11 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 									tickLine={false}
 									axisLine={false}
 									tick={{ fontSize: 11 }}
+									// Label every bar. Without this, Recharts thins the ticks
+									// when it thinks they won't fit, leaving unnamed bars.
+									interval={0}
 								/>
-								<ChartTooltip content={<ChartTooltipContent hideLabel />} />
+								<ChartTooltip content={<ChartTooltipContent />} />
 								<Bar
 									dataKey="count"
 									fill="var(--color-count)"
@@ -435,7 +460,11 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 					{summary.diseases.length === 0 ? (
 						<ChartEmptyState message="No disease data available in signals." />
 					) : (
-						<ChartContainer config={diseaseConfig} className="h-[220px] w-full">
+						<ChartContainer
+							config={diseaseConfig}
+							className="w-full"
+							style={{ height: barChartHeight(summary.diseases.length) }}
+						>
 							<BarChart
 								data={summary.diseases}
 								layout="vertical"
@@ -451,8 +480,12 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 									axisLine={false}
 									tick={{ fontSize: 10 }}
 									tickFormatter={(value) => truncateLabel(String(value))}
+									// Label every bar (see barChartHeight).
+									interval={0}
 								/>
-								<ChartTooltip content={<ChartTooltipContent hideLabel />} />
+								{/* Not hideLabel: long disease names are truncated on the
+								    axis, so the tooltip is where the full name is read. */}
+								<ChartTooltip content={<ChartTooltipContent />} />
 								<Bar
 									dataKey="count"
 									fill="var(--color-count)"
@@ -479,7 +512,11 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 					{summary.sources.length === 0 ? (
 						<ChartEmptyState message="No source data available in signals." />
 					) : (
-						<ChartContainer config={sourceConfig} className="h-[220px] w-full">
+						<ChartContainer
+							config={sourceConfig}
+							className="w-full"
+							style={{ height: barChartHeight(summary.sources.length) }}
+						>
 							<BarChart
 								data={summary.sources}
 								layout="vertical"
@@ -495,8 +532,12 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 									axisLine={false}
 									tick={{ fontSize: 10 }}
 									tickFormatter={(value) => truncateLabel(String(value))}
+									// Label every bar (see barChartHeight).
+									interval={0}
 								/>
-								<ChartTooltip content={<ChartTooltipContent hideLabel />} />
+								{/* Not hideLabel: the axis label may be truncated, so the
+								    tooltip is where the full source name is read. */}
+								<ChartTooltip content={<ChartTooltipContent />} />
 								<Bar
 									dataKey="count"
 									fill="var(--color-count)"
