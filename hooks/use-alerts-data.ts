@@ -20,7 +20,8 @@ interface AlertsFilters {
     source: string;
     fromDate: string;
     toDate: string;
-    verification: string;
+    /** SLA colour: 'all' | 'green' | 'yellow' | 'red'. See lib/alert-sla.ts. */
+    sla: string;
 }
 
 interface AlertsStats {
@@ -75,7 +76,7 @@ const initialFilters: AlertsFilters = {
     source: '',
     fromDate: '',
     toDate: '',
-    verification: 'all',
+    sla: 'all',
 };
 
 function toApiParams(
@@ -84,7 +85,13 @@ function toApiParams(
     limit: number,
     options?: { sort?: AlertsSort }
 ): AlertsListParams {
-    const params: AlertsListParams = { page, limit };
+    // View Alerts shows VERIFIED SIGNALS ONLY, and is hard-locked to it: the scope
+    // is not a filter the user can widen. "Verified" = a recorded verification
+    // outcome (desk/field decision), the same definition the dashboard KPIs and the
+    // SLA clock use — not the is_verified flag, which is set on 99.5% of rows
+    // including ones nobody has decided on. Signals still awaiting a decision live
+    // in Call Logs, which does not send this param.
+    const params: AlertsListParams = { page, limit, outcome_recorded: true };
 
     // Server-side sort so a header sort orders the WHOLE dataset, not just the
     // loaded page. The backend whitelists sort_by, so an empty `by` is ignored.
@@ -101,10 +108,11 @@ function toApiParams(
         params.district = filters.district;
     }
 
-    if (filters.verification === 'verified') {
-        params.is_verified = true;
-    } else if (filters.verification === 'pending') {
-        params.is_verified = false;
+    // SLA colour (time in system: green <=2h, yellow 2-6h, red >6h). Server-side
+    // so picking a colour scopes every page, not just the loaded one — the server
+    // applies the same bands in SQL that lib/alert-sla.ts uses for the row tint.
+    if (filters.sla && filters.sla !== 'all') {
+        params.sla = filters.sla;
     }
 
     // Status, source and date are filtered server-side so they scope the whole

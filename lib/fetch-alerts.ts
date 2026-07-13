@@ -58,6 +58,20 @@ export interface AlertsListParams {
 	assigned_to?: string;
 	/** Partial match on the verifying user. */
 	verified_by?: string;
+	/**
+	 * SLA colour — how long the alert has been in the system, clock stopping at
+	 * verification: "green" (<=2h), "yellow" (2-6h), "red" (>6h). Comma-separated
+	 * for several. Filtered server-side so it scopes the whole dataset, matching
+	 * the row tint computed by lib/alert-sla.ts.
+	 */
+	sla?: string;
+	/**
+	 * Only signals with a recorded verification outcome (true), or only pending
+	 * ones (false). This is what locks View Alerts to verified signals — it is a
+	 * recorded desk/field decision, NOT the is_verified flag (which is set on
+	 * 99.5% of rows). Call Logs omits it and keeps showing everything.
+	 */
+	outcome_recorded?: boolean;
 	/** Sort column: date | created_at | id | name | district | status | reporter. */
 	sort_by?: string;
 	/** Sort direction. */
@@ -150,6 +164,12 @@ function appendAlertFilterParams(
 	}
 	if (params.verified_by) {
 		searchParams.set("verified_by", params.verified_by);
+	}
+	if (params.sla) {
+		searchParams.set("sla", params.sla);
+	}
+	if (params.outcome_recorded !== undefined) {
+		searchParams.set("outcome_recorded", String(params.outcome_recorded));
 	}
 }
 

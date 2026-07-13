@@ -12,11 +12,12 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { STATUS_OPTIONS, VERIFICATION_FILTER_OPTIONS } from "@/constants/alerts";
+import { STATUS_OPTIONS } from "@/constants/alerts";
 import { LAYOUT } from "@/constants/layout";
 import { useRegionOptions } from "@/hooks/use-region-options";
 import { useDistrictOptions } from "@/hooks/use-district-options";
 import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
+import { SLA_FILTER_OPTIONS, SLA_DOT_CLASS } from "@/lib/alert-sla";
 import {
 	DATE_RANGE_PRESETS,
 	resolveDateRangePreset,
@@ -30,7 +31,8 @@ export interface AlertsFilterState {
 	source: string;
 	fromDate: string;
 	toDate: string;
-	verification: string;
+	/** SLA colour: "all" | "green" | "yellow" | "red". See lib/alert-sla.ts. */
+	sla: string;
 }
 
 interface AlertsFiltersProps {
@@ -230,26 +232,40 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 							</Select>
 						</div>
 
+						{/*
+						 * No Verification filter here: View Alerts is hard-locked to
+						 * verified signals (a recorded verification outcome), so the
+						 * control would either be a no-op or contradict the page.
+						 * Signals still awaiting a decision live in Call Logs.
+						 */}
+
 						<div className="space-y-1 min-w-0">
-							<Label htmlFor="verification-filter" className="text-[11px]">
-								Verification
+							<Label htmlFor="sla-filter" className="text-[11px]">
+								Time in system
 							</Label>
 							<Select
-								value={filters.verification}
+								value={filters.sla || "all"}
 								onValueChange={(value) =>
-									onFiltersChange({ verification: value })
+									onFiltersChange({ sla: value })
 								}
 							>
-								<SelectTrigger id="verification-filter" className="h-8 text-xs">
+								<SelectTrigger id="sla-filter" className="h-8 text-xs">
 									<SelectValue placeholder="All" />
 								</SelectTrigger>
 								<SelectContent>
-									{VERIFICATION_FILTER_OPTIONS.map((option) => (
+									<SelectItem value="all">All</SelectItem>
+									{SLA_FILTER_OPTIONS.map((option) => (
 										<SelectItem
 											key={option.value}
 											value={option.value}
 										>
-											{option.label}
+											<span className="flex items-center gap-2">
+												<span
+													aria-hidden
+													className={`h-2 w-2 shrink-0 rounded-full ${SLA_DOT_CLASS[option.value]}`}
+												/>
+												{option.label}
+											</span>
 										</SelectItem>
 									))}
 								</SelectContent>
