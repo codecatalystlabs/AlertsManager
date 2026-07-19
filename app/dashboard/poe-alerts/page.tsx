@@ -6,14 +6,15 @@ import { ErrorAlert } from "@/components/dashboard";
 import {
 	PoeAlertDetailsDialog,
 	PoeAlertsFilters,
-	PoeAlertsHeader,
 	PoeAlertsTable,
 } from "@/components/poe-alerts";
+import { NdwSyncHeader } from "@/components/ndw-alerts/ndw-sync-header";
 import { NdwFilterBar } from "@/components/ndw-alerts/ndw-filter-bar";
 import { NdwAlertsStats } from "@/components/ndw-alerts/ndw-alerts-stats";
 import { ForwardToDistrictDialog } from "@/components/forward-to-district-dialog";
 import { SyncProgressPanel } from "@/components/sync";
 import { POE_NDW_FILTER_FIELDS } from "@/constants/ndw-filter-fields";
+import { POE_ALERTS_CONFIG } from "@/constants/poe-alerts";
 import { usePoeAlertsData } from "@/hooks/use-poe-alerts-data";
 import { forwardPoeAlert, type PoeAlertRow } from "@/lib/fetch-ndw-alerts";
 import { poeToAlertShape } from "@/lib/ndw-alert-to-shape";
@@ -80,7 +81,9 @@ export default function PoeAlertsPage() {
 
 	return (
 		<div className={LAYOUT.pageGap}>
-			<PoeAlertsHeader
+			<NdwSyncHeader
+				title={POE_ALERTS_CONFIG.PAGE_TITLE}
+				description={POE_ALERTS_CONFIG.PAGE_DESCRIPTION}
 				onRefresh={() => void handleRefresh()}
 				onSyncFromRemote={() => void syncFromRemote()}
 				isRefreshing={isRefreshing}

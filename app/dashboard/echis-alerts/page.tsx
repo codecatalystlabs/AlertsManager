@@ -6,14 +6,15 @@ import { ErrorAlert } from "@/components/dashboard";
 import {
 	EchisAlertDetailsDialog,
 	EchisAlertsFilters,
-	EchisAlertsHeader,
 	EchisAlertsTable,
 } from "@/components/echis-alerts";
+import { NdwSyncHeader } from "@/components/ndw-alerts/ndw-sync-header";
 import { NdwFilterBar } from "@/components/ndw-alerts/ndw-filter-bar";
 import { NdwAlertsStats } from "@/components/ndw-alerts/ndw-alerts-stats";
 import { ForwardToDistrictDialog } from "@/components/forward-to-district-dialog";
 import { SyncProgressPanel } from "@/components/sync";
 import { ECHIS_NDW_FILTER_FIELDS } from "@/constants/ndw-filter-fields";
+import { ECHIS_ALERTS_CONFIG } from "@/constants/echis-alerts";
 import { useEchisAlertsData } from "@/hooks/use-echis-alerts-data";
 import { forwardEchisAlert, type EchisAlertRow } from "@/lib/fetch-ndw-alerts";
 import { echisToAlertShape } from "@/lib/ndw-alert-to-shape";
@@ -80,7 +81,9 @@ export default function EchisAlertsPage() {
 
 	return (
 		<div className={LAYOUT.pageGap}>
-			<EchisAlertsHeader
+			<NdwSyncHeader
+				title={ECHIS_ALERTS_CONFIG.PAGE_TITLE}
+				description={ECHIS_ALERTS_CONFIG.PAGE_DESCRIPTION}
 				onRefresh={() => void handleRefresh()}
 				onSyncFromRemote={() => void syncFromRemote({ refreshExisting: true })}
 				isRefreshing={isRefreshing}
