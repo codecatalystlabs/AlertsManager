@@ -3,8 +3,6 @@
 import React, { memo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import {
 	Select,
 	SelectContent,
@@ -19,10 +17,9 @@ import { useDistrictOptions } from "@/hooks/use-district-options";
 import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
 import { SLA_FILTER_OPTIONS, SLA_DOT_CLASS } from "@/lib/alert-sla";
 import {
-	DATE_RANGE_PRESETS,
-	resolveDateRangePreset,
-	matchActiveDateRangePreset,
-} from "@/lib/date-range-presets";
+	DateRangePresetBar,
+	DateRangeInputs,
+} from "@/components/filters/date-range-filter";
 
 export interface AlertsFilterState {
 	status: string;
@@ -57,57 +54,14 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 			selectedRegionId
 		);
 
-		const activePreset = matchActiveDateRangePreset(
-			filters.fromDate,
-			filters.toDate
-		);
-
 		return (
 			<Card className={LAYOUT.card}>
 				<CardContent className="p-3 space-y-3">
-					<div className="flex flex-wrap items-center gap-1.5">
-						<span className="text-[11px] text-muted-foreground mr-1">
-							Quick range:
-						</span>
-						{DATE_RANGE_PRESETS.map((preset) => (
-							<Button
-								key={preset.key}
-								type="button"
-								variant={
-									activePreset === preset.key
-										? "default"
-										: "outline"
-								}
-								onClick={() => {
-									const range = resolveDateRangePreset(
-										preset.key
-									);
-									onFiltersChange({
-										fromDate: range.fromDate,
-										toDate: range.toDate,
-									});
-								}}
-								className="h-7 px-2 text-[11px]"
-							>
-								{preset.label}
-							</Button>
-						))}
-						{(filters.fromDate || filters.toDate) && (
-							<Button
-								type="button"
-								variant="ghost"
-								onClick={() =>
-									onFiltersChange({
-										fromDate: "",
-										toDate: "",
-									})
-								}
-								className="h-7 px-2 text-[11px]"
-							>
-								Clear dates
-							</Button>
-						)}
-					</div>
+					<DateRangePresetBar
+						fromDate={filters.fromDate}
+						toDate={filters.toDate}
+						onChange={onFiltersChange}
+					/>
 
 					<div className={LAYOUT.filtersGrid}>
 						<div className="space-y-1 min-w-0">
@@ -272,42 +226,13 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 							</Select>
 						</div>
 
-						<div className="space-y-1 min-w-0">
-							<Label htmlFor="from-date" className="text-[11px]">
-								From date
-							</Label>
-							<Input
-								id="from-date"
-								type="date"
-								max={filters.toDate || "2100-12-31"}
-								value={filters.fromDate}
-								onChange={(e) =>
-									onFiltersChange({
-										fromDate: e.target.value,
-									})
-								}
-								className="h-8 text-xs border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
-							/>
-						</div>
-
-						<div className="space-y-1 min-w-0">
-							<Label htmlFor="to-date" className="text-[11px]">
-								To date
-							</Label>
-							<Input
-								id="to-date"
-								type="date"
-								min={filters.fromDate || undefined}
-								max="2100-12-31"
-								value={filters.toDate}
-								onChange={(e) =>
-									onFiltersChange({
-										toDate: e.target.value,
-									})
-								}
-								className="h-8 text-xs border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
-							/>
-						</div>
+						<DateRangeInputs
+							fromDate={filters.fromDate}
+							toDate={filters.toDate}
+							onChange={onFiltersChange}
+							maxDate="2100-12-31"
+							inputClassName="h-8 text-xs border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20"
+						/>
 					</div>
 				</CardContent>
 			</Card>

@@ -1,6 +1,7 @@
 import React, { memo, useMemo } from "react";
-import { type SortingState, type ColumnFiltersState } from "@tanstack/react-table";
+import { type ColumnFiltersState } from "@tanstack/react-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useServerSort } from "@/hooks/use-server-sort";
 import { DataTable } from "@/components/ui/data-table";
 import { AlertLog, type CallLogsSort } from "@/hooks/use-call-logs-data";
 import { LAYOUT } from "@/constants/layout";
@@ -85,24 +86,11 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 			[callbacks]
 		);
 
-		const sortingState: SortingState = useMemo(() => {
-			const columnId = sort.by ? SORT_KEY_TO_COLUMN[sort.by] : undefined;
-			return columnId ? [{ id: columnId, desc: sort.order === "desc" }] : [];
-		}, [sort]);
-
-		const handleSortingChange = useMemo(
-			() => (next: SortingState) => {
-				const first = next[0];
-				if (!first) {
-					onSortChange({ by: "", order: "desc" });
-					return;
-				}
-				const key = COLUMN_TO_SORT_KEY[first.id];
-				// Ignore sort toggles on columns the server can't sort on.
-				if (!key) return;
-				onSortChange({ by: key, order: first.desc ? "desc" : "asc" });
-			},
-			[onSortChange]
+		const { sortingState, handleSortingChange } = useServerSort(
+			COLUMN_TO_SORT_KEY,
+			SORT_KEY_TO_COLUMN,
+			sort,
+			onSortChange
 		);
 
 		return (
