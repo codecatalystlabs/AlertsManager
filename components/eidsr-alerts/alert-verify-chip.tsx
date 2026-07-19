@@ -1,6 +1,5 @@
 import React from "react";
-import { Badge } from "@/components/ui/badge";
-import { Clock, ShieldCheck } from "lucide-react";
+import { VerificationBadge } from "@/components/ui/status-badges";
 
 /**
  * Minimal shape this chip needs from a downstream alert. Both EidsrAlertRef
@@ -48,25 +47,10 @@ export function AlertVerifyChip({
 }) {
 	if (!alert) return null;
 
-	if (alert.isVerified) {
-		return (
-			<Badge
-				className="gap-1 whitespace-nowrap bg-success/15 text-success hover:bg-success/15"
-				title={alertVerifyTitle(alert)}
-			>
-				<ShieldCheck className="h-3 w-3" />
-				Verified
-			</Badge>
-		);
-	}
-
 	return (
-		<Badge
-			className="gap-1 whitespace-nowrap bg-warning/15 text-warning hover:bg-warning/15"
+		<VerificationBadge
+			verified={alert.isVerified}
 			title={alertVerifyTitle(alert)}
-		>
-			<Clock className="h-3 w-3" />
-			Pending
-		</Badge>
+		/>
 	);
 }

@@ -26,6 +26,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
+import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
 import {
 	verifyEidsrMessage,
 	type EidsrMessageOptions,
@@ -58,7 +59,7 @@ function pickOptionList(
 
 const DEFAULT_STATUS = ["Alive", "Dead", "Unknown"];
 const DEFAULT_SEX = ["Male", "Female", "Unknown"];
-const DEFAULT_SOURCE = ["Community", "Health Facility", "Other"];
+const DEFAULT_SOURCE = [...SOURCE_OF_ALERT_OPTIONS];
 const DEFAULT_TRIAGE = ["High", "Medium", "Low"];
 const DEFAULT_SIGNAL = ["Yes", "No", "Pending"];
 

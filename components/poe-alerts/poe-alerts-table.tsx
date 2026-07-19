@@ -140,6 +140,11 @@ export const PoeAlertsTable = memo<PoeAlertsTableProps>(
 					header: "Symptoms",
 					filterFn: textIncludesFilter,
 					meta: { filterPlaceholder: "Symptoms" },
+					cell: ({ row }) => (
+						<span className="line-clamp-2 max-w-[240px] break-words text-xs">
+							{row.original.symptomsText || "—"}
+						</span>
+					),
 				},
 				{
 					accessorKey: "refCode",

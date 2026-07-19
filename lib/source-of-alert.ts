@@ -10,6 +10,7 @@
 export const SOURCE_OF_ALERT_OPTIONS = [
 	"Community",
 	"Health facility",
+	"eCHIS",
 	"Refugee Camp",
 	"Point Of Entry",
 	"Schools",
@@ -25,6 +26,8 @@ const SOURCE_ALIASES: Record<string, SourceOfAlert> = {
 	"mass gathering": "Community",
 	facility: "Health facility",
 	"health facility": "Health facility",
+	echis: "eCHIS",
+	"echis (cht)": "eCHIS",
 	"refugee camp": "Refugee Camp",
 	"point of entry": "Point Of Entry",
 	school: "Schools",

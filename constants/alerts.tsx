@@ -19,6 +19,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
 import { DeleteAlertDialog } from "@/components/alerts/delete-alert-dialog";
+import {
+	VerificationBadge,
+	statusBadgeClass,
+} from "@/components/ui/status-badges";
 
 export const ALERTS_CONFIG = {
 	PAGE_TITLE: "Alerts Management",
@@ -113,16 +117,7 @@ export const createAlertsTableColumns = (
 		cell: ({ row }) => {
 			const status = row.getValue("status") as string;
 			return (
-				<Badge
-					variant="secondary"
-					className={
-						status === "Alive"
-							? "bg-green-100 text-green-800 hover:bg-green-200"
-							: status === "Dead"
-							? "bg-red-100 text-red-800 hover:bg-red-200"
-							: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-					}
-				>
+				<Badge variant="secondary" className={statusBadgeClass(status)}>
 					{status}
 				</Badge>
 			);
@@ -266,9 +261,13 @@ export const createAlertsTableColumns = (
 			);
 		},
 		cell: ({ row }) => {
+			const name = row.getValue("alertCaseName") as string;
 			return (
-				<div className="font-medium">
-					{row.getValue("alertCaseName")}
+				<div
+					className="max-w-[280px] font-medium line-clamp-2 break-words"
+					title={name}
+				>
+					{name}
 				</div>
 			);
 		},
@@ -324,20 +323,9 @@ export const createAlertsTableColumns = (
 				{ value: "false", label: "Pending" },
 			],
 		},
-		cell: ({ row }) => {
-			const isVerified = row.getValue("isVerified") as boolean;
-			return (
-				<Badge
-					className={
-						isVerified
-							? "rounded-full border-transparent bg-success text-white hover:bg-success"
-							: "rounded-full border-transparent bg-warning text-warning-foreground hover:bg-warning"
-					}
-				>
-					{isVerified ? "Yes" : "Pending"}
-				</Badge>
-			);
-		},
+		cell: ({ row }) => (
+			<VerificationBadge verified={row.getValue("isVerified") as boolean} />
+		),
 	},
 	{
 		id: "actions",

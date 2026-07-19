@@ -20,6 +20,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AlertVerifyChip } from "@/components/eidsr-alerts/alert-verify-chip";
+import { VerificationStatusBadge } from "@/components/ui/status-badges";
 import { canForwardAlerts } from "@/lib/auth";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
@@ -117,9 +118,9 @@ export const EchisAlertsTable = memo<EchisAlertsTableProps>(
 					filterFn: textIncludesFilter,
 					meta: { filterPlaceholder: "Verification status" },
 					cell: ({ row }) => (
-						<Badge variant="outline" className="text-[10px] font-normal">
-							{row.original.verificationStatus || "—"}
-						</Badge>
+						<VerificationStatusBadge
+							status={row.original.verificationStatus || ""}
+						/>
 					),
 				},
 				{
@@ -128,8 +129,19 @@ export const EchisAlertsTable = memo<EchisAlertsTableProps>(
 					filterFn: textIncludesFilter,
 					meta: { filterPlaceholder: "Description" },
 					cell: ({ row }) => (
-						<span className="line-clamp-2 max-w-[240px] text-xs">
+						<span className="line-clamp-2 max-w-[240px] break-words text-xs">
 							{row.original.briefDescription || "—"}
+						</span>
+					),
+				},
+				{
+					accessorKey: "additionalInformation",
+					header: "Additional info",
+					filterFn: textIncludesFilter,
+					meta: { filterPlaceholder: "Additional info" },
+					cell: ({ row }) => (
+						<span className="line-clamp-2 max-w-[240px] break-words text-xs">
+							{row.original.additionalInformation || "—"}
 						</span>
 					),
 				},

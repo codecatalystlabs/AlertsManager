@@ -68,6 +68,11 @@ export interface EchisAlertRow {
 	personInVhtArea: string;
 	briefDescription: string;
 	additionalInformation: string;
+	// cht_ebs_report-only fields (empty for rows from the old feed).
+	externalUuid?: string;
+	signalReported?: string;
+	reportedAt?: string;
+	region?: string;
 	createdAt?: string;
 	updatedAt?: string;
 	rawPayload?: string;

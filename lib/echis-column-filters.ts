@@ -46,6 +46,9 @@ export function columnFiltersToEchisLocalParams(
 			case "briefDescription":
 				params.brief_description = String(value).trim();
 				break;
+			case "additionalInformation":
+				params.additional_information = String(value).trim();
+				break;
 			case "inAlerts":
 				if (value === "linked") params.linked = "true";
 				else if (value === "unlinked") params.linked = "false";

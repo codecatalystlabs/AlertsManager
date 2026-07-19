@@ -18,8 +18,12 @@ export function EchisAlertDetailsDialog({
 	onOpenChange,
 }: EchisAlertDetailsDialogProps) {
 	if (!alert) return null;
+	// "fever_and_bleeding" → "Fever and bleeding"
+	const signal = (alert.signalReported || "").replaceAll("_", " ");
 	const rows: [string, string][] = [
 		["Date", alert.date ?? "—"],
+		["Signal reported", signal ? signal[0].toUpperCase() + signal.slice(1) : "—"],
+		["Region", alert.region || "—"],
 		["District", alert.district],
 		["County", alert.county || "—"],
 		["Sub-county", alert.subCounty || "—"],

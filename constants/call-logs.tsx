@@ -22,6 +22,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+	PENDING_BADGE_CLASS,
+	VerificationBadge,
+	statusBadgeClass,
+} from "@/components/ui/status-badges";
+import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
@@ -430,16 +435,7 @@ export const createCallLogsTableColumns = (
 		cell: ({ row }) => {
 			const status = row.getValue("status") as string;
 			return (
-				<Badge
-					variant={
-						status === "Alive" ? "default" : "destructive"
-					}
-					className={
-						status === "Alive"
-							? "bg-green-100 text-green-800"
-							: "bg-red-100 text-red-800"
-					}
-				>
+				<Badge variant="secondary" className={statusBadgeClass(status)}>
 					{status}
 				</Badge>
 			);
@@ -453,13 +449,12 @@ export const createCallLogsTableColumns = (
 		},
 		cell: ({ row }) => {
 			const response = row.getValue("response") as string;
-			return (
-				<Badge
-					variant="secondary"
-					className="text-xs"
-				>
-					{response || "Pending"}
+			return response ? (
+				<Badge variant="secondary" className="text-xs">
+					{response}
 				</Badge>
+			) : (
+				<Badge className={`${PENDING_BADGE_CLASS} text-xs`}>Pending</Badge>
 			);
 		},
 	},
@@ -474,20 +469,9 @@ export const createCallLogsTableColumns = (
 				{ value: "false", label: "Pending" },
 			],
 		},
-		cell: ({ row }) => {
-			const isVerified = row.getValue("isVerified") as boolean;
-			return (
-				<Badge
-					className={
-						isVerified
-							? "rounded-full border-transparent bg-success text-white hover:bg-success"
-							: "rounded-full border-transparent bg-warning text-warning-foreground hover:bg-warning"
-					}
-				>
-					{isVerified ? "Yes" : "Pending"}
-				</Badge>
-			);
-		},
+		cell: ({ row }) => (
+			<VerificationBadge verified={row.getValue("isVerified") as boolean} />
+		),
 	},
 	{
 		id: "actions",
