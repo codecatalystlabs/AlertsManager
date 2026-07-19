@@ -18,9 +18,7 @@ import {
 	type CallLogsFilterState,
 } from "@/constants/call-logs";
 import { LAYOUT } from "@/constants/layout";
-import { useDistrictOptions } from "@/hooks/use-district-options";
-import { useRegionOptions } from "@/hooks/use-region-options";
-import { useDivisionOptions } from "@/hooks/use-division-options";
+import { useLocationCascade } from "@/hooks/use-location-cascade";
 import {
 	DateRangePresetBar,
 	DateRangeInputs,
@@ -34,27 +32,19 @@ interface CallLogsFiltersProps {
 
 export const CallLogsFilters = memo<CallLogsFiltersProps>(
 	({ filters, onFiltersChange, onClearFilters }) => {
-		const { regions, regionOptions, loading: regionsLoading } =
-			useRegionOptions(filters.region === "all" ? "" : filters.region);
-
-		// Resolve the selected region name → id so the District list can be
-		// scoped to it (Region → District cascade), from the admin-units API.
-		const selectedRegionId =
-			filters.region !== "all"
-				? regionOptions.find((r) => r.name === filters.region)?.id
-				: undefined;
-
-		const { districts, loading: districtsLoading } = useDistrictOptions(
-			filters.district === "all" ? "" : filters.district,
-			selectedRegionId
-		);
+		// Region → District → Division cascade from the admin-units hierarchy.
 		const {
+			regions,
+			regionsLoading,
+			districts,
+			districtsLoading,
 			divisions,
-			loading: divisionsLoading,
-			enabled: divisionsEnabled,
-		} = useDivisionOptions(
-			filters.district === "all" ? "" : filters.district
-		);
+			divisionsLoading,
+			divisionsEnabled,
+		} = useLocationCascade({
+			region: filters.region,
+			district: filters.district,
+		});
 
 		return (
 			<Card className={LAYOUT.card}>

@@ -12,8 +12,7 @@ import {
 } from "@/components/ui/select";
 import { STATUS_OPTIONS } from "@/constants/alerts";
 import { LAYOUT } from "@/constants/layout";
-import { useRegionOptions } from "@/hooks/use-region-options";
-import { useDistrictOptions } from "@/hooks/use-district-options";
+import { useLocationCascade } from "@/hooks/use-location-cascade";
 import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
 import { SLA_FILTER_OPTIONS, SLA_DOT_CLASS } from "@/lib/alert-sla";
 import {
@@ -39,20 +38,12 @@ interface AlertsFiltersProps {
 
 export const AlertsFilters = memo<AlertsFiltersProps>(
 	({ filters, onFiltersChange }) => {
-		// Region/District come from the official admin-units hierarchy
-		// (GET /admin-units/...). District is scoped to the selected region by
-		// resolving its id (Region → District cascade).
-		const { regions, regionOptions } = useRegionOptions(
-			filters.region === "all" ? "" : filters.region
-		);
-		const selectedRegionId =
-			filters.region && filters.region !== "all"
-				? regionOptions.find((r) => r.name === filters.region)?.id
-				: undefined;
-		const { districts: uniqueDistricts } = useDistrictOptions(
-			filters.district === "all" ? "" : filters.district,
-			selectedRegionId
-		);
+		// Region → District cascade (district scoped to the selected region),
+		// from the official admin-units hierarchy.
+		const { regions, districts: uniqueDistricts } = useLocationCascade({
+			region: filters.region,
+			district: filters.district,
+		});
 
 		return (
 			<Card className={LAYOUT.card}>
