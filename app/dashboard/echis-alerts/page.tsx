@@ -11,7 +11,7 @@ import {
 } from "@/components/echis-alerts";
 import { NdwFilterBar } from "@/components/ndw-alerts/ndw-filter-bar";
 import { NdwAlertsStats } from "@/components/ndw-alerts/ndw-alerts-stats";
-import { ForwardNdwAlertDialog } from "@/components/ndw-alerts/forward-ndw-alert-dialog";
+import { ForwardToDistrictDialog } from "@/components/forward-to-district-dialog";
 import { SyncProgressPanel } from "@/components/sync";
 import { ECHIS_NDW_FILTER_FIELDS } from "@/constants/ndw-filter-fields";
 import { useEchisAlertsData } from "@/hooks/use-echis-alerts-data";
@@ -156,7 +156,7 @@ export default function EchisAlertsPage() {
 				onOpenChange={setDetailsOpen}
 			/>
 
-			<ForwardNdwAlertDialog
+			<ForwardToDistrictDialog
 				isOpen={forwardOpen}
 				onClose={() => setForwardOpen(false)}
 				sourceLabel="eCHIS signal"

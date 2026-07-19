@@ -11,7 +11,7 @@ import {
 } from "@/components/poe-alerts";
 import { NdwFilterBar } from "@/components/ndw-alerts/ndw-filter-bar";
 import { NdwAlertsStats } from "@/components/ndw-alerts/ndw-alerts-stats";
-import { ForwardNdwAlertDialog } from "@/components/ndw-alerts/forward-ndw-alert-dialog";
+import { ForwardToDistrictDialog } from "@/components/forward-to-district-dialog";
 import { SyncProgressPanel } from "@/components/sync";
 import { POE_NDW_FILTER_FIELDS } from "@/constants/ndw-filter-fields";
 import { usePoeAlertsData } from "@/hooks/use-poe-alerts-data";
@@ -155,7 +155,7 @@ export default function PoeAlertsPage() {
 				onOpenChange={setDetailsOpen}
 			/>
 
-			<ForwardNdwAlertDialog
+			<ForwardToDistrictDialog
 				isOpen={forwardOpen}
 				onClose={() => setForwardOpen(false)}
 				sourceLabel="POE alert"
