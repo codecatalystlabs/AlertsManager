@@ -1,3 +1,4 @@
+import { formatDateTime } from "@/lib/format-date";
 import { altCode } from "@/lib/alt-code";
 import React from "react";
 import Link from "next/link";
@@ -7,9 +8,7 @@ import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
 import { AlertVerifyChip } from "@/components/eidsr-alerts/alert-verify-chip";
 
 function fmt(value: string | null | undefined): string {
-	if (!value) return "";
-	const d = new Date(value);
-	return Number.isNaN(d.getTime()) ? value : d.toLocaleString();
+	return formatDateTime(value, "");
 }
 
 

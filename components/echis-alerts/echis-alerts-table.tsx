@@ -1,3 +1,4 @@
+import { formatDateTime } from "@/lib/format-date";
 import { memo, useMemo } from "react";
 import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,9 +26,7 @@ import { canForwardAlerts } from "@/lib/auth";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
 function fmtDate(v?: string) {
-	if (!v) return "—";
-	const d = new Date(v);
-	return Number.isNaN(d.getTime()) ? v : d.toLocaleString();
+	return formatDateTime(v, "—");
 }
 
 interface EchisAlertsTableProps {

@@ -1,3 +1,4 @@
+import { formatDate } from "@/lib/format-date";
 import { altCode } from "@/lib/alt-code";
 import React from "react";
 import { VerificationBadge } from "@/components/ui/status-badges";
@@ -15,11 +16,8 @@ export interface VerifiableAlertRef {
 }
 
 
-/** RFC3339 → short local date; empty/invalid → "". */
 function shortDate(value: string | undefined): string {
-	if (!value) return "";
-	const d = new Date(value);
-	return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString();
+	return formatDate(value, "");
 }
 
 /** Human title describing the downstream alert's verification state. */

@@ -1,5 +1,6 @@
 /** Shared export helpers for alert / call-log data */
 
+import { formatDate, formatTime } from "@/lib/format-date";
 import { altCode } from "@/lib/alt-code";
 import {
 	deriveAlertOutcome,
@@ -126,15 +127,11 @@ function buildExportFilename(
 }
 
 function formatExportDate(dateStr: string): string {
-	if (!dateStr) return "";
-	const d = new Date(dateStr);
-	return Number.isNaN(d.getTime()) ? dateStr : d.toLocaleDateString();
+	return formatDate(dateStr, "");
 }
 
 function formatExportTime(timeStr: string): string {
-	if (!timeStr) return "";
-	const d = new Date(timeStr);
-	return Number.isNaN(d.getTime()) ? timeStr : d.toLocaleTimeString();
+	return formatTime(timeStr, "");
 }
 
 function escapeCsvCell(value: unknown): string {
