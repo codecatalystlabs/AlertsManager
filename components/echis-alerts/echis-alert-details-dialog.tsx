@@ -4,6 +4,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { DetailGrid, type DetailGridRow } from "@/components/ui/detail-fields";
 import type { EchisAlertRow } from "@/lib/fetch-ndw-alerts";
 
 interface EchisAlertDetailsDialogProps {
@@ -20,23 +21,30 @@ export function EchisAlertDetailsDialog({
 	if (!alert) return null;
 	// "fever_and_bleeding" → "Fever and bleeding"
 	const signal = (alert.signalReported || "").replaceAll("_", " ");
-	const rows: [string, string][] = [
-		["Date", alert.date ?? "—"],
-		["Signal reported", signal ? signal[0].toUpperCase() + signal.slice(1) : "—"],
-		["Region", alert.region || "—"],
-		["District", alert.district],
-		["County", alert.county || "—"],
-		["Sub-county", alert.subCounty || "—"],
-		["Health facility", alert.healthFacility || "—"],
-		["Parish", alert.parish || "—"],
-		["Village", alert.village || "—"],
-		["VHT name", alert.vhtName || "—"],
-		["VHT phone", alert.vhtPhone || "—"],
-		["Verification status", alert.verificationStatus || "—"],
-		["Person in VHT area", alert.personInVhtArea || "—"],
-		["Description", alert.briefDescription],
-		["Additional info", alert.additionalInformation || "—"],
-		["Record hash", alert.recordHash || "—"],
+	const rows: DetailGridRow[] = [
+		{ label: "Date", value: alert.date ?? "—" },
+		{
+			label: "Signal reported",
+			value: signal ? signal[0].toUpperCase() + signal.slice(1) : "—",
+		},
+		{ label: "Region", value: alert.region || "—" },
+		{ label: "District", value: alert.district },
+		{ label: "County", value: alert.county || "—" },
+		{ label: "Sub-county", value: alert.subCounty || "—" },
+		{ label: "Health facility", value: alert.healthFacility || "—" },
+		{ label: "Parish", value: alert.parish || "—" },
+		{ label: "Village", value: alert.village || "—" },
+		{ label: "VHT name", value: alert.vhtName || "—" },
+		{ label: "VHT phone", value: alert.vhtPhone || "—" },
+		{ label: "Verification status", value: alert.verificationStatus || "—" },
+		{ label: "Person in VHT area", value: alert.personInVhtArea || "—" },
+		{ label: "Description", value: alert.briefDescription, span: true },
+		{
+			label: "Additional info",
+			value: alert.additionalInformation || "—",
+			span: true,
+		},
+		{ label: "Record hash", value: alert.recordHash || "—", span: true },
 	];
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -45,23 +53,7 @@ export function EchisAlertDetailsDialog({
 					<DialogTitle>eCHIS alert #{alert.id}</DialogTitle>
 				</DialogHeader>
 				{/* Compact two-column grid; long free-text/hash fields span both. */}
-				<dl className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-sm">
-					{rows.map(([k, v]) => (
-						<div
-							key={k}
-							className={`min-w-0 ${
-								["Description", "Additional info", "Record hash"].includes(k)
-									? "col-span-2"
-									: ""
-							}`}
-						>
-							<dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-								{k}
-							</dt>
-							<dd className="break-words font-medium">{v || "—"}</dd>
-						</div>
-					))}
-				</dl>
+				<DetailGrid rows={rows} />
 			</DialogContent>
 		</Dialog>
 	);
