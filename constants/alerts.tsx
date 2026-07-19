@@ -1,3 +1,4 @@
+import { altCode } from "@/lib/alt-code";
 import { useState } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { Alert as AlertType } from "@/lib/auth";
@@ -83,7 +84,7 @@ export const createAlertsTableColumns = (
 		cell: ({ row }) => {
 			return (
 				<div className="font-mono text-sm">
-					ALT{String(row.getValue("id")).padStart(3, "0")}
+					{altCode(Number(row.getValue("id")))}
 				</div>
 			);
 		},
@@ -424,7 +425,7 @@ function AlertRowActions({
 				<DeleteAlertDialog
 					open={deleteOpen}
 					onOpenChange={setDeleteOpen}
-					alertCode={`ALT${String(alert.id).padStart(3, "0")}`}
+					alertCode={`${altCode(alert.id)}`}
 					caseName={alert.alertCaseName}
 					isDeleting={isDeleting}
 					onConfirm={() => void handleConfirmDelete()}

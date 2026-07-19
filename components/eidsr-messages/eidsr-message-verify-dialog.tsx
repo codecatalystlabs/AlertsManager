@@ -1,5 +1,6 @@
 "use client";
 
+import { altCode } from "@/lib/alt-code";
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -263,7 +264,7 @@ export function EidsrMessageVerifyDialog({
 				title: "EIDSR message verified successfully.",
 				description:
 					alertId != null
-						? `Linked alert ALT${String(alertId).padStart(3, "0")} created.`
+						? `Linked alert ${altCode(alertId)} created.`
 						: "The message has been verified.",
 			});
 
@@ -325,7 +326,7 @@ export function EidsrMessageVerifyDialog({
 						<AlertDescription className="text-success">
 							Verified — linked alert{" "}
 							<Link href="/dashboard/alerts" className="underline font-medium">
-								ALT{String(linkedAlertId).padStart(3, "0")}
+								{altCode(linkedAlertId)}
 							</Link>
 						</AlertDescription>
 					</Alert>

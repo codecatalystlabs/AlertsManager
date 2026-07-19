@@ -1,3 +1,4 @@
+import { altCode } from "@/lib/alt-code";
 import { type ColumnDef } from "@tanstack/react-table";
 import { AlertLog } from "@/hooks/use-call-logs-data";
 import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
@@ -265,7 +266,7 @@ export const createCallLogsTableColumns = (
 		cell: ({ row }) => {
 			return (
 				<div className="font-mono text-sm">
-					ALT{String(row.getValue("id")).padStart(3, "0")}
+					{altCode(Number(row.getValue("id")))}
 				</div>
 			);
 		},

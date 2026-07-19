@@ -1,3 +1,4 @@
+import { altCode } from "@/lib/alt-code";
 import React from "react";
 import { VerificationBadge } from "@/components/ui/status-badges";
 
@@ -13,9 +14,6 @@ export interface VerifiableAlertRef {
 	verificationDate?: string;
 }
 
-function altCode(id: number): string {
-	return `ALT${String(id).padStart(3, "0")}`;
-}
 
 /** RFC3339 → short local date; empty/invalid → "". */
 function shortDate(value: string | undefined): string {

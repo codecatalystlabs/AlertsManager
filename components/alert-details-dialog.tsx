@@ -1,5 +1,6 @@
 "use client";
 
+import { altCode } from "@/lib/alt-code";
 import {
 	Dialog,
 	DialogContent,
@@ -117,7 +118,7 @@ export function AlertDetailsDialog({
 				<DialogHeader className="border-b px-4 py-3">
 					<DialogTitle className="flex items-center gap-2 text-base">
 						<Siren className="h-4 w-4 text-uganda-red" />
-						Alert Details — ALT{String(alert.id).padStart(3, "0")}
+						Alert Details — {altCode(alert.id)}
 					</DialogTitle>
 					<DialogDescription className="text-xs">
 						Complete information about this health alert

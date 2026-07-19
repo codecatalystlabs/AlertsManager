@@ -1,5 +1,6 @@
 "use client";
 
+import { altCode } from "@/lib/alt-code";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -435,7 +436,7 @@ export function AlertVerificationDialog({
 					title: "EIDSR message verified successfully.",
 					description:
 						alertId != null
-							? `Saved as alert ALT${String(alertId).padStart(3, "0")}.`
+							? `Saved as alert ${altCode(alertId)}.`
 							: "Message verified into alerts.",
 					duration: 5000,
 				});
@@ -463,7 +464,7 @@ export function AlertVerificationDialog({
 					title: "Verified into alerts",
 					description:
 						alertId != null
-							? `Saved as alert ALT${String(alertId).padStart(3, "0")}.`
+							? `Saved as alert ${altCode(alertId)}.`
 							: "Signal verified into alerts.",
 					duration: 5000,
 				});
@@ -542,10 +543,7 @@ export function AlertVerificationDialog({
 			// Show success toast
 			toast({
 				title: "✅ Verification Successful",
-				description: `Alert ALT${String(alert.id).padStart(
-					3,
-					"0"
-				)} has been verified successfully.`,
+				description: `Alert ${altCode(alert.id)} has been verified successfully.`,
 				duration: 5000,
 			});
 

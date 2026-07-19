@@ -1,3 +1,4 @@
+import { altCode } from "@/lib/alt-code";
 import React, { memo } from "react";
 import Link from "next/link";
 import {
@@ -70,7 +71,7 @@ export const EidsrMessageDetailsDialog = memo<EidsrMessageDetailsDialogProps>(
 							<Button variant="outline" size="sm" className="h-7 gap-1" asChild>
 								<Link href="/dashboard/alerts">
 									<ExternalLink className="h-3.5 w-3.5" />
-									View alert ALT{String(linkedId).padStart(3, "0")}
+									View alert {altCode(linkedId)}
 								</Link>
 							</Button>
 						)}

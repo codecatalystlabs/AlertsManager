@@ -1,3 +1,4 @@
+import { altCode } from "@/lib/alt-code";
 import React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -11,9 +12,6 @@ function fmt(value: string | null | undefined): string {
 	return Number.isNaN(d.getTime()) ? value : d.toLocaleString();
 }
 
-function altCode(id: number): string {
-	return `ALT${String(id).padStart(3, "0")}`;
-}
 
 /**
  * End-to-end trail of a 6767 alert on the EOC side: received → forwarded to a

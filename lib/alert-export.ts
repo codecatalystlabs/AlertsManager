@@ -1,5 +1,6 @@
 /** Shared export helpers for alert / call-log data */
 
+import { altCode } from "@/lib/alt-code";
 import {
 	deriveAlertOutcome,
 	deriveDeskVerificationOutcome,
@@ -38,7 +39,7 @@ const EXPORT_COLUMNS: ExportColumn[] = [
 	{
 		header: "Alert ID",
 		getValue: (a) =>
-			a.id != null ? `ALT${String(a.id).padStart(3, "0")}` : "",
+			a.id != null ? `${altCode(a.id)}` : "",
 	},
 	{ header: "Status", getValue: (a) => a.status ?? "" },
 	{ header: "Date", getValue: (a) => formatExportDate(a.date) },
