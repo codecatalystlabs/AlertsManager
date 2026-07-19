@@ -1,17 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Loader2 } from "lucide-react";
+import { useState } from "react";
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
 import { useToast } from "@/hooks/use-toast";
 
@@ -51,33 +41,22 @@ export function EidsrMessageDeleteDialog({
 	};
 
 	return (
-		<AlertDialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-			<AlertDialogContent>
-				<AlertDialogHeader>
-					<AlertDialogTitle>Delete EIDSR message?</AlertDialogTitle>
-					<AlertDialogDescription>
-						This permanently deletes SMS message #{message?.id}
-						{message?.personReporting
-							? ` from ${message.personReporting}`
-							: ""}
-						. This cannot be undone.
-					</AlertDialogDescription>
-				</AlertDialogHeader>
-				<AlertDialogFooter>
-					<AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-					<AlertDialogAction
-						onClick={(e) => {
-							e.preventDefault();
-							void handleDelete();
-						}}
-						disabled={deleting}
-						className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-					>
-						{deleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-						Delete
-					</AlertDialogAction>
-				</AlertDialogFooter>
-			</AlertDialogContent>
-		</AlertDialog>
+		<ConfirmDeleteDialog
+			open={isOpen}
+			onOpenChange={(open) => !open && onClose()}
+			isDeleting={deleting}
+			onConfirm={() => void handleDelete()}
+			withIcon={false}
+			title="Delete EIDSR message?"
+			description={
+				<>
+					This permanently deletes SMS message #{message?.id}
+					{message?.personReporting
+						? ` from ${message.personReporting}`
+						: ""}
+					. This cannot be undone.
+				</>
+			}
+		/>
 	);
 }
