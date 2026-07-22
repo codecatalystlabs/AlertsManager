@@ -1,5 +1,7 @@
 /** Shared export helpers for alert / call-log data */
 
+import { formatDate, formatTime } from "@/lib/format-date";
+import { altCode } from "@/lib/alt-code";
 import {
 	deriveAlertOutcome,
 	deriveDeskVerificationOutcome,
@@ -38,7 +40,7 @@ const EXPORT_COLUMNS: ExportColumn[] = [
 	{
 		header: "Alert ID",
 		getValue: (a) =>
-			a.id != null ? `ALT${String(a.id).padStart(3, "0")}` : "",
+			a.id != null ? `${altCode(a.id)}` : "",
 	},
 	{ header: "Status", getValue: (a) => a.status ?? "" },
 	{ header: "Date", getValue: (a) => formatExportDate(a.date) },
@@ -125,15 +127,11 @@ function buildExportFilename(
 }
 
 function formatExportDate(dateStr: string): string {
-	if (!dateStr) return "";
-	const d = new Date(dateStr);
-	return Number.isNaN(d.getTime()) ? dateStr : d.toLocaleDateString();
+	return formatDate(dateStr, "");
 }
 
 function formatExportTime(timeStr: string): string {
-	if (!timeStr) return "";
-	const d = new Date(timeStr);
-	return Number.isNaN(d.getTime()) ? timeStr : d.toLocaleTimeString();
+	return formatTime(timeStr, "");
 }
 
 function escapeCsvCell(value: unknown): string {

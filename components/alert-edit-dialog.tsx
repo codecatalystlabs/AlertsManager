@@ -1,5 +1,6 @@
 "use client";
 
+import { altCode } from "@/lib/alt-code";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -326,10 +327,7 @@ export function AlertEditDialog({
 			
 			toast({
 				title: "✅ Alert Updated Successfully",
-				description: `Alert ALT${String(alert.id).padStart(
-					3,
-					"0"
-				)} has been updated successfully.`,
+				description: `Alert ${altCode(alert.id)} has been updated successfully.`,
 				duration: 5000,
 			});
 

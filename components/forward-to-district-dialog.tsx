@@ -14,51 +14,64 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Send } from "lucide-react";
-import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
-import { forwardEidsr6767 } from "@/lib/fetch-eidsr-6767";
 import { DistrictSelect } from "@/components/district-select";
 import { useToast } from "@/hooks/use-toast";
 
-interface ForwardAlertDialogProps {
+interface ForwardToDistrictDialogProps {
 	isOpen: boolean;
 	onClose: () => void;
-	message: EidsrMessage | null;
+	/** What is being forwarded, e.g. "eCHIS signal", "POE alert", "6767 alert". */
+	sourceLabel: string;
+	/** Pre-selected district (eCHIS rows carry their own district; POE/6767 do not). */
+	defaultDistrict?: string;
+	/** District this row was last forwarded to, if any (shows a re-forward warning). */
+	alreadyForwarded?: string | null;
+	/** Performs the forward request; resolves with the destination district. */
+	onForward: (
+		district: string,
+		note?: string
+	) => Promise<{ district: string }>;
 	/** Called after a successful forward, with the destination district. */
 	onForwarded: (district: string) => void;
 }
 
-export function ForwardAlertDialog({
+/**
+ * Forward a signal to a district as a call-log alert. Source-agnostic: the
+ * caller supplies `onForward` (which endpoint to hit) and a `sourceLabel`, so
+ * the 6767 (EIDSR), eCHIS and POE feeds all reuse this one dialog.
+ */
+export function ForwardToDistrictDialog({
 	isOpen,
 	onClose,
-	message,
+	sourceLabel,
+	defaultDistrict,
+	alreadyForwarded,
+	onForward,
 	onForwarded,
-}: ForwardAlertDialogProps) {
+}: ForwardToDistrictDialogProps) {
 	const { toast } = useToast();
 	const [district, setDistrict] = useState("");
 	const [note, setNote] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	// Reset the form whenever a different message is opened.
+	// Reset the form (and seed the default district) whenever a different row opens.
 	useEffect(() => {
 		if (isOpen) {
-			setDistrict("");
+			setDistrict(defaultDistrict?.trim() || "");
 			setNote("");
 			setError(null);
 		}
-	}, [isOpen, message?.id]);
+	}, [isOpen, defaultDistrict]);
 
-	const alreadyForwarded = message?.forwardedToDistrict?.trim() || "";
+	const warnForwarded = alreadyForwarded?.trim() || "";
 
 	const handleSubmit = async () => {
-		if (!message || !district.trim()) return;
+		if (!district.trim()) return;
 		setSubmitting(true);
 		setError(null);
 		try {
-			const result = await forwardEidsr6767(message.id, {
-				district: district.trim(),
-				note: note.trim() || undefined,
-			});
+			const result = await onForward(district.trim(), note.trim() || undefined);
 			toast({
 				title: "Alert forwarded",
 				description: `Sent to ${result.district} as a call log.`,
@@ -88,17 +101,18 @@ export function ForwardAlertDialog({
 				<DialogHeader>
 					<DialogTitle>Forward alert to a district</DialogTitle>
 					<DialogDescription>
-						Send this 6767 alert to a district as a call log. It will
-						appear in that district&apos;s Call Logs.
+						Send this {sourceLabel} to a district as a call log. It will
+						appear in that district&apos;s Call Logs and can be verified
+						there.
 					</DialogDescription>
 				</DialogHeader>
 
 				<div className="space-y-4">
-					{alreadyForwarded && (
+					{warnForwarded && (
 						<Alert className="surface-warning">
 							<AlertDescription className="text-warning">
-								Already forwarded to {alreadyForwarded}.
-								Forwarding again will create another call log.
+								Already forwarded to {warnForwarded}. Forwarding
+								again will create another call log.
 							</AlertDescription>
 						</Alert>
 					)}
@@ -138,11 +152,7 @@ export function ForwardAlertDialog({
 				</div>
 
 				<DialogFooter>
-					<Button
-						variant="outline"
-						onClick={onClose}
-						disabled={submitting}
-					>
+					<Button variant="outline" onClick={onClose} disabled={submitting}>
 						Cancel
 					</Button>
 					<Button

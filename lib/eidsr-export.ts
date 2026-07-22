@@ -1,5 +1,6 @@
 /** Export helpers for 6767 EIDSR SMS messages (CSV / Excel). */
 
+import { altCode } from "@/lib/alt-code";
 import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
 import { isEidsr6767Verified } from "@/lib/eidsr-verified-state";
 
@@ -28,7 +29,7 @@ const EXPORT_COLUMNS: ExportColumn[] = [
 		header: "Linked Alert",
 		getValue: (m) =>
 			m.linkedAlertId != null
-				? `ALT${String(m.linkedAlertId).padStart(3, "0")}`
+				? `${altCode(m.linkedAlertId)}`
 				: "",
 	},
 	{

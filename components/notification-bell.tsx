@@ -1,5 +1,6 @@
 "use client";
 
+import { altCode } from "@/lib/alt-code";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, Siren, Volume2, VolumeX } from "lucide-react";
@@ -138,7 +139,7 @@ export function NotificationBell() {
 												{n.district !== "—"
 													? `${n.district} · `
 													: ""}
-												ALT{String(n.id).padStart(3, "0")}
+												{altCode(n.id)}
 											</span>
 										</span>
 										<span className="shrink-0 whitespace-nowrap text-[11px] text-muted-foreground">

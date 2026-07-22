@@ -1,3 +1,4 @@
+import { altCode } from "@/lib/alt-code";
 import React, { memo } from "react";
 import Link from "next/link";
 import {
@@ -9,6 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { DetailRow } from "@/components/ui/detail-fields";
 import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
 import { isEidsr6767Verified } from "@/lib/eidsr-verified-state";
 import { EidsrLifecycleTimeline } from "@/components/eidsr-alerts/eidsr-lifecycle-timeline";
@@ -18,22 +20,6 @@ interface EidsrMessageDetailsDialogProps {
 	isOpen: boolean;
 	onClose: () => void;
 	message: EidsrMessage | null;
-}
-
-function DetailRow({
-	label,
-	value,
-}: {
-	label: string;
-	value: React.ReactNode;
-}) {
-	if (value == null || value === "") return null;
-	return (
-		<div className="grid grid-cols-3 gap-2 text-sm">
-			<dt className="text-muted-foreground col-span-1">{label}</dt>
-			<dd className="col-span-2 font-medium whitespace-pre-wrap">{value}</dd>
-		</div>
-	);
 }
 
 export const EidsrMessageDetailsDialog = memo<EidsrMessageDetailsDialogProps>(
@@ -70,7 +56,7 @@ export const EidsrMessageDetailsDialog = memo<EidsrMessageDetailsDialogProps>(
 							<Button variant="outline" size="sm" className="h-7 gap-1" asChild>
 								<Link href="/dashboard/alerts">
 									<ExternalLink className="h-3.5 w-3.5" />
-									View alert ALT{String(linkedId).padStart(3, "0")}
+									View alert {altCode(linkedId)}
 								</Link>
 							</Button>
 						)}

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDateTime } from "@/lib/format-date";
 import useSWR from "swr";
 import {
 	Siren,
@@ -93,9 +94,7 @@ function actorLabel(event: AlertHistoryEvent): string {
 }
 
 function formatWhen(ts: string): string {
-	const date = new Date(ts);
-	if (Number.isNaN(date.getTime())) return ts;
-	return date.toLocaleString(undefined, {
+	return formatDateTime(ts, ts, {
 		year: "numeric",
 		month: "short",
 		day: "numeric",

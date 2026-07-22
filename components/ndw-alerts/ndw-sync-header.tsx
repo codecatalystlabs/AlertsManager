@@ -1,24 +1,28 @@
 import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { CloudDownload, RefreshCw } from "lucide-react";
-import { POE_ALERTS_CONFIG } from "@/constants/poe-alerts";
 import { LAYOUT } from "@/constants/layout";
 
-interface PoeAlertsHeaderProps {
+interface NdwSyncHeaderProps {
+	title: string;
+	description: string;
 	onRefresh: () => void;
 	onSyncFromRemote: () => void;
 	isRefreshing?: boolean;
 	isSyncing?: boolean;
 }
 
-export const PoeAlertsHeader = memo<PoeAlertsHeaderProps>(
-	({ onRefresh, onSyncFromRemote, isRefreshing, isSyncing }) => (
+/**
+ * Page header for an NDW signal feed: title/description + Refresh-list and
+ * Sync-from-NDW buttons. The eCHIS and POE headers were byte-identical apart
+ * from their CONFIG import; this is the one component, driven by title/description.
+ */
+export const NdwSyncHeader = memo<NdwSyncHeaderProps>(
+	({ title, description, onRefresh, onSyncFromRemote, isRefreshing, isSyncing }) => (
 		<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
 			<div>
-				<h1 className={LAYOUT.pageTitle}>{POE_ALERTS_CONFIG.PAGE_TITLE}</h1>
-				<p className={LAYOUT.pageSubtitle}>
-					{POE_ALERTS_CONFIG.PAGE_DESCRIPTION}
-				</p>
+				<h1 className={LAYOUT.pageTitle}>{title}</h1>
+				<p className={LAYOUT.pageSubtitle}>{description}</p>
 			</div>
 			<div className="flex flex-wrap gap-1.5 justify-end">
 				<Button
@@ -48,4 +52,4 @@ export const PoeAlertsHeader = memo<PoeAlertsHeaderProps>(
 		</div>
 	)
 );
-PoeAlertsHeader.displayName = "PoeAlertsHeader";
+NdwSyncHeader.displayName = "NdwSyncHeader";

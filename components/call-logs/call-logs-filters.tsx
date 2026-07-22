@@ -18,14 +18,11 @@ import {
 	type CallLogsFilterState,
 } from "@/constants/call-logs";
 import { LAYOUT } from "@/constants/layout";
-import { useDistrictOptions } from "@/hooks/use-district-options";
-import { useRegionOptions } from "@/hooks/use-region-options";
-import { useDivisionOptions } from "@/hooks/use-division-options";
+import { useLocationCascade } from "@/hooks/use-location-cascade";
 import {
-	DATE_RANGE_PRESETS,
-	resolveDateRangePreset,
-	matchActiveDateRangePreset,
-} from "@/lib/date-range-presets";
+	DateRangePresetBar,
+	DateRangeInputs,
+} from "@/components/filters/date-range-filter";
 
 interface CallLogsFiltersProps {
 	filters: CallLogsFilterState;
@@ -35,79 +32,28 @@ interface CallLogsFiltersProps {
 
 export const CallLogsFilters = memo<CallLogsFiltersProps>(
 	({ filters, onFiltersChange, onClearFilters }) => {
-		const { regions, regionOptions, loading: regionsLoading } =
-			useRegionOptions(filters.region === "all" ? "" : filters.region);
-
-		// Resolve the selected region name → id so the District list can be
-		// scoped to it (Region → District cascade), from the admin-units API.
-		const selectedRegionId =
-			filters.region !== "all"
-				? regionOptions.find((r) => r.name === filters.region)?.id
-				: undefined;
-
-		const { districts, loading: districtsLoading } = useDistrictOptions(
-			filters.district === "all" ? "" : filters.district,
-			selectedRegionId
-		);
+		// Region → District → Division cascade from the admin-units hierarchy.
 		const {
+			regions,
+			regionsLoading,
+			districts,
+			districtsLoading,
 			divisions,
-			loading: divisionsLoading,
-			enabled: divisionsEnabled,
-		} = useDivisionOptions(
-			filters.district === "all" ? "" : filters.district
-		);
-
-		const activePreset = matchActiveDateRangePreset(
-			filters.fromDate,
-			filters.toDate
-		);
+			divisionsLoading,
+			divisionsEnabled,
+		} = useLocationCascade({
+			region: filters.region,
+			district: filters.district,
+		});
 
 		return (
 			<Card className={LAYOUT.card}>
 				<CardContent className="p-3 space-y-3">
-					<div className="flex flex-wrap items-center gap-1.5">
-						<span className="text-[11px] text-muted-foreground mr-1">
-							Quick range:
-						</span>
-						{DATE_RANGE_PRESETS.map((preset) => (
-							<Button
-								key={preset.key}
-								type="button"
-								variant={
-									activePreset === preset.key
-										? "default"
-										: "outline"
-								}
-								onClick={() => {
-									const range = resolveDateRangePreset(
-										preset.key
-									);
-									onFiltersChange({
-										fromDate: range.fromDate,
-										toDate: range.toDate,
-									});
-								}}
-								className="h-7 px-2 text-[11px]"
-							>
-								{preset.label}
-							</Button>
-						))}
-						{(filters.fromDate || filters.toDate) && (
-							<Button
-								type="button"
-								variant="ghost"
-								onClick={() =>
-									onFiltersChange({
-										fromDate: "",
-										toDate: "",
-									})
-								}
-								className="h-7 px-2 text-[11px]"
-							>
-								Clear dates
-							</Button>
-						)}
-					</div>
+					<DateRangePresetBar
+						fromDate={filters.fromDate}
+						toDate={filters.toDate}
+						onChange={onFiltersChange}
+					/>
 
 					<div className={LAYOUT.filtersGrid}>
 						<div className="space-y-1 min-w-0">
@@ -335,41 +281,11 @@ export const CallLogsFilters = memo<CallLogsFiltersProps>(
 							</Select>
 						</div>
 
-						<div className="space-y-1 min-w-0">
-							<Label htmlFor="from-date" className="text-[11px]">
-								From date
-							</Label>
-							<Input
-								id="from-date"
-								type="date"
-								max={filters.toDate || undefined}
-								value={filters.fromDate}
-								onChange={(e) =>
-									onFiltersChange({
-										fromDate: e.target.value,
-									})
-								}
-								className="h-8 text-xs w-full"
-							/>
-						</div>
-
-						<div className="space-y-1 min-w-0">
-							<Label htmlFor="to-date" className="text-[11px]">
-								To date
-							</Label>
-							<Input
-								id="to-date"
-								type="date"
-								min={filters.fromDate || undefined}
-								value={filters.toDate}
-								onChange={(e) =>
-									onFiltersChange({
-										toDate: e.target.value,
-									})
-								}
-								className="h-8 text-xs w-full"
-							/>
-						</div>
+						<DateRangeInputs
+							fromDate={filters.fromDate}
+							toDate={filters.toDate}
+							onChange={onFiltersChange}
+						/>
 
 						<div className="space-y-1 min-w-0">
 							<Label htmlFor="sex-filter" className="text-[11px]">

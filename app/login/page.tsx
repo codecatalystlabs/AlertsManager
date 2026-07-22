@@ -36,7 +36,7 @@ export default function LoginPage() {
 		}
 	}, [isReady, isAuthenticated, router]);
 
-	const handleSubmit = async (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.SubmitEvent) => {
 		e.preventDefault();
 		setIsLoading(true);
 		setError(null);
@@ -47,10 +47,6 @@ export default function LoginPage() {
 
 			if (response.token) {
 				setSuccess("Login successful! Redirecting to dashboard...");
-				// SPA navigation. AuthService.login already persisted the token and
-				// flipped the auth store, so this avoids a full-page hard reload
-				// (the old setTimeout + window.location.href re-downloaded the whole
-				// bundle on a route the user was already being routed to).
 				router.replace("/dashboard");
 			} else {
 				setError("Login failed. No token received.");

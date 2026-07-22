@@ -1,3 +1,4 @@
+import { altCode } from "@/lib/alt-code";
 import React, { memo, useMemo } from "react";
 import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -174,7 +175,7 @@ function createColumns(handlers: {
 				return ref ? (
 					<div className="flex flex-col items-start gap-1">
 						<Badge className="bg-success hover:bg-success">
-							ALT{String(ref.id).padStart(3, "0")}
+							{altCode(ref.id)}
 						</Badge>
 						{/* Surface the alert's live verification state too. */}
 						<AlertVerifyChip alert={ref.alert} />

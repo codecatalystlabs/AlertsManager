@@ -1,5 +1,6 @@
 "use client";
 
+import { altCode } from "@/lib/alt-code";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -435,7 +436,7 @@ export function AlertVerificationDialog({
 					title: "EIDSR message verified successfully.",
 					description:
 						alertId != null
-							? `Saved as alert ALT${String(alertId).padStart(3, "0")}.`
+							? `Saved as alert ${altCode(alertId)}.`
 							: "Message verified into alerts.",
 					duration: 5000,
 				});
@@ -463,7 +464,7 @@ export function AlertVerificationDialog({
 					title: "Verified into alerts",
 					description:
 						alertId != null
-							? `Saved as alert ALT${String(alertId).padStart(3, "0")}.`
+							? `Saved as alert ${altCode(alertId)}.`
 							: "Signal verified into alerts.",
 					duration: 5000,
 				});
@@ -542,10 +543,7 @@ export function AlertVerificationDialog({
 			// Show success toast
 			toast({
 				title: "✅ Verification Successful",
-				description: `Alert ALT${String(alert.id).padStart(
-					3,
-					"0"
-				)} has been verified successfully.`,
+				description: `Alert ${altCode(alert.id)} has been verified successfully.`,
 				duration: 5000,
 			});
 
@@ -642,6 +640,51 @@ export function AlertVerificationDialog({
 						</div>
 					</div>
 				)}
+
+				{/* Source signal context (eCHIS): keep the reported description and
+				    additional information visible while filling the verify form. */}
+				{showVerificationForm &&
+					(alert?.briefDescription ||
+						alert?.additionalInformation ||
+						alert?.signalReported) && (
+						<div className="mb-3 rounded-md border bg-muted/40 p-3 space-y-2">
+							<h3 className="text-sm font-semibold uppercase tracking-wide">
+								Source signal
+							</h3>
+							<dl className="space-y-1.5 text-sm">
+								{alert?.signalReported && (
+									<div>
+										<dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+											Signal reported
+										</dt>
+										<dd className="break-words">
+											{String(alert.signalReported).replaceAll("_", " ")}
+										</dd>
+									</div>
+								)}
+								{alert?.briefDescription && (
+									<div>
+										<dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+											Description
+										</dt>
+										<dd className="break-words">
+											{alert.briefDescription}
+										</dd>
+									</div>
+								)}
+								{alert?.additionalInformation && (
+									<div>
+										<dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+											Additional information
+										</dt>
+										<dd className="break-words">
+											{alert.additionalInformation}
+										</dd>
+									</div>
+								)}
+							</dl>
+						</div>
+					)}
 
 				{/* Verification Form */}
 				{showVerificationForm && (
