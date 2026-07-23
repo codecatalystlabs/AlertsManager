@@ -427,6 +427,100 @@ export async function fetchAlertDivisionNames(
 	return parseOptionsResponse(json).divisions;
 }
 
+/* ------------------------------------------------------------------ */
+/* Alerts Management report (the "Generate Report" presentation deck)  */
+/* ------------------------------------------------------------------ */
+
+/** One district row of the deck's status-sectioned table. Mirrors Go's ManagementDistrictRow. */
+export interface ManagementDistrictRow {
+	district: string;
+	signals: number;
+	alerts: number;
+	discarded: number;
+	fieldCaseVerification: number;
+	sampleCollected: number;
+	ems: number;
+	sdb: number;
+	others: number;
+	pending: number;
+}
+
+export interface ManagementStatusSection {
+	status: string;
+	totals: ManagementDistrictRow;
+	districts: ManagementDistrictRow[];
+}
+
+export interface ManagementCascade {
+	signals: number;
+	signalsVerified: number;
+	alerts: number;
+	sampleCollected: number;
+	fieldCaseVerification: number;
+	sdb: number;
+	rrtDeployment: number;
+	ems: number;
+}
+
+export interface ManagementScope {
+	/** Keyed "Alive" / "Dead" / "Unknown". */
+	cascade: Record<string, ManagementCascade>;
+	sections: ManagementStatusSection[];
+	totals: ManagementDistrictRow;
+}
+
+export interface ManagementCount {
+	label: string;
+	count: number;
+}
+
+export interface ManagementTopDistrict {
+	district: string;
+	vhf: number;
+	other: number;
+}
+
+export interface ManagementTrendPoint {
+	date: string;
+	signals: number;
+	alerts: number;
+}
+
+export interface ManagementDetail {
+	source: string;
+	district: string;
+	narrative: string;
+}
+
+/** Full payload of GET /reports/alerts-management — everything the deck needs. */
+export interface ManagementReport {
+	fromDate: string;
+	toDate: string;
+	allPhes: ManagementScope;
+	vhf: ManagementScope;
+	sources: ManagementCount[];
+	otherPhes: ManagementCount[];
+	topDistricts: ManagementTopDistrict[];
+	trendFrom: string;
+	trend: ManagementTrendPoint[];
+	details: ManagementDetail[];
+	detailsTotal: number;
+}
+
+/**
+ * Fetch the Alerts Management deck aggregate for an inclusive date range. All
+ * counts are derived server-side with the same outcome/taxonomy primitives as
+ * the dashboard, so the generated deck always reconciles with the app.
+ */
+export async function fetchManagementReport(
+	range: ReportsDateRange
+): Promise<ManagementReport> {
+	return requestReport<ManagementReport>("alerts-management", {
+		from_date: range.fromDate,
+		to_date: range.toDate,
+	});
+}
+
 export async function fetchReportMatrix(
 	params: ReportsQueryParams
 ): Promise<ReportMatrix | null> {

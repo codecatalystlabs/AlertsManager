@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { MapPin, RefreshCw } from "lucide-react";
+import { MapPin, RefreshCw, TrendingUp } from "lucide-react";
 
 import { LAYOUT } from "@/constants/layout";
 import { ErrorAlert } from "@/components/dashboard";
@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { alertResponse } from "@/constants";
 import { useGeoLayers } from "@/hooks/use-geo-layers";
+import { TopDistrictsCard } from "@/components/map/top-districts-card";
 import { GEO_OUTCOME_FILTER_OPTIONS } from "@/lib/geo-outcome-filter";
 import type { GeoQuery } from "@/lib/fetch-geo";
 
@@ -40,12 +41,29 @@ const AlertsGeoMap = dynamic(
  * back up. Counts honour the same date window, canonical district matching and
  * RBAC scope as the dashboard.
  */
+/** localStorage key remembering whether the top-districts panel is shown. */
+const TOP_DISTRICTS_VISIBLE_KEY = "map-top-districts-visible";
+
 export default function MapPage(): React.JSX.Element {
 	const [range, setRange] = useState<DashboardRangeValue>(() =>
 		resolveDashboardRange(DEFAULT_RANGE_PRESET)
 	);
 	const [responses, setResponses] = useState<string[]>([]);
 	const [outcomes, setOutcomes] = useState<string[]>([]);
+	// Shown by default; the preference persists across visits. Read after mount
+	// so the server and first client render agree (no hydration mismatch).
+	const [showTopDistricts, setShowTopDistricts] = useState(true);
+	useEffect(() => {
+		setShowTopDistricts(
+			localStorage.getItem(TOP_DISTRICTS_VISIBLE_KEY) !== "0"
+		);
+	}, []);
+	function toggleTopDistricts() {
+		setShowTopDistricts((shown) => {
+			localStorage.setItem(TOP_DISTRICTS_VISIBLE_KEY, shown ? "0" : "1");
+			return !shown;
+		});
+	}
 
 	const query: GeoQuery = useMemo(
 		() => ({
@@ -105,6 +123,21 @@ export default function MapPage(): React.JSX.Element {
 					/>
 					<DashboardRangePicker onChange={setRange} disabled={loading} />
 					<Button
+						variant={showTopDistricts ? "secondary" : "outline"}
+						size="sm"
+						className="h-8"
+						onClick={toggleTopDistricts}
+						title={
+							showTopDistricts
+								? "Hide the top districts panel"
+								: "Show the top districts panel"
+						}
+						aria-pressed={showTopDistricts}
+					>
+						<TrendingUp className="mr-1 h-3.5 w-3.5" />
+						Top 5
+					</Button>
+					<Button
 						variant="outline"
 						size="sm"
 						className="h-8"
@@ -129,13 +162,23 @@ export default function MapPage(): React.JSX.Element {
 				</div>
 			</div>
 
-			<div className="h-[72vh] min-h-[420px] w-full">
-				<AlertsGeoMap
-					regions={regions}
-					districts={districts}
-					query={query}
-					validating={validating}
-				/>
+			<div className="flex flex-col gap-3 lg:flex-row">
+				<div className="h-[72vh] min-h-[420px] min-w-0 flex-1">
+					<AlertsGeoMap
+						regions={regions}
+						districts={districts}
+						query={query}
+						validating={validating}
+					/>
+				</div>
+				{showTopDistricts && (
+					<TopDistrictsCard
+						districts={districts}
+						loading={loading}
+						className="lg:w-72 lg:shrink-0"
+						onClose={toggleTopDistricts}
+					/>
+				)}
 			</div>
 
 			<p className="text-[11px] text-muted-foreground">
