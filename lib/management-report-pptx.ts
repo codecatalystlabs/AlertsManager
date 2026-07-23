@@ -270,7 +270,8 @@ function scopeTableRows(scope: ManagementScope, withAlerts: boolean): any[][] {
 		})),
 	]);
 
-	for (const section of scope.sections) {
+	// `?? []` guards a backend that serialised an empty scope's sections as null.
+	for (const section of scope.sections ?? []) {
 		rows.push([
 			{ text: section.status, options: { bold: true, fill: { color: SECTION_FILL } } },
 			...cols.map((c) => ({
@@ -375,7 +376,7 @@ function barCascadeSlide(
 		"EMS",
 	];
 	const data = ["Alive", "Dead", "Unknown"]
-		.filter((s) => scope.cascade[s] && scope.cascade[s].signals > 0)
+		.filter((s) => scope.cascade?.[s] && scope.cascade[s].signals > 0)
 		.map((s) => {
 			const c = scope.cascade[s];
 			return {

@@ -158,6 +158,8 @@ function ScopeTableCard({
 	withAlerts: boolean;
 }) {
 	const cols = scopeColumns(scope, withAlerts);
+	// Guard against a backend that serialised an empty scope's sections as null.
+	const sections = scope.sections ?? [];
 	return (
 		<Card>
 			<CardHeader className="pb-2">
@@ -181,7 +183,7 @@ function ScopeTableCard({
 						</tr>
 					</thead>
 					<tbody>
-						{scope.sections.map((section) => (
+						{sections.map((section) => (
 							<SectionRows
 								key={section.status}
 								section={section}
@@ -198,7 +200,7 @@ function ScopeTableCard({
 						</tr>
 					</tbody>
 				</table>
-				{scope.sections.length === 0 && (
+				{sections.length === 0 && (
 					<p className="py-6 text-center text-sm text-muted-foreground">
 						No signals in this range.
 					</p>
@@ -397,7 +399,7 @@ function DetailsCard({
 
 function CascadeCard({ title, scope }: { title: string; scope: ManagementScope }) {
 	const statuses = ["Alive", "Dead", "Unknown"].filter(
-		(s) => scope.cascade[s] && scope.cascade[s].signals > 0
+		(s) => scope.cascade?.[s] && scope.cascade[s].signals > 0
 	);
 	const data = CASCADE_STAGES.map((stage) => ({
 		stage: stage.label,
