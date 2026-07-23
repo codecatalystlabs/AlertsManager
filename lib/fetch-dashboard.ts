@@ -16,6 +16,33 @@ export interface DashboardTimePoint {
 	count: number;
 }
 
+/**
+ * Verification-SLA counts (1-hour window), computed server-side with the same
+ * clock as the alerts-list SLA row tints: start = the signal's own timestamp,
+ * stop = verification time (verified) or now (pending).
+ */
+export interface DashboardVerificationSla {
+	/** Verified with a turnaround of at most an hour. */
+	verifiedWithinHour: number;
+	/** Still pending but younger than an hour (inside the SLA window). */
+	pendingUnderHour: number;
+	/** Still pending and older than an hour (SLA breached). */
+	pendingOverHour: number;
+	/** Still pending and older than 24 hours (subset of pendingOverHour). */
+	pendingOver24h: number;
+	/**
+	 * Team turnaround — a different clock: system arrival (created_at) →
+	 * verification, live-entered rows only (created_at within an hour of the
+	 * reported timestamp; imports/syncs are excluded because their created_at
+	 * is the import moment).
+	 */
+	teamVerified: number;
+	/** Of teamVerified, verified within an hour of arriving in the system. */
+	teamVerifiedWithinHour: number;
+	/** Median arrival→verification minutes; -1 when no eligible rows. */
+	teamMedianMinutes: number;
+}
+
 /** Full dashboard payload from GET /dashboard/summary. */
 export interface DashboardSummary {
 	total: number;
@@ -34,6 +61,8 @@ export interface DashboardSummary {
 	sex: DashboardCountItem[];
 	timeline: DashboardTimePoint[];
 	granularity: "daily" | "monthly";
+	/** Optional so older API responses without the field don't crash the grid. */
+	verificationSla?: DashboardVerificationSla;
 	/** Distinct response (disease/condition) values available in scope — populates the Response type filter. */
 	responseTypes: string[];
 }
@@ -78,6 +107,15 @@ const EMPTY_SUMMARY: DashboardSummary = {
 	sex: [],
 	timeline: [],
 	granularity: "daily",
+	verificationSla: {
+		verifiedWithinHour: 0,
+		pendingUnderHour: 0,
+		pendingOverHour: 0,
+		pendingOver24h: 0,
+		teamVerified: 0,
+		teamVerifiedWithinHour: 0,
+		teamMedianMinutes: -1,
+	},
 	responseTypes: [],
 };
 

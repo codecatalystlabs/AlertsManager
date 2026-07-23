@@ -21,6 +21,7 @@ import { downloadDashboardPdf, type DashboardPdfSection } from "@/lib/charts-pdf
 import {
 	ErrorAlert,
 	StatsGrid,
+	VerificationSlaCards,
 	RecentActivityCard,
 	DashboardRangePicker,
 	DashboardDistrictPicker,
@@ -285,10 +286,18 @@ export default function DashboardPage(): React.JSX.Element {
 				/>
 			)}
 
-			<div ref={overviewRef}>
+			<div ref={overviewRef} className="space-y-2.5">
 				<StatsGrid
 					alertCounts={statCounts}
 					kpiLoading={loading && !summary}
+				/>
+				{/* Verification-SLA row — same scope (range/district/region/response)
+				    as the KPI cards above. */}
+				<VerificationSlaCards
+					sla={summary?.verificationSla}
+					verifiedTotal={summary?.verified ?? 0}
+					pendingTotal={summary?.notVerified ?? 0}
+					isLoading={loading && !summary}
 				/>
 			</div>
 

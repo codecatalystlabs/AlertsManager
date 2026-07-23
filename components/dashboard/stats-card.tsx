@@ -1,9 +1,11 @@
 import React, { memo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { StatCardConfig } from '@/constants/dashboard';
 import { AlertCounts } from '@/app/dashboard/types';
-import { cn } from '@/lib/utils';
+import {
+  DEFAULT_STAT_INK,
+  StatCardShell,
+  type StatCardInk,
+} from './stat-card-shell';
 
 interface StatsCardProps {
   config: StatCardConfig;
@@ -31,6 +33,11 @@ export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, classNam
   const { title, key, icon: Icon, iconBg } = config;
 
   const chip = CHIP_STYLES[iconBg] ?? DEFAULT_CHIP;
+  const ink: StatCardInk = {
+    ...DEFAULT_STAT_INK,
+    chipBg: chip.bg,
+    chipText: chip.text,
+  };
 
   const getValue = (): string => {
     // Fall back to 0 if the count is missing — e.g. an older API response that
@@ -58,48 +65,17 @@ export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, classNam
     }
   };
 
-  const SubIcon = Icon;
-
   return (
-    <Card
-      className={cn(
-        'border border-gray-200 bg-white transition-shadow hover:shadow-md',
-        onClick && 'cursor-pointer',
-        className
-      )}
+    <StatCardShell
+      title={title}
+      value={getValue()}
+      subText={getSubText()}
+      icon={Icon}
+      ink={ink}
       onClick={onClick}
-    >
-      <CardContent className="p-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="truncate text-xs font-medium text-gray-500">{title}</p>
-            {isLoading ? (
-              <Skeleton className="mt-1.5 h-6 w-16" />
-            ) : (
-              <p className="mt-0.5 text-xl font-bold text-gray-900">{getValue()}</p>
-            )}
-          </div>
-          <div
-            className={cn(
-              'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-              chip.bg
-            )}
-          >
-            <Icon className={cn('h-4 w-4', chip.text)} />
-          </div>
-        </div>
-        {isLoading ? (
-          <Skeleton className="mt-2 h-3 w-24" />
-        ) : (
-          getSubText() && (
-            <div className="mt-1.5 flex items-center gap-1 text-[11px] leading-tight text-gray-500">
-              <SubIcon className={cn('h-3 w-3 shrink-0', chip.text)} />
-              <span className="truncate">{getSubText()}</span>
-            </div>
-          )
-        )}
-      </CardContent>
-    </Card>
+      className={className}
+      isLoading={isLoading}
+    />
   );
 });
 
