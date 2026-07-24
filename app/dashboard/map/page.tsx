@@ -135,7 +135,7 @@ export default function MapPage(): React.JSX.Element {
 						aria-pressed={showTopDistricts}
 					>
 						<TrendingUp className="mr-1 h-3.5 w-3.5" />
-						Top 5
+						Top 10
 					</Button>
 					<Button
 						variant="outline"

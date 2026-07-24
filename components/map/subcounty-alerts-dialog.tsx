@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import useSWR from "swr";
-import { AlertCircle, Loader2, MapPin } from "lucide-react";
+import hotToast from "react-hot-toast";
+import { AlertCircle, FileSpreadsheet, Loader2, MapPin } from "lucide-react";
 
 import {
 	Dialog,
@@ -12,12 +13,14 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { AlertDetailsDialog } from "@/components/alert-details-dialog";
 import {
 	fetchGeoSubcountyAlerts,
 	type GeoQuery,
 	type SubcountyAlertsResult,
 } from "@/lib/fetch-geo";
+import { exportAlertsToExcel } from "@/lib/alert-export";
 import { deriveAlertOutcome, OUTCOME_NOT_RECORDED } from "@/lib/alert-outcome";
 import { alertResponse } from "@/constants";
 import type { Alert } from "@/lib/auth";
@@ -77,6 +80,7 @@ export function SubcountyAlertsDialog({
 	onClose,
 }: SubcountyAlertsDialogProps) {
 	const [selected, setSelected] = useState<Alert | null>(null);
+	const [exporting, setExporting] = useState(false);
 
 	const swr = useSWR<SubcountyAlertsResult>(
 		target
@@ -118,6 +122,50 @@ export function SubcountyAlertsDialog({
 			? `Unassigned signals — ${target.districtName}`
 			: `${target.subcounty}, ${target.districtName}`
 		: "";
+
+	const areaLabel = target?.unassigned
+		? target.districtName
+		: target?.subcounty ?? "";
+
+	const handleExportExcel = async () => {
+		if (!target || alerts.length === 0) return;
+		setExporting(true);
+		try {
+			const exported = await exportAlertsToExcel(
+				alerts,
+				"subcounty-signals",
+				target.unassigned ? "Unassigned" : areaLabel || "Signals",
+				{
+					range: { from: query.fromDate, to: query.toDate },
+					tokens: [
+						target.districtName,
+						target.unassigned ? "unassigned" : areaLabel,
+					],
+				}
+			);
+			if (!exported) {
+				hotToast.error("No signals to export.");
+				return;
+			}
+			// `alerts` is capped at 500 server-side; be honest when the export is
+			// only the most-recent slice of a larger total.
+			const total = swr.data?.total ?? alerts.length;
+			if (total > alerts.length) {
+				hotToast(
+					`Exported the ${alerts.length.toLocaleString()} most recent of ${total.toLocaleString()} signals (the list is capped at 500).`
+				);
+			} else {
+				hotToast.success(
+					`Exported ${alerts.length.toLocaleString()} signal${alerts.length === 1 ? "" : "s"}.`
+				);
+			}
+		} catch (err) {
+			console.error("Subcounty Excel export failed:", err);
+			hotToast.error("Failed to export the Excel file. Please try again.");
+		} finally {
+			setExporting(false);
+		}
+	};
 
 	return (
 		<>
@@ -164,6 +212,24 @@ export function SubcountyAlertsDialog({
 
 						{alerts.length > 0 && (
 							<div className="space-y-4">
+								{/* Export the listed signals */}
+								<div className="flex items-center justify-end">
+									<Button
+										size="sm"
+										variant="outline"
+										onClick={handleExportExcel}
+										disabled={exporting}
+										className="h-8 gap-1.5"
+									>
+										{exporting ? (
+											<Loader2 className="h-3.5 w-3.5 animate-spin" />
+										) : (
+											<FileSpreadsheet className="h-3.5 w-3.5" />
+										)}
+										{exporting ? "Exporting…" : "Export to Excel"}
+									</Button>
+								</div>
+
 								{/* Breakdown of the count */}
 								<div className="grid gap-3 sm:grid-cols-2">
 									<BreakdownCard title="By condition" rows={byCondition} />

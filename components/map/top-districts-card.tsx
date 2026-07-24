@@ -26,7 +26,7 @@ interface TopDistrictsCardProps {
 export function TopDistrictsCard({
 	districts,
 	loading,
-	limit = 5,
+	limit = 10,
 	className,
 	onClose,
 }: TopDistrictsCardProps) {
