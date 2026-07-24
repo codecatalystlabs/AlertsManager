@@ -191,6 +191,10 @@ export interface Alert {
     riskControl?: boolean | null
     riskAssessedAt?: string | null
     riskAssessedBy?: string | null
+    /** Reporter feedback (EBS step 7). */
+    feedbackGivenAt?: string | null
+    feedbackBy?: string | null
+    feedbackChannel?: string | null
     caseVerificationDesk?: string
     fieldVerification?: string
     fieldVerificationDecision?: string

@@ -44,6 +44,10 @@ export interface ApiAlert {
 	riskControl?: boolean | null;
 	riskAssessedAt?: string | null;
 	riskAssessedBy?: string | null;
+	/** Reporter feedback (EBS step 7). */
+	feedbackGivenAt?: string | null;
+	feedbackBy?: string | null;
+	feedbackChannel?: string | null;
 	triagedAt?: string | null;
 	triagedBy?: string | null;
 	caseVerificationDesk?: string;
@@ -197,6 +201,9 @@ export function normalizeAlertFromApi(raw: unknown): ApiAlert {
 		riskControl: boolOrNull(body.riskControl ?? body.risk_control),
 		riskAssessedAt: str(body.riskAssessedAt ?? body.risk_assessed_at) ?? null,
 		riskAssessedBy: str(body.riskAssessedBy ?? body.risk_assessed_by) ?? null,
+		feedbackGivenAt: str(body.feedbackGivenAt ?? body.feedback_given_at) ?? null,
+		feedbackBy: str(body.feedbackBy ?? body.feedback_by) ?? null,
+		feedbackChannel: str(body.feedbackChannel ?? body.feedback_channel) ?? null,
 		triagedAt: str(body.triagedAt ?? body.triaged_at) ?? null,
 		triagedBy: str(body.triagedBy ?? body.triaged_by) ?? null,
 		caseVerificationDesk: str(

@@ -15,6 +15,7 @@ import {
 	Shield,
 	ShieldQuestion,
 	ShieldAlert,
+	MessageCircleReply,
 	FileDown,
 } from "lucide-react";
 import { alertResponse } from "@/constants";
@@ -26,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PriorityBadge } from "@/components/triage";
 import { RiskBadge } from "@/components/risk";
+import { feedbackIsDue } from "@/lib/alert-feedback";
 import {
 	PENDING_BADGE_CLASS,
 	VerificationBadge,
@@ -189,6 +191,8 @@ export interface CallLogsTableCallbacks {
 	/** Open the risk-assessment dialog (EBS step 4 — score a confirmed event
 	 *  and select the mandated response level). */
 	onAssessRisk: (alert: AlertLog) => void;
+	/** Open the reporter-feedback dialog (EBS step 7 — close the loop). */
+	onRecordFeedback: (alert: AlertLog) => void;
 	onDeleteAlert: (alertId: number) => Promise<void>;
 	/** Whether the current user may delete alerts (admin/EOC only). */
 	canDelete?: boolean;
@@ -556,6 +560,23 @@ export const createCallLogsTableColumns = (
 							<Edit className="h-4 w-4 mr-2" />
 							Edit alert
 						</DropdownMenuItem>
+						{feedbackIsDue(alertItem.verificationOutcome) && (
+							<DropdownMenuItem
+								onClick={() =>
+									callbacks.onRecordFeedback(alertItem)
+								}
+								className={
+									alertItem.feedbackGivenAt
+										? undefined
+										: "text-uganda-red focus:text-uganda-red"
+								}
+							>
+								<MessageCircleReply className="h-4 w-4 mr-2" />
+								{alertItem.feedbackGivenAt
+									? "Feedback given"
+									: "Record feedback"}
+							</DropdownMenuItem>
+						)}
 						{alertItem.verificationOutcome === "Confirmed" && (
 							<DropdownMenuItem
 								onClick={() =>

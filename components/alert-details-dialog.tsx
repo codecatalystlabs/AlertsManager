@@ -21,6 +21,7 @@ import {
 	Clock,
 	Activity,
 	ShieldCheck,
+	ShieldQuestion,
 	History,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -29,6 +30,20 @@ import { cn } from "@/lib/utils";
 import { Alert } from "@/lib/auth";
 import { alertResponse } from "@/constants";
 import { SignalTimeline } from "@/components/alerts/signal-timeline";
+import { formatDateTime } from "@/lib/format-date";
+import { PriorityBadge } from "@/components/triage";
+import { RiskBadge } from "@/components/risk";
+import { RISK_ACTION, normalizeRiskLevel } from "@/lib/alert-risk";
+
+/**
+ * Render a tri-state risk answer. "Not recorded" is distinct from "No": an
+ * unanswered question is a gap in the assessment, not a negative finding.
+ */
+function yesNo(value?: boolean | null): string {
+	if (value === true) return "Yes";
+	if (value === false) return "No";
+	return "Not recorded";
+}
 
 interface AlertDetailsDialogProps {
 	isOpen: boolean;
@@ -315,6 +330,124 @@ export function AlertDetailsDialog({
 												{symptom}
 											</Badge>
 										))}
+								</div>
+							</section>
+						</>
+					)}
+
+					{/* EBS pipeline decisions — triage (step 2), risk assessment
+					    (step 4) and reporter feedback (step 7). Shown together
+					    because they are the three judgements that decide how fast
+					    a signal is handled, how hard the response is, and whether
+					    the loop was closed — and each was previously invisible on
+					    this dialog even once recorded. */}
+					{(alert.priority ||
+						alert.riskLevel ||
+						alert.feedbackGivenAt ||
+						alert.verificationOutcome) && (
+						<>
+							<Separator />
+							<section className="space-y-2">
+								<SectionHeader
+									icon={ShieldQuestion}
+									title="Signal Handling"
+								/>
+								<div className="flex flex-wrap items-center gap-2">
+									<PriorityBadge priority={alert.priority} showDeadline />
+									<RiskBadge level={alert.riskLevel} />
+									{alert.verificationOutcome && (
+										<Badge
+											variant="outline"
+											className="text-[10px] font-semibold"
+										>
+											{alert.verificationOutcome}
+										</Badge>
+									)}
+								</div>
+
+								<div className="grid grid-cols-2 gap-x-6 gap-y-2">
+									{alert.triagedBy && (
+										<Field label="Triaged By" value={alert.triagedBy} />
+									)}
+									{alert.triagedAt && (
+										<Field
+											label="Triaged At"
+											value={formatDateTime(alert.triagedAt)}
+										/>
+									)}
+									{alert.riskAssessedBy && (
+										<Field
+											label="Risk Assessed By"
+											value={alert.riskAssessedBy}
+										/>
+									)}
+									{alert.riskAssessedAt && (
+										<Field
+											label="Risk Assessed At"
+											value={formatDateTime(alert.riskAssessedAt)}
+										/>
+									)}
+								</div>
+
+								{/* The three answers behind the risk level, so the
+								    judgement is auditable and not just a label. */}
+								{alert.riskLevel && (
+									<div className="rounded-md bg-muted px-3 py-2">
+										<p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+											Risk answers
+										</p>
+										<p className="mt-1 text-sm">
+											Severe: <strong>{yesNo(alert.riskSevere)}</strong>
+											{" · "}Spread: <strong>{yesNo(alert.riskSpread)}</strong>
+											{" · "}Control measures:{" "}
+											<strong>{yesNo(alert.riskControl)}</strong>
+										</p>
+										{normalizeRiskLevel(alert.riskLevel) && (
+											<p className="mt-1 text-xs text-muted-foreground">
+												{RISK_ACTION[normalizeRiskLevel(alert.riskLevel)!]}
+											</p>
+										)}
+									</div>
+								)}
+
+								{alert.responseActions && (
+									<div>
+										<p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+											Response Actions
+										</p>
+										<p className="mt-1 rounded-md bg-muted px-3 py-2 text-sm">
+											{alert.responseActions}
+										</p>
+									</div>
+								)}
+
+								{/* Reporter feedback — EBS step 7. Rendered as an
+								    explicit state either way: "still owed" is the
+								    number KPI #10 measures, so it must not simply
+								    be an absent row. */}
+								<div
+									className={cn(
+										"rounded-md px-3 py-2",
+										alert.feedbackGivenAt
+											? "bg-teal-50 border border-teal-200"
+											: "bg-amber-50 border border-amber-200"
+									)}
+								>
+									<p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+										Reporter Feedback
+									</p>
+									{alert.feedbackGivenAt ? (
+										<p className="mt-1 text-sm">
+											Given via <strong>{alert.feedbackChannel}</strong>
+											{alert.feedbackBy && <> by {alert.feedbackBy}</>} on{" "}
+											{formatDateTime(alert.feedbackGivenAt)}
+										</p>
+									) : (
+										<p className="mt-1 text-sm text-amber-900">
+											Not yet given — the reporter has not been told the
+											outcome.
+										</p>
+									)}
 								</div>
 							</section>
 						</>

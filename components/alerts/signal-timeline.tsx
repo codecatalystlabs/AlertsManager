@@ -6,6 +6,10 @@ import {
 	Siren,
 	Send,
 	ShieldCheck,
+	ShieldQuestion,
+	ShieldAlert,
+	MessageCircleReply,
+	Ambulance,
 	Pencil,
 	XCircle,
 	Trash2,
@@ -39,6 +43,14 @@ function styleFor(action: string): ActionStyle {
 	switch (action) {
 		case "created":
 			return { label: "Signal created", icon: Siren, tone: "text-sky-600 border-sky-500 bg-sky-50" };
+		case "triaged":
+			return { label: "Triaged", icon: ShieldQuestion, tone: "text-violet-600 border-violet-500 bg-violet-50" };
+		case "risk_assessed":
+			return { label: "Risk assessed", icon: ShieldAlert, tone: "text-orange-600 border-orange-500 bg-orange-50" };
+		case "feedback_given":
+			return { label: "Reporter told", icon: MessageCircleReply, tone: "text-teal-600 border-teal-500 bg-teal-50" };
+		case "ems_notified":
+			return { label: "Sent to EMS", icon: Ambulance, tone: "text-violet-700 border-violet-600 bg-violet-50" };
 		case "forwarded":
 			return { label: "Forwarded to district", icon: Send, tone: "text-blue-600 border-blue-500 bg-blue-50" };
 		case "desk_verified":
@@ -70,9 +82,36 @@ function summarise(event: AlertHistoryEvent): string {
 			if (d.district) parts.push(`to ${d.district}`);
 			if (d.note) parts.push(`“${d.note}”`);
 			break;
+		case "triaged":
+			// The priority IS the verification deadline, so show both.
+			if (d.priority) {
+				parts.push(
+					d.deadline
+						? `${d.priority} — verify within ${Number(d.deadline) / 60}h`
+						: String(d.priority)
+				);
+			}
+			if (d.previousPriority) parts.push(`was ${d.previousPriority}`);
+			if (d.note) parts.push(`“${d.note}”`);
+			break;
+		case "risk_assessed":
+			if (d.level) parts.push(String(d.level));
+			if (d.previousLevel) parts.push(`was ${d.previousLevel}`);
+			if (d.note) parts.push(`“${d.note}”`);
+			break;
+		case "feedback_given":
+			if (d.channel) parts.push(`via ${d.channel}`);
+			if (d.reporter) parts.push(`to ${d.reporter}`);
+			if (d.note) parts.push(`“${d.note}”`);
+			break;
+		case "ems_notified":
+			if (d.event) parts.push(String(d.event));
+			break;
 		case "desk_verified":
 		case "verified":
 			if (d.outcome) parts.push(d.outcome);
+			// The split: actions are separate from the outcome now.
+			if (d.actions) parts.push(String(d.actions));
 			if (d.field) parts.push(d.field);
 			if (d.status) parts.push(d.status);
 			break;

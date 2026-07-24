@@ -16,6 +16,7 @@ import {
 import { ErrorAlert } from "@/components/dashboard";
 import { TriageDialog } from "@/components/triage";
 import { RiskAssessmentDialog } from "@/components/risk";
+import { FeedbackDialog } from "@/components/feedback";
 import { StatsGridSkeleton, FiltersSkeleton } from "@/components/ui/skeletons";
 import { useCallLogsData, type AlertLog } from "@/hooks/use-call-logs-data";
 import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
@@ -166,6 +167,12 @@ export default function CallLogsPage(): React.JSX.Element {
 		setRiskAlert(alert);
 	}, []);
 
+	// Reporter feedback (EBS step 7).
+	const [feedbackAlert, setFeedbackAlert] = useState<AlertLog | null>(null);
+	const handleRecordFeedback = useCallback((alert: AlertLog) => {
+		setFeedbackAlert(alert);
+	}, []);
+
 	const handleEditAlert = useCallback(
 		async (alert: AlertLog) => {
 			try {
@@ -272,6 +279,7 @@ export default function CallLogsPage(): React.JSX.Element {
 					onVerifyAlert={handleVerifyAlert}
 					onTriageAlert={handleTriageAlert}
 					onAssessRisk={handleAssessRisk}
+					onRecordFeedback={handleRecordFeedback}
 					onDeleteAlert={handleDeleteAlert}
 				/>
 			</div>
@@ -290,6 +298,15 @@ export default function CallLogsPage(): React.JSX.Element {
 				alertId={riskAlert?.id ?? null}
 				current={riskAlert ?? undefined}
 				onAssessed={handleVerificationComplete}
+			/>
+
+			<FeedbackDialog
+				open={feedbackAlert !== null}
+				onOpenChange={(open) => !open && setFeedbackAlert(null)}
+				alertId={feedbackAlert?.id ?? null}
+				reporterName={feedbackAlert?.personReporting}
+				reporterPhone={feedbackAlert?.contactNumber}
+				onRecorded={handleVerificationComplete}
 			/>
 
 			{/* Dialogs */}

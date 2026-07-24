@@ -55,6 +55,10 @@ export interface AlertLog {
     riskControl?: boolean | null;
     riskAssessedAt?: string | null;
     riskAssessedBy?: string | null;
+    /** Reporter feedback (EBS step 7). */
+    feedbackGivenAt?: string | null;
+    feedbackBy?: string | null;
+    feedbackChannel?: string | null;
     alertCaseName: string;
     alertCaseAge: number;
     alertCaseSex: string;

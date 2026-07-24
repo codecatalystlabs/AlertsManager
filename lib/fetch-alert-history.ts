@@ -62,6 +62,18 @@ export interface AlertHistoryDetail {
 	caseName?: string;
 	note?: string;
 	by?: string;
+	/** triaged: the assigned priority, its verification deadline in minutes, and
+	 *  the priority it replaced on a re-triage. */
+	priority?: string;
+	deadline?: number;
+	previousPriority?: string;
+	/** risk_assessed: the derived level and the one it replaced. */
+	level?: string;
+	previousLevel?: string;
+	/** desk_verified: response actions, now recorded separately from the outcome. */
+	actions?: string;
+	/** ems_notified: the dispatched event type. */
+	event?: string;
 }
 
 /** Safely parse the JSON detail blob; returns {} on absent/invalid detail. */
