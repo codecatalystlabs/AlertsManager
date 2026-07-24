@@ -150,15 +150,15 @@ export function alertSlaRowClass(alert: SlaSource, now?: Date): string | undefin
 
 /** "1h 25m" / "3d 4h" — the elapsed time, for tooltips and labels. */
 export function formatSlaElapsed(elapsedMinutes: number): string {
-	if (elapsedMinutes < 60) return ${elapsedMinutes}m;
+	if (elapsedMinutes < 60) return `${elapsedMinutes}m`;
 
 	const hours = Math.floor(elapsedMinutes / 60);
 	if (hours < 24) {
 		const minutes = elapsedMinutes % 60;
-		return minutes ? ${hours}h ${minutes}m : ${hours}h;
+		return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
 	}
 
 	const days = Math.floor(hours / 24);
 	const remainingHours = hours % 24;
-	return remainingHours ? ${days}d ${remainingHours}h : ${days}d;
+	return remainingHours ? `${days}d ${remainingHours}h` : `${days}d`;
 }
