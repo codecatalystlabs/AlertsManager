@@ -139,6 +139,35 @@ export function fetchGeoSubcounties(
 	);
 }
 
+/** The alerts behind one subcounty's choropleth count (or the district's unassigned chip). */
+export interface SubcountyAlertsResult {
+	district: string;
+	subcounty: string;
+	/** Uncapped count — `alerts` is capped at 500 server-side. */
+	total: number;
+	alerts: import("@/lib/auth").Alert[];
+}
+
+/**
+ * GET /geo/subcounty-alerts — lists the individual alerts that make up one
+ * subcounty's count on the drill-down map, using the SAME scoped query and
+ * canonical-name fold as the choropleth so the list reconciles with the
+ * polygon's number. Pass `unassigned: true` (with no subcounty) to list the
+ * district's signals that couldn't be placed on any subcounty polygon.
+ */
+export function fetchGeoSubcountyAlerts(
+	districtUid: string,
+	target: { subcounty?: string; unassigned?: boolean },
+	q: GeoQuery
+): Promise<SubcountyAlertsResult> {
+	const extra: Record<string, string> = { district_uid: districtUid };
+	if (target.unassigned) extra.unassigned = "true";
+	else extra.subcounty = target.subcounty ?? "";
+	return fetchGeo<SubcountyAlertsResult>(
+		`/geo/subcounty-alerts${buildQuery(q, extra)}`
+	);
+}
+
 /** One cluster anchor: an area centroid carrying its alert count. */
 export interface GeoPoint {
 	lat: number;

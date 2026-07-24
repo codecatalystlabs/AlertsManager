@@ -6,6 +6,7 @@ import {
 	ReportsMatrixTable,
 	ReportsChartFilters,
 	ReportsDateFilter,
+	ManagementReportPanel,
 } from "@/components/reports";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChartSkeleton } from "@/components/ui/skeletons";
@@ -63,6 +64,7 @@ export default function ReportsPage() {
 					<TabsTrigger value="chart">Chart</TabsTrigger>
 					<TabsTrigger value="cumulative">Cumulative</TabsTrigger>
 					<TabsTrigger value="daily">Daily</TabsTrigger>
+					<TabsTrigger value="presentation">Presentation</TabsTrigger>
 				</TabsList>
 
 				{/* Chart — date range + scope */}
@@ -139,6 +141,11 @@ export default function ReportsPage() {
 						exportKey="reports_daily"
 						isLoading={dailyLoading && !dailyMatrix}
 					/>
+				</TabsContent>
+
+				{/* Presentation — the full Alerts Management deck for a date range */}
+				<TabsContent value="presentation" className="space-y-3">
+					<ManagementReportPanel />
 				</TabsContent>
 			</Tabs>
 		</div>

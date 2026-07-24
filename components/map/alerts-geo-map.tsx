@@ -14,6 +14,10 @@ import {
 	type GeoFeatureCollection,
 	type GeoQuery,
 } from "@/lib/fetch-geo";
+import {
+	SubcountyAlertsDialog,
+	type SubcountyAlertsTarget,
+} from "@/components/map/subcounty-alerts-dialog";
 
 const UGANDA_CENTER: [number, number] = [1.3733, 32.2903];
 
@@ -206,6 +210,7 @@ function LayersControl({
 interface AdminLayersProps {
 	features: GeoFeature[];
 	maxCount: number;
+	/** Whether a click descends a level (region/district) or lists alerts (subcounty). */
 	drillable: boolean;
 	/** Identity of the current drill view; bumps trigger a fitBounds. */
 	focusKey: string;
@@ -217,9 +222,10 @@ interface AdminLayersProps {
 
 /**
  * Draws the features of the current drill level imperatively into the shared
- * boundary/label groups, and binds a click on each polygon (when drillable) to
- * descend into that area. Fits the map to focusBounds whenever the drill view
- * changes — so opening a region frames just that region's districts.
+ * boundary/label groups, and binds a click on each polygon: on region/district
+ * level the click descends into the area, on subcounty level it opens the list
+ * of alerts behind the count. Fits the map to focusBounds whenever the drill
+ * view changes — so opening a region frames just that region's districts.
  */
 function AdminLayers({
 	features,
@@ -268,7 +274,7 @@ function AdminLayers({
 				const poly = L.geoJSON(f.geometry as any, { style: () => base });
 				const hint = drillable
 					? `<br/><span style="opacity:.7">click to drill in</span>`
-					: "";
+					: `<br/><span style="opacity:.7">click to list signals</span>`;
 				poly.bindTooltip(
 					`<strong>${escapeHtml(f.properties.name)}</strong><br/>${count.toLocaleString()} signal${count === 1 ? "" : "s"}${hint}`,
 					{ sticky: true }
@@ -282,17 +288,17 @@ function AdminLayers({
 					})
 				);
 				poly.on("mouseout", () => poly.setStyle(base));
-				if (drillable) {
-					poly.on("click", () => onDrillRef.current(f));
-					// Pointer cursor on the rendered SVG paths.
-					poly.eachLayer((l) => {
-						const el = (
-							l as unknown as { getElement?: () => Element | null }
-						).getElement?.();
-						if (el) (el as HTMLElement | SVGElement).style.cursor = "pointer";
-					});
-				}
+				// Clickable at every level: region/district clicks drill in,
+				// subcounty clicks open the list of signals behind the count.
+				poly.on("click", () => onDrillRef.current(f));
 				boundary.addLayer(poly);
+				// Pointer cursor on the rendered SVG paths (available after add).
+				poly.eachLayer((l) => {
+					const el = (
+						l as unknown as { getElement?: () => Element | null }
+					).getElement?.();
+					if (el) (el as HTMLElement | SVGElement).style.cursor = "pointer";
+				});
 			}
 			// Only badge areas that actually have alerts — "0" pills everywhere were
 			// pure clutter and hid the base skin.
@@ -325,6 +331,10 @@ export function AlertsGeoMap({
 	validating,
 }: AlertsGeoMapProps) {
 	const [drill, setDrill] = useState<Drill>({ level: "region" });
+	// The subcounty (or unassigned bucket) whose signal list is open, if any.
+	const [listTarget, setListTarget] = useState<SubcountyAlertsTarget | null>(
+		null
+	);
 
 	// Subcounties aren't loaded up front — fetch the open district's on demand.
 	const openDistrictUid =
@@ -395,6 +405,14 @@ export function AlertsGeoMap({
 			setDrill({ level: "district", region: ref });
 		} else if (drill.level === "district") {
 			setDrill({ level: "subcounty", region: drill.region, district: ref });
+		} else {
+			// Subcounty level: open the breakdown/list of the signals behind
+			// this subcounty's count.
+			setListTarget({
+				districtUid: drill.district.uid,
+				districtName: drill.district.name,
+				subcounty: f.properties.name,
+			});
 		}
 	}
 
@@ -450,14 +468,26 @@ export function AlertsGeoMap({
 			<MapLegend bins={scale.bins} level={levelLabel} />
 
 			{drill.level === "subcounty" && unassigned > 0 && !subLoading && (
-				<div className="pointer-events-none absolute bottom-3 left-1/2 z-[1000] flex max-w-[70%] -translate-x-1/2 items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50/95 px-2.5 py-1.5 text-[11px] text-amber-900 shadow-md">
+				<button
+					type="button"
+					onClick={() =>
+						drill.level === "subcounty" &&
+						setListTarget({
+							districtUid: drill.district.uid,
+							districtName: drill.district.name,
+							unassigned: true,
+						})
+					}
+					className="absolute bottom-3 left-1/2 z-[1000] flex max-w-[70%] -translate-x-1/2 cursor-pointer items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50/95 px-2.5 py-1.5 text-[11px] text-amber-900 shadow-md transition-colors hover:bg-amber-100"
+					title="List these signals"
+				>
 					<Info className="h-3.5 w-3.5 shrink-0" />
 					<span>
 						<strong>{unassigned.toLocaleString()}</strong> signal
 						{unassigned === 1 ? "" : "s"} in {drill.district.name} not mapped to
-						a subcounty
+						a subcounty — click to list
 					</span>
-				</div>
+				</button>
 			)}
 
 			{(validating || subLoading) && (
@@ -465,6 +495,12 @@ export function AlertsGeoMap({
 					{subLoading ? "Loading subcounties…" : "Updating…"}
 				</div>
 			)}
+
+			<SubcountyAlertsDialog
+				target={listTarget}
+				query={query}
+				onClose={() => setListTarget(null)}
+			/>
 		</div>
 	);
 }
