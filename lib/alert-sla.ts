@@ -12,8 +12,8 @@ import { deriveAlertOutcome, OUTCOME_NOT_RECORDED, type OutcomeSource } from "@/
  *   orange : 1h – 6h
  *   red    : > 6h   (no upper bound — 13 hours and 3 weeks are both red)
  *
- * Kept in sync with the Go twin (`alertsMIS/backend/internal/services/alert_sla.go`),
- * which applies the same bands in SQL for the server-side `sla` filter.
+ * Kept in sync with the Go twin (alertsMIS/backend/internal/services/alert_sla.go),
+ * which applies the same bands in SQL for the server-side sla filter.
  */
 export const SLA_GREEN_MAX_MINUTES = 60;
 export const SLA_ORANGE_MAX_MINUTES = 6 * 60;
@@ -81,10 +81,10 @@ function parseDate(value?: string | null): Date | null {
 
 /**
  * The moment the clock starts: the signal's own timestamp — the calendar day
- * from `date` combined with the time-of-day from `time`. `date` carries a junk
- * time-of-day (a constant import/timezone artifact) while `time` carries the real
+ * from date combined with the time-of-day from time. date carries a junk
+ * time-of-day (a constant import/timezone artifact) while time carries the real
  * clock time, so we take the day from one and the clock from the other. Mirrors
- * the SQL `TIMESTAMP(DATE(date), TIME(time))`.
+ * the SQL TIMESTAMP(DATE(date), TIME(time)).
  */
 export function alertSignalTimestamp(alert: SlaSource): Date | null {
 	const day = parseDate(alert.date);
@@ -105,9 +105,9 @@ export function alertSignalTimestamp(alert: SlaSource): Date | null {
 
 /**
  * The moment the clock stops: the verification timestamp for a verified alert,
- * or `now` for one still pending (it is still ageing).
+ * or now for one still pending (it is still ageing).
  *
- * Uses `verificationTime` — NOT verificationDate, which is a date-only column
+ * Uses verificationTime — NOT verificationDate, which is a date-only column
  * carrying a junk/off-by-one day (rows verified minutes after being logged
  * routinely claim a verificationDate one day EARLIER than the signal).
  * updatedAt/createdAt are last-resort fallbacks for the few verified rows that
@@ -150,15 +150,15 @@ export function alertSlaRowClass(alert: SlaSource, now?: Date): string | undefin
 
 /** "1h 25m" / "3d 4h" — the elapsed time, for tooltips and labels. */
 export function formatSlaElapsed(elapsedMinutes: number): string {
-	if (elapsedMinutes < 60) return `${elapsedMinutes}m`;
+	if (elapsedMinutes < 60) return ${elapsedMinutes}m;
 
 	const hours = Math.floor(elapsedMinutes / 60);
 	if (hours < 24) {
 		const minutes = elapsedMinutes % 60;
-		return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
+		return minutes ? ${hours}h ${minutes}m : ${hours}h;
 	}
 
 	const days = Math.floor(hours / 24);
 	const remainingHours = hours % 24;
-	return remainingHours ? `${days}d ${remainingHours}h` : `${days}d`;
+	return remainingHours ? ${days}d ${remainingHours}h : ${days}d;
 }

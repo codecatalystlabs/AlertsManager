@@ -124,7 +124,7 @@ export const AlertsTable = memo<AlertsTableProps>(
 						onSortingChange={handleSortingChange}
 						isLoading={isLoading}
 						// Tint each row by how long the alert has been in the system:
-						// green <=1h, orange 1-6h, red >6h. `now` ticks every minute so a
+						// green <=1h, orange 1-6h, red >6h. now ticks every minute so a
 						// pending row re-tints as it ages, without waiting for a refetch.
 						getRowClassName={(row) => alertSlaRowClass(row.original, now)}
 					/>

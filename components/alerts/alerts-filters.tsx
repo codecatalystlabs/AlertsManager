@@ -27,7 +27,11 @@ export interface AlertsFilterState {
 	source: string;
 	fromDate: string;
 	toDate: string;
+<<<<<<< HEAD
+	/** SLA colour: "all" | "green" | "yellow" | "red". See lib/alert-sla.ts. */
+=======
 	/** SLA colour: "all" | "green" | "orange" | "red". See lib/alert-sla.ts. */
+>>>>>>> f385891d2edc4915bf5d8c125e9d52da73882542
 	sla: string;
 }
 

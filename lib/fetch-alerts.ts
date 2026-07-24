@@ -60,7 +60,11 @@ export interface AlertsListParams {
 	verified_by?: string;
 	/**
 	 * SLA colour — how long the alert has been in the system, clock stopping at
+<<<<<<< HEAD
+	 * verification: "green" (<=2h), "yellow" (2-6h), "red" (>6h). Comma-separated
+=======
 	 * verification: "green" (<=1h), "orange" (1-6h), "red" (>6h). Comma-separated
+>>>>>>> f385891d2edc4915bf5d8c125e9d52da73882542
 	 * for several. Filtered server-side so it scopes the whole dataset, matching
 	 * the row tint computed by lib/alert-sla.ts.
 	 */
