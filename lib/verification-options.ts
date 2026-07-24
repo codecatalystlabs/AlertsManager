@@ -21,6 +21,16 @@ export const FIELD_VERIFICATION_OPTIONS = [
 export const FIELD_CASE_VERIFICATION = "Field Case Verification";
 
 /**
+ * The desk action that hands the case to the Emergency Medical Services team.
+ * Selecting it is the single trigger of the whole EMS integration: on submit
+ * the backend pushes the full verified alert to the EMS system and adds it to
+ * the partner pull feed (see `alertsMIS/backend/docs/EMS_INTEGRATION.md`).
+ * Referenced by name rather than repeated as a literal so the trigger and the
+ * UI that explains it can never drift apart.
+ */
+export const EMS_EVACUATION_ACTION = "Validated for EMS Evacuation";
+
+/**
  * Desk verification now allows MULTIPLE actions. To stay backward compatible
  * with the single TEXT column (`case_verification_desk` / `actions`) and all the
  * code that reads it as a plain string, multiple selections are stored as a

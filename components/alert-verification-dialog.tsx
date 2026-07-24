@@ -2,6 +2,7 @@
 
 import { altCode } from "@/lib/alt-code";
 import { useState, useEffect } from "react";
+import hotToast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +29,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
 	AlertTriangleIcon,
+	Ambulance as AmbulanceIcon,
 	CheckCircleIcon,
 	XCircleIcon,
 	Loader2,
@@ -46,6 +48,7 @@ import {
 	DESK_VERIFICATION_OPTIONS,
 	FIELD_VERIFICATION_OPTIONS,
 	FIELD_CASE_VERIFICATION,
+	EMS_EVACUATION_ACTION,
 	hasDeskAction,
 	toggleDeskAction,
 } from "@/lib/verification-options";
@@ -495,7 +498,7 @@ export function AlertVerificationDialog({
 			const deskAction = formData.deskVerificationActions;
 			const fieldFeedback = formData.fieldVerificationFeedback;
 
-			await AuthService.verifyAlert(alert.id, {
+			const verifyResult = await AuthService.verifyAlert(alert.id, {
 				token: verificationToken,
 				status: formData.status,
 				verificationDate: verificationDate.toISOString(),
@@ -546,6 +549,21 @@ export function AlertVerificationDialog({
 				description: `Alert ${altCode(alert.id)} has been verified successfully.`,
 				duration: 5000,
 			});
+
+			// When this verification validated the case for EMS evacuation, the
+			// backend has dispatched the full alert to the EMS system — surface
+			// that as its own toast alongside the verification one.
+			// "sent" only when a webhook actually went out; with pull-only
+			// integration the case is released to the EMS feed instead — the
+			// wording must not claim a delivery that didn't happen.
+			if (verifyResult.emsNotified) {
+				hotToast.success(
+					verifyResult.emsDispatched
+						? `🚑 Alert ${altCode(alert.id)} sent to EMS for Evacuation`
+						: `🚑 Alert ${altCode(alert.id)} released to EMS for Evacuation`,
+					{ duration: 6000 }
+				);
+			}
 
 			setTimeout(() => {
 				onVerificationComplete();
@@ -1388,6 +1406,33 @@ export function AlertVerificationDialog({
 									)}
 								</div>
 							</div>
+
+							{/* Selecting the EMS action is what triggers the whole EMS
+							    integration, so say so BEFORE submit — afterwards it is
+							    only a toast the verifier may miss, and this is the point
+							    at which an ambulance gets involved. */}
+							{hasDeskAction(
+								formData.deskVerificationActions,
+								EMS_EVACUATION_ACTION
+							) && (
+								<div className="flex items-start gap-3 rounded-lg border border-violet-200 bg-violet-50 p-3">
+									<AmbulanceIcon className="mt-0.5 h-4 w-4 shrink-0 text-violet-700" />
+									<div className="space-y-1 text-xs text-violet-900">
+										<p className="font-semibold">
+											This case will be sent to the EMS system for
+											evacuation
+										</p>
+										<p>
+											On submit, the complete verified alert — including
+											the patient&apos;s location and point-of-contact
+											phone — is released to the Emergency Medical
+											Services team so they can dispatch an ambulance.
+											Check the case district, village and contact phone
+											above before you verify.
+										</p>
+									</div>
+								</div>
+							)}
 						</div>
 
 						{/* VHF Case Investigation Form - Only show when Field Case Verification is selected */}

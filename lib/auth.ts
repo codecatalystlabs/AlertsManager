@@ -783,7 +783,7 @@ export class AuthService {
         fieldVerificationDecision?: string
         isVerified?: boolean
         caseCode?: string
-    }): Promise<Alert> {
+    }): Promise<{ alert: Alert; emsNotified: boolean; emsDispatched: boolean }> {
         try {
             const response = await fetch(`${API_BASE_URL}/alerts/${alertId}/verify`, {
                 method: 'POST',
@@ -807,7 +807,14 @@ export class AuthService {
 
             const data = await response.json()
             notifyAlertsChanged()
-            return data.alert
+            // emsNotified: this verification registered the case for EMS
+            // evacuation. emsDispatched: a webhook was actually POSTed to the
+            // EMS system (false when only the EMS pull feed serves it).
+            return {
+                alert: data.alert,
+                emsNotified: Boolean(data.emsNotified),
+                emsDispatched: Boolean(data.emsDispatched),
+            }
         } catch (error) {
             console.error('Error verifying alert:', error)
             throw error

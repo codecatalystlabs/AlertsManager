@@ -15,6 +15,9 @@ const FORWARDED_REQUEST_HEADERS = [
 	"accept-language",
 	"authorization",
 	"content-type",
+	// Machine-to-machine integration key (EMS pull feed). Without this the
+	// partner's key is stripped here and the upstream answers 401.
+	"x-api-key",
 ];
 
 const HOP_BY_HOP_RESPONSE_HEADERS = [
