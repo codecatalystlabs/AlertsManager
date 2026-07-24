@@ -176,6 +176,21 @@ export interface Alert {
     traditionalHealerVisit?: string
     symptoms?: string
     actions?: string
+    /** Triage priority (High/Medium/Low). Absent = not yet triaged. */
+    priority?: string | null
+    triagedAt?: string | null
+    triagedBy?: string | null
+    /** Verification outcome: Confirmed | Discarded | Escalated to Field. */
+    verificationOutcome?: string | null
+    /** Comma-joined response actions taken. */
+    responseActions?: string | null
+    /** Risk assessment (EBS step 4). */
+    riskLevel?: string | null
+    riskSevere?: boolean | null
+    riskSpread?: boolean | null
+    riskControl?: boolean | null
+    riskAssessedAt?: string | null
+    riskAssessedBy?: string | null
     caseVerificationDesk?: string
     fieldVerification?: string
     fieldVerificationDecision?: string
@@ -779,6 +794,14 @@ export class AuthService {
         deskVerificationActions: string
         fieldVerificationFeedback: string
         caseVerificationDesk?: string
+        /**
+         * The verification split (preferred). The backend stores these directly
+         * and mirrors them back into caseVerificationDesk; when they are absent
+         * it derives them from that legacy string instead, so older callers keep
+         * working.
+         */
+        verificationOutcome?: string
+        responseActions?: string[]
         fieldVerification?: string
         fieldVerificationDecision?: string
         isVerified?: boolean

@@ -14,6 +14,8 @@ import {
 	CallLogsTable,
 } from "@/components/call-logs";
 import { ErrorAlert } from "@/components/dashboard";
+import { TriageDialog } from "@/components/triage";
+import { RiskAssessmentDialog } from "@/components/risk";
 import { StatsGridSkeleton, FiltersSkeleton } from "@/components/ui/skeletons";
 import { useCallLogsData, type AlertLog } from "@/hooks/use-call-logs-data";
 import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
@@ -150,6 +152,20 @@ export default function CallLogsPage(): React.JSX.Element {
 		[setSelectedAlert]
 	);
 
+	// Triage (EBS step 2). No full-alert fetch needed: the decision only writes
+	// priority, and the row already carries the current one for a re-triage.
+	const [triageAlert, setTriageAlert] = useState<AlertLog | null>(null);
+	const handleTriageAlert = useCallback((alert: AlertLog) => {
+		setTriageAlert(alert);
+	}, []);
+
+	// Risk assessment (EBS step 4). Like triage it only writes its own columns,
+	// so the row already carries everything the dialog needs.
+	const [riskAlert, setRiskAlert] = useState<AlertLog | null>(null);
+	const handleAssessRisk = useCallback((alert: AlertLog) => {
+		setRiskAlert(alert);
+	}, []);
+
 	const handleEditAlert = useCallback(
 		async (alert: AlertLog) => {
 			try {
@@ -254,9 +270,27 @@ export default function CallLogsPage(): React.JSX.Element {
 					onViewDetails={handleViewDetails}
 					onEditAlert={handleEditAlert}
 					onVerifyAlert={handleVerifyAlert}
+					onTriageAlert={handleTriageAlert}
+					onAssessRisk={handleAssessRisk}
 					onDeleteAlert={handleDeleteAlert}
 				/>
 			</div>
+
+			<TriageDialog
+				open={triageAlert !== null}
+				onOpenChange={(open) => !open && setTriageAlert(null)}
+				alertId={triageAlert?.id ?? null}
+				currentPriority={triageAlert?.priority}
+				onTriaged={handleVerificationComplete}
+			/>
+
+			<RiskAssessmentDialog
+				open={riskAlert !== null}
+				onOpenChange={(open) => !open && setRiskAlert(null)}
+				alertId={riskAlert?.id ?? null}
+				current={riskAlert ?? undefined}
+				onAssessed={handleVerificationComplete}
+			/>
 
 			{/* Dialogs */}
 			{selectedAlert && (

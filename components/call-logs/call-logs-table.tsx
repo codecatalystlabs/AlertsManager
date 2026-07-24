@@ -42,6 +42,8 @@ interface CallLogsTableProps {
 	onViewDetails: (alert: AlertLog) => void;
 	onEditAlert: (alert: AlertLog) => void;
 	onVerifyAlert: (alert: AlertLog) => void;
+	onTriageAlert: (alert: AlertLog) => void;
+	onAssessRisk: (alert: AlertLog) => void;
 	onDeleteAlert: (alertId: number) => Promise<void>;
 	/** Receives per-column header filter changes so they query the whole dataset. */
 	onColumnFiltersChange?: (filters: ColumnFiltersState) => void;
@@ -64,6 +66,8 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 		onViewDetails,
 		onEditAlert,
 		onVerifyAlert,
+		onTriageAlert,
+		onAssessRisk,
 		onDeleteAlert,
 		onColumnFiltersChange,
 		filtersResetKey,
@@ -75,10 +79,12 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 				onViewDetails,
 				onEditAlert,
 				onVerifyAlert,
+				onTriageAlert,
+				onAssessRisk,
 				onDeleteAlert,
 				canDelete,
 			}),
-			[onViewDetails, onEditAlert, onVerifyAlert, onDeleteAlert, canDelete]
+			[onViewDetails, onEditAlert, onVerifyAlert, onTriageAlert, onAssessRisk, onDeleteAlert, canDelete]
 		);
 
 		const columns = useMemo(

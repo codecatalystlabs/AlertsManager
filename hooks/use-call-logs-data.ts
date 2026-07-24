@@ -40,6 +40,21 @@ export interface AlertLog {
     contactNumber: string;
     sourceOfAlert: string;
     channelOfReporting?: string;
+    /** Triage priority (High/Medium/Low). Absent = not yet triaged. */
+    priority?: string | null;
+    triagedAt?: string | null;
+    triagedBy?: string | null;
+    /** Verification outcome: Confirmed | Discarded | Escalated to Field. */
+    verificationOutcome?: string | null;
+    /** Comma-joined response actions taken. */
+    responseActions?: string | null;
+    /** Risk assessment (EBS step 4). */
+    riskLevel?: string | null;
+    riskSevere?: boolean | null;
+    riskSpread?: boolean | null;
+    riskControl?: boolean | null;
+    riskAssessedAt?: string | null;
+    riskAssessedBy?: string | null;
     alertCaseName: string;
     alertCaseAge: number;
     alertCaseSex: string;
@@ -203,6 +218,13 @@ function toApiParams(
     const ageMax = parseInt(filters.ageMax, 10);
     if (!Number.isNaN(ageMax)) {
         params.age_max = ageMax;
+    }
+
+    // Triage priority. "untriaged" is a real value the server understands, not
+    // the absence of a filter — it is how a focal person finds the queue of
+    // signals nobody has assessed yet.
+    if (filters.priority && filters.priority !== 'all') {
+        params.priority = filters.priority;
     }
 
     if (filters.callTaker.trim()) {

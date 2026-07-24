@@ -1,27 +1,42 @@
 import { deriveAlertOutcome, OUTCOME_NOT_RECORDED, type OutcomeSource } from "@/lib/alert-outcome";
+import { verificationDeadlineMinutes } from "@/lib/alert-triage";
 
 /**
- * Alert SLA colours — how long a signal has been "in the system".
+ * Alert SLA colours — how long a signal has been "in the system", judged
+ * against the deadline its TRIAGE PRIORITY sets.
  *
  * The clock STARTS when the signal was logged and STOPS when the alert is
- * verified. A pending alert therefore keeps ageing until someone acts on it (and
- * will eventually go red), while a verified alert freezes at the colour it
- * earned: its colour is a permanent record of how long it took to verify.
+ * verified. A pending alert therefore keeps ageing until someone acts on it,
+ * while a verified alert freezes at the colour it earned: its colour is a
+ * permanent record of whether it was verified inside its national deadline.
  *
- *   green  : <= 1h
- *   orange : 1h – 6h
- *   red    : > 6h   (no upper bound — 13 hours and 3 weeks are both red)
+ * The deadline is per-priority (EBS Guidelines for Uganda, Table 3), NOT a
+ * single flat threshold — a Low-priority signal has 48 hours and should not be
+ * painted red beside a High-priority one that has 12:
+ *
+ *   High    green <=12h   orange 12–24h   red >24h
+ *   Medium  green <=24h   orange 24–48h   red >48h
+ *   Low     green <=48h   orange 48–96h   red >96h
+ *
+ * Green means "verified within the national deadline" (KPI #4). Orange is a
+ * grace band of one further deadline-length — breached, but recently. Red is
+ * past twice the deadline, i.e. seriously overdue. The multiplier is uniform so
+ * the bands mean the same thing at every priority. An untriaged signal is
+ * measured against the Medium deadline (see lib/alert-triage.ts).
  *
  * Kept in sync with the Go twin (alertsMIS/backend/internal/services/alert_sla.go),
  * which applies the same bands in SQL for the server-side sla filter.
  */
-export const SLA_GREEN_MAX_MINUTES = 60;
-export const SLA_ORANGE_MAX_MINUTES = 6 * 60;
+
+/** Elapsed up to N x the priority deadline is orange; beyond it, red. */
+export const SLA_ORANGE_MULTIPLIER = 2;
 
 export type AlertSlaColor = "green" | "orange" | "red";
 
 /** The subset of alert fields the SLA is computed from. */
 export interface SlaSource extends OutcomeSource {
+	/** Triage priority — sets the deadline. Absent/null = untriaged. */
+	priority?: string | null;
 	/** Signal day. Its time-of-day is a junk import artifact — ignored. */
 	date?: string | null;
 	/** Signal time-of-day (the real clock time). */
@@ -37,13 +52,20 @@ export interface AlertSla {
 	elapsedMinutes: number;
 	/** True while the clock is still running, i.e. the alert is not yet verified. */
 	running: boolean;
+	/** The deadline this row was judged against, in minutes. */
+	deadlineMinutes: number;
 }
 
-/** The dropdown options for the "Time in system" filter. */
+/**
+ * The dropdown options for the "Time in system" filter. Worded by MEANING
+ * rather than by hours, because the hours differ per row: the same 20 hours is
+ * a breach for a High-priority signal and comfortably inside the deadline for a
+ * Low-priority one.
+ */
 export const SLA_FILTER_OPTIONS: { value: AlertSlaColor; label: string }[] = [
-	{ value: "green", label: "Green — within 1 hour" },
-	{ value: "orange", label: "Orange — 1 to 6 hours" },
-	{ value: "red", label: "Red — over 6 hours" },
+	{ value: "green", label: "Green — within its deadline" },
+	{ value: "orange", label: "Orange — deadline passed" },
+	{ value: "red", label: "Red — past twice the deadline" },
 ];
 
 /** Legend/filter swatch for each colour. */
@@ -66,10 +88,18 @@ const SLA_ROW_CLASS: Record<AlertSlaColor, string> = {
 	red: "border-l-4 border-l-red-500 bg-red-50/60 hover:bg-red-50 dark:bg-red-950/20 dark:hover:bg-red-950/30",
 };
 
-/** Bucket an elapsed time (in minutes) into its colour. */
-export function slaColorForMinutes(elapsed: number): AlertSlaColor {
-	if (elapsed <= SLA_GREEN_MAX_MINUTES) return "green";
-	if (elapsed <= SLA_ORANGE_MAX_MINUTES) return "orange";
+/**
+ * Bucket an elapsed time (in minutes) into its colour, judged against the
+ * deadline the given priority sets. Pass null/undefined for an untriaged
+ * signal (scored against the Medium deadline).
+ */
+export function slaColorForMinutes(
+	elapsed: number,
+	priority?: string | null
+): AlertSlaColor {
+	const deadline = verificationDeadlineMinutes(priority);
+	if (elapsed <= deadline) return "green";
+	if (elapsed <= deadline * SLA_ORANGE_MULTIPLIER) return "orange";
 	return "red";
 }
 
@@ -139,7 +169,12 @@ export function computeAlertSla(alert: SlaSource, now: Date = new Date()): Alert
 	// data). Treat them as just-logged rather than letting the elapsed go negative.
 	const elapsedMinutes = Math.max(0, Math.floor((stop.getTime() - start.getTime()) / 60_000));
 
-	return { color: slaColorForMinutes(elapsedMinutes), elapsedMinutes, running };
+	return {
+		color: slaColorForMinutes(elapsedMinutes, alert.priority),
+		elapsedMinutes,
+		running,
+		deadlineMinutes: verificationDeadlineMinutes(alert.priority),
+	};
 }
 
 /** The row tint for an alert, or undefined when the SLA can't be computed. */

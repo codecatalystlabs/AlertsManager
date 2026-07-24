@@ -18,6 +18,8 @@ export interface AlertsListParams {
 	limit?: number;
 	region?: string;
 	district?: string;
+	/** Triage priority: High | Medium | Low | untriaged (comma-separated). */
+	priority?: string;
 	/** Division/subcounty name; matched against alert_case_sub_county or sub_county. */
 	division?: string;
 	is_verified?: boolean;
@@ -59,10 +61,11 @@ export interface AlertsListParams {
 	/** Partial match on the verifying user. */
 	verified_by?: string;
 	/**
-	 * SLA colour — how long the alert has been in the system, clock stopping at
-	 * verification: "green" (<=1h), "orange" (1-6h), "red" (>6h). Comma-separated
-	 * for several. Filtered server-side so it scopes the whole dataset, matching
-	 * the row tint computed by lib/alert-sla.ts.
+	 * SLA colour — how long the alert has been in the system versus the deadline
+	 * its triage priority sets (High 12h / Medium 24h / Low 48h): "green" inside
+	 * the deadline, "orange" up to twice it, "red" beyond. Clock stops at
+	 * verification. Comma-separated for several. Filtered server-side so it
+	 * scopes the whole dataset, matching the row tint from lib/alert-sla.ts.
 	 */
 	sla?: string;
 	/**
@@ -164,6 +167,12 @@ function appendAlertFilterParams(
 	}
 	if (params.verified_by) {
 		searchParams.set("verified_by", params.verified_by);
+	}
+	// Triage priority. Like every param here this must be listed explicitly —
+	// the serializer is a whitelist, so a field present on AlertsListParams but
+	// missing below is silently never sent.
+	if (params.priority) {
+		searchParams.set("priority", params.priority);
 	}
 	if (params.sla) {
 		searchParams.set("sla", params.sla);

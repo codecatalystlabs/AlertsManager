@@ -17,6 +17,7 @@ import {
 	SEX_FILTER_OPTIONS,
 	type CallLogsFilterState,
 } from "@/constants/call-logs";
+import { PRIORITY_FILTER_OPTIONS } from "@/lib/alert-triage";
 import { LAYOUT } from "@/constants/layout";
 import { useLocationCascade } from "@/hooks/use-location-cascade";
 import {
@@ -140,6 +141,33 @@ export const CallLogsFilters = memo<CallLogsFiltersProps>(
 								</SelectTrigger>
 								<SelectContent>
 									{SOURCE_FILTER_OPTIONS.map((option) => (
+										<SelectItem
+											key={option.value}
+											value={option.value}
+										>
+											{option.label}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="priority-filter" className="text-[11px]">
+								Priority
+							</Label>
+							<Select
+								value={filters.priority}
+								onValueChange={(value) =>
+									onFiltersChange({ priority: value })
+								}
+							>
+								<SelectTrigger id="priority-filter" className="h-8 text-xs">
+									<SelectValue placeholder="All" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="all">All priorities</SelectItem>
+									{PRIORITY_FILTER_OPTIONS.map((option) => (
 										<SelectItem
 											key={option.value}
 											value={option.value}

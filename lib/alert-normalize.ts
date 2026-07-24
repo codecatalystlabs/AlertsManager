@@ -31,6 +31,21 @@ export interface ApiAlert {
 	traditionalHealerVisit?: string;
 	symptoms?: string;
 	actions?: string;
+	/** Triage priority (High/Medium/Low). Absent/null = not yet triaged. */
+	priority?: string | null;
+	/** Verification outcome: Confirmed | Discarded | Escalated to Field. */
+	verificationOutcome?: string | null;
+	/** Comma-joined response actions taken. */
+	responseActions?: string | null;
+	/** Risk assessment (EBS step 4). */
+	riskLevel?: string | null;
+	riskSevere?: boolean | null;
+	riskSpread?: boolean | null;
+	riskControl?: boolean | null;
+	riskAssessedAt?: string | null;
+	riskAssessedBy?: string | null;
+	triagedAt?: string | null;
+	triagedBy?: string | null;
 	caseVerificationDesk?: string;
 	fieldVerification?: string;
 	fieldVerificationDecision?: string;
@@ -112,6 +127,16 @@ export function normalizeAlertFromApi(raw: unknown): ApiAlert {
 		}
 		return undefined;
 	};
+	// The risk answers are TRI-state: true, false, or never answered. `bool`
+	// collapses the last two to undefined, which would render "not assessed" as
+	// an explicit "No" — so unanswered must stay distinguishable as null.
+	// MySQL TINYINT(1) can also arrive as 0/1 through some clients.
+	const boolOrNull = (value: unknown): boolean | null => {
+		if (typeof value === "boolean") return value;
+		if (typeof value === "number") return value !== 0;
+		const parsed = bool(value);
+		return parsed === undefined ? null : parsed;
+	};
 
 	return {
 		id: num(body.id ?? body.ID),
@@ -160,6 +185,20 @@ export function normalizeAlertFromApi(raw: unknown): ApiAlert {
 			body.traditionalHealerVisit ?? body.traditional_healer_visit
 		),
 		symptoms: str(body.symptoms),
+		// Triage. NOTE: this normalizer is a strict whitelist — a field absent
+		// here never reaches the tables, however faithfully the API returns it.
+		priority: str(body.priority) ?? null,
+		verificationOutcome:
+			str(body.verificationOutcome ?? body.verification_outcome) ?? null,
+		responseActions: str(body.responseActions ?? body.response_actions) ?? null,
+		riskLevel: str(body.riskLevel ?? body.risk_level) ?? null,
+		riskSevere: boolOrNull(body.riskSevere ?? body.risk_severe),
+		riskSpread: boolOrNull(body.riskSpread ?? body.risk_spread),
+		riskControl: boolOrNull(body.riskControl ?? body.risk_control),
+		riskAssessedAt: str(body.riskAssessedAt ?? body.risk_assessed_at) ?? null,
+		riskAssessedBy: str(body.riskAssessedBy ?? body.risk_assessed_by) ?? null,
+		triagedAt: str(body.triagedAt ?? body.triaged_at) ?? null,
+		triagedBy: str(body.triagedBy ?? body.triaged_by) ?? null,
 		caseVerificationDesk: str(
 			body.caseVerificationDesk ??
 				body.case_verification_desk ??

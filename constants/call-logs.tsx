@@ -13,6 +13,8 @@ import {
 	Eye,
 	Edit,
 	Shield,
+	ShieldQuestion,
+	ShieldAlert,
 	FileDown,
 } from "lucide-react";
 import { alertResponse } from "@/constants";
@@ -22,6 +24,8 @@ import {
 } from "@/lib/alert-pdf";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PriorityBadge } from "@/components/triage";
+import { RiskBadge } from "@/components/risk";
 import {
 	PENDING_BADGE_CLASS,
 	VerificationBadge,
@@ -86,6 +90,8 @@ export interface CallLogsFilterState {
 	ageMin: string;
 	/** Inclusive maximum case age, or "" for unbounded. */
 	ageMax: string;
+	/** Triage priority: "all" | "High" | "Medium" | "Low" | "untriaged". */
+	priority: string;
 	/** Partial match on the call taker; "" means no filter. */
 	callTaker: string;
 	/** Partial match on the assigned user; "" means no filter. */
@@ -97,6 +103,7 @@ export interface CallLogsFilterState {
 export const CALL_LOGS_INITIAL_FILTERS: CallLogsFilterState = {
 	status: "all",
 	source: "all",
+	priority: "all",
 	search: "",
 	verification: "all",
 	region: "all",
@@ -176,6 +183,12 @@ export interface CallLogsTableCallbacks {
 	onViewDetails: (alert: AlertLog) => void;
 	onEditAlert: (alert: AlertLog) => void;
 	onVerifyAlert: (alert: AlertLog) => void;
+	/** Open the triage dialog (EBS step 2 — assign the priority that sets the
+	 *  verification deadline). */
+	onTriageAlert: (alert: AlertLog) => void;
+	/** Open the risk-assessment dialog (EBS step 4 — score a confirmed event
+	 *  and select the mandated response level). */
+	onAssessRisk: (alert: AlertLog) => void;
 	onDeleteAlert: (alertId: number) => Promise<void>;
 	/** Whether the current user may delete alerts (admin/EOC only). */
 	canDelete?: boolean;
@@ -270,6 +283,30 @@ export const createCallLogsTableColumns = (
 				</div>
 			);
 		},
+	},
+	{
+		id: "risk",
+		accessorKey: "riskLevel",
+		header: "Risk",
+		enableSorting: false,
+		meta: { filterLabel: "Risk" },
+		// Sits beside Priority: together they are the two decisions that drive
+		// how fast and how hard the team responds.
+		cell: ({ row }) => <RiskBadge level={row.original.riskLevel} />,
+	},
+	{
+		id: "priority",
+		accessorKey: "priority",
+		header: "Priority",
+		enableSorting: false,
+		meta: {
+			filterLabel: "Priority",
+		},
+		// The priority IS the verification deadline, so it sits next to the
+		// alert id where a focal person scanning the queue reads it first.
+		cell: ({ row }) => (
+			<PriorityBadge priority={row.original.priority} showDeadline />
+		),
 	},
 	{
 		accessorKey: "date",
@@ -519,6 +556,26 @@ export const createCallLogsTableColumns = (
 							<Edit className="h-4 w-4 mr-2" />
 							Edit alert
 						</DropdownMenuItem>
+						{alertItem.verificationOutcome === "Confirmed" && (
+							<DropdownMenuItem
+								onClick={() =>
+									callbacks.onAssessRisk(alertItem)
+								}
+							>
+								<ShieldAlert className="h-4 w-4 mr-2" />
+								{alertItem.riskLevel ? "Re-assess risk" : "Assess risk"}
+							</DropdownMenuItem>
+						)}
+						{!alertItem.isVerified && (
+							<DropdownMenuItem
+								onClick={() =>
+									callbacks.onTriageAlert(alertItem)
+								}
+							>
+								<ShieldQuestion className="h-4 w-4 mr-2" />
+								{alertItem.priority ? "Re-triage" : "Triage"}
+							</DropdownMenuItem>
+						)}
 						{!alertItem.isVerified && (
 							<DropdownMenuItem
 								onClick={() =>

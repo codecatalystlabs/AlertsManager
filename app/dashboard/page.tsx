@@ -29,6 +29,7 @@ import {
 	resolveDashboardRange,
 	DEFAULT_RANGE_PRESET,
 	type DashboardRangeValue,
+	SignalCoverageCard,
 } from "@/components/dashboard";
 import { useDashboardSummary } from "@/hooks/use-dashboard-summary";
 import type { AlertCounts } from "@/app/dashboard/types";
@@ -316,6 +317,11 @@ export default function DashboardPage(): React.JSX.Element {
 					<DashboardCharts summary={summary} />
 				) : null}
 			</div>
+
+			{/* What everything above does NOT count: signals still sitting in the
+			    6767 / eCHIS / POE feeds, which never entered triage or
+			    verification. Placed last so it reads as the caveat it is. */}
+			<SignalCoverageCard />
 		</div>
 	);
 }

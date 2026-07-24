@@ -30,6 +30,143 @@ export const FIELD_CASE_VERIFICATION = "Field Case Verification";
  */
 export const EMS_EVACUATION_ACTION = "Validated for EMS Evacuation";
 
+/* -------------------------------------------------------------------------
+ * Verification outcome vs response action — the split the EBS pipeline needs.
+ *
+ * TS twin of alertsMIS/backend/internal/services/verification_outcome.go. The
+ * vocabulary AND the precedence must stay identical in both, because the server
+ * re-derives the split from whatever this form submits.
+ *
+ * VERIFICATION (step 3) answers only "is this signal a genuine event?" — a
+ * confirmed signal becomes an "event", which is what the signal-to-event
+ * conversion KPI counts. RESPONSE (step 6) is what was then DONE, and one event
+ * can carry several actions at once.
+ * ---------------------------------------------------------------------- */
+
+export const VERIFICATION_CONFIRMED = "Confirmed";
+export const VERIFICATION_DISCARDED = "Discarded";
+export const VERIFICATION_ESCALATED_FIELD = "Escalated to Field";
+
+export type VerificationOutcome =
+	| typeof VERIFICATION_CONFIRMED
+	| typeof VERIFICATION_DISCARDED
+	| typeof VERIFICATION_ESCALATED_FIELD;
+
+export const VERIFICATION_OUTCOMES: VerificationOutcome[] = [
+	VERIFICATION_CONFIRMED,
+	VERIFICATION_DISCARDED,
+	VERIFICATION_ESCALATED_FIELD,
+];
+
+/** What each outcome means, shown beside the choice so verifiers stay consistent. */
+export const OUTCOME_GUIDANCE: Record<VerificationOutcome, string> = {
+	[VERIFICATION_CONFIRMED]:
+		"The signal is a genuine public-health event. It is now counted as an event and moves on to response.",
+	[VERIFICATION_DISCARDED]:
+		"Checked and found not to be a public-health event — no further response needed.",
+	[VERIFICATION_ESCALATED_FIELD]:
+		"The desk cannot conclude from here. Send for field verification; the outcome stays open until the field team reports.",
+};
+
+/** The actions a responder may record. Independent of the outcome, and multi-select. */
+export const RESPONSE_ACTION_OPTIONS = [
+	"Sample Collected",
+	EMS_EVACUATION_ACTION,
+	"Mortality Surveillance/Supervised Burial",
+	"Admitted",
+] as const;
+
+/**
+ * Classify ONE part of a comma-joined verification value as either an outcome
+ * signal or a response action. Mirrors classifyVerificationPart in Go, including
+ * the substring matching that tolerates the phrasings and misspellings real
+ * records carry.
+ */
+function classifyPart(part: string): {
+	outcome?: VerificationOutcome;
+	action?: string;
+} {
+	const lower = part.trim().toLowerCase();
+	if (!lower) return {};
+
+	if (
+		lower.includes("discard") ||
+		(lower.includes("case def") &&
+			(lower.includes("not meet") || lower.includes("doesnot")))
+	) {
+		return { outcome: VERIFICATION_DISCARDED };
+	}
+	if (lower.includes("case verification")) {
+		return { outcome: VERIFICATION_ESCALATED_FIELD };
+	}
+	// Evacuation is tested BEFORE sample: a record carrying both must not lose
+	// its evacuation (see the Go twin's ordering note).
+	if (lower.includes("evacuat")) return { action: EMS_EVACUATION_ACTION };
+	if (lower.includes("sample")) return { action: "Sample Collected" };
+	if (
+		lower.includes("supervised burial") ||
+		lower.includes("mortality surv") ||
+		lower.includes("survaillance") ||
+		lower.includes("sdb")
+	) {
+		return { action: "Mortality Surveillance/Supervised Burial" };
+	}
+	if (lower.includes("admitted")) return { action: "Admitted" };
+	return {};
+}
+
+/**
+ * Unpick a legacy comma-joined verification value into its single outcome and
+ * its response actions — used to pre-fill the form when re-opening an alert
+ * verified before the split existed.
+ *
+ * Outcome precedence is Discarded > Escalated to Field > Confirmed: a recorded
+ * discard is the FINAL conclusion, an escalation means the desk declined to
+ * conclude, and Confirmed is implied by any action taken.
+ */
+export function splitDeskVerification(value?: string | null): {
+	outcome: VerificationOutcome | "";
+	actions: string[];
+} {
+	const actions: string[] = [];
+	let discarded = false;
+	let escalated = false;
+
+	for (const part of (value ?? "").split(",")) {
+		const { outcome, action } = classifyPart(part);
+		if (outcome === VERIFICATION_DISCARDED) discarded = true;
+		if (outcome === VERIFICATION_ESCALATED_FIELD) escalated = true;
+		if (action && !actions.includes(action)) actions.push(action);
+	}
+
+	let outcome: VerificationOutcome | "" = "";
+	if (discarded) outcome = VERIFICATION_DISCARDED;
+	else if (escalated) outcome = VERIFICATION_ESCALATED_FIELD;
+	else if (actions.length > 0) outcome = VERIFICATION_CONFIRMED;
+
+	return { outcome, actions };
+}
+
+/**
+ * Rebuild the comma-joined legacy value from an outcome + actions pair.
+ *
+ * Still needed because `case_verification_desk` remains the mirror the backend
+ * writes, and because the 6767/eCHIS/POE verify endpoints take only that single
+ * string — they derive the split from it server-side.
+ *
+ * Actions first, outcome last, matching the Go twin so a round-trip returns
+ * exactly what was written.
+ */
+export function legacyDeskValue(
+	outcome: VerificationOutcome | "",
+	actions: string[]
+): string {
+	const parts = [...actions];
+	if (outcome === VERIFICATION_DISCARDED) parts.push(VERIFICATION_DISCARDED);
+	if (outcome === VERIFICATION_ESCALATED_FIELD) parts.push(FIELD_CASE_VERIFICATION);
+	return parts.join(", ");
+}
+
 /**
  * Desk verification now allows MULTIPLE actions. To stay backward compatible
  * with the single TEXT column (`case_verification_desk` / `actions`) and all the

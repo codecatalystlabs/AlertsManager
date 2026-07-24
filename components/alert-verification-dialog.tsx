@@ -45,10 +45,16 @@ import { verifyEchisAlert, verifyPoeAlert } from "@/lib/fetch-ndw-alerts";
 import { buildEidsrVerifyPayload } from "@/lib/eidsr-verify-payload";
 import { CaseLocationSelect } from "@/components/case-location-select";
 import {
-	DESK_VERIFICATION_OPTIONS,
 	FIELD_VERIFICATION_OPTIONS,
 	FIELD_CASE_VERIFICATION,
 	EMS_EVACUATION_ACTION,
+	VERIFICATION_OUTCOMES,
+	OUTCOME_GUIDANCE,
+	RESPONSE_ACTION_OPTIONS,
+	VERIFICATION_ESCALATED_FIELD,
+	splitDeskVerification,
+	legacyDeskValue,
+	type VerificationOutcome,
 	hasDeskAction,
 	toggleDeskAction,
 } from "@/lib/verification-options";
@@ -107,6 +113,31 @@ function resolveInitialDeskAction(alert: {
 	if (actions && actions !== DEFAULT_CREATE_ACTION) return actions;
 
 	return "";
+}
+
+/**
+ * Pre-fill the split fields when re-opening an alert. Prefers the dedicated
+ * columns and falls back to unpicking the legacy conflated string, so a signal
+ * verified before the split still re-opens showing what was actually decided.
+ */
+function resolveInitialVerification(alert: {
+	verificationOutcome?: string | null;
+	responseActions?: string | null;
+	actions?: string;
+	caseVerificationDesk?: string;
+}): { outcome: string; actions: string[] } {
+	const storedOutcome = (alert.verificationOutcome ?? "").trim();
+	const storedActions = (alert.responseActions ?? "").trim();
+	if (storedOutcome || storedActions) {
+		return {
+			outcome: storedOutcome,
+			actions: storedActions
+				.split(",")
+				.map((a) => a.trim())
+				.filter(Boolean),
+		};
+	}
+	return splitDeskVerification(resolveInitialDeskAction(alert));
 }
 
 export function AlertVerificationDialog({
@@ -168,6 +199,12 @@ export function AlertVerificationDialog({
 		feedback: "",
 		verifiedBy: "",
 		deskVerificationActions: "",
+		// The verification split. `deskVerificationActions` above is now DERIVED
+		// from these two (see the effect below) and kept only because the legacy
+		// string is what the 6767/eCHIS/POE verify endpoints accept and what the
+		// backend mirrors into case_verification_desk.
+		verificationOutcome: "",
+		responseActions: "",
 		fieldVerificationFeedback: "",
 	});
 
@@ -220,6 +257,8 @@ export function AlertVerificationDialog({
 				feedback: alert.feedback || "",
 				verifiedBy: "",
 				deskVerificationActions: resolveInitialDeskAction(alert),
+				verificationOutcome: resolveInitialVerification(alert).outcome,
+				responseActions: resolveInitialVerification(alert).actions.join(", "),
 				fieldVerificationFeedback:
 					alert.fieldVerificationDecision ||
 					alert.fieldVerification ||
@@ -243,20 +282,37 @@ export function AlertVerificationDialog({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [isOpen, alert?.id, isTokenlessMode]);
 
-	// Show VHF form when Field Case Verification is one of the selected actions
+	// Show the VHF case-investigation form when the desk escalates to the field.
+	// Keyed off the outcome itself rather than the derived legacy string: an
+	// escalation IS the outcome "Escalated to Field", and reading it directly
+	// keeps the trigger correct even if the legacy encoding ever changes.
 	useEffect(() => {
-		if (
-			hasDeskAction(
-				formData.deskVerificationActions,
-				FIELD_CASE_VERIFICATION
-			)
-		) {
+		if (formData.verificationOutcome === VERIFICATION_ESCALATED_FIELD) {
 			setShowVhfForm(true);
 		} else {
 			setShowVhfForm(false);
 			setVhfCaseCode(null);
 		}
-	}, [formData.deskVerificationActions]);
+	}, [formData.verificationOutcome]);
+
+	// The legacy comma-joined value is DERIVED from the split, never edited
+	// directly. Everything downstream still reads it: the VHF-form trigger below,
+	// the legacy `actions` mirror, and the 6767/eCHIS/POE verify endpoints, which
+	// accept only this single string and re-split it server-side.
+	useEffect(() => {
+		const derived = legacyDeskValue(
+			formData.verificationOutcome as VerificationOutcome | "",
+			formData.responseActions
+				.split(",")
+				.map((a) => a.trim())
+				.filter(Boolean)
+		);
+		setFormData((prev) =>
+			prev.deskVerificationActions === derived
+				? prev
+				: { ...prev, deskVerificationActions: derived }
+		);
+	}, [formData.verificationOutcome, formData.responseActions]);
 
 	// Keep legacy `actions` field in sync with desk verification radio selection
 	useEffect(() => {
@@ -358,7 +414,7 @@ export function AlertVerificationDialog({
 				setError("NDW alert ID is missing.");
 				return;
 			}
-			if (!formData.deskVerificationActions) {
+			if (!formData.verificationOutcome) {
 				setError("Please select a desk verification action.");
 				return;
 			}
@@ -385,7 +441,7 @@ export function AlertVerificationDialog({
 			!formData.history ||
 			!formData.verifiedBy ||
 			!formData.verificationDate ||
-			!formData.deskVerificationActions
+			!formData.verificationOutcome
 		) {
 			setError("Please fill in all required fields");
 			return;
@@ -533,6 +589,13 @@ export function AlertVerificationDialog({
 				feedback: formData.feedback || fieldFeedback || "",
 				verifiedBy: formData.verifiedBy,
 				deskVerificationActions: deskAction,
+				// The split is what the alerts verify endpoint stores; the joined
+				// string above stays for the legacy mirror and the NDW/6767 paths.
+				verificationOutcome: formData.verificationOutcome,
+				responseActions: formData.responseActions
+					.split(",")
+					.map((a) => a.trim())
+					.filter(Boolean),
 				caseVerificationDesk: deskAction,
 				fieldVerificationFeedback: fieldFeedback,
 				fieldVerification: fieldFeedback,
@@ -1347,72 +1410,114 @@ export function AlertVerificationDialog({
 
 						<Separator />
 
-						{/* Desk Verification Actions */}
+						{/* Verification outcome — EBS step 3: is this signal a real event? */}
 						<div className="space-y-3">
 							<div className="flex items-center gap-3">
 								<AlertTriangleIcon className="h-4 w-4 text-uganda-red" />
 								<h3 className="text-sm font-semibold uppercase tracking-wide">
-									Desk Verification Actions
+									Verification Outcome
+									<span className="ml-1 text-uganda-red">*</span>
+								</h3>
+							</div>
+
+							<p className="text-xs text-muted-foreground">
+								Is this signal a genuine public-health event? Exactly one answer —
+								a confirmed signal becomes an event and is counted in the
+								signal-to-event conversion rate.
+							</p>
+
+							<div className="space-y-2">
+								{VERIFICATION_OUTCOMES.map((option) => {
+									const selected = formData.verificationOutcome === option;
+									return (
+										<button
+											key={option}
+											type="button"
+											aria-pressed={selected}
+											onClick={() =>
+												handleInputChange("verificationOutcome", option)
+											}
+											className={`w-full rounded-lg border p-3 text-left transition-colors ${
+												selected
+													? "border-uganda-red bg-uganda-red/5 ring-1 ring-uganda-red"
+													: "border-gray-200 hover:bg-gray-50"
+											}`}
+										>
+											<span className="text-sm font-semibold">{option}</span>
+											<p className="mt-1 text-xs text-muted-foreground">
+												{OUTCOME_GUIDANCE[option]}
+											</p>
+										</button>
+									);
+								})}
+							</div>
+						</div>
+
+						<Separator />
+
+						{/* Response actions — EBS step 6: what was DONE. Separate from the
+						    outcome because one event can carry several actions, and because
+						    an action can accompany ANY outcome: a sample is often collected
+						    from a signal that is then discarded. */}
+						<div className="space-y-3">
+							<div className="flex items-center gap-3">
+								<AlertTriangleIcon className="h-4 w-4 text-uganda-red" />
+								<h3 className="text-sm font-semibold uppercase tracking-wide">
+									Response Actions Taken
 								</h3>
 							</div>
 
 							<div className="bg-muted p-4 rounded-lg">
 								<p className="text-xs text-muted-foreground mb-3">
-									Select all actions that apply.
+									Select every action taken. Optional — leave blank if none was
+									needed. Each is recorded separately, so nothing is lost when
+									several apply.
 								</p>
 								<div className="flex flex-wrap gap-3">
-									{DESK_VERIFICATION_OPTIONS.map(
-										(option) => {
-											const id = `desk-${option
-												.toLowerCase()
-												.replace(
-													/[^a-z0-9]/g,
-													"-"
-												)}`;
-											return (
-												<div
-													key={option}
-													className="flex items-center space-x-2"
-												>
-													<Checkbox
-														id={id}
-														checked={hasDeskAction(
-															formData.deskVerificationActions,
-															option
-														)}
-														onCheckedChange={(
-															checked
-														) =>
-															handleInputChange(
-																"deskVerificationActions",
-																toggleDeskAction(
-																	formData.deskVerificationActions,
-																	option,
-																	checked ===
-																		true
-																)
+									{RESPONSE_ACTION_OPTIONS.map((option) => {
+										const id = `action-${option
+											.toLowerCase()
+											.replace(/[^a-z0-9]/g, "-")}`;
+										return (
+											<div
+												key={option}
+												className="flex items-center space-x-2"
+											>
+												<Checkbox
+													id={id}
+													checked={hasDeskAction(
+														formData.responseActions,
+														option
+													)}
+													onCheckedChange={(checked) =>
+														handleInputChange(
+															"responseActions",
+															toggleDeskAction(
+																formData.responseActions,
+																option,
+																checked === true
 															)
-														}
-													/>
-													<Label
-														htmlFor={id}
-														className="text-sm font-medium"
-													>
-														{option}
-													</Label>
-												</div>
-											);
-										}
-									)}
+														)
+													}
+												/>
+												<Label
+													htmlFor={id}
+													className="text-sm font-medium"
+												>
+													{option}
+												</Label>
+											</div>
+										);
+									})}
 								</div>
 							</div>
 
-							{/* Selecting the EMS action is what triggers the whole EMS
-							    integration, so say so BEFORE submit — afterwards it is
-							    only a toast the verifier may miss, and this is the point
-							    at which an ambulance gets involved. */}
+							{/* Ticking the EMS action is what triggers the whole EMS
+							    integration, so say so BEFORE submit — afterwards it is only a
+							    toast the verifier may miss, and this is the point at which an
+							    ambulance gets involved. */}
 							{hasDeskAction(
-								formData.deskVerificationActions,
+								formData.responseActions,
 								EMS_EVACUATION_ACTION
 							) && (
 								<div className="flex items-start gap-3 rounded-lg border border-violet-200 bg-violet-50 p-3">
