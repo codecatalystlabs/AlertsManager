@@ -68,6 +68,11 @@ export interface EchisAlertRow {
 	personInVhtArea: string;
 	briefDescription: string;
 	additionalInformation: string;
+	// cht_ebs_report-only fields (empty for rows from the old feed).
+	externalUuid?: string;
+	signalReported?: string;
+	reportedAt?: string;
+	region?: string;
 	createdAt?: string;
 	updatedAt?: string;
 	rawPayload?: string;
@@ -180,47 +185,131 @@ function buildQuery(params?: NdwListParams): string {
 	return q ? `?${q}` : "";
 }
 
-export async function listEchisAlerts(params?: NdwListParams): Promise<{
-	alerts: EchisAlertRow[];
-	pagination: NdwPagination;
-	live?: boolean;
-}> {
-	const json = await ndwRequest<{
-		alerts: EchisAlertRow[];
+// ── Per-source client factory ────────────────────────────────────────────────
+// eCHIS and POE differ only by URL segment and row type; one factory produces
+// the whole per-source client so the two feeds can never drift apart again.
+
+export interface ForwardNdwResult {
+	alertId: number;
+	district: string;
+}
+
+export interface VerifyNdwResult {
+	alertId: number;
+}
+
+export interface NdwSource<TRow> {
+	list(params?: NdwListParams): Promise<{
+		alerts: TRow[];
 		pagination: NdwPagination;
 		live?: boolean;
-	}>(`/ndw/echis${buildQuery(params)}`);
+	}>;
+	stats(): Promise<{ totalAlerts: number; note?: string }>;
+	sync(
+		fullSync?: boolean,
+		refreshExisting?: boolean
+	): Promise<{
+		started: boolean;
+		running: boolean;
+		progress: NdwSyncProgress;
+		message: string;
+	}>;
+	syncStatus(): Promise<NdwSyncProgress>;
+	forward(
+		id: number,
+		payload: { district: string; note?: string }
+	): Promise<ForwardNdwResult>;
+	verify(
+		id: number,
+		payload: EidsrMessageVerifyPayload
+	): Promise<VerifyNdwResult>;
+}
+
+export function createNdwSource<TRow>(base: "echis" | "poe"): NdwSource<TRow> {
+	const root = `/ndw/${base}`;
+	const jsonHeaders = { "Content-Type": "application/json" };
 	return {
-		alerts: json.alerts ?? [],
-		pagination: json.pagination ?? { page: 1, limit: 50, total: 0, totalPages: 0 },
-		live: json.live,
+		async list(params) {
+			const json = await ndwRequest<{
+				alerts: TRow[];
+				pagination: NdwPagination;
+				live?: boolean;
+			}>(`${root}${buildQuery(params)}`);
+			return {
+				alerts: json.alerts ?? [],
+				pagination:
+					json.pagination ?? { page: 1, limit: 50, total: 0, totalPages: 0 },
+				live: json.live,
+			};
+		},
+		stats() {
+			return ndwRequest<{ totalAlerts: number; note?: string }>(`${root}/stats`);
+		},
+		sync(fullSync = false, refreshExisting = false) {
+			return ndwRequest<{
+				started: boolean;
+				running: boolean;
+				progress: NdwSyncProgress;
+				message: string;
+			}>(`${root}/sync`, {
+				method: "POST",
+				headers: jsonHeaders,
+				body: JSON.stringify({ fullSync, refreshExisting }),
+			});
+		},
+		syncStatus() {
+			return ndwRequest<NdwSyncProgress>(`${root}/sync/status`);
+		},
+		async forward(id, payload) {
+			const json = await ndwRequest<{ alertId?: number; district?: string }>(
+				`${root}/${id}/forward`,
+				{
+					method: "POST",
+					headers: jsonHeaders,
+					body: JSON.stringify(payload),
+				}
+			);
+			notifyAlertsChanged();
+			return {
+				alertId: Number(json.alertId ?? 0),
+				district: json.district ?? payload.district,
+			};
+		},
+		async verify(id, payload) {
+			const json = await ndwRequest<{ alertId?: number }>(
+				`${root}/${id}/verify`,
+				{
+					method: "POST",
+					headers: jsonHeaders,
+					body: JSON.stringify(payload),
+				}
+			);
+			notifyAlertsChanged();
+			return { alertId: Number(json.alertId ?? 0) };
+		},
 	};
 }
 
-export async function getEchisStats(): Promise<{ totalAlerts: number; note?: string }> {
-	return ndwRequest(`/ndw/echis/stats`);
-}
+export const echisSource = createNdwSource<EchisAlertRow>("echis");
+export const poeSource = createNdwSource<PoeAlertRow>("poe");
 
-export async function syncEchisAlerts(
-	fullSync = false,
-	refreshExisting = false
-): Promise<{
-	started: boolean;
-	running: boolean;
-	progress: NdwSyncProgress;
-	message: string;
-}> {
-	return ndwRequest(`/ndw/echis/sync`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ fullSync, refreshExisting }),
-	});
-}
+// Back-compat named exports (imported across hooks/pages). Both feeds now share
+// the single implementation produced by the factory above.
+export const listEchisAlerts = echisSource.list;
+export const getEchisStats = echisSource.stats;
+export const syncEchisAlerts = echisSource.sync;
+export const getEchisSyncStatus = echisSource.syncStatus;
+export const forwardEchisAlert = echisSource.forward;
+export const verifyEchisAlert = echisSource.verify;
 
-export async function getEchisSyncStatus(): Promise<NdwSyncProgress> {
-	return ndwRequest(`/ndw/echis/sync/status`);
-}
+export const listPoeAlerts = poeSource.list;
+export const getPoeStats = poeSource.stats;
+export const syncPoeAlerts = poeSource.sync;
+export const getPoeSyncStatus = poeSource.syncStatus;
+export const forwardPoeAlert = poeSource.forward;
+export const verifyPoeAlert = poeSource.verify;
 
+// eCHIS-only: edit a synced row / re-pull it from the remote feed.
 export type UpdateEchisAlertPayload = Partial<
 	Pick<
 		EchisAlertRow,
@@ -254,143 +343,4 @@ export async function refreshEchisAlert(
 	id: number
 ): Promise<{ alert: EchisAlertRow; message: string }> {
 	return ndwRequest(`/ndw/echis/${id}/refresh`, { method: "POST" });
-}
-
-export async function listPoeAlerts(params?: NdwListParams): Promise<{
-	alerts: PoeAlertRow[];
-	pagination: NdwPagination;
-	live?: boolean;
-}> {
-	const json = await ndwRequest<{
-		alerts: PoeAlertRow[];
-		pagination: NdwPagination;
-		live?: boolean;
-	}>(`/ndw/poe${buildQuery(params)}`);
-	return {
-		alerts: json.alerts ?? [],
-		pagination: json.pagination ?? { page: 1, limit: 50, total: 0, totalPages: 0 },
-		live: json.live,
-	};
-}
-
-export async function getPoeStats(): Promise<{ totalAlerts: number }> {
-	return ndwRequest(`/ndw/poe/stats`);
-}
-
-export async function syncPoeAlerts(
-	fullSync = false,
-	refreshExisting = false
-): Promise<{
-	started: boolean;
-	running: boolean;
-	progress: NdwSyncProgress;
-	message: string;
-}> {
-	return ndwRequest(`/ndw/poe/sync`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ fullSync, refreshExisting }),
-	});
-}
-
-export async function getPoeSyncStatus(): Promise<NdwSyncProgress> {
-	return ndwRequest(`/ndw/poe/sync/status`);
-}
-
-export interface ForwardNdwResult {
-	alertId: number;
-	district: string;
-}
-
-/**
- * Forward an eCHIS signal to a district as a new call-log alert (it then appears
- * in that district's Call Logs and can be verified through the normal flow).
- * POST /ndw/echis/:id/forward. Notifies alerts-derived views so the new alert
- * shows up without a manual refresh.
- */
-export async function forwardEchisAlert(
-	id: number,
-	payload: { district: string; note?: string }
-): Promise<ForwardNdwResult> {
-	const json = await ndwRequest<{ alertId?: number; district?: string }>(
-		`/ndw/echis/${id}/forward`,
-		{
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(payload),
-		}
-	);
-	notifyAlertsChanged();
-	return {
-		alertId: Number(json.alertId ?? 0),
-		district: json.district ?? payload.district,
-	};
-}
-
-/**
- * Forward a POE traveller alert to a district as a new call-log alert.
- * POST /ndw/poe/:id/forward. See forwardEchisAlert.
- */
-export async function forwardPoeAlert(
-	id: number,
-	payload: { district: string; note?: string }
-): Promise<ForwardNdwResult> {
-	const json = await ndwRequest<{ alertId?: number; district?: string }>(
-		`/ndw/poe/${id}/forward`,
-		{
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(payload),
-		}
-	);
-	notifyAlertsChanged();
-	return {
-		alertId: Number(json.alertId ?? 0),
-		district: json.district ?? payload.district,
-	};
-}
-
-export interface VerifyNdwResult {
-	alertId: number;
-}
-
-/**
- * Verify an eCHIS signal INTO the alerts table as a verified call-log alert.
- * POST /ndw/echis/:id/verify. Re-verifying updates the same linked alert. The
- * payload is the shared verification form (built by buildEidsrVerifyPayload).
- */
-export async function verifyEchisAlert(
-	id: number,
-	payload: EidsrMessageVerifyPayload
-): Promise<VerifyNdwResult> {
-	const json = await ndwRequest<{ alertId?: number }>(
-		`/ndw/echis/${id}/verify`,
-		{
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(payload),
-		}
-	);
-	notifyAlertsChanged();
-	return { alertId: Number(json.alertId ?? 0) };
-}
-
-/**
- * Verify a POE traveller alert INTO the alerts table. POST /ndw/poe/:id/verify.
- * See verifyEchisAlert.
- */
-export async function verifyPoeAlert(
-	id: number,
-	payload: EidsrMessageVerifyPayload
-): Promise<VerifyNdwResult> {
-	const json = await ndwRequest<{ alertId?: number }>(
-		`/ndw/poe/${id}/verify`,
-		{
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(payload),
-		}
-	);
-	notifyAlertsChanged();
-	return { alertId: Number(json.alertId ?? 0) };
 }

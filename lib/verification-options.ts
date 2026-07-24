@@ -4,6 +4,7 @@ export const DESK_VERIFICATION_OPTIONS = [
 	"Validated for EMS Evacuation",
 	"Mortality Surveillance/Supervised Burial",
 	"Sample Collected",
+	"Admitted"
 ] as const;
 
 export const FIELD_VERIFICATION_OPTIONS = [
@@ -13,6 +14,7 @@ export const FIELD_VERIFICATION_OPTIONS = [
 	"Sample Collected",
 	"Mortality Surveillance/Supervised Burial",
 	"Recommend for Evacuation",
+	"Admitted"
 ] as const;
 
 /** The desk action that escalates an alert to the field (shows the VHF form). */

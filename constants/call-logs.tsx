@@ -1,3 +1,4 @@
+import { altCode } from "@/lib/alt-code";
 import { type ColumnDef } from "@tanstack/react-table";
 import { AlertLog } from "@/hooks/use-call-logs-data";
 import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
@@ -21,6 +22,11 @@ import {
 } from "@/lib/alert-pdf";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+	PENDING_BADGE_CLASS,
+	VerificationBadge,
+	statusBadgeClass,
+} from "@/components/ui/status-badges";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -260,7 +266,7 @@ export const createCallLogsTableColumns = (
 		cell: ({ row }) => {
 			return (
 				<div className="font-mono text-sm">
-					ALT{String(row.getValue("id")).padStart(3, "0")}
+					{altCode(Number(row.getValue("id")))}
 				</div>
 			);
 		},
@@ -430,16 +436,7 @@ export const createCallLogsTableColumns = (
 		cell: ({ row }) => {
 			const status = row.getValue("status") as string;
 			return (
-				<Badge
-					variant={
-						status === "Alive" ? "default" : "destructive"
-					}
-					className={
-						status === "Alive"
-							? "bg-green-100 text-green-800"
-							: "bg-red-100 text-red-800"
-					}
-				>
+				<Badge variant="secondary" className={statusBadgeClass(status)}>
 					{status}
 				</Badge>
 			);
@@ -453,13 +450,12 @@ export const createCallLogsTableColumns = (
 		},
 		cell: ({ row }) => {
 			const response = row.getValue("response") as string;
-			return (
-				<Badge
-					variant="secondary"
-					className="text-xs"
-				>
-					{response || "Pending"}
+			return response ? (
+				<Badge variant="secondary" className="text-xs">
+					{response}
 				</Badge>
+			) : (
+				<Badge className={`${PENDING_BADGE_CLASS} text-xs`}>Pending</Badge>
 			);
 		},
 	},
@@ -474,20 +470,9 @@ export const createCallLogsTableColumns = (
 				{ value: "false", label: "Pending" },
 			],
 		},
-		cell: ({ row }) => {
-			const isVerified = row.getValue("isVerified") as boolean;
-			return (
-				<Badge
-					className={
-						isVerified
-							? "rounded-full border-transparent bg-success text-white hover:bg-success"
-							: "rounded-full border-transparent bg-warning text-warning-foreground hover:bg-warning"
-					}
-				>
-					{isVerified ? "Yes" : "Pending"}
-				</Badge>
-			);
-		},
+		cell: ({ row }) => (
+			<VerificationBadge verified={row.getValue("isVerified") as boolean} />
+		),
 	},
 	{
 		id: "actions",

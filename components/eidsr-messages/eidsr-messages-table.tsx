@@ -1,3 +1,4 @@
+import { altCode } from "@/lib/alt-code";
 import React, { memo, useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -148,7 +149,7 @@ function createColumns(handlers: {
 			},
 			cell: ({ row }) =>
 				row.original.linkedAlertId != null
-					? `ALT${String(row.original.linkedAlertId).padStart(3, "0")}`
+					? `${altCode(row.original.linkedAlertId)}`
 					: "—",
 		},
 		{

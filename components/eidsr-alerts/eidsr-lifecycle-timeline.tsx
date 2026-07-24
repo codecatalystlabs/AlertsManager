@@ -1,3 +1,5 @@
+import { formatDateTime } from "@/lib/format-date";
+import { altCode } from "@/lib/alt-code";
 import React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -6,14 +8,9 @@ import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
 import { AlertVerifyChip } from "@/components/eidsr-alerts/alert-verify-chip";
 
 function fmt(value: string | null | undefined): string {
-	if (!value) return "";
-	const d = new Date(value);
-	return Number.isNaN(d.getTime()) ? value : d.toLocaleString();
+	return formatDateTime(value, "");
 }
 
-function altCode(id: number): string {
-	return `ALT${String(id).padStart(3, "0")}`;
-}
 
 /**
  * End-to-end trail of a 6767 alert on the EOC side: received → forwarded to a

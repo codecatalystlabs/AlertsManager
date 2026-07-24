@@ -1,7 +1,6 @@
 import React, { memo } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { HeartPulse, HeartOff, HelpCircle, ClipboardList } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { BorderStatCard } from "@/components/ui/border-stat-card";
 import { LAYOUT } from "@/constants/layout";
 
 interface AlertsStatsProps {
@@ -12,45 +11,6 @@ interface AlertsStatsProps {
 		total: number;
 	};
 }
-
-interface StatCardProps {
-	title: string;
-	value: number;
-	icon: React.ComponentType<{ className?: string }>;
-	borderColor: string;
-	textColor: string;
-	iconColor: string;
-}
-
-// Styled to match the Call Logs stat cards: plain white card with a colour-coded
-// left border, a lucide icon, and a colour-coded value (no gradient fills).
-const StatCard = memo<StatCardProps>(
-	({ title, value, icon: Icon, borderColor, textColor, iconColor }) => (
-		<Card
-			className={cn(
-				"min-w-0 border-l-4",
-				borderColor,
-				"transition-shadow hover:shadow-md"
-			)}
-		>
-			<CardContent className="p-2">
-				<div className="flex items-center gap-2 min-w-0">
-					<Icon className={cn("h-5 w-5 shrink-0", iconColor)} />
-					<div className="min-w-0">
-						<p className="text-[11px] font-medium text-gray-600 truncate leading-tight">
-							{title}
-						</p>
-						<p className={cn("text-lg font-bold leading-tight", textColor)}>
-							{value.toLocaleString()}
-						</p>
-					</div>
-				</div>
-			</CardContent>
-		</Card>
-	)
-);
-
-StatCard.displayName = "StatCard";
 
 export const AlertsStats = memo<AlertsStatsProps>(({ stats }) => {
 	const statCards = [
@@ -91,10 +51,7 @@ export const AlertsStats = memo<AlertsStatsProps>(({ stats }) => {
 	return (
 		<div className={LAYOUT.statsGrid}>
 			{statCards.map((card) => (
-				<StatCard
-					key={card.title}
-					{...card}
-				/>
+				<BorderStatCard key={card.title} {...card} />
 			))}
 		</div>
 	);

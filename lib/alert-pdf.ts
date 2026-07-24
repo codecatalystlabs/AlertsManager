@@ -1,3 +1,4 @@
+import { altCode } from "@/lib/alt-code";
 /**
  * Generates a one-page PDF "receipt" of a submitted health alert so the
  * reporter can keep a copy for themselves. Mirrors the lazy-import approach
@@ -63,7 +64,7 @@ function formatFormDate(dateStr: string): string {
 }
 
 function formatReference(id?: number | null): string {
-	return id != null ? `ALT${String(id).padStart(3, "0")}` : "Pending";
+	return id != null ? `${altCode(id)}` : "Pending";
 }
 
 export function alertPdfFilename(data: AlertPdfData): string {

@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { DetailRow } from "@/components/ui/detail-fields";
 import type { EidsrEvent } from "@/lib/fetch-eidsr-events";
 import {
 	EIDSR_DATA_VALUE_FIELDS,
@@ -88,20 +89,13 @@ export const EidsrEventDetailsDialog = memo<EidsrEventDetailsDialogProps>(
 					<div className="space-y-3">
 						<h4 className="text-sm font-semibold">Alert details</h4>
 						<dl className="grid grid-cols-1 gap-2 text-sm">
-							{SUMMARY_FIELDS.map((field) => {
-								const value = getEidsrDataValue(event, field);
-								if (!value) return null;
-								return (
-									<div key={field} className="grid grid-cols-3 gap-2">
-										<dt className="text-muted-foreground col-span-1">
-											{EIDSR_FIELD_LABELS[field]}
-										</dt>
-										<dd className="col-span-2 font-medium whitespace-pre-wrap">
-											{value}
-										</dd>
-									</div>
-								);
-							})}
+							{SUMMARY_FIELDS.map((field) => (
+								<DetailRow
+									key={field}
+									label={EIDSR_FIELD_LABELS[field]}
+									value={getEidsrDataValue(event, field)}
+								/>
+							))}
 						</dl>
 					</div>
 
@@ -112,14 +106,12 @@ export const EidsrEventDetailsDialog = memo<EidsrEventDetailsDialogProps>(
 								<h4 className="text-sm font-semibold">Other data values</h4>
 								<dl className="grid grid-cols-1 gap-2 text-sm">
 									{extraEntries.map(([key, value]) => (
-										<div key={key} className="grid grid-cols-3 gap-2">
-											<dt className="text-muted-foreground col-span-1 break-all">
-												{key}
-											</dt>
-											<dd className="col-span-2 font-medium whitespace-pre-wrap">
-												{value}
-											</dd>
-										</div>
+										<DetailRow
+											key={key}
+											label={key}
+											value={value}
+											labelClassName="break-all"
+										/>
 									))}
 								</dl>
 							</div>

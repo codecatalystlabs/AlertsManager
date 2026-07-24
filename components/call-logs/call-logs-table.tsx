@@ -1,6 +1,7 @@
 import React, { memo, useMemo } from "react";
-import { type SortingState, type ColumnFiltersState } from "@tanstack/react-table";
+import { type ColumnFiltersState } from "@tanstack/react-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useServerSort } from "@/hooks/use-server-sort";
 import { DataTable } from "@/components/ui/data-table";
 import { AlertLog, type CallLogsSort } from "@/hooks/use-call-logs-data";
 import { LAYOUT } from "@/constants/layout";
@@ -9,7 +10,8 @@ import {
 	createCallLogsTableColumns,
 	type CallLogsTableCallbacks,
 } from "@/constants/call-logs";
-import { verifiedTableRowClass } from "@/lib/verified-row-style";
+import { alertSlaRowClass } from "@/lib/alert-sla";
+import { useTickingNow } from "@/hooks/use-ticking-now";
 import { canDeleteAlerts } from "@/lib/auth";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
@@ -67,6 +69,7 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 		filtersResetKey,
 	}) => {
 		const canDelete = canDeleteAlerts(useCurrentUser());
+		const now = useTickingNow();
 		const callbacks: CallLogsTableCallbacks = useMemo(
 			() => ({
 				onViewDetails,
@@ -83,24 +86,11 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 			[callbacks]
 		);
 
-		const sortingState: SortingState = useMemo(() => {
-			const columnId = sort.by ? SORT_KEY_TO_COLUMN[sort.by] : undefined;
-			return columnId ? [{ id: columnId, desc: sort.order === "desc" }] : [];
-		}, [sort]);
-
-		const handleSortingChange = useMemo(
-			() => (next: SortingState) => {
-				const first = next[0];
-				if (!first) {
-					onSortChange({ by: "", order: "desc" });
-					return;
-				}
-				const key = COLUMN_TO_SORT_KEY[first.id];
-				// Ignore sort toggles on columns the server can't sort on.
-				if (!key) return;
-				onSortChange({ by: key, order: first.desc ? "desc" : "asc" });
-			},
-			[onSortChange]
+		const { sortingState, handleSortingChange } = useServerSort(
+			COLUMN_TO_SORT_KEY,
+			SORT_KEY_TO_COLUMN,
+			sort,
+			onSortChange
 		);
 
 		return (
@@ -131,9 +121,11 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 						sorting={sortingState}
 						onSortingChange={handleSortingChange}
 						isLoading={isLoading}
-						getRowClassName={(row) =>
-							verifiedTableRowClass(!!row.original.isVerified)
-						}
+						// Tint each row by time in system: green <=1h, orange 1-6h,
+						// red >6h. The clock stops at verification, so a pending row
+						// keeps ageing (`now` ticks every minute) while a verified one
+						// freezes at the colour it earned.
+						getRowClassName={(row) => alertSlaRowClass(row.original, now)}
 					/>
 				</CardContent>
 			</Card>

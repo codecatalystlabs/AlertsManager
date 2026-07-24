@@ -1,6 +1,7 @@
 import React, { memo, useMemo } from "react";
-import type { ColumnFiltersState, SortingState } from "@tanstack/react-table";
+import type { ColumnFiltersState } from "@tanstack/react-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useServerSort } from "@/hooks/use-server-sort";
 import { DataTable } from "@/components/ui/data-table";
 import { Alert as AlertType } from "@/lib/auth";
 import {
@@ -88,24 +89,11 @@ export const AlertsTable = memo<AlertsTableProps>(
 			[callbacks]
 		);
 
-		const sortingState: SortingState = useMemo(() => {
-			const columnId = sort.by ? SORT_KEY_TO_COLUMN[sort.by] : undefined;
-			return columnId ? [{ id: columnId, desc: sort.order === "desc" }] : [];
-		}, [sort]);
-
-		const handleSortingChange = useMemo(
-			() => (next: SortingState) => {
-				const first = next[0];
-				if (!first) {
-					onSortChange({ by: "", order: "desc" });
-					return;
-				}
-				const key = COLUMN_TO_SORT_KEY[first.id];
-				// Ignore sort toggles on columns the server can't sort on.
-				if (!key) return;
-				onSortChange({ by: key, order: first.desc ? "desc" : "asc" });
-			},
-			[onSortChange]
+		const { sortingState, handleSortingChange } = useServerSort(
+			COLUMN_TO_SORT_KEY,
+			SORT_KEY_TO_COLUMN,
+			sort,
+			onSortChange
 		);
 
 		return (
@@ -136,7 +124,11 @@ export const AlertsTable = memo<AlertsTableProps>(
 						onSortingChange={handleSortingChange}
 						isLoading={isLoading}
 						// Tint each row by how long the alert has been in the system:
+<<<<<<< HEAD
 						// green <=2h, yellow 2-6h, red >6h. `now` ticks every minute so a
+=======
+						// green <=1h, orange 1-6h, red >6h. `now` ticks every minute so a
+>>>>>>> f385891d2edc4915bf5d8c125e9d52da73882542
 						// pending row re-tints as it ages, without waiting for a refetch.
 						getRowClassName={(row) => alertSlaRowClass(row.original, now)}
 					/>

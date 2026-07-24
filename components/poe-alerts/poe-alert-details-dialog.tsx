@@ -4,6 +4,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { DetailGrid, type DetailGridRow } from "@/components/ui/detail-fields";
 import type { PoeAlertRow } from "@/lib/fetch-ndw-alerts";
 
 interface PoeAlertDetailsDialogProps {
@@ -18,23 +19,23 @@ export function PoeAlertDetailsDialog({
 	onOpenChange,
 }: PoeAlertDetailsDialogProps) {
 	if (!alert) return null;
-	const rows: [string, string][] = [
-		["Ref code", alert.refCode],
-		["Source ID", String(alert.externalSourceId)],
-		["Full name", alert.fullName],
-		["Passport", alert.passportNumber],
-		["Nationality", alert.nationality],
-		["Sex", alert.sex],
-		["Port of entry", alert.portOfEntry],
-		["Flight", alert.flightNumber],
-		["Country of embarkation", alert.countryOfEmbarkation],
-		["Arrival", alert.arrivalDate ?? "—"],
-		["Phone (Uganda)", alert.phoneUganda],
-		["Email", alert.email || "—"],
-		["Risk", `${alert.riskLevel} (${alert.riskScore})`],
-		["Symptoms", alert.symptomsText || "—"],
-		["Verified", alert.isVerified ? "Yes" : "No"],
-		["Created", alert.createdAtRemote ?? "—"],
+	const rows: DetailGridRow[] = [
+		{ label: "Ref code", value: alert.refCode },
+		{ label: "Source ID", value: String(alert.externalSourceId) },
+		{ label: "Full name", value: alert.fullName },
+		{ label: "Passport", value: alert.passportNumber },
+		{ label: "Nationality", value: alert.nationality },
+		{ label: "Sex", value: alert.sex },
+		{ label: "Port of entry", value: alert.portOfEntry },
+		{ label: "Flight", value: alert.flightNumber },
+		{ label: "Country of embarkation", value: alert.countryOfEmbarkation },
+		{ label: "Arrival", value: alert.arrivalDate ?? "—" },
+		{ label: "Phone (Uganda)", value: alert.phoneUganda },
+		{ label: "Email", value: alert.email || "—" },
+		{ label: "Risk", value: `${alert.riskLevel} (${alert.riskScore})` },
+		{ label: "Symptoms", value: alert.symptomsText || "—", span: true },
+		{ label: "Verified", value: alert.isVerified ? "Yes" : "No" },
+		{ label: "Created", value: alert.createdAtRemote ?? "—" },
 	];
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -44,19 +45,7 @@ export function PoeAlertDetailsDialog({
 				</DialogHeader>
 				{/* Compact two-column grid so the ~16 fields don't stack into a tall
 				    single column. "Symptoms" can be long, so it spans both columns. */}
-				<dl className="grid grid-cols-2 gap-x-6 gap-y-2.5 text-sm">
-					{rows.map(([k, v]) => (
-						<div
-							key={k}
-							className={`min-w-0 ${k === "Symptoms" ? "col-span-2" : ""}`}
-						>
-							<dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-								{k}
-							</dt>
-							<dd className="break-words font-medium">{v || "—"}</dd>
-						</div>
-					))}
-				</dl>
+				<DetailGrid rows={rows} />
 			</DialogContent>
 		</Dialog>
 	);

@@ -12,7 +12,9 @@ export function echisToAlertShape(row: EchisAlertRow): Record<string, unknown> {
 		pointOfContactName: row.vhtName,
 		pointOfContactPhone: row.vhtPhone,
 		sourceOfAlert: "eCHIS",
-		alertCaseName: row.briefDescription,
+		// alerts.alert_case_name is varchar(255); an over-long description would
+		// fail the verify INSERT with MySQL error 1406 (backend clamps too).
+		alertCaseName: row.briefDescription.slice(0, 255),
 		alertCaseVillage: row.village,
 		alertCaseParish: row.parish,
 		alertCaseSubCounty: row.subCounty,
@@ -23,6 +25,10 @@ export function echisToAlertShape(row: EchisAlertRow): Record<string, unknown> {
 		history: [row.briefDescription, row.additionalInformation]
 			.filter(Boolean)
 			.join(" | "),
+		// Read-only "Source signal" panel in the verify dialog.
+		briefDescription: row.briefDescription,
+		additionalInformation: row.additionalInformation,
+		signalReported: row.signalReported,
 		linkedAlertId: row.linkedAlertId,
 	};
 }

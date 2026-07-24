@@ -1,3 +1,4 @@
+import { altCode } from "@/lib/alt-code";
 import { useState, useCallback, useMemo, useRef } from 'react';
 import useSWR from 'swr';
 import type { ColumnFiltersState } from '@tanstack/react-table';
@@ -434,7 +435,7 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
     const deleteAlert = useCallback(
         async (alertId: number) => {
             const confirmed = confirm(
-                `Are you sure you want to delete alert ALT${String(alertId).padStart(3, '0')}? This action cannot be undone.`
+                `Are you sure you want to delete alert ${altCode(alertId)}? This action cannot be undone.`
             );
 
             if (!confirmed) return;

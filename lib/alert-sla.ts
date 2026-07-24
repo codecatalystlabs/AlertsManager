@@ -8,17 +8,29 @@ import { deriveAlertOutcome, OUTCOME_NOT_RECORDED, type OutcomeSource } from "@/
  * will eventually go red), while a verified alert freezes at the colour it
  * earned: its colour is a permanent record of how long it took to verify.
  *
+<<<<<<< HEAD
  *   green  : <= 2h
  *   yellow : 2h – 6h
+=======
+ *   green  : <= 1h
+ *   orange : 1h – 6h
+>>>>>>> f385891d2edc4915bf5d8c125e9d52da73882542
  *   red    : > 6h   (no upper bound — 13 hours and 3 weeks are both red)
  *
  * Kept in sync with the Go twin (`alertsMIS/backend/internal/services/alert_sla.go`),
  * which applies the same bands in SQL for the server-side `sla` filter.
  */
+<<<<<<< HEAD
 export const SLA_GREEN_MAX_MINUTES = 2 * 60;
 export const SLA_YELLOW_MAX_MINUTES = 6 * 60;
 
 export type AlertSlaColor = "green" | "yellow" | "red";
+=======
+export const SLA_GREEN_MAX_MINUTES = 60;
+export const SLA_ORANGE_MAX_MINUTES = 6 * 60;
+
+export type AlertSlaColor = "green" | "orange" | "red";
+>>>>>>> f385891d2edc4915bf5d8c125e9d52da73882542
 
 /** The subset of alert fields the SLA is computed from. */
 export interface SlaSource extends OutcomeSource {
@@ -41,15 +53,24 @@ export interface AlertSla {
 
 /** The dropdown options for the "Time in system" filter. */
 export const SLA_FILTER_OPTIONS: { value: AlertSlaColor; label: string }[] = [
+<<<<<<< HEAD
 	{ value: "green", label: "Green — within 2 hours" },
 	{ value: "yellow", label: "Yellow — 2 to 6 hours" },
+=======
+	{ value: "green", label: "Green — within 1 hour" },
+	{ value: "orange", label: "Orange — 1 to 6 hours" },
+>>>>>>> f385891d2edc4915bf5d8c125e9d52da73882542
 	{ value: "red", label: "Red — over 6 hours" },
 ];
 
 /** Legend/filter swatch for each colour. */
 export const SLA_DOT_CLASS: Record<AlertSlaColor, string> = {
 	green: "bg-emerald-500",
+<<<<<<< HEAD
 	yellow: "bg-amber-500",
+=======
+	orange: "bg-orange-500",
+>>>>>>> f385891d2edc4915bf5d8c125e9d52da73882542
 	red: "bg-red-500",
 };
 
@@ -61,15 +82,24 @@ export const SLA_DOT_CLASS: Record<AlertSlaColor, string> = {
 const SLA_ROW_CLASS: Record<AlertSlaColor, string> = {
 	green:
 		"border-l-4 border-l-emerald-500 bg-emerald-50/60 hover:bg-emerald-50 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/30",
+<<<<<<< HEAD
 	yellow:
 		"border-l-4 border-l-amber-500 bg-amber-50/60 hover:bg-amber-50 dark:bg-amber-950/20 dark:hover:bg-amber-950/30",
+=======
+	orange:
+		"border-l-4 border-l-orange-500 bg-orange-50/60 hover:bg-orange-50 dark:bg-orange-950/20 dark:hover:bg-orange-950/30",
+>>>>>>> f385891d2edc4915bf5d8c125e9d52da73882542
 	red: "border-l-4 border-l-red-500 bg-red-50/60 hover:bg-red-50 dark:bg-red-950/20 dark:hover:bg-red-950/30",
 };
 
 /** Bucket an elapsed time (in minutes) into its colour. */
 export function slaColorForMinutes(elapsed: number): AlertSlaColor {
 	if (elapsed <= SLA_GREEN_MAX_MINUTES) return "green";
+<<<<<<< HEAD
 	if (elapsed <= SLA_YELLOW_MAX_MINUTES) return "yellow";
+=======
+	if (elapsed <= SLA_ORANGE_MAX_MINUTES) return "orange";
+>>>>>>> f385891d2edc4915bf5d8c125e9d52da73882542
 	return "red";
 }
 

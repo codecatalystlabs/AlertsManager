@@ -1,6 +1,7 @@
+import { formatDate } from "@/lib/format-date";
+import { altCode } from "@/lib/alt-code";
 import React from "react";
-import { Badge } from "@/components/ui/badge";
-import { Clock, ShieldCheck } from "lucide-react";
+import { VerificationBadge } from "@/components/ui/status-badges";
 
 /**
  * Minimal shape this chip needs from a downstream alert. Both EidsrAlertRef
@@ -14,15 +15,9 @@ export interface VerifiableAlertRef {
 	verificationDate?: string;
 }
 
-function altCode(id: number): string {
-	return `ALT${String(id).padStart(3, "0")}`;
-}
 
-/** RFC3339 → short local date; empty/invalid → "". */
 function shortDate(value: string | undefined): string {
-	if (!value) return "";
-	const d = new Date(value);
-	return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString();
+	return formatDate(value, "");
 }
 
 /** Human title describing the downstream alert's verification state. */
@@ -48,25 +43,10 @@ export function AlertVerifyChip({
 }) {
 	if (!alert) return null;
 
-	if (alert.isVerified) {
-		return (
-			<Badge
-				className="gap-1 whitespace-nowrap bg-success/15 text-success hover:bg-success/15"
-				title={alertVerifyTitle(alert)}
-			>
-				<ShieldCheck className="h-3 w-3" />
-				Verified
-			</Badge>
-		);
-	}
-
 	return (
-		<Badge
-			className="gap-1 whitespace-nowrap bg-warning/15 text-warning hover:bg-warning/15"
+		<VerificationBadge
+			verified={alert.isVerified}
 			title={alertVerifyTitle(alert)}
-		>
-			<Clock className="h-3 w-3" />
-			Pending
-		</Badge>
+		/>
 	);
 }

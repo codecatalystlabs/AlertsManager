@@ -9,8 +9,8 @@ import {
 	EidsrAlertsHeader,
 	EidsrLinkedTabs,
 	EidsrAlertsTable,
-	ForwardAlertDialog,
 } from "@/components/eidsr-alerts";
+import { ForwardToDistrictDialog } from "@/components/forward-to-district-dialog";
 import {
 	EidsrMessageDetailsDialog,
 	EidsrMessageEditDialog,
@@ -19,7 +19,7 @@ import { EidsrMessagesStats } from "@/components/eidsr-messages/eidsr-messages-s
 import { useEidsrEventsData } from "@/hooks/use-eidsr-events-data";
 import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
 import { eidsrMessageToAlertShape } from "@/lib/eidsr-message-to-alert";
-import { getEidsr6767ById } from "@/lib/fetch-eidsr-6767";
+import { getEidsr6767ById, forwardEidsr6767 } from "@/lib/fetch-eidsr-6767";
 import { resolveEidsrVerifyId } from "@/lib/eidsr-message-normalize";
 import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
 import { LAYOUT } from "@/constants/layout";
@@ -260,10 +260,14 @@ export default function EidsrAlertsPage() {
 				}}
 			/>
 
-			<ForwardAlertDialog
+			<ForwardToDistrictDialog
 				isOpen={forwardOpen}
 				onClose={() => setForwardOpen(false)}
-				message={selected}
+				sourceLabel="6767 alert"
+				alreadyForwarded={selected?.forwardedToDistrict ?? null}
+				onForward={(district, note) =>
+					forwardEidsr6767(selected!.id, { district, note })
+				}
 				onForwarded={handleForwarded}
 			/>
 

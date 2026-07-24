@@ -1,5 +1,6 @@
 "use client";
 
+import { altCode } from "@/lib/alt-code";
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
+import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
 import {
 	verifyEidsrMessage,
 	type EidsrMessageOptions,
@@ -58,7 +60,7 @@ function pickOptionList(
 
 const DEFAULT_STATUS = ["Alive", "Dead", "Unknown"];
 const DEFAULT_SEX = ["Male", "Female", "Unknown"];
-const DEFAULT_SOURCE = ["Community", "Health Facility", "Other"];
+const DEFAULT_SOURCE = [...SOURCE_OF_ALERT_OPTIONS];
 const DEFAULT_TRIAGE = ["High", "Medium", "Low"];
 const DEFAULT_SIGNAL = ["Yes", "No", "Pending"];
 
@@ -262,7 +264,7 @@ export function EidsrMessageVerifyDialog({
 				title: "EIDSR message verified successfully.",
 				description:
 					alertId != null
-						? `Linked alert ALT${String(alertId).padStart(3, "0")} created.`
+						? `Linked alert ${altCode(alertId)} created.`
 						: "The message has been verified.",
 			});
 
@@ -324,7 +326,7 @@ export function EidsrMessageVerifyDialog({
 						<AlertDescription className="text-success">
 							Verified — linked alert{" "}
 							<Link href="/dashboard/alerts" className="underline font-medium">
-								ALT{String(linkedAlertId).padStart(3, "0")}
+								{altCode(linkedAlertId)}
 							</Link>
 						</AlertDescription>
 					</Alert>
