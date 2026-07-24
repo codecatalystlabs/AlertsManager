@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Eye, EyeOff, FileDown, Loader2, Presentation } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
 } from "@/components/filters/date-range-filter";
 import { ErrorAlert } from "@/components/dashboard";
 import { ManagementReportView } from "@/components/reports/management-report-view";
+import { DeckConfigSection } from "@/components/reports/deck-config-section";
 import { toLocalISODate } from "@/lib/date-range-presets";
 import {
 	fetchManagementReport,
@@ -28,6 +29,12 @@ import {
 	downloadManagementReportPptx,
 	formatReportRange,
 } from "@/lib/management-report-pptx";
+import {
+	defaultDeckConfig,
+	loadDeckConfig,
+	saveDeckConfig,
+	type DeckConfig,
+} from "@/lib/management-report-config";
 
 /**
  * Outcome buckets that make a signal an "alert" (recorded, non-discarded) —
@@ -45,6 +52,13 @@ const ALERT_OUTCOME_BUCKETS = [
 interface DeckData {
 	report: ManagementReport;
 	districtGeo: GeoFeatureCollection | null;
+	/** The disease-focus selection this data was fetched for (sorted, joined). */
+	focusKey: string;
+}
+
+/** Stable key for a disease-focus selection, order-independent. */
+function focusKeyOf(diseases: string[]): string {
+	return [...diseases].sort().join(",");
 }
 
 function defaultDeckRange(): { fromDate: string; toDate: string } {
@@ -55,44 +69,64 @@ function defaultDeckRange(): { fromDate: string; toDate: string } {
 }
 
 /**
- * The "Alerts Management presentation" generator: pick a date range, then
- * either view the full report inside the app or download it as the standard
- * .pptx deck — both are built from the same aggregate, so they always match.
+ * The "Alerts Management presentation" generator: pick a date range, tune the
+ * configuration (disease focus, theme, sections, cover), then either view the
+ * report inside the app or download it as the .pptx deck — both are built from
+ * the same aggregate and the same config, so they always match.
  */
 export function ManagementReportPanel() {
 	const [range, setRange] = useState(defaultDeckRange);
+	const [config, setConfig] = useState<DeckConfig>(defaultDeckConfig);
 	const [busy, setBusy] = useState<"view" | "download" | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [lastFile, setLastFile] = useState<string | null>(null);
 	const [view, setView] = useState<DeckData | null>(null);
 
+	// Restore the persisted config after mount (localStorage is client-only, so
+	// the first render uses defaults to keep server/client markup in agreement).
+	useEffect(() => {
+		setConfig(loadDeckConfig());
+	}, []);
+
+	const updateConfig = useCallback((patch: Partial<DeckConfig>) => {
+		setConfig((prev) => {
+			const next = { ...prev, ...patch };
+			saveDeckConfig(next);
+			return next;
+		});
+	}, []);
+
 	const valid =
 		Boolean(range.fromDate && range.toDate) && range.fromDate <= range.toDate;
-	// The open report no longer matches the pickers — offer a refresh.
+	const wantFocusKey = focusKeyOf(config.focusDiseases);
+	// The open report no longer matches the pickers OR the disease focus — only
+	// these require a re-fetch. Colour / section / cover edits apply live.
 	const viewStale =
 		view !== null &&
 		(view.report.fromDate !== range.fromDate ||
-			view.report.toDate !== range.toDate);
+			view.report.toDate !== range.toDate ||
+			view.focusKey !== wantFocusKey);
 
 	/** The deck aggregate and the map's district alert counts, in parallel.
-	 * Reuses the currently viewed data when it already covers this range. */
+	 * Reuses the currently viewed data when it already covers this range+focus. */
 	async function loadDeckData(): Promise<DeckData> {
 		if (
 			view &&
 			view.report.fromDate === range.fromDate &&
-			view.report.toDate === range.toDate
+			view.report.toDate === range.toDate &&
+			view.focusKey === wantFocusKey
 		) {
 			return view;
 		}
 		const [report, districtGeo] = await Promise.all([
-			fetchManagementReport(range),
+			fetchManagementReport(range, config.focusDiseases),
 			fetchGeoDistricts("", {
 				fromDate: range.fromDate,
 				toDate: range.toDate,
 				outcomes: ALERT_OUTCOME_BUCKETS,
 			}).catch(() => null), // report still renders if boundaries are unavailable
 		]);
-		return { report, districtGeo };
+		return { report, districtGeo, focusKey: wantFocusKey };
 	}
 
 	async function handleView() {
@@ -117,7 +151,13 @@ export function ManagementReportPanel() {
 		setLastFile(null);
 		try {
 			const data = await loadDeckData();
-			const fileName = await downloadManagementReportPptx(data);
+			// Keep the freshly-loaded data on screen too, so preview and file agree.
+			setView(data);
+			const fileName = await downloadManagementReportPptx({
+				report: data.report,
+				districtGeo: data.districtGeo,
+				config,
+			});
 			setLastFile(fileName);
 		} catch (err) {
 			setError(
@@ -141,7 +181,8 @@ export function ManagementReportPanel() {
 						dates: All-PHEs &amp; VHFs district tables split by Alive/Dead,
 						signal sources, response cascades, alert narratives, the district
 						alert map with the top-10 chart, and the signals-vs-alerts trend.
-						View it here in the system or download it as PowerPoint.
+						Configure the disease focus, colours, sections and cover below, then
+						view it here or download it as PowerPoint.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-3">
@@ -158,6 +199,15 @@ export function ManagementReportPanel() {
 							onChange={(patch) => setRange((r) => ({ ...r, ...patch }))}
 						/>
 					</div>
+
+					<DeckConfigSection
+						config={config}
+						onChange={updateConfig}
+						focusPendingReload={
+							view !== null && view.focusKey !== wantFocusKey
+						}
+						disabled={busy === "download"}
+					/>
 
 					{error && (
 						<ErrorAlert
@@ -214,8 +264,9 @@ export function ManagementReportPanel() {
 					{viewStale && view && (
 						<p className="text-xs text-amber-700">
 							The report below is for{" "}
-							{formatReportRange(view.report.fromDate, view.report.toDate)} —
-							click &ldquo;View report&rdquo; to refresh it for the new dates.
+							{formatReportRange(view.report.fromDate, view.report.toDate)}
+							{view.focusKey !== wantFocusKey ? " (different focus)" : ""} —
+							click &ldquo;View report&rdquo; to refresh it.
 						</p>
 					)}
 				</CardContent>
@@ -225,6 +276,7 @@ export function ManagementReportPanel() {
 				<ManagementReportView
 					report={view.report}
 					districtGeo={view.districtGeo}
+					config={config}
 				/>
 			)}
 		</div>

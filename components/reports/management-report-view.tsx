@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/chart";
 import type {
 	ManagementCount,
+	ManagementDetail,
 	ManagementReport,
 	ManagementScope,
 } from "@/lib/fetch-reports";
@@ -34,16 +35,25 @@ import {
 	renderDistrictChoropleth,
 	scopeColumns,
 } from "@/lib/management-report-pptx";
+import {
+	defaultDeckConfig,
+	deriveDeckTheme,
+	type DeckConfig,
+	type DeckTheme,
+} from "@/lib/management-report-config";
 
 /**
  * The Alerts Management report rendered inside the app — the same sections, in
- * the same order, as the generated .pptx deck (which shares this data), so what
- * you view on screen is exactly what the PowerPoint will contain.
+ * the same order, as the generated .pptx deck (which shares this data and its
+ * DeckConfig), so what you view on screen is exactly what the PowerPoint will
+ * contain: the same accent theme, the same visible sections, the same cover and
+ * disease-focus content.
  */
 
 // Status series — the dashboard's Alive/Dead hues; Unknown takes a violet that
-// stays separable from both (validated). The red↔green deutan pair is carried
-// by the direct value labels on every bar, not by hue alone.
+// stays separable from both (validated). These are SEMANTIC and deliberately not
+// themed by the accent. The red↔green deutan pair is carried by the direct value
+// labels on every bar, not by hue alone.
 const STATUS_COLORS: Record<string, string> = {
 	Alive: "#16a34a",
 	Dead: "#D90000",
@@ -63,11 +73,9 @@ const CATEGORICAL = [
 ];
 const OTHER_GREY = "#9ca3af";
 
-// Entity colours shared with the rest of the app.
+// Entity colours shared with the rest of the app (semantic, not themed).
 const SIGNALS_COLOR = "#2563eb"; // matches the reports timeseries chart
 const ALERTS_COLOR = "#ca8a04";
-const SOURCES_BAR_COLOR = "#0066CC"; // dashboard "sources" hue
-const DISEASE_BAR_COLOR = "#D90000"; // dashboard "alerts by disease" hue
 const VHF_STACK_COLOR = "#2a78d6";
 const OTHER_STACK_COLOR = "#eb6834";
 
@@ -85,62 +93,194 @@ const CASCADE_STAGES: { key: keyof ManagementScope["cascade"][string]; label: st
 interface ManagementReportViewProps {
 	report: ManagementReport;
 	districtGeo: GeoFeatureCollection | null;
+	/** Theme / sections / focus / cover configuration. Defaults applied if omitted. */
+	config?: DeckConfig;
 }
 
 export function ManagementReportView({
 	report,
 	districtGeo,
+	config = defaultDeckConfig(),
 }: ManagementReportViewProps) {
+	const theme = useMemo(() => deriveDeckTheme(config.accent), [config.accent]);
 	const range = formatReportRange(report.fromDate, report.toDate);
 	const map = useMemo(
-		() => (districtGeo ? renderDistrictChoropleth(districtGeo) : null),
-		[districtGeo]
+		() =>
+			districtGeo ? renderDistrictChoropleth(districtGeo, theme.mapRamp) : null,
+		[districtGeo, theme.mapRamp]
 	);
 	const totalSignals = report.sources.reduce((s, c) => s + c.count, 0);
+	const slides = config.slides;
+	const focus = config.slides.focus ? report.focus : null;
 
 	return (
 		<div className="space-y-4">
-			<ScopeTableCard
-				title={`Alerts Management report (${range}) — All PHEs`}
-				scope={report.allPhes}
-				withAlerts={false}
-			/>
-			<ScopeTableCard
-				title={`Alerts Management report (${range}) — VHFs`}
-				scope={report.vhf}
-				withAlerts
-			/>
+			{config.cover.enabled && <CoverCard config={config} range={range} theme={theme} />}
 
-			<SourcesPieCard title={`Signals sources (${range})`} sources={report.sources} />
+			{slides.districtTables && (
+				<>
+					<ScopeTableCard
+						title={`Alerts Management report (${range}) — All PHEs`}
+						scope={report.allPhes}
+						withAlerts={false}
+						theme={theme}
+					/>
+					<ScopeTableCard
+						title={`Alerts Management report (${range}) — VHFs`}
+						scope={report.vhf}
+						withAlerts
+						theme={theme}
+					/>
+				</>
+			)}
 
-			<DetailsCard report={report} range={range} />
+			{slides.sources && (
+				<SourcesPieCard title={`Signals sources (${range})`} sources={report.sources} />
+			)}
 
-			<CascadeCard
-				title={`Response cascade — All PHEs (${range})`}
-				scope={report.allPhes}
-			/>
-			<CascadeCard
-				title={`Response cascade — VHFs (${range})`}
-				scope={report.vhf}
-			/>
+			{slides.narratives && (
+				<DetailsCard
+					title={`Alert details (${range})`}
+					details={report.details}
+					detailsTotal={report.detailsTotal}
+					countNoun="VHF alert"
+					emptyLabel="No VHF alerts in this range."
+					theme={theme}
+				/>
+			)}
 
-			<CountBarCard
-				title={`Signal Sources (n=${totalSignals.toLocaleString()})`}
-				counts={report.sources}
-				color={SOURCES_BAR_COLOR}
-				seriesLabel="Signals"
-			/>
-			<CountBarCard
-				title="Other PHEs reported: Alerts"
-				counts={report.otherPhes}
-				color={DISEASE_BAR_COLOR}
-				seriesLabel="Alerts"
-			/>
+			{slides.cascade && (
+				<>
+					<CascadeCard
+						title={`Response cascade — All PHEs (${range})`}
+						scope={report.allPhes}
+					/>
+					<CascadeCard
+						title={`Response cascade — VHFs (${range})`}
+						scope={report.vhf}
+					/>
+				</>
+			)}
 
-			<MapCard report={report} range={range} map={map} />
+			{slides.sources && (
+				<CountBarCard
+					title={`Signal Sources (n=${totalSignals.toLocaleString()})`}
+					counts={report.sources}
+					color={theme.accent}
+					seriesLabel="Signals"
+				/>
+			)}
+			{slides.diseaseBar && (
+				<CountBarCard
+					title="Other PHEs reported: Alerts"
+					counts={report.otherPhes}
+					color={theme.accent}
+					seriesLabel="Alerts"
+				/>
+			)}
 
-			<TrendCard report={report} />
+			{slides.map && <MapCard report={report} range={range} map={map} />}
+
+			{slides.trend && <TrendCard report={report} />}
+
+			{focus && focus.diseases.length > 0 && (
+				<FocusSection focus={focus} range={range} theme={theme} />
+			)}
 		</div>
+	);
+}
+
+/* ------------------------------------------------------------------ */
+/* Cover / branding header                                             */
+/* ------------------------------------------------------------------ */
+
+function CoverCard({
+	config,
+	range,
+	theme,
+}: {
+	config: DeckConfig;
+	range: string;
+	theme: DeckTheme;
+}) {
+	return (
+		<Card style={{ backgroundColor: theme.accent }} className="border-0 text-white">
+			<CardContent className="flex items-center gap-4 py-6">
+				{config.cover.logoDataUrl && (
+					// eslint-disable-next-line @next/next/no-img-element
+					<img
+						src={config.cover.logoDataUrl}
+						alt="Report logo"
+						className="h-16 w-16 rounded bg-white/10 object-contain p-1"
+					/>
+				)}
+				<div className="min-w-0">
+					<h2 className="text-xl font-bold">
+						{config.cover.title.trim() || "Alerts Management Report"}
+					</h2>
+					<p className="text-sm text-white/90">
+						{config.cover.subtitle.trim() || range}
+					</p>
+					{config.cover.organization.trim() && (
+						<p className="mt-1 text-xs italic text-white/80">
+							{config.cover.organization.trim()}
+						</p>
+					)}
+				</div>
+			</CardContent>
+		</Card>
+	);
+}
+
+/* ------------------------------------------------------------------ */
+/* Disease-focus section                                              */
+/* ------------------------------------------------------------------ */
+
+function FocusSection({
+	focus,
+	range,
+	theme,
+}: {
+	focus: NonNullable<ManagementReport["focus"]>;
+	range: string;
+	theme: DeckTheme;
+}) {
+	const label = focus.diseases.join(", ");
+	return (
+		<>
+			<Card style={{ backgroundColor: theme.accent }} className="border-0 text-white">
+				<CardContent className="py-4">
+					<p className="text-xs font-semibold uppercase tracking-wide text-white/80">
+						Disease focus
+					</p>
+					<h2 className="text-lg font-bold">{label}</h2>
+					<p className="text-xs text-white/85">{range}</p>
+				</CardContent>
+			</Card>
+			<ScopeTableCard
+				title={`Disease focus (${label}) — district table`}
+				scope={focus.scope}
+				withAlerts
+				theme={theme}
+			/>
+			<CascadeCard title={`Disease focus (${label}) — response cascade`} scope={focus.scope} />
+			{focus.sources.length > 0 && (
+				<CountBarCard
+					title={`Disease focus (${label}) — signal sources`}
+					counts={focus.sources}
+					color={theme.accent}
+					seriesLabel="Signals"
+				/>
+			)}
+			<DetailsCard
+				title={`Disease focus (${label}) — alert details`}
+				details={focus.details}
+				detailsTotal={focus.detailsTotal}
+				countNoun="alert"
+				emptyLabel="No alerts for the focus diseases in this range."
+				theme={theme}
+			/>
+		</>
 	);
 }
 
@@ -152,10 +292,12 @@ function ScopeTableCard({
 	title,
 	scope,
 	withAlerts,
+	theme,
 }: {
 	title: string;
 	scope: ManagementScope;
 	withAlerts: boolean;
+	theme: DeckTheme;
 }) {
 	const cols = scopeColumns(scope, withAlerts);
 	// Guard against a backend that serialised an empty scope's sections as null.
@@ -168,14 +310,14 @@ function ScopeTableCard({
 			<CardContent className="overflow-x-auto pt-0">
 				<table className="w-full min-w-[640px] border-collapse text-xs">
 					<thead>
-						<tr className="bg-uganda-red text-white">
-							<th className="border border-uganda-red/40 px-2 py-1.5 text-left font-semibold">
+						<tr style={{ backgroundColor: theme.accent }} className="text-white">
+							<th className="border border-white/30 px-2 py-1.5 text-left font-semibold">
 								District
 							</th>
 							{cols.map((c) => (
 								<th
 									key={c.header}
-									className="border border-uganda-red/40 px-2 py-1.5 text-center font-semibold"
+									className="border border-white/30 px-2 py-1.5 text-center font-semibold"
 								>
 									{c.header}
 								</th>
@@ -188,6 +330,7 @@ function ScopeTableCard({
 								key={section.status}
 								section={section}
 								cols={cols}
+								sectionFill={theme.accentSoft}
 							/>
 						))}
 						<tr className="bg-muted font-semibold">
@@ -213,13 +356,15 @@ function ScopeTableCard({
 function SectionRows({
 	section,
 	cols,
+	sectionFill,
 }: {
 	section: ManagementScope["sections"][number];
 	cols: ReturnType<typeof scopeColumns>;
+	sectionFill: string;
 }) {
 	return (
 		<>
-			<tr className="bg-red-50 font-semibold dark:bg-red-950/30">
+			<tr style={{ backgroundColor: sectionFill }} className="font-semibold">
 				<td className="border px-2 py-1.5">{section.status}</td>
 				{cols.map((c) => (
 					<td key={c.header} className="border px-2 py-1.5 text-center tabular-nums">
@@ -336,42 +481,50 @@ function SourcesPieCard({
 /* ------------------------------------------------------------------ */
 
 function DetailsCard({
-	report,
-	range,
+	title,
+	details,
+	detailsTotal,
+	countNoun,
+	emptyLabel,
+	theme,
 }: {
-	report: ManagementReport;
-	range: string;
+	title: string;
+	details: ManagementDetail[];
+	detailsTotal: number;
+	countNoun: string;
+	emptyLabel: string;
+	theme: DeckTheme;
 }) {
 	return (
 		<Card>
 			<CardHeader className="pb-2">
 				<CardTitle className="text-sm">
-					Alert details ({range})
-					{report.detailsTotal > 0 && (
+					{title}
+					{detailsTotal > 0 && (
 						<span className="ml-2 font-normal text-muted-foreground">
-							{report.detailsTotal.toLocaleString()} VHF alert
-							{report.detailsTotal === 1 ? "" : "s"}
+							{detailsTotal.toLocaleString()} {countNoun}
+							{detailsTotal === 1 ? "" : "s"}
 						</span>
 					)}
 				</CardTitle>
 			</CardHeader>
 			<CardContent className="pt-0">
-				{report.details.length === 0 ? (
+				{details.length === 0 ? (
 					<p className="py-6 text-center text-sm text-muted-foreground">
-						No VHF alerts in this range.
+						{emptyLabel}
 					</p>
 				) : (
 					<div className="max-h-[420px] overflow-y-auto rounded-md border">
 						<table className="w-full border-collapse text-xs">
 							<thead className="sticky top-0">
-								<tr className="bg-uganda-red text-white">
+								<tr style={{ backgroundColor: theme.accent }} className="text-white">
 									<th className="px-2 py-1.5 text-left font-semibold">Source</th>
 									<th className="px-2 py-1.5 text-left font-semibold">District</th>
 									<th className="px-2 py-1.5 text-left font-semibold">Narrative</th>
 								</tr>
 							</thead>
 							<tbody>
-								{report.details.map((d, i) => (
+								{details.map((d, i) => (
 									<tr key={i} className="border-t align-top hover:bg-muted/40">
 										<td className="whitespace-nowrap px-2 py-1.5">{d.source}</td>
 										<td className="whitespace-nowrap px-2 py-1.5">{d.district}</td>
@@ -380,9 +533,9 @@ function DetailsCard({
 								))}
 							</tbody>
 						</table>
-						{report.detailsTotal > report.details.length && (
+						{detailsTotal > details.length && (
 							<p className="border-t px-2 py-1.5 text-xs italic text-muted-foreground">
-								… {(report.detailsTotal - report.details.length).toLocaleString()}{" "}
+								… {(detailsTotal - details.length).toLocaleString()}{" "}
 								more alert(s) in this range not shown
 							</p>
 						)}

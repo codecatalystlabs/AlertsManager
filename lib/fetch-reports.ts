@@ -492,6 +492,21 @@ export interface ManagementDetail {
 	narrative: string;
 }
 
+/**
+ * Optional disease-focus block: the same aggregates as the main report but
+ * scoped to the requested diseases. Present only when the request carried a
+ * disease filter; it sits ALONGSIDE the full deck, never replacing it.
+ */
+export interface ManagementFocus {
+	/** Canonical disease labels the focus was built from. */
+	diseases: string[];
+	scope: ManagementScope;
+	sources: ManagementCount[];
+	topDistricts: ManagementTopDistrict[];
+	details: ManagementDetail[];
+	detailsTotal: number;
+}
+
 /** Full payload of GET /reports/alerts-management — everything the deck needs. */
 export interface ManagementReport {
 	fromDate: string;
@@ -505,20 +520,30 @@ export interface ManagementReport {
 	trend: ManagementTrendPoint[];
 	details: ManagementDetail[];
 	detailsTotal: number;
+	/** Populated only when a disease focus was requested. */
+	focus?: ManagementFocus | null;
 }
 
 /**
  * Fetch the Alerts Management deck aggregate for an inclusive date range. All
  * counts are derived server-side with the same outcome/taxonomy primitives as
  * the dashboard, so the generated deck always reconciles with the app.
+ *
+ * `focusDiseases` (alertResponse codes) adds a disease-focus block to the
+ * payload; an empty list leaves the standard deck unfiltered.
  */
 export async function fetchManagementReport(
-	range: ReportsDateRange
+	range: ReportsDateRange,
+	focusDiseases: string[] = []
 ): Promise<ManagementReport> {
-	return requestReport<ManagementReport>("alerts-management", {
+	const params: ReportsQueryParams = {
 		from_date: range.fromDate,
 		to_date: range.toDate,
-	});
+	};
+	if (focusDiseases.length > 0) {
+		params.response = focusDiseases.join(",");
+	}
+	return requestReport<ManagementReport>("alerts-management", params);
 }
 
 export async function fetchReportMatrix(
