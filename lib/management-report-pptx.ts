@@ -243,10 +243,14 @@ export function scopeColumns(
 	scope: ManagementScope,
 	withAlerts: boolean
 ): ScopeColumn[] {
-	const cols: ScopeColumn[] = [{ header: "Signals", value: (r) => r.signals }];
+	const cols: ScopeColumn[] = [
+		{ header: "Signals", value: (r) => r.signals },
+		{ header: "Discarded", value: (r) => r.discarded },
+	];
+	// Alerts sits AFTER Discarded so the row reads as the funnel actually runs:
+	// signals come in, some are discarded, and what survives is an alert.
 	if (withAlerts) cols.push({ header: "Alerts", value: (r) => r.alerts });
 	cols.push(
-		{ header: "Discarded", value: (r) => r.discarded },
 		{ header: "Field Case Verification", value: (r) => r.fieldCaseVerification },
 		{ header: "Sample Collected", value: (r) => r.sampleCollected }
 	);
