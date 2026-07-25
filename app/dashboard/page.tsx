@@ -30,6 +30,7 @@ import {
 	DEFAULT_RANGE_PRESET,
 	type DashboardRangeValue,
 	SignalCoverageCard,
+	RiskMatrixCard,
 } from "@/components/dashboard";
 import { useDashboardSummary } from "@/hooks/use-dashboard-summary";
 import type { AlertCounts } from "@/app/dashboard/types";
@@ -317,6 +318,20 @@ export default function DashboardPage(): React.JSX.Element {
 					<DashboardCharts summary={summary} />
 				) : null}
 			</div>
+
+			{/* EBS §6 risk matrix — confirmed events plotted by their recorded
+			    likelihood × impact, coloured by the algorithm level. Scoped like
+			    every chart above (range/district/region). */}
+			<RiskMatrixCard
+				matrix={summary?.riskMatrix}
+				isLoading={loading && !summary}
+				scope={{
+					fromDate: range.from || undefined,
+					toDate: range.to || undefined,
+					district,
+					region,
+				}}
+			/>
 
 			{/* What everything above does NOT count: signals still sitting in the
 			    6767 / eCHIS / POE feeds, which never entered triage or

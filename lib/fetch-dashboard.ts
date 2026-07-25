@@ -43,6 +43,33 @@ export interface DashboardVerificationSla {
 	teamMedianMinutes: number;
 }
 
+/** One likelihood × impact cell of the risk matrix. */
+export interface RiskMatrixCell {
+	likelihood: string;
+	impact: string;
+	count: number;
+	/** Algorithm-derived risk level -> count of events in this cell carrying it. */
+	levels: Record<string, number>;
+	/** Most severe algorithm level present; shades the cell. "" when none assessed. */
+	highestLevel: string;
+}
+
+/**
+ * The EBS §6 likelihood × impact plot of confirmed events. Cells are positioned
+ * by each event's captured bands and coloured by the events' own algorithm
+ * levels — never by the cell position (the guideline's grid is deliberately not
+ * encoded). `unbanded` keeps the plot honest about confirmed events it can't show.
+ */
+export interface RiskMatrix {
+	likelihoods: string[];
+	impacts: string[];
+	cells: RiskMatrixCell[];
+	confirmed: number;
+	plotted: number;
+	unbanded: number;
+	maxCellCount: number;
+}
+
 /** Full dashboard payload from GET /dashboard/summary. */
 export interface DashboardSummary {
 	total: number;
@@ -61,6 +88,8 @@ export interface DashboardSummary {
 	sex: DashboardCountItem[];
 	timeline: DashboardTimePoint[];
 	granularity: "daily" | "monthly";
+	/** §6 risk matrix (confirmed events by likelihood × impact). Optional so an older API response doesn't crash the card. */
+	riskMatrix?: RiskMatrix;
 	/** Optional so older API responses without the field don't crash the grid. */
 	verificationSla?: DashboardVerificationSla;
 	/** Distinct response (disease/condition) values available in scope — populates the Response type filter. */
@@ -107,6 +136,15 @@ const EMPTY_SUMMARY: DashboardSummary = {
 	sex: [],
 	timeline: [],
 	granularity: "daily",
+	riskMatrix: {
+		likelihoods: [],
+		impacts: [],
+		cells: [],
+		confirmed: 0,
+		plotted: 0,
+		unbanded: 0,
+		maxCellCount: 0,
+	},
 	verificationSla: {
 		verifiedWithinHour: 0,
 		pendingUnderHour: 0,

@@ -79,6 +79,10 @@ export interface AlertsListParams {
 	sort_by?: string;
 	/** Sort direction. */
 	order?: "asc" | "desc";
+	/** Risk-matrix cell: a single canonical likelihood band (e.g. "Likely"). */
+	risk_likelihood?: string;
+	/** Risk-matrix cell: a single canonical impact band (e.g. "Severe"). */
+	risk_impact?: string;
 }
 
 export interface PaginatedAlertsResult<T> {
@@ -179,6 +183,12 @@ function appendAlertFilterParams(
 	}
 	if (params.outcome_recorded !== undefined) {
 		searchParams.set("outcome_recorded", String(params.outcome_recorded));
+	}
+	if (params.risk_likelihood) {
+		searchParams.set("risk_likelihood", params.risk_likelihood);
+	}
+	if (params.risk_impact) {
+		searchParams.set("risk_impact", params.risk_impact);
 	}
 }
 

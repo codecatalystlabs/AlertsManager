@@ -16,3 +16,4 @@ export {
 export { DashboardDistrictPicker } from './dashboard-district-picker';
 export { DashboardRegionPicker } from './dashboard-region-picker';
 export { SignalCoverageCard } from "./signal-coverage-card";
+export { RiskMatrixCard } from "./risk-matrix-card";
