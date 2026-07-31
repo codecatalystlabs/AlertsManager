@@ -68,6 +68,16 @@ export const SLA_FILTER_OPTIONS: { value: AlertSlaColor; label: string }[] = [
 	{ value: "red", label: "Red — past twice the deadline" },
 ];
 
+/**
+ * The same three bands in words, for places where a colour cannot carry the
+ * meaning — exports above all, where a green cell is just a cell.
+ */
+export const SLA_STATUS_LABEL: Record<AlertSlaColor, string> = {
+	green: "Within deadline",
+	orange: "Deadline passed",
+	red: "Past twice deadline",
+};
+
 /** Legend/filter swatch for each colour. */
 export const SLA_DOT_CLASS: Record<AlertSlaColor, string> = {
 	green: "bg-emerald-500",
