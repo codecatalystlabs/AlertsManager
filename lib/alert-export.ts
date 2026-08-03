@@ -30,6 +30,8 @@ export interface ExportableAlert {
 	alertCaseAge?: number;
 	alertCaseSex?: string;
 	response?: string;
+	/** Comma-joined signs and symptoms as captured on the alert form. */
+	symptoms?: string | null;
 	isVerified?: boolean;
 	callTaker?: string;
 	narrative?: string;
@@ -101,6 +103,7 @@ const SIGNAL_COLUMNS: ExportColumn[] = [
 	{ header: "Age", getValue: (a) => a.alertCaseAge ?? "" },
 	{ header: "Sex", getValue: (a) => a.alertCaseSex ?? "" },
 	{ header: "Response", getValue: (a) => a.response ?? "" },
+	{ header: "Symptoms", getValue: (a) => formatSymptoms(a.symptoms) },
 ];
 
 /** The three verification summary columns both exports have always carried. */
@@ -237,8 +240,10 @@ const FEEDBACK_COLUMNS: ExportColumn[] = [
 ];
 
 /**
- * CSV stays the compact summary — it is the quick-glance/scripting format, and
- * widening it would break anyone parsing it by column position.
+ * CSV stays the compact summary — it is the quick-glance/scripting format, so
+ * it carries the signal and its outcome rather than every pipeline stage. Note
+ * that anything added to SIGNAL_COLUMNS lands here too, shifting the columns
+ * after it: a positional parser downstream has to be updated in step.
  */
 const EXPORT_COLUMNS: ExportColumn[] = [
 	...SIGNAL_COLUMNS,
@@ -279,6 +284,21 @@ export function buildExcelRow(
 		row[col.header] = cellValue(col.getValue(alert));
 	}
 	return row;
+}
+
+/**
+ * Symptoms are stored as one comma-joined string whose spacing depends on which
+ * form wrote it ("Fever,Cough" from the intake form, "Fever, Cough" from the
+ * NDW mappers). Re-join them uniformly so the column sorts and reads the same
+ * way for every row, and so a trailing comma doesn't render as an empty item.
+ */
+function formatSymptoms(value?: string | null): string {
+	if (!value) return "";
+	return value
+		.split(",")
+		.map((symptom) => symptom.trim())
+		.filter(Boolean)
+		.join(", ");
 }
 
 /** "Yes" / "No", or blank when the question was never answered. */

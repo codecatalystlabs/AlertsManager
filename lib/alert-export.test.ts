@@ -74,6 +74,8 @@ const row = buildExcelRow({
 	alertCaseAge: 34,
 	alertCaseSex: "Female",
 	response: "Cholera",
+	// Ragged spacing and a trailing comma, as the intake form actually writes it.
+	symptoms: "Fever,Watery diarrhoea , Vomiting,",
 	isVerified: true,
 	callTaker: "Operator 1",
 	narrative: "Reported by VHT.",
@@ -110,6 +112,15 @@ const row = buildExcelRow({
 	feedbackBy: "DSFP Tororo",
 	feedbackChannel: "Phone call",
 });
+
+// --- The signal as reported -------------------------------------------------
+
+check("response", row["Response"], "Cholera");
+check(
+	"symptoms are re-joined evenly, with the trailing comma dropped",
+	row["Symptoms"],
+	"Fever, Watery diarrhoea, Vomiting"
+);
 
 // --- Triage -----------------------------------------------------------------
 
@@ -167,6 +178,7 @@ const untouched = buildExcelRow({
 	sourceOfAlert: "Community",
 });
 
+check("no symptoms recorded is blank", untouched["Symptoms"], "");
 check("untriaged priority is named, not blank", untouched["Triage Priority"], "Untriaged");
 check("untriaged falls back to the medium deadline", untouched["Verification Deadline"], "24h");
 check("no triage date", untouched["Triaged Date"], "");
