@@ -28,6 +28,9 @@ export function resolveAlertResponseCode(input: string): string {
 	if (lower.includes("marburg")) {
 		return alertResponse.find((r) => r.code === "Marburg")?.code ?? "";
 	}
+	if (lower.includes("mpox") || lower.includes("monkeypox")) {
+		return alertResponse.find((r) => r.code === "Mpox")?.code ?? "";
+	}
 
 	const partial = alertResponse.find(
 		(r) =>

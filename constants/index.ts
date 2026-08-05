@@ -53,6 +53,7 @@ const alertResponse = [
     { code: "Malnutrition", name: "Malnutrition in children under 5 years" },
     { code: "Maternal Death", name: "Maternal deaths" },
     { code: "Measles/Rubella", name: "Measles" },
+    { code: "Mpox", name: "Mpox" },
     { code: "NeonatalTetanus", name: "Neonatal tetanus" },
     { code: "NonNeonatalTetanus", name: "Non-neonatal tetanus" },
     { code: "Onchocerciasis", name: "Onchocerciasis" },
