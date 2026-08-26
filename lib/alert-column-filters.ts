@@ -64,6 +64,11 @@ export function columnFiltersToAlertParams(
 			case "alertCaseSex":
 				params.sex = String(value);
 				break;
+			case "triaged":
+				// The register's "Is signal triaged" column, answered server-side
+				// against services.UntriagedSQL rather than over the loaded page.
+				if (value === "yes" || value === "no") params.triaged = value;
+				break;
 			case "isVerified":
 				if (value === "true") params.is_verified = true;
 				else if (value === "false") params.is_verified = false;

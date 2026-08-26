@@ -23,7 +23,6 @@ import {
 	PlaneLanding,
 	ShieldQuestion,
 	ShieldCheck,
-	ShieldAlert,
 	MessageCircleReply,
 } from "lucide-react";
 import { MohLogo } from "@/components/moh-logo";
@@ -74,7 +73,9 @@ const navigationGroups: NavigationGroup[] = [
 			// The register's own tabs, as destinations: the register opens on the
 			// untriaged signals, "Triaged" is the forwarded-but-unverified queue
 			// (?stage=verification is the gate they are waiting AT), and
-			// "Verified" is the adjudicated ones.
+			// "Verified" is the confirmed events waiting to be risk-assessed —
+			// step 4 has no separate entry because risk can only be assessed on a
+			// verified signal, so the Verified tab IS the risk queue.
 			{
 				name: "Triaged",
 				href: "/dashboard/signal-logs?stage=verification",
@@ -82,13 +83,8 @@ const navigationGroups: NavigationGroup[] = [
 			},
 			{
 				name: "Verified",
-				href: "/dashboard/signal-logs?view=verified",
-				icon: ShieldCheck,
-			},
-			{
-				name: "Risk Assessment",
 				href: "/dashboard/signal-logs?stage=risk",
-				icon: ShieldAlert,
+				icon: ShieldCheck,
 			},
 			{
 				name: "Feedback Due",

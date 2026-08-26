@@ -25,8 +25,11 @@ import {
 } from "@/lib/alert-pdf";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { TriageBadge } from "@/components/triage";
-import { verificationBlockedReason } from "@/lib/alert-triage";
+import { TriagedAnswerBadge } from "@/components/triage";
+import {
+	TRIAGED_FILTER_OPTIONS,
+	verificationBlockedReason,
+} from "@/lib/alert-triage";
 import { nextAction, type NextActionKey } from "@/lib/next-action";
 import { SignalStateBadge } from "@/components/pipeline";
 import { RiskBadge } from "@/components/risk";
@@ -334,17 +337,25 @@ export const createCallLogsTableColumns = (
 		cell: ({ row }) => <RiskBadge level={row.original.riskLevel} />,
 	},
 	{
-		id: "triageDecision",
+		id: "triaged",
 		accessorKey: "triageDecision",
-		header: "Triage",
+		header: "Is signal triaged",
 		enableSorting: false,
 		meta: {
-			filterLabel: "Triage decision",
+			filterLabel: "Is signal triaged",
+			filterVariant: "select",
+			filterOptions: TRIAGED_FILTER_OPTIONS,
 		},
-		// Which exit the signal took at the gate. A discarded duplicate is
-		// RECORDED, so it has to be visible here — a discard nobody can see on
-		// the register is the gap the guideline's "discard and record" closes.
-		cell: ({ row }) => <TriageBadge decision={row.original.triageDecision} />,
+		// A yes/no question, answered. Every "No" has the same next move, which
+		// is what makes the register scannable as a worklist; which exit a
+		// triaged signal took is on the badge's tooltip and in the details
+		// dialog, so the recorded discards stay findable.
+		cell: ({ row }) => (
+			<TriagedAnswerBadge
+				decision={row.original.triageDecision}
+				priority={row.original.priority}
+			/>
+		),
 	},
 	{
 		accessorKey: "date",

@@ -1,4 +1,5 @@
 import {
+	STAGE_RISK,
 	STAGE_TRIAGE,
 	STAGE_VERIFICATION,
 	isQueueStage,
@@ -12,10 +13,10 @@ import {
  * pipeline rather than describing verification alone: a signal is untriaged
  * until it passes the gate, triaged while it waits to be verified, and verified
  * once someone has adjudicated it. Each tab therefore carries exactly one
- * pending action — Triage on the first, Verify on the second — instead of
- * mixing rows whose next step differs.
+ * pending action — Triage, Verify, Assess risk — instead of mixing rows whose
+ * next step differs.
  *
- * Two of the views ARE pipeline queues, so they reuse the ?stage= URLs the
+ * Three of the views ARE pipeline queues, so they reuse the ?stage= URLs the
  * sidebar and the pipeline strip already link to. That is deliberate: the
  * backend counts a stage and filters its queue with the same predicate
  * (services.StagePredicate), so a strip reading "6,020 awaiting triage" and the
@@ -53,7 +54,7 @@ export const REGISTER_VIEWS: {
 	{
 		value: VIEW_UNTRIAGED,
 		label: "Untriaged",
-		hint: "Not yet through the gate. Triage is due within 24 hours of receipt.",
+		hint: "New signals only — not triaged, not verified, not risk-assessed. Triage is due within 24 hours of receipt.",
 	},
 	{
 		value: VIEW_TRIAGED,
@@ -63,7 +64,7 @@ export const REGISTER_VIEWS: {
 	{
 		value: VIEW_VERIFIED,
 		label: "Verified",
-		hint: "Verification recorded, whatever its outcome.",
+		hint: "Confirmed by verification and not yet risk-assessed — assess risk from here. Due within 24 hours of verification.",
 	},
 ];
 
@@ -80,9 +81,9 @@ export function isRegisterView(value?: string | null): value is RegisterView {
  * Which view the URL is asking for.
  *
  * Returns null when the URL names a queue that is NOT one of the four — the
- * risk, feedback and off-pipeline lists are their own destinations, and showing
- * these tabs there would offer to silently navigate out of the queue the user
- * asked for.
+ * feedback and off-pipeline lists are their own destinations, and showing these
+ * tabs there would offer to silently navigate out of the queue the user asked
+ * for.
  */
 export function registerViewFromParams(
 	view: string | null | undefined,
@@ -90,6 +91,7 @@ export function registerViewFromParams(
 ): RegisterView | null {
 	if (stage === STAGE_TRIAGE) return VIEW_UNTRIAGED;
 	if (stage === STAGE_VERIFICATION) return VIEW_TRIAGED;
+	if (stage === STAGE_RISK) return VIEW_VERIFIED;
 	if (isQueueStage(stage)) return null;
 	if (isRegisterView(view)) return view;
 	return DEFAULT_REGISTER_VIEW;
@@ -106,9 +108,14 @@ export function registerViewFilters(view: RegisterView | null): {
 		case VIEW_TRIAGED:
 			return { stage: STAGE_VERIFICATION, verification: "all" };
 		case VIEW_VERIFIED:
-			// Verified rows are spread across every stage past verification, so
-			// this one is a verification filter rather than a queue.
-			return { stage: "", verification: "verified" };
+			// The risk-assessment queue: CONFIRMED by verification and carrying no
+			// risk level yet. Risk can only be assessed on a signal verification
+			// confirmed — the server rejects anything else — so this tab holds
+			// exactly the rows whose next move is Assess risk, the way Untriaged
+			// holds the rows waiting on Triage. Verified rows already scored, and
+			// the ones verification discarded, are on All (filter Verification =
+			// Verified) rather than sitting here with nothing due.
+			return { stage: STAGE_RISK, verification: "all" };
 		default:
 			return { stage: "", verification: "all" };
 	}
@@ -121,6 +128,8 @@ export function registerViewHref(view: RegisterView): string {
 			return `/dashboard/signal-logs?stage=${STAGE_TRIAGE}`;
 		case VIEW_TRIAGED:
 			return `/dashboard/signal-logs?stage=${STAGE_VERIFICATION}`;
+		case VIEW_VERIFIED:
+			return `/dashboard/signal-logs?stage=${STAGE_RISK}`;
 		default:
 			return `/dashboard/signal-logs?view=${view}`;
 	}
@@ -128,10 +137,11 @@ export function registerViewHref(view: RegisterView): string {
 
 /**
  * The pipeline stage a view is standing at, for the page heading and the strip's
- * highlight. All and Verified stand at no single gate.
+ * highlight. Only All stands at no single gate.
  */
 export function registerViewStage(view: RegisterView | null): StageKey | null {
 	if (view === VIEW_UNTRIAGED) return STAGE_TRIAGE;
 	if (view === VIEW_TRIAGED) return STAGE_VERIFICATION;
+	if (view === VIEW_VERIFIED) return STAGE_RISK;
 	return null;
 }

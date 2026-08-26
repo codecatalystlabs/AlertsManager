@@ -188,6 +188,25 @@ export function triageContinuesToVerification(value?: string | null): boolean {
 	return d !== TRIAGE_DISCARDED && d !== TRIAGE_LOGGED;
 }
 
+/**
+ * Has this signal been through the triage gate at all?
+ *
+ * The Yes/No the register's "Is signal triaged" column answers. Mirrors
+ * services.UntriagedSQL (negated) — including its concession to history: a row
+ * carrying only a PRIORITY was triaged before the decision column existed, so
+ * it reads Yes. Tested on the RAW values, exactly as the SQL does, so the
+ * column and its server-side ?triaged= filter cannot disagree about a row.
+ */
+export function isSignalTriaged(signal: {
+	triageDecision?: string | null;
+	priority?: string | null;
+}): boolean {
+	return (
+		(signal.triageDecision ?? "").trim() !== "" ||
+		(signal.priority ?? "").trim() !== ""
+	);
+}
+
 /** Short label for a possibly-absent decision. */
 export function triageDecisionLabel(value?: string | null): string {
 	const d = normalizeTriageDecision(value);
@@ -215,6 +234,16 @@ export const TRIAGE_DECISION_BADGE_CLASS: Record<string, string> = {
 	[TRIAGE_DISCARDED]: "bg-zinc-100 text-zinc-600 border-zinc-300",
 	untriaged: "bg-gray-100 text-gray-600 border-gray-200",
 };
+
+/**
+ * Options for the "Is signal triaged" column filter. Sent to the server as
+ * ?triaged=, which tests services.UntriagedSQL — the same test the triage queue
+ * uses — so the filtered list matches what the column shows.
+ */
+export const TRIAGED_FILTER_OPTIONS: { value: string; label: string }[] = [
+	{ value: "yes", label: "Yes — through the gate" },
+	{ value: "no", label: "No — not yet triaged" },
+];
 
 /** Options for the triage-decision filter — "untriaged" is a first-class choice. */
 export const TRIAGE_DECISION_FILTER_OPTIONS: {

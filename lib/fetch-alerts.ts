@@ -27,6 +27,13 @@ export interface AlertsListParams {
 	 */
 	triage_decision?: string;
 	/**
+	 * Has the signal been through the triage gate at all: "yes" | "no". Not a
+	 * synonym for triage_decision — a row triaged before the decision column
+	 * existed carries only a priority and still answers yes. Backs the
+	 * register's "Is signal triaged" column filter.
+	 */
+	triaged?: string;
+	/**
 	 * EBS pipeline stage queue: triage | verification | risk | feedback |
 	 * offpipeline. Applied server-side with the SAME predicate the pipeline
 	 * strip counts with, so a stage's tile and its list always agree.
@@ -192,6 +199,9 @@ function appendAlertFilterParams(
 	}
 	if (params.triage_decision) {
 		searchParams.set("triage_decision", params.triage_decision);
+	}
+	if (params.triaged) {
+		searchParams.set("triaged", params.triaged);
 	}
 	if (params.stage) {
 		searchParams.set("stage", params.stage);
