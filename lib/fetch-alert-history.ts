@@ -62,8 +62,16 @@ export interface AlertHistoryDetail {
 	caseName?: string;
 	note?: string;
 	by?: string;
+	/** triaged: which exit the signal took at the gate, and why. */
+	decision?: string;
+	reason?: string;
+	/** triaged: the Annex I / II signal the report was classified as. */
+	signalCode?: string;
+	signalLabel?: string;
+	signalCodeCleared?: string;
 	/** triaged: the assigned priority, its verification deadline in minutes, and
-	 *  the priority it replaced on a re-triage. */
+	 *  the priority it replaced on a re-triage. Optional — the gate no longer
+	 *  asks for a priority. */
 	priority?: string;
 	deadline?: number;
 	previousPriority?: string;

@@ -328,6 +328,7 @@ export default function CallLogsPage(): React.JSX.Element {
 				alertId={triageAlert?.id ?? null}
 				currentPriority={triageAlert?.priority}
 				currentDecision={triageAlert?.triageDecision}
+				currentSignalCode={triageAlert?.signalCode}
 				onTriaged={handleVerificationComplete}
 			/>
 

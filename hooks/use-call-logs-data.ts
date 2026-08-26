@@ -45,6 +45,12 @@ export interface AlertLog {
     /** Triage priority (High/Medium/Low). Absent = not yet triaged. */
     priority?: string | null;
     /**
+     * Which Annex I / Annex II signal this report matches (CH1, FH3, CE4…),
+     * named at triage. Absent = matched nothing on the list, which the
+     * guidelines treat as a valid signal rather than a gap.
+     */
+    signalCode?: string | null;
+    /**
      * Which exit the signal took at the triage gate: "Forwarded to
      * Verification" | "Logged" | "Discarded". Absent = not yet triaged.
      */

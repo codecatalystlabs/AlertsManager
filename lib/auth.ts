@@ -180,6 +180,8 @@ export interface Alert {
     numberAffected?: number | null
     /** Triage priority (High/Medium/Low). Absent = not yet triaged. */
     priority?: string | null
+    /** Annex I / Annex II signal code named at triage (CH1, FH3, CE4…). */
+    signalCode?: string | null
     /**
      * Which exit the signal took at the triage gate: "Forwarded to
      * Verification" | "Logged" | "Discarded". Absent = not yet triaged.

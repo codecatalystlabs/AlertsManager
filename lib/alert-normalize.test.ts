@@ -66,6 +66,21 @@ check("untriaged priority", untriaged.priority, null);
 check("untriaged triagedAt", untriaged.triagedAt, null);
 check("untriaged triagedBy", untriaged.triagedBy, null);
 
+// --- Signal classification (Annex I / II code) -------------------------------
+// Same whitelist trap as the triage fields above: the column, the model and the
+// triage endpoint all carry it, and the details dialog still shows nothing
+// until it is copied across in the normalizer.
+
+const [camelSignal] = normalizeAlertsList([{ id: 6, signalCode: "CH1" }]);
+check("camelCase signalCode", camelSignal.signalCode, "CH1");
+
+const [snakeSignal] = normalizeAlertsList([{ id: 7, signal_code: "FH3" }]);
+check("snake_case signal_code", snakeSignal.signalCode, "FH3");
+
+// Unclassified is an explicit null: the signal list is a guide, so "matched
+// nothing on it" is a real answer rather than missing data.
+check("unclassified signalCode", untriaged.signalCode, null);
+
 // --- Verification split -----------------------------------------------------
 // Same whitelist trap: present on the model, the endpoint and the column, but
 // invisible in the table until it is copied across here.

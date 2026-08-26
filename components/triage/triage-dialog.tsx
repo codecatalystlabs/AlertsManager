@@ -19,19 +19,17 @@ import { altCode } from "@/lib/alt-code";
 import { AuthService } from "@/lib/auth";
 import { getClientApiBaseUrl } from "@/lib/api-config";
 import {
-	PRIORITY_GUIDANCE,
 	TRIAGE_DECISION_GUIDANCE,
-	TRIAGE_PRIORITIES,
 	deriveTriageDecision,
-	formatDeadline,
 	normalizePriority,
 	normalizeTriageDecision,
 	triageDecisionLabel,
 	TRIAGE_DISCARDED,
 	TRIAGE_FORWARDED,
 	TRIAGE_LOGGED,
-	type AlertPriority,
 } from "@/lib/alert-triage";
+import { normalizeSignalCode, signalSummary } from "@/lib/ebs-signals";
+import { SignalPicker } from "./signal-picker";
 import { ArrowRight, CircleSlash, Loader2, ShieldQuestion } from "lucide-react";
 
 const API_BASE_URL = getClientApiBaseUrl();
@@ -53,8 +51,16 @@ const API_BASE_URL = getClientApiBaseUrl();
  * Question 2 only appears once question 1 is answered "no": for a duplicate the
  * exit is taken whatever the threat answer would have been.
  *
- * The priority appears only on the forward path, where it means something: it
- * IS the verification deadline.
+ * The gate does not set a priority. A forwarded signal is verified against the
+ * standard 24h deadline; any priority already on the row is left untouched.
+ *
+ * Alongside the two questions it names the signal: which entry of the Annex I
+ * (facility) / Annex II (community) list the report matches. That is the one
+ * classification triage is in a position to make — someone is already reading
+ * the report against the list to answer question 2 — and it is what makes
+ * signals countable by type instead of by free text. It is optional, because
+ * the guidelines are explicit that the list is a guide and anything unusual is
+ * reportable whether or not it appears on it.
  */
 export function TriageDialog({
 	open,
@@ -62,6 +68,7 @@ export function TriageDialog({
 	alertId,
 	currentPriority,
 	currentDecision,
+	currentSignalCode,
 	onTriaged,
 }: {
 	open: boolean;
@@ -69,29 +76,30 @@ export function TriageDialog({
 	alertId: number | null;
 	currentPriority?: string | null;
 	currentDecision?: string | null;
+	currentSignalCode?: string | null;
 	onTriaged?: () => void;
 }) {
 	const [reportedBefore, setReportedBefore] = useState<boolean | null>(null);
 	const [genuineThreat, setGenuineThreat] = useState<boolean | null>(null);
-	const [priority, setPriority] = useState<AlertPriority | null>(null);
+	const [signalCode, setSignalCode] = useState<string | null>(null);
 	const [reason, setReason] = useState("");
 	const [duplicateOf, setDuplicateOf] = useState("");
 	const [note, setNote] = useState("");
 	const [saving, setSaving] = useState(false);
 
 	// Re-seed each time the dialog opens so a re-triage starts from a clean
-	// sheet rather than the previous signal's answers. The priority is seeded
-	// from the row because re-triaging a forwarded signal usually means
-	// adjusting its urgency, not re-answering the gate.
+	// sheet rather than the previous signal's answers. The signal code IS seeded
+	// from the row: re-triaging does not make an earlier classification wrong,
+	// and silently dropping it would erase it on save.
 	useEffect(() => {
 		if (!open) return;
 		setReportedBefore(null);
 		setGenuineThreat(null);
-		setPriority(normalizePriority(currentPriority));
+		setSignalCode(normalizeSignalCode(currentSignalCode));
 		setReason("");
 		setDuplicateOf("");
 		setNote("");
-	}, [open, currentPriority]);
+	}, [open, currentSignalCode]);
 
 	const decision = useMemo(() => {
 		if (reportedBefore === null) return null;
@@ -103,9 +111,7 @@ export function TriageDialog({
 	const reasonRequired = decision !== null && !continues;
 
 	const canSubmit =
-		decision !== null &&
-		(!continues || priority !== null) &&
-		(!reasonRequired || reason.trim().length > 0);
+		decision !== null && (!reasonRequired || reason.trim().length > 0);
 
 	const submit = useCallback(async () => {
 		if (!alertId || decision === null || !canSubmit) return;
@@ -119,7 +125,9 @@ export function TriageDialog({
 					body: JSON.stringify({
 						reportedBefore,
 						genuineThreat: reportedBefore ? undefined : genuineThreat,
-						priority: continues ? priority : undefined,
+						// Always sent, never omitted: "" is how the operator clears a
+						// classification, and an absent field means "leave it alone".
+						signalCode: signalCode ?? "",
 						reason: reason.trim() || undefined,
 						duplicateOf:
 							decision === TRIAGE_DISCARDED &&
@@ -129,7 +137,7 @@ export function TriageDialog({
 								: undefined,
 						note: note.trim() || undefined,
 					}),
-				}
+				},
 			);
 			if (!response.ok) {
 				const data = await response.json().catch(() => ({}));
@@ -137,15 +145,17 @@ export function TriageDialog({
 			}
 			hotToast.success(
 				continues
-					? `${altCode(alertId)} forwarded for verification — ${priority}, verify within ${formatDeadline(priority)}`
+					? `${altCode(alertId)} forwarded for verification`
 					: decision === TRIAGE_DISCARDED
 						? `${altCode(alertId)} discarded as already reported — kept on the register`
-						: `${altCode(alertId)} logged and monitored — off the EBS pipeline, kept on the register`
+						: `${altCode(alertId)} logged and monitored — off the EBS pipeline, kept on the register`,
 			);
 			onTriaged?.();
 			onOpenChange(false);
 		} catch (e) {
-			hotToast.error(e instanceof Error ? e.message : "Failed to record triage");
+			hotToast.error(
+				e instanceof Error ? e.message : "Failed to record triage",
+			);
 		} finally {
 			setSaving(false);
 		}
@@ -156,7 +166,7 @@ export function TriageDialog({
 		continues,
 		reportedBefore,
 		genuineThreat,
-		priority,
+		signalCode,
 		reason,
 		duplicateOf,
 		note,
@@ -165,12 +175,13 @@ export function TriageDialog({
 	]);
 
 	const retriage = Boolean(
-		normalizeTriageDecision(currentDecision) ?? normalizePriority(currentPriority)
+		normalizeTriageDecision(currentDecision) ??
+		normalizePriority(currentPriority),
 	);
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+			<DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2 text-base">
 						<ShieldQuestion className="h-4 w-4 text-uganda-red" />
@@ -193,163 +204,150 @@ export function TriageDialog({
 					</DialogDescription>
 				</DialogHeader>
 
-				<div className="space-y-4">
-					<Question
-						step={1}
-						prompt="Has this signal been reported before, and is it already under investigation?"
-						hint="Only a signal someone is already working counts. A signal reported twice that nobody has picked up is not a duplicate — it is untriaged."
-						value={reportedBefore}
-						onChange={(v) => {
-							setReportedBefore(v);
-							if (v) setGenuineThreat(null);
-						}}
-						yesLeadsOff
+				{/* Two columns on a wide screen: naming the signal on the left,
+				    the gate that decides its fate on the right. They are read
+				    together — the Annex definition an operator picks is the same
+				    text they are judging in question 2 — so putting one below the
+				    other would mean scrolling between them. */}
+				{/* The signal list takes the larger share: its Annex definitions
+				    are full sentences and have to be readable at a glance, while
+				    the gate is two questions and a card. */}
+				<div className="grid gap-6 md:grid-cols-[1.35fr_1fr]">
+					<SignalPicker
+						value={signalCode}
+						onChange={setSignalCode}
+						className="md:border-r md:border-gray-100 md:pr-6"
 					/>
 
-					{reportedBefore === false && (
+					<div className="space-y-4">
 						<Question
-							step={2}
-							prompt="Does it represent a genuine or potential threat to public health?"
-							hint="Triage decides whether verification is warranted — not whether the report is true."
-							value={genuineThreat}
-							onChange={setGenuineThreat}
-							noLeadsOff
+							step={1}
+							prompt="Has this signal been reported before, and is it already under investigation?"
+							hint="Only a signal someone is already working counts. A signal reported twice that nobody has picked up is not a duplicate — it is untriaged."
+							value={reportedBefore}
+							onChange={(v) => {
+								setReportedBefore(v);
+								if (v) setGenuineThreat(null);
+							}}
+							yesLeadsOff
 						/>
-					)}
 
-					{decision !== null && (
-						<div
-							className={cn(
-								"rounded-lg border p-3",
-								continues
-									? "border-emerald-200 bg-emerald-50"
-									: "border-slate-200 bg-slate-50"
-							)}
-						>
-							<p className="flex items-center gap-2 text-sm font-semibold">
-								{continues ? (
-									<ArrowRight className="h-4 w-4 text-emerald-700" />
-								) : (
-									<CircleSlash className="h-4 w-4 text-slate-500" />
-								)}
-								{decision === TRIAGE_FORWARDED
-									? "Forward to verification"
-									: decision === TRIAGE_LOGGED
-										? "Log and monitor"
-										: "Discard as already reported"}
-							</p>
-							<p className="mt-1 text-xs text-muted-foreground">
-								{TRIAGE_DECISION_GUIDANCE[decision]}
-							</p>
-						</div>
-					)}
-
-					{decision === TRIAGE_DISCARDED && (
-						<div className="space-y-1">
-							<Label htmlFor="triage-duplicate-of" className="text-xs">
-								Duplicate of{" "}
-								<span className="text-muted-foreground">
-									(optional signal ID)
-								</span>
-							</Label>
-							<Input
-								id="triage-duplicate-of"
-								inputMode="numeric"
-								value={duplicateOf}
-								onChange={(e) => setDuplicateOf(e.target.value)}
-								placeholder="e.g. 6142"
-								className="h-8 text-xs"
+						{reportedBefore === false && (
+							<Question
+								step={2}
+								prompt="Does it represent a genuine or potential threat to public health?"
+								hint="Triage decides whether verification is warranted — not whether the report is true."
+								value={genuineThreat}
+								onChange={setGenuineThreat}
+								noLeadsOff
 							/>
-							<p className="text-[11px] text-muted-foreground">
-								Links this signal to the one it repeats, so the reporting
-								cluster is visible instead of just the discard.
-							</p>
-						</div>
-					)}
+						)}
 
-					{continues && (
-						<div className="space-y-2">
-							<Label className="text-xs">
-								Priority — this sets the verification deadline
-							</Label>
-							{TRIAGE_PRIORITIES.map((option) => {
-								const selected = priority === option;
-								return (
-									<button
-										key={option}
-										type="button"
-										onClick={() => setPriority(option)}
-										aria-pressed={selected}
-										className={cn(
-											"w-full rounded-lg border p-3 text-left transition-colors",
-											selected
-												? "border-uganda-red bg-uganda-red/5 ring-1 ring-uganda-red"
-												: "border-gray-200 hover:bg-gray-50"
-										)}
-									>
-										<div className="flex items-center justify-between gap-2">
-											<span className="text-sm font-semibold">{option}</span>
-											<span
-												className={cn(
-													"rounded px-1.5 py-0.5 text-[10px] font-semibold",
-													selected
-														? "bg-uganda-red text-white"
-														: "bg-gray-100 text-gray-600"
-												)}
-											>
-												verify within {formatDeadline(option)}
-											</span>
-										</div>
-										<p className="mt-1 text-xs text-muted-foreground">
-											{PRIORITY_GUIDANCE[option]}
-										</p>
-									</button>
-								);
-							})}
-						</div>
-					)}
-
-					{decision !== null && (
-						<div className="space-y-1">
-							<Label htmlFor="triage-reason" className="text-xs">
-								{reasonRequired ? (
-									<>
-										Why is this signal leaving the pipeline?{" "}
-										<span className="text-uganda-red">*</span>
-									</>
-								) : (
-									<>
-										Why this priority?{" "}
-										<span className="text-muted-foreground">(optional)</span>
-									</>
+						{decision !== null && (
+							<div
+								className={cn(
+									"rounded-lg border p-3",
+									continues
+										? "border-emerald-200 bg-emerald-50"
+										: "border-slate-200 bg-slate-50",
 								)}
-							</Label>
-							<Textarea
-								id="triage-reason"
-								value={reasonRequired ? reason : note}
-								onChange={(e) =>
-									reasonRequired
-										? setReason(e.target.value)
-										: setNote(e.target.value)
-								}
-								placeholder={
-									reasonRequired
-										? "e.g. same cluster as ALT6142, RRT already deployed"
-										: "e.g. cluster of 3 in one village, bleeding reported"
-								}
-								className="min-h-[64px] text-xs"
-							/>
-							<p className="text-[11px] text-muted-foreground">
-								{reasonRequired
-									? "Required. Without a stated reason a discard is indistinguishable from a signal nobody looked at."
-									: "Kept on the signal's traceability timeline, so a later re-triage does not erase the original reasoning."}
-							</p>
-						</div>
-					)}
+							>
+								<p className="flex items-center gap-2 text-sm font-semibold">
+									{continues ? (
+										<ArrowRight className="h-4 w-4 text-emerald-700" />
+									) : (
+										<CircleSlash className="h-4 w-4 text-slate-500" />
+									)}
+									{decision === TRIAGE_FORWARDED
+										? "Forward to verification"
+										: decision === TRIAGE_LOGGED
+											? "Log and monitor"
+											: "Discard as already reported"}
+								</p>
+								<p className="mt-1 text-xs text-muted-foreground">
+									{TRIAGE_DECISION_GUIDANCE[decision]}
+								</p>
+								{signalSummary(signalCode) && (
+									<p className="mt-1 text-[11px] text-muted-foreground">
+										Recorded as{" "}
+										<span className="font-mono font-semibold">
+											{signalCode}
+										</span>{" "}
+										— {signalSummary(signalCode)?.split(" — ")[1]}
+									</p>
+								)}
+							</div>
+						)}
+
+						{decision === TRIAGE_DISCARDED && (
+							<div className="space-y-1">
+								<Label htmlFor="triage-duplicate-of" className="text-xs">
+									Duplicate of{" "}
+									<span className="text-muted-foreground">
+										(optional signal ID)
+									</span>
+								</Label>
+								<Input
+									id="triage-duplicate-of"
+									inputMode="numeric"
+									value={duplicateOf}
+									onChange={(e) => setDuplicateOf(e.target.value)}
+									placeholder="e.g. 6142"
+									className="h-8 text-xs"
+								/>
+								<p className="text-[11px] text-muted-foreground">
+									Links this signal to the one it repeats, so the reporting
+									cluster is visible instead of just the discard.
+								</p>
+							</div>
+						)}
+
+						{decision !== null && (
+							<div className="space-y-1">
+								<Label htmlFor="triage-reason" className="text-xs">
+									{reasonRequired ? (
+										<>
+											Why is this signal leaving the pipeline?{" "}
+											<span className="text-uganda-red">*</span>
+										</>
+									) : (
+										<>
+											Triage note{" "}
+											<span className="text-muted-foreground">(optional)</span>
+										</>
+									)}
+								</Label>
+								<Textarea
+									id="triage-reason"
+									value={reasonRequired ? reason : note}
+									onChange={(e) =>
+										reasonRequired
+											? setReason(e.target.value)
+											: setNote(e.target.value)
+									}
+									placeholder={
+										reasonRequired
+											? "e.g. same cluster as ALT6142, RRT already deployed"
+											: "e.g. cluster of 3 in one village, bleeding reported"
+									}
+									className="min-h-[64px] text-xs"
+								/>
+								<p className="text-[11px] text-muted-foreground">
+									{reasonRequired
+										? "Required. Without a stated reason a discard is indistinguishable from a signal nobody looked at."
+										: "Kept on the signal's traceability timeline, so a later re-triage does not erase the original reasoning."}
+								</p>
+							</div>
+						)}
+					</div>
 				</div>
 
 				<div className="flex justify-end gap-2">
-					<Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => onOpenChange(false)}
+					>
 						Cancel
 					</Button>
 					<Button size="sm" onClick={submit} disabled={!canSubmit || saving}>
@@ -410,7 +408,7 @@ function Question({
 									? option.off
 										? "border-slate-400 bg-slate-100 text-slate-800 ring-1 ring-slate-400"
 										: "border-uganda-red bg-uganda-red/5 text-uganda-black ring-1 ring-uganda-red"
-									: "border-gray-200 hover:bg-gray-50"
+									: "border-gray-200 hover:bg-gray-50",
 							)}
 						>
 							{option.label}

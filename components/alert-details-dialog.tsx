@@ -34,6 +34,7 @@ import { SignalStateBadge, StageRail } from "@/components/pipeline";
 import { signalTitle } from "@/lib/signal-state";
 import { formatDateTime } from "@/lib/format-date";
 import { PriorityBadge, TriageBadge } from "@/components/triage";
+import { signalSummary } from "@/lib/ebs-signals";
 import { RiskBadge } from "@/components/risk";
 import {
 	RISK_ACTION,
@@ -371,6 +372,7 @@ export function AlertDetailsDialog({
 					    the loop was closed — and each was previously invisible on
 					    this dialog even once recorded. */}
 					{(alert.priority ||
+						alert.signalCode ||
 						alert.riskLevel ||
 						alert.feedbackGivenAt ||
 						alert.verificationOutcome) && (
@@ -396,6 +398,18 @@ export function AlertDetailsDialog({
 								</div>
 
 								<div className="grid grid-cols-2 gap-x-6 gap-y-2">
+									{/* The Annex I / Annex II entry this report was classified
+									    as — the vocabulary the signal registers are kept in,
+									    so it is shown in full rather than as a bare code. */}
+									{signalSummary(alert.signalCode) && (
+										<div className="col-span-2">
+											<Field label="EBS Signal">
+												<p className="text-sm text-foreground">
+													{signalSummary(alert.signalCode)}
+												</p>
+											</Field>
+										</div>
+									)}
 									{alert.triagedBy && (
 										<Field label="Triaged By" value={alert.triagedBy} />
 									)}

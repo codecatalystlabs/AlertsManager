@@ -72,17 +72,17 @@ const navigationGroups: NavigationGroup[] = [
 		items: [
 			{ name: "Signal Register", href: "/dashboard/signal-logs", icon: RadioTower },
 			{
-				name: "Awaiting Triage",
+				name: "Triaged",
 				href: "/dashboard/signal-logs?stage=triage",
 				icon: ShieldQuestion,
 			},
 			{
-				name: "Awaiting Verification",
+				name: "Verification",
 				href: "/dashboard/signal-logs?stage=verification",
 				icon: ShieldCheck,
 			},
 			{
-				name: "Awaiting Risk Assessment",
+				name: "Risk Assessment",
 				href: "/dashboard/signal-logs?stage=risk",
 				icon: ShieldAlert,
 			},
@@ -377,8 +377,8 @@ function SidebarContent({
 						<div key={group.label} className="space-y-1">
 							{collapsed
 								? groupIndex > 0 && (
-										<div className="mx-2 mb-2 border-t border-gray-200" />
-									)
+									<div className="mx-2 mb-2 border-t border-gray-200" />
+								)
 								: (
 									<h3 className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
 										{group.label}

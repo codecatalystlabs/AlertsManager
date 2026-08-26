@@ -83,7 +83,12 @@ function summarise(event: AlertHistoryEvent): string {
 			if (d.note) parts.push(`“${d.note}”`);
 			break;
 		case "triaged":
-			// The priority IS the verification deadline, so show both.
+			// Which exit the signal took is the headline — the priority is
+			// optional and usually absent, so leading with it would leave most
+			// triage entries reading as a bare timestamp.
+			if (d.decision) parts.push(String(d.decision));
+			if (d.signalCode) parts.push(String(d.signalCode));
+			// When a priority IS carried, it is the verification deadline.
 			if (d.priority) {
 				parts.push(
 					d.deadline
@@ -92,6 +97,9 @@ function summarise(event: AlertHistoryEvent): string {
 				);
 			}
 			if (d.previousPriority) parts.push(`was ${d.previousPriority}`);
+			// For a signal triage took OFF the pipeline the reason is the whole
+			// point of the entry.
+			if (d.reason) parts.push(`“${d.reason}”`);
 			if (d.note) parts.push(`“${d.note}”`);
 			break;
 		case "risk_assessed":

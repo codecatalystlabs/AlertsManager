@@ -201,7 +201,7 @@ export function triageDecisionLabel(value?: string | null): string {
  */
 export const TRIAGE_DECISION_GUIDANCE: Record<TriageDecision, string> = {
 	[TRIAGE_FORWARDED]:
-		"Goes forward for verification against the deadline its priority sets.",
+		"Goes forward for verification, due within 24 hours unless a priority already sets a tighter deadline.",
 	[TRIAGE_LOGGED]:
 		"Logged and monitored, referred for appropriate management. Leaves the EBS pipeline but stays on the register.",
 	[TRIAGE_DISCARDED]:
