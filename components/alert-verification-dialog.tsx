@@ -683,7 +683,7 @@ export function AlertVerificationDialog({
 						{isEidsrMode
 							? "Verify this SMS into the alerts table. Empty fields may be filled from the message by the server."
 							: isNdwMode
-							? "Verify this signal into the alerts table as a call log. It will then appear under Call Logs / Alerts."
+							? "Verify this signal into the alerts table as a signal log. It will then appear under Signal Logs / Alerts."
 							: "Complete the verification process for this health alert"}
 					</DialogDescription>
 				</DialogHeader>
@@ -1112,7 +1112,7 @@ export function AlertVerificationDialog({
 										htmlFor="sourceOfAlert"
 										className="text-sm font-medium"
 									>
-										Source of Alert *
+										Source of signal *
 									</Label>
 									<Select
 										value={formData.sourceOfAlert}

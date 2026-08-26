@@ -74,7 +74,7 @@ export function ForwardToDistrictDialog({
 			const result = await onForward(district.trim(), note.trim() || undefined);
 			toast({
 				title: "Alert forwarded",
-				description: `Sent to ${result.district} as a call log.`,
+				description: `Sent to ${result.district} as a signal log.`,
 			});
 			onForwarded(result.district);
 			onClose();
@@ -101,8 +101,8 @@ export function ForwardToDistrictDialog({
 				<DialogHeader>
 					<DialogTitle>Forward alert to a district</DialogTitle>
 					<DialogDescription>
-						Send this {sourceLabel} to a district as a call log. It will
-						appear in that district&apos;s Call Logs and can be verified
+						Send this {sourceLabel} to a district as a signal log. It will
+						appear in that district&apos;s Signal Logs and can be verified
 						there.
 					</DialogDescription>
 				</DialogHeader>
@@ -112,7 +112,7 @@ export function ForwardToDistrictDialog({
 						<Alert className="surface-warning">
 							<AlertDescription className="text-warning">
 								Already forwarded to {warnForwarded}. Forwarding
-								again will create another call log.
+								again will create another signal log.
 							</AlertDescription>
 						</Alert>
 					)}

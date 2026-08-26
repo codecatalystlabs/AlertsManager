@@ -12,12 +12,13 @@ import {
 	type AlertPdfData,
 } from "@/lib/alert-pdf";
 import Link from "next/link";
-import { alertResponse } from "@/constants";
 import {
 	AddAlertForm,
+	PUBLIC_DEFAULTS,
 	type AlertFormValues,
 	type AlertPayload,
 } from "@/components/add-alert-form";
+import { getLocalDateString, getLocalTimeString } from "@/lib/utils";
 import { MohLogo } from "@/components/moh-logo";
 import { useIsAuthenticated } from "@/hooks/use-auth-status";
 
@@ -58,10 +59,13 @@ function toPdfData(
 	return {
 		referenceId: createdId,
 		submittedAt: new Date(),
-		date: values.date,
-		time: values.time,
-		status: values.status,
-		callTaker: values.callTaker,
+		// The public form no longer asks for these — it submits "now" and the
+		// PUBLIC_DEFAULTS intake labels. The receipt has to show what was
+		// actually recorded, not the blank form fields.
+		date: values.date || getLocalDateString(),
+		time: values.time || getLocalTimeString(),
+		status: values.status || PUBLIC_DEFAULTS.status,
+		callTaker: values.callTaker || PUBLIC_DEFAULTS.callTaker,
 		alertReportedBefore:
 			values.alertReportedBefore === "yes"
 				? "Yes"
@@ -70,11 +74,7 @@ function toPdfData(
 				: "",
 		personReporting: values.personReporting,
 		contactNumber: values.contactNumber,
-		sourceOfAlert: values.sourceOfAlert,
-		response: values.response
-			? alertResponse.find((d) => d.code === values.response)?.name ??
-			  values.response
-			: "",
+		sourceOfAlert: values.sourceOfAlert || PUBLIC_DEFAULTS.sourceOfAlert,
 		region: values.region,
 		district: values.district,
 		subCounty: values.subcounty,
@@ -86,8 +86,6 @@ function toPdfData(
 		nextOfKinName: values.nextOfKinName,
 		nextOfKinPhone: values.nextOfKinPhone,
 		caseDescription: values.caseDescription,
-		narrative: values.narrative,
-		symptoms: values.symptoms,
 	};
 }
 

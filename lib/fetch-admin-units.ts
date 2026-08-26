@@ -124,6 +124,12 @@ export async function fetchDistricts(): Promise<string[]> {
 export interface AdminUnitOption {
 	id: number;
 	name: string;
+	/**
+	 * Parent region id, present on districts returned by the admin-units API.
+	 * Lets a district selection derive its region without the reporter having
+	 * to pick one (see CaseLocationSelect's `hideRegion`).
+	 */
+	regionId?: number;
 }
 
 /** Pull the first defined value from a list of candidate object keys. */
@@ -163,7 +169,13 @@ function parseAdminUnitOptions(json: unknown, nameKeys: string[]): AdminUnitOpti
 		const name = nameRaw != null ? String(nameRaw).trim() : "";
 		if (!Number.isFinite(id) || !name || seen.has(id)) continue;
 		seen.add(id);
-		options.push({ id, name });
+		const regionIdRaw = pick(row, ["regionId", "region_id", "RegionID"]);
+		const regionId = Number(regionIdRaw);
+		options.push(
+			Number.isFinite(regionId) && regionId > 0
+				? { id, name, regionId }
+				: { id, name }
+		);
 	}
 	return options.sort((a, b) => a.name.localeCompare(b.name));
 }

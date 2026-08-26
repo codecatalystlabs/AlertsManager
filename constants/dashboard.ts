@@ -84,6 +84,6 @@ export const STAT_CARDS: StatCardConfig[] = [
 export const LOADING_MESSAGES = {
     DASHBOARD: 'Loading dashboard data...',
     ALERTS: 'Loading alerts...',
-    CALL_LOGS: 'Loading call logs...',
+    CALL_LOGS: 'Loading signal logs...',
     REFRESHING: 'Refreshing data...',
 } as const;

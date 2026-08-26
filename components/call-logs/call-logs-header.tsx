@@ -11,6 +11,13 @@ interface CallLogsHeaderProps {
 	isRefreshing?: boolean;
 	/** Which export is in progress, if any — drives the button spinners. */
 	exporting?: "csv" | "excel" | null;
+	/**
+	 * The pipeline queue being shown ("Awaiting triage"), when the page is
+	 * standing at one gate rather than showing the whole register. The heading
+	 * has to say so: a filtered list that looks like the full register is how
+	 * someone concludes there are only 6,022 signals in the country.
+	 */
+	queueLabel?: string | null;
 }
 
 export const CallLogsHeader = memo<CallLogsHeaderProps>(
@@ -20,16 +27,19 @@ export const CallLogsHeader = memo<CallLogsHeaderProps>(
 		onExportCsv,
 		isRefreshing = false,
 		exporting = null,
+		queueLabel = null,
 	}) => {
 		const isExporting = exporting !== null;
 		return (
 			<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
 				<div>
 					<h1 className={LAYOUT.pageTitle}>
-						{CALL_LOGS_CONFIG.PAGE_TITLE}
+						{queueLabel ?? CALL_LOGS_CONFIG.PAGE_TITLE}
 					</h1>
 					<p className={LAYOUT.pageSubtitle}>
-						{CALL_LOGS_CONFIG.PAGE_DESCRIPTION}
+						{queueLabel
+							? "One gate of the EBS pipeline. Clear the stage filter above to see the whole register."
+							: CALL_LOGS_CONFIG.PAGE_DESCRIPTION}
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-1.5 justify-end">

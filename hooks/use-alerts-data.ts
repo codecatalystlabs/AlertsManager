@@ -90,7 +90,7 @@ function toApiParams(
     // outcome (desk/field decision), the same definition the dashboard KPIs and the
     // SLA clock use — not the is_verified flag, which is set on 99.5% of rows
     // including ones nobody has decided on. Signals still awaiting a decision live
-    // in Call Logs, which does not send this param.
+    // in Signal Logs, which does not send this param.
     const params: AlertsListParams = { page, limit, outcome_recorded: true };
 
     // Server-side sort so a header sort orders the WHOLE dataset, not just the

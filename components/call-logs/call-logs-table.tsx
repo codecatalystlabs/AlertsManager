@@ -106,7 +106,7 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 			<Card className={LAYOUT.card}>
 				<CardHeader className={LAYOUT.cardHeader}>
 					<CardTitle className={LAYOUT.cardTitle}>
-						Alert Logs ({totalCount.toLocaleString()})
+						Signals ({totalCount.toLocaleString()})
 					</CardTitle>
 				</CardHeader>
 				<CardContent className={LAYOUT.cardContent}>

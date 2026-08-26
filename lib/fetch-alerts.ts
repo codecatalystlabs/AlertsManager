@@ -20,6 +20,18 @@ export interface AlertsListParams {
 	district?: string;
 	/** Triage priority: High | Medium | Low | untriaged (comma-separated). */
 	priority?: string;
+	/**
+	 * Triage decision: "Forwarded to Verification" | Logged | Discarded |
+	 * untriaged (comma-separated). Filtering on Discarded is how the register
+	 * shows what triage rejected — the guideline's "discard AND record".
+	 */
+	triage_decision?: string;
+	/**
+	 * EBS pipeline stage queue: triage | verification | risk | feedback |
+	 * offpipeline. Applied server-side with the SAME predicate the pipeline
+	 * strip counts with, so a stage's tile and its list always agree.
+	 */
+	stage?: string;
 	/** Division/subcounty name; matched against alert_case_sub_county or sub_county. */
 	division?: string;
 	is_verified?: boolean;
@@ -72,7 +84,7 @@ export interface AlertsListParams {
 	 * Only signals with a recorded verification outcome (true), or only pending
 	 * ones (false). This is what locks View Alerts to verified signals — it is a
 	 * recorded desk/field decision, NOT the is_verified flag (which is set on
-	 * 99.5% of rows). Call Logs omits it and keeps showing everything.
+	 * 99.5% of rows). Signal Logs omits it and keeps showing everything.
 	 */
 	outcome_recorded?: boolean;
 	/** Sort column: date | created_at | id | name | district | status | reporter. */
@@ -177,6 +189,12 @@ function appendAlertFilterParams(
 	// missing below is silently never sent.
 	if (params.priority) {
 		searchParams.set("priority", params.priority);
+	}
+	if (params.triage_decision) {
+		searchParams.set("triage_decision", params.triage_decision);
+	}
+	if (params.stage) {
+		searchParams.set("stage", params.stage);
 	}
 	if (params.sla) {
 		searchParams.set("sla", params.sla);

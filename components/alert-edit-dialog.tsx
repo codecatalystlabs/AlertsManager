@@ -575,7 +575,7 @@ export function AlertEditDialog({
 									htmlFor="sourceOfAlert"
 									className="text-sm font-medium"
 								>
-									Source of Alert *
+									Source of signal *
 								</Label>
 								<Select
 									onValueChange={(value) =>
@@ -587,7 +587,7 @@ export function AlertEditDialog({
 									value={formData.sourceOfAlert}
 								>
 									<SelectTrigger>
-										<SelectValue placeholder="Select alert source" />
+										<SelectValue placeholder="Select signal source" />
 									</SelectTrigger>
 									<SelectContent>
 										{alertSource?.map((source) => (
@@ -639,7 +639,7 @@ export function AlertEditDialog({
 									htmlFor="status"
 									className="text-sm font-medium"
 								>
-									Alert Status *
+									Signal Status *
 								</Label>
 								<Select
 									onValueChange={(value) =>
@@ -651,7 +651,7 @@ export function AlertEditDialog({
 									value={formData.status}
 								>
 									<SelectTrigger>
-										<SelectValue placeholder="Select alert status" />
+										<SelectValue placeholder="Select signal status" />
 									</SelectTrigger>
 									<SelectContent>
 										{alertStatus?.map(

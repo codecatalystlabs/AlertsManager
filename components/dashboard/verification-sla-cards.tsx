@@ -18,9 +18,18 @@ import type { DashboardVerificationSla } from "@/lib/fetch-dashboard";
 
 /**
  * The verification-SLA row: how signals in the selected scope are doing against
- * the 1-hour verification window. Counts come from the /dashboard/summary
- * aggregate, which uses the same clock as the alerts-list SLA row tints — so a
- * card here always reconciles with what the View Alerts list shows.
+ * the deadline their TRIAGE PRIORITY sets — High 12h, Medium 24h, Low 48h (EBS
+ * Guidelines Table 3). This is KPI 4, target >80%.
+ *
+ * It is not a flat one-hour window, and was not one on the server either: these
+ * cards read `verifiedWithinHour` and friends long after the API had renamed
+ * them to the deadline-relative fields, so every card in this row silently
+ * rendered 0. Field names here are load-bearing — the response is untyped JSON
+ * on the wire, so a rename that misses this file fails quietly.
+ *
+ * Counts come from the /dashboard/summary aggregate, which uses the same clock
+ * as the signal-list SLA row tints — so a card here always reconciles with what
+ * the Signal Register shows.
  *
  * Renders through the same StatCardShell as the workflow KPI cards above it, so
  * both rows stay identical in size and structure; only the card face carries
@@ -65,36 +74,36 @@ interface SlaCardSpec {
 
 const SLA_CARDS: SlaCardSpec[] = [
 	{
-		key: "verifiedWithinHour",
-		title: "Verified within an hour",
-		hint: "Verified, and verification came within 60 minutes of the signal being reported.",
+		key: "verifiedWithinDeadline",
+		title: "Verified within deadline",
+		hint: "KPI 4, target >80%. Verified inside the deadline its triage priority sets — High 12h, Medium 24h, Low 48h. An untriaged signal is measured against the Medium deadline.",
 		denominator: "verified",
 		denominatorLabel: "of verified signals",
 		icon: ShieldCheck,
 		ink: whiteInk("bg-gradient-to-br from-emerald-500 to-emerald-700"),
 	},
 	{
-		key: "pendingUnderHour",
-		title: "Not verified — under an hour",
-		hint: "Still pending, but reported no more than an hour ago — inside the verification window.",
+		key: "pendingWithinDeadline",
+		title: "Pending — still in time",
+		hint: "Not yet verified, but inside its deadline. Work in hand, not work overdue.",
 		denominator: "pending",
 		denominatorLabel: "of pending signals",
 		icon: Timer,
 		ink: whiteInk("bg-gradient-to-br from-teal-500 to-cyan-700"),
 	},
 	{
-		key: "pendingOverHour",
-		title: "Not verified for > an hour",
-		hint: "Still pending more than an hour after reporting — the verification window has been missed.",
+		key: "pendingBreached",
+		title: "Pending — past deadline",
+		hint: "Not verified, and the national deadline for its priority has passed.",
 		denominator: "pending",
 		denominatorLabel: "of pending signals",
 		icon: Hourglass,
 		ink: AMBER_INK,
 	},
 	{
-		key: "pendingOver24h",
-		title: "Not verified within 24 hours",
-		hint: "Still pending more than 24 hours after reporting.",
+		key: "pendingCritical",
+		title: "Critically overdue",
+		hint: "Not verified past TWICE its deadline — a subset of those past deadline, surfaced separately because they are the ones to work first.",
 		denominator: "pending",
 		denominatorLabel: "of pending signals",
 		icon: AlarmClockOff,

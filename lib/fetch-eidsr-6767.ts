@@ -100,7 +100,7 @@ function forwardErrorMessage(body: string, status: number): string {
 
 /**
  * Forward a 6767 message to a district as a new call-log alert (it then appears
- * in that district's Call Logs). POST /eidsr/local/events/:id/forward, falling
+ * in that district's Signal Logs). POST /eidsr/local/events/:id/forward, falling
  * back to /eidsr/local/messages/:id/forward when the first path isn't registered.
  */
 export async function forwardEidsr6767(

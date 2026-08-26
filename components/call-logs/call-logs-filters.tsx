@@ -17,7 +17,10 @@ import {
 	SEX_FILTER_OPTIONS,
 	type CallLogsFilterState,
 } from "@/constants/call-logs";
-import { PRIORITY_FILTER_OPTIONS } from "@/lib/alert-triage";
+import {
+	PRIORITY_FILTER_OPTIONS,
+	TRIAGE_DECISION_FILTER_OPTIONS,
+} from "@/lib/alert-triage";
 import { LAYOUT } from "@/constants/layout";
 import { useLocationCascade } from "@/hooks/use-location-cascade";
 import {
@@ -168,6 +171,36 @@ export const CallLogsFilters = memo<CallLogsFiltersProps>(
 								<SelectContent>
 									<SelectItem value="all">All priorities</SelectItem>
 									{PRIORITY_FILTER_OPTIONS.map((option) => (
+										<SelectItem
+											key={option.value}
+											value={option.value}
+										>
+											{option.label}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="triage-decision-filter" className="text-[11px]">
+								Triage decision
+							</Label>
+							<Select
+								value={filters.triageDecision}
+								onValueChange={(value) =>
+									onFiltersChange({ triageDecision: value })
+								}
+							>
+								<SelectTrigger
+									id="triage-decision-filter"
+									className="h-8 text-xs"
+								>
+									<SelectValue placeholder="All" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="all">All decisions</SelectItem>
+									{TRIAGE_DECISION_FILTER_OPTIONS.map((option) => (
 										<SelectItem
 											key={option.value}
 											value={option.value}

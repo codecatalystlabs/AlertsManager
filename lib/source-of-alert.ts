@@ -10,16 +10,28 @@
 export const SOURCE_OF_ALERT_OPTIONS = [
 	"Community",
 	"Health facility",
-	"eCHIS",
 	"Refugee Camp",
 	"Point Of Entry",
 	"Schools",
 	"Other",
 ] as const;
 
-export type SourceOfAlert = (typeof SOURCE_OF_ALERT_OPTIONS)[number];
+/**
+ * Labels no longer offered in any picker but still present on stored rows, so
+ * normalizeSourceOfAlert keeps resolving them and old records keep displaying
+ * their real source instead of a blank.
+ */
+export const RETIRED_SOURCE_LABELS = ["eCHIS"] as const;
 
-/** Lowercased raw value -> canonical label. Keys must be lowercase + trimmed. */
+export type SourceOfAlert =
+	| (typeof SOURCE_OF_ALERT_OPTIONS)[number]
+	| (typeof RETIRED_SOURCE_LABELS)[number];
+
+/**
+ * Lowercased raw value -> canonical label. Keys must be lowercase + trimmed.
+ * Retired labels stay here on purpose — they are no longer selectable, but the
+ * rows that already carry them still have to normalize and filter correctly.
+ */
 const SOURCE_ALIASES: Record<string, SourceOfAlert> = {
 	community: "Community",
 	"community member": "Community",

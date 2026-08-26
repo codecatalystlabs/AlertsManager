@@ -40,8 +40,19 @@ export interface AlertLog {
     contactNumber: string;
     sourceOfAlert: string;
     channelOfReporting?: string;
+    /** Minimum dataset item 4: estimated number affected. null = reporter did not know. */
+    numberAffected?: number | null;
     /** Triage priority (High/Medium/Low). Absent = not yet triaged. */
     priority?: string | null;
+    /**
+     * Which exit the signal took at the triage gate: "Forwarded to
+     * Verification" | "Logged" | "Discarded". Absent = not yet triaged.
+     */
+    triageDecision?: string | null;
+    /** Why that decision was reached (required when the signal leaves the pipeline). */
+    triageReason?: string | null;
+    /** The earlier signal this one duplicates, when discarded as a duplicate. */
+    triageDuplicateOf?: number | null;
     triagedAt?: string | null;
     triagedBy?: string | null;
     /** Verification outcome: Confirmed | Discarded | Escalated to Field. */
@@ -238,6 +249,17 @@ function toApiParams(
     if (filters.priority && filters.priority !== 'all') {
         params.priority = filters.priority;
     }
+    // Triage decision. Same shape, and "untriaged" is likewise a real value:
+    // the register has to be able to show what was DISCARDED, or the
+    // guideline's "discard and record" quietly becomes "discard".
+    if (filters.triageDecision && filters.triageDecision !== 'all') {
+        params.triage_decision = filters.triageDecision;
+    }
+    // Pipeline stage queue. Server-side, and deliberately NOT clearable from the
+    // filter bar: it is which gate you are standing at, and the URL owns it.
+    if (filters.stage) {
+        params.stage = filters.stage;
+    }
 
     if (filters.callTaker.trim()) {
         params.call_taker = filters.callTaker.trim();
@@ -331,7 +353,7 @@ function applyClientFilters(alerts: AlertLog[], filters: CallLogsFilters): Alert
 /**
  * Human-readable tokens describing the active filters, woven into the export
  * filename so a downloaded file says what it contains (e.g.
- * call_logs_export_Kampala_Central_verified_2026-01-01_to_2026-03-31.csv).
+ * signal_logs_export_Kampala_Central_verified_2026-01-01_to_2026-03-31.csv).
  * Free-text filters (search, staff names) are omitted to keep names clean.
  */
 function buildExportFilterTokens(filters: CallLogsFilters): string[] {
@@ -429,7 +451,7 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
     const error = swrError
         ? swrError instanceof Error
             ? swrError.message
-            : 'Failed to fetch call logs'
+            : 'Failed to fetch signal logs'
         : null;
 
     const loadAlertsForExport = useCallback(async (): Promise<AlertLog[]> => {
@@ -566,7 +588,7 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
             const exported = await exportAlertsToExcel(
                 rows,
                 exportPrefix,
-                'Call Logs',
+                'Signal Logs',
                 {
                     range: {
                         from: filtersRef.current.fromDate,

@@ -25,7 +25,10 @@ import {
 } from "@/lib/alert-pdf";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PriorityBadge } from "@/components/triage";
+import { PriorityBadge, TriageBadge } from "@/components/triage";
+import { verificationBlockedReason } from "@/lib/alert-triage";
+import { nextAction, type NextActionKey } from "@/lib/next-action";
+import { SignalStateBadge } from "@/components/pipeline";
 import { RiskBadge } from "@/components/risk";
 import { feedbackIsDue } from "@/lib/alert-feedback";
 import {
@@ -43,10 +46,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export const CALL_LOGS_CONFIG = {
-	PAGE_TITLE: "Call Logs & Alert Management",
-	PAGE_DESCRIPTION: "Monitor and manage health alert calls",
+	PAGE_TITLE: "Signal Register",
+	PAGE_DESCRIPTION: "Every signal reported into the system, at every stage of the EBS pipeline",
 	ITEMS_PER_PAGE: 10,
-	EXPORT_FILENAME_PREFIX: "call_logs_export",
+	EXPORT_FILENAME_PREFIX: "signal_logs_export",
 } as const;
 
 export const STATUS_FILTER_OPTIONS = [
@@ -94,6 +97,18 @@ export interface CallLogsFilterState {
 	ageMax: string;
 	/** Triage priority: "all" | "High" | "Medium" | "Low" | "untriaged". */
 	priority: string;
+	/**
+	 * Triage decision: "all" | "Forwarded to Verification" | "Logged" |
+	 * "Discarded" | "untriaged". Filtering on Discarded is how the register
+	 * shows what triage rejected.
+	 */
+	triageDecision: string;
+	/**
+	 * EBS pipeline stage queue, set from the ?stage= URL param rather than the
+	 * filter bar — it is a destination ("Awaiting triage"), not a refinement of
+	 * one. Empty means the whole register.
+	 */
+	stage: string;
 	/** Partial match on the call taker; "" means no filter. */
 	callTaker: string;
 	/** Partial match on the assigned user; "" means no filter. */
@@ -106,6 +121,8 @@ export const CALL_LOGS_INITIAL_FILTERS: CallLogsFilterState = {
 	status: "all",
 	source: "all",
 	priority: "all",
+	triageDecision: "all",
+	stage: "",
 	search: "",
 	verification: "all",
 	region: "all",
@@ -261,7 +278,7 @@ export const createCallLogsTableColumns = (
 		accessorKey: "id",
 		filterFn: textIncludesFilter,
 		meta: {
-			filterLabel: "Alert ID",
+			filterLabel: "Signal ID",
 			filterPlaceholder: "ALT number",
 		},
 		header: ({ column }) => {
@@ -275,18 +292,36 @@ export const createCallLogsTableColumns = (
 					}
 					className="hover:bg-uganda-yellow/10"
 				>
-					Alert ID
+					Signal ID
 					<ArrowUpDown className="ml-2 h-4 w-4" />
 				</Button>
 			);
 		},
 		cell: ({ row }) => {
 			return (
-				<div className="font-mono text-sm">
-					{altCode(Number(row.getValue("id")))}
+				<div className="flex items-center gap-1.5">
+					<span className="font-mono text-sm">
+						{altCode(Number(row.getValue("id")))}
+					</span>
+					{/* Named beside its identifier: whether this is still a
+					    signal or has become an event is the first fact about
+					    it, and it costs no column width here. */}
+					<SignalStateBadge record={row.original} />
 				</div>
 			);
 		},
+	},
+	{
+		id: "nextAction",
+		header: "Next step",
+		enableSorting: false,
+		enableColumnFilter: false,
+		// The pipeline's next move, as a button. The menu beside it still holds
+		// every action; this one says which is actually due, so the queue reads
+		// as work rather than as rows.
+		cell: ({ row }) => (
+			<NextStepButton alert={row.original} callbacks={callbacks} />
+		),
 	},
 	{
 		id: "risk",
@@ -311,6 +346,19 @@ export const createCallLogsTableColumns = (
 		cell: ({ row }) => (
 			<PriorityBadge priority={row.original.priority} showDeadline />
 		),
+	},
+	{
+		id: "triageDecision",
+		accessorKey: "triageDecision",
+		header: "Triage",
+		enableSorting: false,
+		meta: {
+			filterLabel: "Triage decision",
+		},
+		// Which exit the signal took at the gate. A discarded duplicate is
+		// RECORDED, so it has to be visible here — a discard nobody can see on
+		// the register is the gap the guideline's "discard and record" closes.
+		cell: ({ row }) => <TriageBadge decision={row.original.triageDecision} />,
 	},
 	{
 		accessorKey: "date",
@@ -430,7 +478,7 @@ export const createCallLogsTableColumns = (
 		header: "Forwarded From",
 		enableColumnFilter: false,
 		cell: ({ row }) => {
-			// A 6767 alert forwarded into a district's call log is stamped with
+			// A 6767 alert forwarded into a district's signal log is stamped with
 			// alertFrom = "6767 Forward" by the backend.
 			const from = (row.original.alertFrom ?? "").toLowerCase();
 			return from.includes("6767") ? (
@@ -541,7 +589,7 @@ export const createCallLogsTableColumns = (
 								)
 							}
 						>
-							Copy alert ID
+							Copy signal ID
 						</DropdownMenuItem>
 						<DropdownMenuSeparator />
 						<DropdownMenuItem
@@ -558,7 +606,7 @@ export const createCallLogsTableColumns = (
 							}
 						>
 							<Edit className="h-4 w-4 mr-2" />
-							Edit alert
+							Edit signal
 						</DropdownMenuItem>
 						{feedbackIsDue(alertItem.verificationOutcome) && (
 							<DropdownMenuItem
@@ -594,20 +642,37 @@ export const createCallLogsTableColumns = (
 								}
 							>
 								<ShieldQuestion className="h-4 w-4 mr-2" />
-								{alertItem.priority ? "Re-triage" : "Triage"}
+								{alertItem.priority || alertItem.triageDecision ? "Re-triage" : "Triage"}
 							</DropdownMenuItem>
 						)}
-						{!alertItem.isVerified && (
-							<DropdownMenuItem
-								onClick={() =>
-									callbacks.onVerifyAlert(alertItem)
-								}
-								className="text-green-600 focus:text-green-600"
-							>
-								<Shield className="h-4 w-4 mr-2" />
-								Verify alert
-							</DropdownMenuItem>
-						)}
+						{/* Triage is a MANDATORY gate: the server rejects verification
+						    of a signal that has not been forwarded. Disabling the
+						    action here says so before the click rather than after,
+						    with the reason in the tooltip. */}
+						{!alertItem.isVerified &&
+							(() => {
+								const blocked = verificationBlockedReason(
+									alertItem.triageDecision,
+									alertItem.priority
+								);
+								return (
+									<DropdownMenuItem
+										disabled={Boolean(blocked)}
+										title={blocked || undefined}
+										onClick={() =>
+											callbacks.onVerifyAlert(alertItem)
+										}
+										className={
+											blocked
+												? undefined
+												: "text-green-600 focus:text-green-600"
+										}
+									>
+										<Shield className="h-4 w-4 mr-2" />
+										{blocked ? "Verify — triage first" : "Verify signal"}
+									</DropdownMenuItem>
+								);
+							})()}
 						{callbacks.canDelete && (
 							<>
 								<DropdownMenuSeparator />
@@ -617,7 +682,7 @@ export const createCallLogsTableColumns = (
 										callbacks.onDeleteAlert(alertItem.id)
 									}
 								>
-									Delete alert
+									Delete signal
 								</DropdownMenuItem>
 							</>
 						)}
@@ -643,3 +708,55 @@ export const createCallLogsTableColumns = (
 		},
 	},
 ];
+
+/**
+ * The single action this signal is actually waiting on.
+ *
+ * Derived from the pipeline order rather than from what a role is permitted to
+ * click, so the button answers "what does this signal need?" — the question a
+ * focal person working a queue is actually asking. When a signal is off the
+ * pipeline or finished, the row says so plainly instead of offering a move that
+ * would be rejected.
+ */
+function NextStepButton({
+	alert,
+	callbacks,
+}: {
+	alert: AlertLog;
+	callbacks: CallLogsTableCallbacks;
+}) {
+	const action = nextAction(alert);
+
+	if (action.key === "none") {
+		return (
+			<span className="text-xs text-muted-foreground" title={action.hint}>
+				—
+			</span>
+		);
+	}
+
+	const run: Record<NextActionKey, () => void> = {
+		triage: () => callbacks.onTriageAlert(alert),
+		retriage: () => callbacks.onTriageAlert(alert),
+		verify: () => callbacks.onVerifyAlert(alert),
+		"assess-risk": () => callbacks.onAssessRisk(alert),
+		feedback: () => callbacks.onRecordFeedback(alert),
+		none: () => {},
+	};
+
+	return (
+		<Button
+			size="sm"
+			variant={action.actionable ? "default" : "outline"}
+			title={action.hint}
+			onClick={() => run[action.key]()}
+			className={
+				action.actionable
+					? "h-7 bg-uganda-red px-2.5 text-xs font-semibold text-white hover:bg-uganda-red/90"
+					: "h-7 px-2.5 text-xs"
+			}
+		>
+			{action.label}
+		</Button>
+	);
+}

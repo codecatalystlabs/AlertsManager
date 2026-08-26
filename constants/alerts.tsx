@@ -62,7 +62,7 @@ export const createAlertsTableColumns = (
 		accessorKey: "id",
 		filterFn: textIncludesFilter,
 		meta: {
-			filterLabel: "Alert ID",
+			filterLabel: "Signal ID",
 			filterPlaceholder: "ALT number",
 		},
 		header: ({ column }) => {
@@ -187,7 +187,7 @@ export const createAlertsTableColumns = (
 	},
 	{
 		accessorKey: "sourceOfAlert",
-		header: "Source of Alert",
+		header: "Source of signal",
 		filterFn: exactStringFilter,
 		meta: {
 			filterVariant: "select",

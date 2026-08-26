@@ -8,7 +8,7 @@ type DateRange = { from?: string; to?: string };
  * Translate the data-table's per-column header filters into server-side
  * /alerts query params, so a column filter scopes the WHOLE dataset (every
  * page) instead of only the rows currently loaded on the page. Shared by the
- * Alerts and Call Logs lists, which hit the same backend (applyAlertListFilters).
+ * Alerts and Signal Logs lists, which hit the same backend (applyAlertListFilters).
  *
  * Column ids are the TanStack `accessorKey`s used in the Alerts/Call-Logs
  * column definitions. Anything without a server mapping is ignored.

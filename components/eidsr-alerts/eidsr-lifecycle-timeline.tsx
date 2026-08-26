@@ -60,7 +60,7 @@ export function EidsrLifecycleTimeline({ message }: { message: EidsrMessage }) {
 										className="h-7 gap-1"
 										asChild
 									>
-										<Link href="/dashboard/call-logs">
+										<Link href="/dashboard/signal-logs">
 											<ExternalLink className="h-3.5 w-3.5" />
 											{altCode(message.forwardedAlertId)}
 										</Link>

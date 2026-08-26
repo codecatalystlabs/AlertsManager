@@ -37,7 +37,8 @@ export interface AlertPdfData {
 	nextOfKinPhone?: string;
 	caseDescription: string;
 	narrative?: string;
-	symptoms: string[];
+	/** Absent on a fresh intake PDF — symptoms are recorded at verification. */
+	symptoms?: string[];
 }
 
 type Field = { label: string; value: string; full?: boolean };
@@ -218,8 +219,12 @@ export async function downloadAlertConfirmationPdf(
 	renderFields([
 		{ label: "Date", value: formatFormDate(data.date) },
 		{ label: "Time", value: dash(data.time) },
-		{ label: "Alert Status", value: dash(data.status) },
-		{ label: "Response", value: dash(data.response) },
+		{ label: "Signal Status", value: dash(data.status) },
+		// Response is assigned at verification, so an intake confirmation has
+		// none — drop the row rather than print an empty one.
+		...(data.response?.trim()
+			? [{ label: "Response", value: data.response.trim() }]
+			: []),
 		{ label: "Call Taker", value: dash(data.callTaker) },
 		{
 			label: "Reported Before",
@@ -231,7 +236,7 @@ export async function downloadAlertConfirmationPdf(
 	renderFields([
 		{ label: "Name", value: dash(data.personReporting) },
 		{ label: "Phone Number", value: dash(data.contactNumber) },
-		{ label: "Source of Alert", value: dash(data.sourceOfAlert), full: true },
+		{ label: "Source of signal", value: dash(data.sourceOfAlert), full: true },
 	]);
 
 	sectionHeader("Case Location");
@@ -257,15 +262,16 @@ export async function downloadAlertConfirmationPdf(
 		},
 	]);
 
-	sectionHeader("Signs & Symptoms");
-	renderFields([
-		{
-			label: "Reported Symptoms",
-			value:
-				data.symptoms.length > 0 ? data.symptoms.join(", ") : "—",
-			full: true,
-		},
-	]);
+	if (data.symptoms && data.symptoms.length > 0) {
+		sectionHeader("Signs & Symptoms");
+		renderFields([
+			{
+				label: "Reported Symptoms",
+				value: data.symptoms.join(", "),
+				full: true,
+			},
+		]);
+	}
 
 	if (data.narrative && data.narrative.trim()) {
 		sectionHeader("Additional Notes");

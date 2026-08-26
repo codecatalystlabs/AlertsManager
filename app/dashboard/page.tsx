@@ -22,6 +22,8 @@ import {
 	ErrorAlert,
 	StatsGrid,
 	VerificationSlaCards,
+	TriageKpiCards,
+	RiskKpiCards,
 	RecentActivityCard,
 	DashboardRangePicker,
 	DashboardDistrictPicker,
@@ -302,6 +304,13 @@ export default function DashboardPage(): React.JSX.Element {
 					isLoading={loading && !summary}
 				/>
 			</div>
+
+			{/* The other two gates that carry a national KPI. They sit in
+			    pipeline order — triage before verification's row would be
+			    ideal, but the SLA row above is long-established furniture, so
+			    these follow rather than displace it. */}
+			<TriageKpiCards summary={summary} isLoading={loading && !summary} />
+			<RiskKpiCards summary={summary} isLoading={loading && !summary} />
 
 			{/* Recent-activity triage snapshot — its own rolling/custom window,
 			    independent of the page date range but scoped by district. */}

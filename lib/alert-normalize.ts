@@ -31,8 +31,19 @@ export interface ApiAlert {
 	traditionalHealerVisit?: string;
 	symptoms?: string;
 	actions?: string;
+	/** Minimum dataset item 4: estimated number affected. null = reporter did not know. */
+	numberAffected?: number | null;
 	/** Triage priority (High/Medium/Low). Absent/null = not yet triaged. */
 	priority?: string | null;
+	/**
+	 * Which exit the signal took at the triage gate: "Forwarded to
+	 * Verification" | "Logged" | "Discarded". Absent/null = not yet triaged.
+	 */
+	triageDecision?: string | null;
+	/** Why that decision was reached (required when the signal leaves the pipeline). */
+	triageReason?: string | null;
+	/** The earlier signal this one duplicates, when discarded as a duplicate. */
+	triageDuplicateOf?: number | null;
 	/** Verification outcome: Confirmed | Discarded | Escalated to Field. */
 	verificationOutcome?: string | null;
 	/** Comma-joined response actions taken. */
@@ -199,7 +210,12 @@ export function normalizeAlertFromApi(raw: unknown): ApiAlert {
 		symptoms: str(body.symptoms),
 		// Triage. NOTE: this normalizer is a strict whitelist — a field absent
 		// here never reaches the tables, however faithfully the API returns it.
+		numberAffected: num(body.numberAffected ?? body.number_affected) ?? null,
 		priority: str(body.priority) ?? null,
+		triageDecision: str(body.triageDecision ?? body.triage_decision) ?? null,
+		triageReason: str(body.triageReason ?? body.triage_reason) ?? null,
+		triageDuplicateOf:
+			num(body.triageDuplicateOf ?? body.triage_duplicate_of) ?? null,
 		verificationOutcome:
 			str(body.verificationOutcome ?? body.verification_outcome) ?? null,
 		responseActions: str(body.responseActions ?? body.response_actions) ?? null,

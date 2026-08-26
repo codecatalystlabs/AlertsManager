@@ -181,7 +181,7 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 						 * No Verification filter here: View Alerts is hard-locked to
 						 * verified signals (a recorded verification outcome), so the
 						 * control would either be a no-op or contradict the page.
-						 * Signals still awaiting a decision live in Call Logs.
+						 * Signals still awaiting a decision live in Signal Logs.
 						 */}
 
 						<div className="space-y-1 min-w-0">

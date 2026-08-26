@@ -30,8 +30,10 @@ import { cn } from "@/lib/utils";
 import { Alert } from "@/lib/auth";
 import { alertResponse } from "@/constants";
 import { SignalTimeline } from "@/components/alerts/signal-timeline";
+import { SignalStateBadge, StageRail } from "@/components/pipeline";
+import { signalTitle } from "@/lib/signal-state";
 import { formatDateTime } from "@/lib/format-date";
-import { PriorityBadge } from "@/components/triage";
+import { PriorityBadge, TriageBadge } from "@/components/triage";
 import { RiskBadge } from "@/components/risk";
 import {
 	RISK_ACTION,
@@ -137,14 +139,26 @@ export function AlertDetailsDialog({
 				<DialogHeader className="border-b px-4 py-3">
 					<DialogTitle className="flex items-center gap-2 text-base">
 						<Siren className="h-4 w-4 text-uganda-red" />
-						Alert Details — {altCode(alert.id)}
+						{/* Named by what it currently IS. The guideline renames
+						    the object at each gate, and a confirmed signal that
+						    still reads "alert" is how the three terms collapse
+						    into one in conversation. */}
+						{signalTitle(alert, altCode(alert.id))}
+						<SignalStateBadge record={alert} />
 					</DialogTitle>
 					<DialogDescription className="text-xs">
-						Complete information about this health alert
+						Everything recorded about this record, and where it stands
+						in the EBS pipeline.
 					</DialogDescription>
 				</DialogHeader>
 
 				<div className="space-y-3 px-4 py-3">
+					{/* Where this signal stands in the EBS pipeline. First,
+					    because "which gate is it at?" frames everything below
+					    it — the fields only mean something once you know
+					    whether they are still being established. */}
+					<StageRail signal={alert} />
+
 					{/* Status and verification */}
 					<div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted px-3 py-2">
 						<div className="flex items-center gap-1.5">
@@ -184,7 +198,7 @@ export function AlertDetailsDialog({
 						<SectionHeader icon={Info} title="Basic Information" />
 						<div className="grid grid-cols-2 gap-x-6 gap-y-2">
 							<Field
-								label="Alert Reported Before"
+								label="Reported Before"
 								value={alert.alertReportedBefore}
 							/>
 							<Field
@@ -213,7 +227,7 @@ export function AlertDetailsDialog({
 									{alert.contactNumber || "Not provided"}
 								</p>
 							</Field>
-							<Field label="Source of Alert">
+							<Field label="Source of signal">
 								<Badge variant="outline" className="text-[11px]">
 									{alert.sourceOfAlert || "Not specified"}
 								</Badge>
@@ -277,6 +291,17 @@ export function AlertDetailsDialog({
 							<Field
 								label="Patient Sex"
 								value={alert.alertCaseSex}
+							/>
+							{/* Minimum dataset item 4. Rendered even when 0,
+							    because "nobody affected any more" is a real
+							    answer — only an absent value shows as blank. */}
+							<Field
+								label="Number Affected"
+								value={
+									alert.numberAffected != null
+										? alert.numberAffected.toLocaleString()
+										: null
+								}
 							/>
 							<Field
 								label="Next of Kin Name"
@@ -357,6 +382,7 @@ export function AlertDetailsDialog({
 									title="Signal Handling"
 								/>
 								<div className="flex flex-wrap items-center gap-2">
+									<TriageBadge decision={alert.triageDecision} />
 									<PriorityBadge priority={alert.priority} showDeadline />
 									<RiskBadge level={alert.riskLevel} />
 									{alert.verificationOutcome && (
@@ -379,6 +405,20 @@ export function AlertDetailsDialog({
 											value={formatDateTime(alert.triagedAt)}
 										/>
 									)}
+									{/* For a signal triage took OFF the pipeline this is
+									    the only record of why nobody verified it. */}
+									{alert.triageReason && (
+										<Field
+											label="Triage Reason"
+											value={alert.triageReason}
+										/>
+									)}
+									{alert.triageDuplicateOf ? (
+										<Field
+											label="Duplicate Of"
+											value={altCode(alert.triageDuplicateOf)}
+										/>
+									) : null}
 									{alert.riskAssessedBy && (
 										<Field
 											label="Risk Assessed By"

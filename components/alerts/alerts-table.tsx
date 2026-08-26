@@ -100,7 +100,7 @@ export const AlertsTable = memo<AlertsTableProps>(
 			<Card className={LAYOUT.card}>
 				<CardHeader className={LAYOUT.cardHeader}>
 					<CardTitle className={LAYOUT.cardTitle}>
-						Verified Alerts ({totalCount.toLocaleString()})
+						Confirmed Events ({totalCount.toLocaleString()})
 					</CardTitle>
 				</CardHeader>
 				<CardContent className={LAYOUT.cardContent}>

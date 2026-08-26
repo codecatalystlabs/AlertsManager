@@ -22,14 +22,27 @@ export interface DashboardTimePoint {
  * stop = verification time (verified) or now (pending).
  */
 export interface DashboardVerificationSla {
-	/** Verified with a turnaround of at most an hour. */
-	verifiedWithinHour: number;
-	/** Still pending but younger than an hour (inside the SLA window). */
-	pendingUnderHour: number;
-	/** Still pending and older than an hour (SLA breached). */
-	pendingOverHour: number;
-	/** Still pending and older than 24 hours (subset of pendingOverHour). */
-	pendingOver24h: number;
+	/**
+	 * Verified inside the deadline its TRIAGE PRIORITY sets — High 12h,
+	 * Medium 24h, Low 48h (EBS Guidelines Table 3), not a flat hour. This is
+	 * KPI 4, target >80%.
+	 */
+	verifiedWithinDeadline: number;
+	/** Verified, but past that deadline. */
+	verifiedLate: number;
+	/** Still pending and inside its deadline. */
+	pendingWithinDeadline: number;
+	/** Still pending past its deadline. */
+	pendingBreached: number;
+	/** Pending past TWICE its deadline (subset of pendingBreached). */
+	pendingCritical: number;
+
+	/** Never been through the triage gate. KPI 3's shortfall. */
+	untriaged: number;
+	/** Triaged inside the 24-hour triage deadline. KPI 3, target >90%. */
+	triagedWithin24h: number;
+	/** Triaged, but more than 24 hours after the signal came in. */
+	triagedLate: number;
 	/**
 	 * Team turnaround — a different clock: system arrival (created_at) →
 	 * verification, live-entered rows only (created_at within an hour of the
@@ -92,6 +105,24 @@ export interface DashboardSummary {
 	riskMatrix?: RiskMatrix;
 	/** Optional so older API responses without the field don't crash the grid. */
 	verificationSla?: DashboardVerificationSla;
+	/** Which exit each signal took at the triage gate, plus the untriaged remainder. */
+	triageOutcomes?: DashboardCountItem[];
+	/** Risk levels across confirmed events, including "Not Assessed". */
+	riskLevels?: DashboardCountItem[];
+	/** Share of confirmed events carrying a risk level, 0–100. KPI 6, target >90%. */
+	riskAssessmentRate?: number;
+	/** Assessed within 24h of verification. */
+	riskAssessedWithin24h?: number;
+	/** Assessed, but more than 24h after verification. */
+	riskAssessedLate?: number;
+	/** Assessments carrying the §6 worksheet (hazard/exposure/context), not just the level. */
+	riskWorksheetComplete?: number;
+	/** Share of concluded signals whose reporter has been told, 0–100. KPI 10. */
+	feedbackRate?: number;
+	/** Concluded signals still owing feedback. */
+	feedbackPending?: number;
+	/** Confirmed events as a share of adjudicated signals, 0–100. KPI 5. */
+	signalToEventRate?: number;
 	/** Distinct response (disease/condition) values available in scope — populates the Response type filter. */
 	responseTypes: string[];
 }
@@ -136,6 +167,15 @@ const EMPTY_SUMMARY: DashboardSummary = {
 	sex: [],
 	timeline: [],
 	granularity: "daily",
+	triageOutcomes: [],
+	riskLevels: [],
+	riskAssessmentRate: 0,
+	riskAssessedWithin24h: 0,
+	riskAssessedLate: 0,
+	riskWorksheetComplete: 0,
+	feedbackRate: 0,
+	feedbackPending: 0,
+	signalToEventRate: 0,
 	riskMatrix: {
 		likelihoods: [],
 		impacts: [],
@@ -146,10 +186,14 @@ const EMPTY_SUMMARY: DashboardSummary = {
 		maxCellCount: 0,
 	},
 	verificationSla: {
-		verifiedWithinHour: 0,
-		pendingUnderHour: 0,
-		pendingOverHour: 0,
-		pendingOver24h: 0,
+		verifiedWithinDeadline: 0,
+		verifiedLate: 0,
+		pendingWithinDeadline: 0,
+		pendingBreached: 0,
+		pendingCritical: 0,
+		untriaged: 0,
+		triagedWithin24h: 0,
+		triagedLate: 0,
 		teamVerified: 0,
 		teamVerifiedWithinHour: 0,
 		teamMedianMinutes: -1,

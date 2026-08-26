@@ -37,7 +37,7 @@ export interface EidsrMessage {
 	forwardedAlertId: number | null;
 	/** Live verification snapshot of the forwarded alert, if any. */
 	forwardedAlert: EidsrAlertRef | null;
-	/** Most recent district this 6767 message was forwarded to (as a call log). */
+	/** Most recent district this 6767 message was forwarded to (as a signal log). */
 	forwardedToDistrict: string | null;
 	/** When it was last forwarded (RFC3339), if ever. */
 	forwardedAt: string | null;

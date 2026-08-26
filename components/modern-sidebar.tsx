@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,13 +14,17 @@ import {
 	Siren,
 	UsersRound,
 	X,
-	PhoneIncoming,
+	RadioTower,
 	Headset,
 	CircleUser,
 	FileBarChart,
 	Map as MapIcon,
 	Stethoscope,
 	PlaneLanding,
+	ShieldQuestion,
+	ShieldCheck,
+	ShieldAlert,
+	MessageCircleReply,
 } from "lucide-react";
 import { MohLogo } from "@/components/moh-logo";
 
@@ -42,6 +46,16 @@ interface NavigationGroup {
 	items: NavigationItem[];
 }
 
+/**
+ * Navigation follows the EBS pipeline, not the transports signals arrive on.
+ *
+ * It used to list one destination per source — 6767, eCHIS, POE, the register —
+ * which answers "where did this come from?" A person opening the app needs the
+ * other question answered: "what do I work next?" So the spine is now the
+ * guideline's own sequence of gates (§3), each entry a live queue, and the
+ * source pages are demoted to what they actually are: feed inspectors used for
+ * reconciliation, not inboxes.
+ */
 const navigationGroups: NavigationGroup[] = [
 	{
 		label: "Main",
@@ -51,17 +65,48 @@ const navigationGroups: NavigationGroup[] = [
 		],
 	},
 	{
-		label: "Alert Management",
+		// The pipeline, in guideline order. Step 5 (Alert issued) is absent
+		// because the system cannot record it yet — the pipeline strip shows it
+		// as locked rather than the nav offering a page that does not exist.
+		label: "Signal Pipeline",
 		items: [
+			{ name: "Signal Register", href: "/dashboard/signal-logs", icon: RadioTower },
 			{
-				name: "View Alerts",
-				href: "/dashboard/alerts",
-				icon: Siren,
+				name: "Awaiting Triage",
+				href: "/dashboard/signal-logs?stage=triage",
+				icon: ShieldQuestion,
 			},
-			{ name: "Call Logs", href: "/dashboard/call-logs", icon: PhoneIncoming },
+			{
+				name: "Awaiting Verification",
+				href: "/dashboard/signal-logs?stage=verification",
+				icon: ShieldCheck,
+			},
+			{
+				name: "Awaiting Risk Assessment",
+				href: "/dashboard/signal-logs?stage=risk",
+				icon: ShieldAlert,
+			},
+			{
+				name: "Feedback Due",
+				href: "/dashboard/signal-logs?stage=feedback",
+				icon: MessageCircleReply,
+			},
+			{ name: "Confirmed Events", href: "/dashboard/alerts", icon: Siren },
+		],
+	},
+	{
+		// Feed inspectors. A signal only enters the pipeline when it is linked
+		// or forwarded from here, which is why these stay reachable.
+		label: "Sources",
+		items: [
 			{ name: "6767 Alerts", href: "/dashboard/eidsr-alerts", icon: Headset },
 			{ name: "eCHIS Alerts", href: "/dashboard/echis-alerts", icon: Stethoscope },
 			{ name: "POE Alerts", href: "/dashboard/poe-alerts", icon: PlaneLanding },
+		],
+	},
+	{
+		label: "Insights",
+		items: [
 			{ name: "Map", href: "/dashboard/map", icon: MapIcon },
 			{
 				name: "Summaries / Reports",
@@ -91,6 +136,14 @@ export function ModernSidebar({
 	collapsed,
 }: ModernSidebarProps) {
 	const pathname = usePathname();
+	// The pipeline queues are the same page under different ?stage= values, so
+	// the active item cannot be decided on pathname alone — without the search
+	// string every queue would highlight "Signal Register".
+	const searchParams = useSearchParams();
+	const currentUrl = useMemo(() => {
+		const query = searchParams?.toString();
+		return query ? `${pathname}?${query}` : pathname;
+	}, [pathname, searchParams]);
 	const mobilePanelRef = useRef<HTMLDivElement>(null);
 	const closeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -119,7 +172,7 @@ export function ModernSidebar({
 	};
 
 	const contentProps = {
-		pathname,
+		currentUrl,
 		getBadgeValue,
 	};
 
@@ -186,18 +239,20 @@ export function ModernSidebar({
 
 function NavLink({
 	item,
-	pathname,
+	currentUrl,
 	getBadgeValue,
 	collapsed,
 	onNavigate,
 }: {
 	item: NavigationItem;
-	pathname: string;
+	currentUrl: string;
 	getBadgeValue: (item: NavigationItem) => string | null;
 	collapsed: boolean;
 	onNavigate?: () => void;
 }) {
-	const isActive = pathname === item.href;
+	// Exact match including the query, so /signal-logs and
+	// /signal-logs?stage=triage are different destinations — which they are.
+	const isActive = currentUrl === item.href;
 	const badge = getBadgeValue(item);
 
 	return (
@@ -259,12 +314,12 @@ function NavLink({
 }
 
 function SidebarContent({
-	pathname,
+	currentUrl,
 	getBadgeValue,
 	collapsed,
 	onNavigate,
 }: {
-	pathname: string;
+	currentUrl: string;
 	getBadgeValue: (item: NavigationItem) => string | null;
 	collapsed: boolean;
 	onNavigate?: () => void;
@@ -333,7 +388,7 @@ function SidebarContent({
 								<NavLink
 									key={item.name}
 									item={item}
-									pathname={pathname}
+									currentUrl={currentUrl}
 									getBadgeValue={getBadgeValue}
 									collapsed={collapsed}
 									onNavigate={onNavigate}

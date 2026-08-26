@@ -119,3 +119,138 @@ export const PRIORITY_FILTER_OPTIONS: { value: string; label: string }[] = [
 export function formatDeadline(priority?: string | null): string {
 	return `${verificationDeadlineMinutes(priority) / 60}h`;
 }
+
+/* -------------------------------------------------------------------------
+ * The triage DECISION — the guideline's two questions and their three exits.
+ *
+ * The priority only ever described survivors of the gate. §2 step 2 asks two
+ * questions in order, and each has its own exit:
+ *
+ *   1. Reported before and already under investigation?
+ *        yes → DISCARD and record. Recorded, never deleted: that is what stops
+ *              duplicates inflating signal counts while keeping the cluster
+ *              they form visible on the register.
+ *   2. A genuine or potential threat to public health?
+ *        no  → LOG, monitor, refer. Leaves the EBS pipeline, stays on the
+ *              register.
+ *        yes → FORWARD to verification, against the priority's deadline.
+ *
+ * Mirrors internal/services/triage.go — keep the two in step.
+ * ---------------------------------------------------------------------- */
+
+export const TRIAGE_DISCARDED = "Discarded";
+export const TRIAGE_LOGGED = "Logged";
+export const TRIAGE_FORWARDED = "Forwarded to Verification";
+
+export type TriageDecision =
+	| typeof TRIAGE_DISCARDED
+	| typeof TRIAGE_LOGGED
+	| typeof TRIAGE_FORWARDED;
+
+/** Decisions in pipeline order (display order). */
+export const TRIAGE_DECISIONS: TriageDecision[] = [
+	TRIAGE_FORWARDED,
+	TRIAGE_LOGGED,
+	TRIAGE_DISCARDED,
+];
+
+/**
+ * Answer the two questions in the order the guideline asks them. A duplicate is
+ * discarded as a duplicate even when it describes a genuine threat — that
+ * threat is already being handled under the original signal.
+ */
+export function deriveTriageDecision(
+	reportedBefore: boolean,
+	genuineThreat: boolean
+): TriageDecision {
+	if (reportedBefore) return TRIAGE_DISCARDED;
+	if (!genuineThreat) return TRIAGE_LOGGED;
+	return TRIAGE_FORWARDED;
+}
+
+/** Fold free-text onto a canonical decision; null when absent or unrecognised. */
+export function normalizeTriageDecision(
+	value?: string | null
+): TriageDecision | null {
+	const v = (value ?? "").trim().toLowerCase();
+	if (!v) return null;
+	if (v.startsWith("discard") || v === "duplicate") return TRIAGE_DISCARDED;
+	if (v.startsWith("log") || v.includes("monitor")) return TRIAGE_LOGGED;
+	if (v.startsWith("forward") || v.includes("verif") || v === "proceed") {
+		return TRIAGE_FORWARDED;
+	}
+	return null;
+}
+
+/** Whether this decision keeps the signal on the EBS pipeline. Untriaged does. */
+export function triageContinuesToVerification(value?: string | null): boolean {
+	const d = normalizeTriageDecision(value);
+	return d !== TRIAGE_DISCARDED && d !== TRIAGE_LOGGED;
+}
+
+/** Short label for a possibly-absent decision. */
+export function triageDecisionLabel(value?: string | null): string {
+	const d = normalizeTriageDecision(value);
+	if (d === TRIAGE_FORWARDED) return "Forwarded";
+	return d ?? "Untriaged";
+}
+
+/**
+ * What each decision means, shown at the point of choice so two focal persons
+ * reading the same signal reach the same exit.
+ */
+export const TRIAGE_DECISION_GUIDANCE: Record<TriageDecision, string> = {
+	[TRIAGE_FORWARDED]:
+		"Goes forward for verification against the deadline its priority sets.",
+	[TRIAGE_LOGGED]:
+		"Logged and monitored, referred for appropriate management. Leaves the EBS pipeline but stays on the register.",
+	[TRIAGE_DISCARDED]:
+		"Recorded as an already-reported duplicate — never deleted, so the reporting cluster stays visible.",
+};
+
+/** Badge styling per decision. Off-pipeline exits read as settled, not alarming. */
+export const TRIAGE_DECISION_BADGE_CLASS: Record<string, string> = {
+	[TRIAGE_FORWARDED]: "bg-emerald-100 text-emerald-800 border-emerald-200",
+	[TRIAGE_LOGGED]: "bg-slate-100 text-slate-700 border-slate-200",
+	[TRIAGE_DISCARDED]: "bg-zinc-100 text-zinc-600 border-zinc-300",
+	untriaged: "bg-gray-100 text-gray-600 border-gray-200",
+};
+
+/** Options for the triage-decision filter — "untriaged" is a first-class choice. */
+export const TRIAGE_DECISION_FILTER_OPTIONS: {
+	value: string;
+	label: string;
+}[] = [
+	{ value: TRIAGE_FORWARDED, label: "Forwarded to verification" },
+	{ value: TRIAGE_LOGGED, label: "Logged and monitored" },
+	{ value: TRIAGE_DISCARDED, label: "Discarded — already reported" },
+	{ value: "untriaged", label: "Untriaged — not through the gate" },
+];
+
+/**
+ * The VERIFICATION GATE, mirroring services.VerificationBlockedReason.
+ *
+ * Triage is mandatory — nothing reaches verification without passing through
+ * the gate. Returns why this signal may not be verified, or null when it may.
+ * Used to disable the Verify action with its reason, so an operator learns the
+ * rule before the click rather than from a rejected request.
+ *
+ * The one concession is to history: rows carrying a priority but no decision
+ * were triaged before the decision existed, and a priority was only ever
+ * assigned to a signal that proceeded.
+ */
+export function verificationBlockedReason(
+	decision?: string | null,
+	priority?: string | null
+): string | null {
+	const d = normalizeTriageDecision(decision);
+	if (d === TRIAGE_DISCARDED) {
+		return "Triage discarded this signal as already reported and under investigation. Re-triage it to send it forward.";
+	}
+	if (d === TRIAGE_LOGGED) {
+		return "Triage found no plausible public-health threat; the signal is logged and monitored. Re-triage it to send it forward.";
+	}
+	if (d === TRIAGE_FORWARDED) return null;
+	if (isTriaged(priority)) return null;
+	return "This signal has not been triaged. Triage is mandatory — answer the two screening questions first.";
+}

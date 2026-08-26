@@ -70,7 +70,7 @@ export default function AlertsPage(): React.JSX.Element {
 		exportToExcel,
 	} = useAlertsData();
 
-	// Revalidates every alerts-derived SWR key (this list, Call Logs, dashboard),
+	// Revalidates every alerts-derived SWR key (this list, Signal Logs, dashboard),
 	// so an edit here also refreshes those views instead of leaving them stale.
 	const invalidateAlerts = useInvalidateAlerts();
 
@@ -123,7 +123,7 @@ export default function AlertsPage(): React.JSX.Element {
 	}, []);
 
 	const handleEditComplete = useCallback(() => {
-		// An edit changes data on other alerts-derived views too (Call Logs,
+		// An edit changes data on other alerts-derived views too (Signal Logs,
 		// dashboard cards/charts). Invalidate every alerts-rooted SWR key so they
 		// don't keep painting the pre-edit snapshot from the persisted cache.
 		void invalidateAlerts();

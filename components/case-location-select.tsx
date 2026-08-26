@@ -2,36 +2,49 @@
 
 import useSWR from "swr";
 import { Label } from "@/components/ui/label";
+import { FieldHint } from "@/components/field-hint";
 import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-	fetchRegions,
-	fetchDistrictsByRegion,
-	fetchSubcountiesByDistrict,
-	type AdminUnitOption,
+  fetchRegions,
+  fetchDistrictUnits,
+  fetchDistrictsByRegion,
+  fetchSubcountiesByDistrict,
+  type AdminUnitOption,
 } from "@/lib/fetch-admin-units";
 
 export interface CaseLocationValue {
-	/** Region name (stored on the alert as `region`). */
-	region: string;
-	/** District name (stored as `alertCaseDistrict`). */
-	district: string;
-	/** Subcounty/division name (stored as `subCounty`/`alertCaseSubCounty`). */
-	subcounty: string;
+  /** Region name (stored on the alert as `region`). */
+  region: string;
+  /** District name (stored as `alertCaseDistrict`). */
+  district: string;
+  /** Subcounty/division name (stored as `subCounty`/`alertCaseSubCounty`). */
+  subcounty: string;
 }
 
 export interface CaseLocationSelectProps {
-	value: CaseLocationValue;
-	onChange: (value: CaseLocationValue) => void;
-	disabled?: boolean;
-	triggerClassName?: string;
-	labelClassName?: string;
-	idPrefix?: string;
+  value: CaseLocationValue;
+  onChange: (value: CaseLocationValue) => void;
+  disabled?: boolean;
+  triggerClassName?: string;
+  labelClassName?: string;
+  idPrefix?: string;
+  /**
+   * Drop the Region select and start the cascade at District. Every district is
+   * offered up front and the region is DERIVED from the chosen one, so `region`
+   * is still populated on the alert (REOC scoping and the map both read it) —
+   * the reporter simply isn't asked for it. Used by the public self-report form,
+   * where "which region is my district in?" is not a question a community
+   * member should have to answer.
+   */
+  hideRegion?: boolean;
+  /** Guidance shown from an info button on each level's label. */
+  hints?: { region?: string; district?: string; subcounty?: string };
 }
 
 /**
@@ -43,180 +56,222 @@ export interface CaseLocationSelectProps {
  * so clearing `value` (e.g. on form reset) automatically resets the cascade.
  */
 export function CaseLocationSelect({
-	value,
-	onChange,
-	disabled,
-	triggerClassName,
-	labelClassName = "text-sm font-medium text-gray-700",
-	idPrefix = "case-location",
+  value,
+  onChange,
+  disabled,
+  triggerClassName,
+  labelClassName = "text-sm font-medium text-gray-700",
+  idPrefix = "case-location",
+  hideRegion = false,
+  hints,
 }: CaseLocationSelectProps) {
-	const {
-		data: regions = [],
-		isLoading: regionsLoading,
-		error: regionsError,
-	} = useSWR("admin-regions", fetchRegions);
+  const {
+    data: regions = [],
+    isLoading: regionsLoading,
+    error: regionsError,
+  } = useSWR("admin-regions", fetchRegions);
 
-	const regionId = regions.find((r) => r.name === value.region)?.id;
+  const regionId = regions.find((r) => r.name === value.region)?.id;
 
-	const {
-		data: districts = [],
-		isLoading: districtsLoading,
-		error: districtsError,
-	} = useSWR(
-		regionId ? ["admin-districts", regionId] : null,
-		() => fetchDistrictsByRegion(regionId as number)
-	);
+  // Region-first (default): only the chosen region's districts are loaded.
+  // hideRegion: every district up front, since there is no region to scope by.
+  const {
+    data: districts = [],
+    isLoading: districtsLoading,
+    error: districtsError,
+  } = useSWR(
+    hideRegion
+      ? ["admin-districts-all"]
+      : regionId
+        ? ["admin-districts", regionId]
+        : null,
+    () =>
+      hideRegion
+        ? fetchDistrictUnits()
+        : fetchDistrictsByRegion(regionId as number),
+  );
 
-	const districtId = districts.find((d) => d.name === value.district)?.id;
+  const districtId = districts.find((d) => d.name === value.district)?.id;
 
-	const {
-		data: subcounties = [],
-		isLoading: subcountiesLoading,
-		error: subcountiesError,
-	} = useSWR(
-		districtId ? ["admin-subcounties", districtId] : null,
-		() => fetchSubcountiesByDistrict(districtId as number)
-	);
+  const {
+    data: subcounties = [],
+    isLoading: subcountiesLoading,
+    error: subcountiesError,
+  } = useSWR(districtId ? ["admin-subcounties", districtId] : null, () =>
+    fetchSubcountiesByDistrict(districtId as number),
+  );
 
-	const errorMessage = (err: unknown) =>
-		err ? (err instanceof Error ? err.message : "Failed to load options") : null;
+  const errorMessage = (err: unknown) =>
+    err
+      ? err instanceof Error
+        ? err.message
+        : "Failed to load options"
+      : null;
 
-	// Keep a pre-existing value selectable even when it isn't in the loaded list
-	// (e.g. editing a legacy alert whose district/subcounty predates this API, or
-	// whose region isn't set yet so the child lists haven't loaded). This never
-	// adds anything in the add flow, where values are always picked from the list.
-	const withCurrent = (options: AdminUnitOption[], current: string) => {
-		const merged = options.map((o) => ({ key: String(o.id), name: o.name }));
-		if (current && !options.some((o) => o.name === current)) {
-			merged.unshift({ key: `current:${current}`, name: current });
-		}
-		return merged;
-	};
+  // Keep a pre-existing value selectable even when it isn't in the loaded list
+  // (e.g. editing a legacy alert whose district/subcounty predates this API, or
+  // whose region isn't set yet so the child lists haven't loaded). This never
+  // adds anything in the add flow, where values are always picked from the list.
+  const withCurrent = (options: AdminUnitOption[], current: string) => {
+    const merged = options.map((o) => ({ key: String(o.id), name: o.name }));
+    if (current && !options.some((o) => o.name === current)) {
+      merged.unshift({ key: `current:${current}`, name: current });
+    }
+    return merged;
+  };
 
-	const regionOptions = withCurrent(regions, value.region);
-	const districtOptions = withCurrent(districts, value.district);
-	const subcountyOptions = withCurrent(subcounties, value.subcounty);
+  /** Region name owning `districtName`, "" when it can't be resolved yet. */
+  const regionNameForDistrict = (districtName: string) => {
+    const district = districts.find((d) => d.name === districtName);
+    if (!district?.regionId) return "";
+    return regions.find((r) => r.id === district.regionId)?.name ?? "";
+  };
 
-	return (
-		<>
-			{/* Region */}
-			<div className="space-y-2">
-				<Label htmlFor={`${idPrefix}-region`} className={labelClassName}>
-					Region *
-				</Label>
-				<Select
-					value={value.region || undefined}
-					onValueChange={(region) =>
-						// Region change invalidates the district and subcounty below it.
-						onChange({ region, district: "", subcounty: "" })
-					}
-					disabled={disabled || regionsLoading}
-				>
-					<SelectTrigger
-						id={`${idPrefix}-region`}
-						className={triggerClassName}
-					>
-						<SelectValue
-							placeholder={
-								regionsLoading ? "Loading regions..." : "Select region"
-							}
-						/>
-					</SelectTrigger>
-					<SelectContent>
-						{regionOptions.map((region) => (
-							<SelectItem key={region.key} value={region.name}>
-								{region.name}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				{errorMessage(regionsError) ? (
-					<p className="text-xs text-destructive">
-						{errorMessage(regionsError)}
-					</p>
-				) : null}
-			</div>
+  const regionOptions = withCurrent(regions, value.region);
+  const districtOptions = withCurrent(districts, value.district);
+  const subcountyOptions = withCurrent(subcounties, value.subcounty);
 
-			{/* District */}
-			<div className="space-y-2">
-				<Label htmlFor={`${idPrefix}-district`} className={labelClassName}>
-					District *
-				</Label>
-				<Select
-					value={value.district || undefined}
-					onValueChange={(district) =>
-						// District change invalidates the subcounty below it.
-						onChange({ ...value, district, subcounty: "" })
-					}
-					disabled={disabled || !value.region || districtsLoading}
-				>
-					<SelectTrigger
-						id={`${idPrefix}-district`}
-						className={triggerClassName}
-					>
-						<SelectValue
-							placeholder={
-								!value.region
-									? "Select a region first"
-									: districtsLoading
-										? "Loading districts..."
-										: "Select district"
-							}
-						/>
-					</SelectTrigger>
-					<SelectContent>
-						{districtOptions.map((district) => (
-							<SelectItem key={district.key} value={district.name}>
-								{district.name}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				{errorMessage(districtsError) ? (
-					<p className="text-xs text-destructive">
-						{errorMessage(districtsError)}
-					</p>
-				) : null}
-			</div>
+  return (
+    <>
+      {/* Region — hidden on the public form, where it is derived instead. */}
+      {hideRegion ? null : (
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <Label htmlFor={`${idPrefix}-region`} className={labelClassName}>
+              Region *
+            </Label>
+            {hints?.region ? <FieldHint text={hints.region} /> : null}
+          </div>
+          <Select
+            value={value.region || undefined}
+            onValueChange={(region) =>
+              // Region change invalidates the district and subcounty below it.
+              onChange({ region, district: "", subcounty: "" })
+            }
+            disabled={disabled || regionsLoading}
+          >
+            <SelectTrigger
+              id={`${idPrefix}-region`}
+              className={triggerClassName}
+            >
+              <SelectValue
+                placeholder={
+                  regionsLoading ? "Loading regions..." : "Select region"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {regionOptions.map((region) => (
+                <SelectItem key={region.key} value={region.name}>
+                  {region.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errorMessage(regionsError) ? (
+            <p className="text-xs text-destructive">
+              {errorMessage(regionsError)}
+            </p>
+          ) : null}
+        </div>
+      )}
 
-			{/* Division / Subcounty */}
-			<div className="space-y-2">
-				<Label htmlFor={`${idPrefix}-subcounty`} className={labelClassName}>
-					Division/Subcounty *
-				</Label>
-				<Select
-					value={value.subcounty || undefined}
-					onValueChange={(subcounty) => onChange({ ...value, subcounty })}
-					disabled={disabled || !value.district || subcountiesLoading}
-				>
-					<SelectTrigger
-						id={`${idPrefix}-subcounty`}
-						className={triggerClassName}
-					>
-						<SelectValue
-							placeholder={
-								!value.district
-									? "Select a district first"
-									: subcountiesLoading
-										? "Loading divisions..."
-										: "Select division/subcounty"
-							}
-						/>
-					</SelectTrigger>
-					<SelectContent>
-						{subcountyOptions.map((subcounty) => (
-							<SelectItem key={subcounty.key} value={subcounty.name}>
-								{subcounty.name}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-				{errorMessage(subcountiesError) ? (
-					<p className="text-xs text-destructive">
-						{errorMessage(subcountiesError)}
-					</p>
-				) : null}
-			</div>
-		</>
-	);
+      {/* District */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-1.5">
+          <Label htmlFor={`${idPrefix}-district`} className={labelClassName}>
+            District *
+          </Label>
+          {hints?.district ? <FieldHint text={hints.district} /> : null}
+        </div>
+        <Select
+          value={value.district || undefined}
+          onValueChange={(district) =>
+            // District change invalidates the subcounty below it. With the
+            // region select hidden, the region is back-filled from the
+            // district so the alert still carries one.
+            onChange({
+              region: hideRegion
+                ? regionNameForDistrict(district)
+                : value.region,
+              district,
+              subcounty: "",
+            })
+          }
+          disabled={
+            disabled || (!hideRegion && !value.region) || districtsLoading
+          }
+        >
+          <SelectTrigger
+            id={`${idPrefix}-district`}
+            className={triggerClassName}
+          >
+            <SelectValue
+              placeholder={
+                !hideRegion && !value.region
+                  ? "Select a region first"
+                  : districtsLoading
+                    ? "Loading districts..."
+                    : "Select district"
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {districtOptions.map((district) => (
+              <SelectItem key={district.key} value={district.name}>
+                {district.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {errorMessage(districtsError) ? (
+          <p className="text-xs text-destructive">
+            {errorMessage(districtsError)}
+          </p>
+        ) : null}
+      </div>
+
+      {/* Division / Subcounty */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-1.5">
+          <Label htmlFor={`${idPrefix}-subcounty`} className={labelClassName}>
+            Division/Subcounty *
+          </Label>
+          {hints?.subcounty ? <FieldHint text={hints.subcounty} /> : null}
+        </div>
+        <Select
+          value={value.subcounty || undefined}
+          onValueChange={(subcounty) => onChange({ ...value, subcounty })}
+          disabled={disabled || !value.district || subcountiesLoading}
+        >
+          <SelectTrigger
+            id={`${idPrefix}-subcounty`}
+            className={triggerClassName}
+          >
+            <SelectValue
+              placeholder={
+                !value.district
+                  ? "Select a district first"
+                  : subcountiesLoading
+                    ? "Loading divisions..."
+                    : "Select division/subcounty"
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {subcountyOptions.map((subcounty) => (
+              <SelectItem key={subcounty.key} value={subcounty.name}>
+                {subcounty.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {errorMessage(subcountiesError) ? (
+          <p className="text-xs text-destructive">
+            {errorMessage(subcountiesError)}
+          </p>
+        ) : null}
+      </div>
+    </>
+  );
 }

@@ -176,8 +176,19 @@ export interface Alert {
     traditionalHealerVisit?: string
     symptoms?: string
     actions?: string
+    /** Minimum dataset item 4: estimated number affected. null = reporter did not know. */
+    numberAffected?: number | null
     /** Triage priority (High/Medium/Low). Absent = not yet triaged. */
     priority?: string | null
+    /**
+     * Which exit the signal took at the triage gate: "Forwarded to
+     * Verification" | "Logged" | "Discarded". Absent = not yet triaged.
+     */
+    triageDecision?: string | null
+    /** Why that decision was reached (required when the signal leaves the pipeline). */
+    triageReason?: string | null
+    /** The earlier signal this one duplicates, when discarded as a duplicate. */
+    triageDuplicateOf?: number | null
     triagedAt?: string | null
     triagedBy?: string | null
     /** Verification outcome: Confirmed | Discarded | Escalated to Field. */
