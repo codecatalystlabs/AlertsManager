@@ -25,7 +25,7 @@ import {
 } from "@/lib/alert-pdf";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PriorityBadge, TriageBadge } from "@/components/triage";
+import { TriageBadge } from "@/components/triage";
 import { verificationBlockedReason } from "@/lib/alert-triage";
 import { nextAction, type NextActionKey } from "@/lib/next-action";
 import { SignalStateBadge } from "@/components/pipeline";
@@ -329,23 +329,9 @@ export const createCallLogsTableColumns = (
 		header: "Risk",
 		enableSorting: false,
 		meta: { filterLabel: "Risk" },
-		// Sits beside Priority: together they are the two decisions that drive
-		// how fast and how hard the team responds.
+		// The assessed risk level: what drives how fast and how hard the team
+		// responds.
 		cell: ({ row }) => <RiskBadge level={row.original.riskLevel} />,
-	},
-	{
-		id: "priority",
-		accessorKey: "priority",
-		header: "Priority",
-		enableSorting: false,
-		meta: {
-			filterLabel: "Priority",
-		},
-		// The priority IS the verification deadline, so it sits next to the
-		// alert id where a focal person scanning the queue reads it first.
-		cell: ({ row }) => (
-			<PriorityBadge priority={row.original.priority} showDeadline />
-		),
 	},
 	{
 		id: "triageDecision",

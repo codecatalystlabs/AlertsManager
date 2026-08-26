@@ -73,10 +73,15 @@ export const STAGE_DESCRIPTION: Record<StageKey, string> = {
 		"Signals triage discarded as already reported, or logged as no public-health threat. Recorded, never deleted.",
 };
 
-/** Where a stage's queue lives. Intake is the unfiltered register. */
+/**
+ * Where a stage's queue lives. Intake is the whole register, which the register
+ * asks for explicitly (?view=all) — a bare /dashboard/signal-logs opens on the
+ * untriaged view, so this card must say it wants everything or its count and its
+ * list would disagree.
+ */
 export function stageHref(key: StageKey): string {
 	return key === STAGE_INTAKE
-		? "/dashboard/signal-logs"
+		? "/dashboard/signal-logs?view=all"
 		: `/dashboard/signal-logs?stage=${key}`;
 }
 

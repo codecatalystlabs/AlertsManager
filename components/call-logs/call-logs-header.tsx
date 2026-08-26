@@ -38,7 +38,7 @@ export const CallLogsHeader = memo<CallLogsHeaderProps>(
 					</h1>
 					<p className={LAYOUT.pageSubtitle}>
 						{queueLabel
-							? "One gate of the EBS pipeline. Clear the stage filter above to see the whole register."
+							? "One gate of the EBS pipeline. Switch to the All tab below to see the whole register."
 							: CALL_LOGS_CONFIG.PAGE_DESCRIPTION}
 					</p>
 				</div>

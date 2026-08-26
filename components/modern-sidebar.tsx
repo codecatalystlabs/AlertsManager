@@ -71,14 +71,18 @@ const navigationGroups: NavigationGroup[] = [
 		label: "Signal Pipeline",
 		items: [
 			{ name: "Signal Register", href: "/dashboard/signal-logs", icon: RadioTower },
+			// The register's own tabs, as destinations: the register opens on the
+			// untriaged signals, "Triaged" is the forwarded-but-unverified queue
+			// (?stage=verification is the gate they are waiting AT), and
+			// "Verified" is the adjudicated ones.
 			{
 				name: "Triaged",
-				href: "/dashboard/signal-logs?stage=triage",
+				href: "/dashboard/signal-logs?stage=verification",
 				icon: ShieldQuestion,
 			},
 			{
-				name: "Verification",
-				href: "/dashboard/signal-logs?stage=verification",
+				name: "Verified",
+				href: "/dashboard/signal-logs?view=verified",
 				icon: ShieldCheck,
 			},
 			{

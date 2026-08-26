@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
 	STAT_FILTER_PRESETS,
@@ -11,7 +11,7 @@ import {
 	CallLogsHeader,
 	CallLogsStats,
 	CallLogsFilters,
-	CallLogsVerificationTabs,
+	CallLogsRegisterTabs,
 	CallLogsTable,
 } from "@/components/call-logs";
 import { ErrorAlert } from "@/components/dashboard";
@@ -24,6 +24,13 @@ import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
 import { AuthService } from "@/lib/auth";
 import { PipelineStrip } from "@/components/pipeline";
 import { isQueueStage, stageLabel } from "@/lib/pipeline";
+import {
+	registerViewFilters,
+	registerViewFromParams,
+	registerViewHref,
+	registerViewStage,
+	type RegisterView,
+} from "@/lib/register-view";
 
 const AlertDetailsDialog = dynamic(
 	() =>
@@ -94,26 +101,49 @@ export default function CallLogsPage(): React.JSX.Element {
 		filtersResetKey,
 	} = useCallLogsData();
 
-	// The pipeline queue this page is standing in, owned by the URL so a queue
-	// is a shareable destination rather than a filter someone has to rebuild.
-	// An unrecognised ?stage= is ignored, which shows the whole register rather
-	// than an empty list with no explanation.
+	// The view this page is standing in, owned by the URL so a tab is a
+	// shareable destination rather than a filter someone has to rebuild. An
+	// unrecognised ?stage= is ignored, which shows the register rather than an
+	// empty list with no explanation.
+	const router = useRouter();
 	const searchParams = useSearchParams();
 	const rawStage = searchParams?.get("stage") ?? null;
 	const stageParam = isQueueStage(rawStage) ? rawStage : null;
+	// Null for the queues that are not one of the four tabs (risk, feedback,
+	// off-pipeline): those keep their own list, without a tab strip offering to
+	// navigate out of the queue that was asked for.
+	const view = registerViewFromParams(searchParams?.get("view"), stageParam);
+	// The gate this view stands at — drives the page heading and the pipeline
+	// strip's highlight, so landing on Untriaged reads as "Awaiting triage"
+	// rather than as an unexplained partial register.
+	const viewStage = registerViewStage(view) ?? stageParam;
 
-	// Only write when it actually changes. Setting the same value still pushes
-	// new filter state, which refetches the list and remounts every row — on the
-	// unfiltered register that was a wasted round-trip on every mount.
-	const appliedStage = filters.stage ?? "";
+	// Apply a view's filters ONCE per URL change, keyed by what the URL asked
+	// for. Re-applying whenever the filters drift would undo any refinement the
+	// user then makes in the filter bar (picking Verified inside the Untriaged
+	// tab would snap straight back).
+	const appliedViewRef = useRef<string | null>(null);
 	useEffect(() => {
-		const wanted = stageParam ?? "";
-		if (wanted !== appliedStage) {
-			setFilters({ stage: wanted });
-		}
+		const wanted = view ?? `stage:${stageParam ?? ""}`;
+		if (appliedViewRef.current === wanted) return;
+		appliedViewRef.current = wanted;
+		setFilters(
+			view
+				? registerViewFilters(view)
+				: { stage: stageParam ?? "", verification: "all" }
+		);
 		// setFilters is stable; re-running on every render would reset paging.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [stageParam, appliedStage]);
+	}, [view, stageParam]);
+
+	// The URL is the single source of truth for the view, so a tab click
+	// navigates rather than setting state the URL would then contradict.
+	const handleViewChange = useCallback(
+		(next: RegisterView) => {
+			router.replace(registerViewHref(next), { scroll: false });
+		},
+		[router]
+	);
 
 	// Revalidates every alerts-derived SWR key (this list + its stats, the Alerts
 	// Management table, dashboard cards/charts) — not just this page's list.
@@ -249,14 +279,14 @@ export default function CallLogsPage(): React.JSX.Element {
 				onExportCsv={exportToCSV}
 				isRefreshing={isRefreshing || isValidating}
 				exporting={exporting}
-				queueLabel={stageLabel(stageParam)}
+				queueLabel={stageLabel(viewStage)}
 			/>
 
 			{/* The pipeline itself, above the list it filters. Scoped to the same
 			    region/district the list is showing, so the strip never reports a
 			    national total beside a district queue. */}
 			<PipelineStrip
-				activeStage={stageParam}
+				activeStage={viewStage}
 				params={{
 					region: filters.region,
 					district: filters.district,
@@ -293,10 +323,9 @@ export default function CallLogsPage(): React.JSX.Element {
 				/>
 			)}
 
-			<CallLogsVerificationTabs
-				value={filters.verification}
-				onChange={(verification) => setFilters({ verification })}
-			/>
+			{view && (
+				<CallLogsRegisterTabs value={view} onChange={handleViewChange} />
+			)}
 
 			<div ref={tableSectionRef}>
 				<CallLogsTable

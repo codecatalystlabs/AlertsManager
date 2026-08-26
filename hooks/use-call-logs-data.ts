@@ -529,8 +529,15 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         setPageState(1);
     }, []);
 
+    // Clear resets the FILTERS, not the view. The stage and verification pair is
+    // owned by the register's tabs (and the URL behind them), so wiping them here
+    // would leave the Untriaged tab highlighted above a list of everything.
     const clearFilters = useCallback(() => {
-        setFiltersState({ ...CALL_LOGS_INITIAL_FILTERS });
+        setFiltersState((prev) => ({
+            ...CALL_LOGS_INITIAL_FILTERS,
+            stage: prev.stage,
+            verification: prev.verification,
+        }));
         setSortState({ ...CALL_LOGS_DEFAULT_SORT });
         setColumnFiltersState([]);
         setFiltersResetKey((k) => k + 1);
