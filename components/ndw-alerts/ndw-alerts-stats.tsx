@@ -11,7 +11,7 @@ interface NdwAlertsStatsProps {
 
 export const NdwAlertsStats = memo<NdwAlertsStatsProps>(
 	({ total, filtered, label, live, note }) => (
-		<div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border bg-card px-3 py-1.5 text-xs">
+		<div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-none border bg-card px-3 py-1.5 text-xs">
 			<span>
 				<span className="text-muted-foreground">Stored locally </span>
 				<span className="font-semibold">{total.toLocaleString()}</span>

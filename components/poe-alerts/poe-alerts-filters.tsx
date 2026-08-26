@@ -47,7 +47,7 @@ export const PoeAlertsFilters = memo<PoeAlertsFiltersProps>(
 		const onEnter = (e: KeyboardEvent) => e.key === "Enter" && apply();
 
 		return (
-			<div className="flex flex-wrap items-center gap-1.5 rounded-lg border bg-card p-2">
+			<div className="flex flex-wrap items-center gap-1.5 rounded-none border bg-card p-2">
 				<span className="text-[11px] font-medium text-muted-foreground shrink-0">
 					Filter synced:
 				</span>

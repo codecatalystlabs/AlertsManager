@@ -588,7 +588,7 @@ export function DataTable<TData, TValue>({
   return (
     <div className="w-full">
       {!hideToolbar && (
-      <div className="flex items-center gap-2 py-1">
+      <div className="mb-3 flex items-center gap-2">
         {searchKey && (
           <Input
             placeholder={searchPlaceholder}
@@ -627,14 +627,16 @@ export function DataTable<TData, TValue>({
       </div>
       )}
 
-      {/* Desktop / tablet: compact table with a sticky header */}
+      {/* Desktop / tablet: the table is as tall as its rows. No height cap, so
+          the page is the only thing that scrolls vertically; the wrapper keeps
+          overflow only for the horizontal axis, which wide tables still need. */}
       <div className="relative hidden rounded-md border md:block">
         {isPageTransition && (
           <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-background/45 backdrop-blur-[1px]">
             <Loader2 className="h-5 w-5 animate-spin text-uganda-red" />
           </div>
         )}
-        <Table containerClassName="max-h-[65vh]">
+        <Table>
           <TableHeader>
             {headerGroups.map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">
@@ -720,7 +722,7 @@ export function DataTable<TData, TValue>({
           Array.from({ length: Math.min(pageSize || 4, 4) }).map((_, r) => (
             <div
               key={`skeleton-card-${r}`}
-              className="space-y-2 rounded-lg border bg-card p-3 shadow-sm"
+              className="space-y-2 rounded-none border bg-card p-3 shadow-sm"
             >
               <Skeleton className="h-4 w-1/2" />
               <Skeleton className="h-4 w-3/4" />
@@ -732,7 +734,7 @@ export function DataTable<TData, TValue>({
             <div
               key={row.id}
               className={cn(
-                "overflow-hidden rounded-lg border bg-card p-3 shadow-sm",
+                "overflow-hidden rounded-none border bg-card p-3 shadow-sm",
                 getRowClassName?.(row)
               )}
             >

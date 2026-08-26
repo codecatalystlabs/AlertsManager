@@ -24,6 +24,7 @@ import {
 	ShieldQuestion,
 	ShieldCheck,
 	MessageCircleReply,
+	Archive,
 } from "lucide-react";
 import { MohLogo } from "@/components/moh-logo";
 
@@ -92,6 +93,18 @@ const navigationGroups: NavigationGroup[] = [
 				icon: MessageCircleReply,
 			},
 			{ name: "Confirmed Events", href: "/dashboard/alerts", icon: Siren },
+			// The pipeline's other exit, and the reason it needs a door: the
+			// guideline's rule is "discard AND record", so a signal triage took
+			// off the pipeline — already reported and under investigation, or
+			// logged as no public-health threat — is a decision that was taken,
+			// not a row that vanished. Until now nothing in the app linked to
+			// this queue, so the recorded discards were only reachable by
+			// building the filter by hand. Archive, not a bin: they are kept.
+			{
+				name: "Discarded Events",
+				href: "/dashboard/signal-logs?stage=offpipeline",
+				icon: Archive,
+			},
 		],
 	},
 	{
@@ -262,7 +275,7 @@ function NavLink({
 			title={collapsed ? item.name : undefined}
 			aria-current={isActive ? "page" : undefined}
 			className={cn(
-				"group relative flex items-center rounded-md text-sm transition-colors",
+				"group relative flex items-center rounded-none text-sm transition-colors",
 				collapsed ? "mx-auto h-10 w-10 justify-center" : "gap-3 px-3 py-2",
 				isActive
 					? "bg-uganda-red/10 font-semibold text-uganda-red"
@@ -271,7 +284,7 @@ function NavLink({
 		>
 			{/* Active accent bar */}
 			{isActive && !collapsed && (
-				<span className="absolute inset-y-1.5 left-0 w-0.5 rounded-r bg-uganda-red" />
+				<span className="absolute inset-y-1.5 left-0 w-0.5 bg-uganda-red" />
 			)}
 			<item.icon
 				className={cn(
@@ -350,8 +363,11 @@ function SidebarContent({
 			{/* Brand header */}
 			<div
 				className={cn(
-					"flex shrink-0 items-center border-b border-gray-200",
-					collapsed ? "h-16 justify-center px-2" : "h-16 gap-3 px-4"
+					// Same height as the topbar it sits beside (h-12 in the dashboard
+					// layout), so the brand block and the page title share a baseline
+					// instead of the sidebar overhanging it.
+					"flex h-12 shrink-0 items-center border-b border-gray-200",
+					collapsed ? "justify-center px-2" : "gap-3 px-4"
 				)}
 			>
 				<MohLogo size="sm" className="border-gray-200" />

@@ -11,7 +11,6 @@ import {
 	CallLogsHeader,
 	CallLogsStats,
 	CallLogsFilters,
-	CallLogsRegisterTabs,
 	CallLogsTable,
 } from "@/components/call-logs";
 import { ErrorAlert } from "@/components/dashboard";
@@ -23,13 +22,11 @@ import { useCallLogsData, type AlertLog } from "@/hooks/use-call-logs-data";
 import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
 import { AuthService } from "@/lib/auth";
 import { PipelineStrip } from "@/components/pipeline";
-import { isQueueStage, stageLabel } from "@/lib/pipeline";
+import { STAGE_DESCRIPTION, isQueueStage, stageLabel } from "@/lib/pipeline";
 import {
 	registerViewFilters,
 	registerViewFromParams,
-	registerViewHref,
 	registerViewStage,
-	type RegisterView,
 } from "@/lib/register-view";
 
 const AlertDetailsDialog = dynamic(
@@ -135,15 +132,6 @@ export default function CallLogsPage(): React.JSX.Element {
 		// setFilters is stable; re-running on every render would reset paging.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [view, stageParam]);
-
-	// The URL is the single source of truth for the view, so a tab click
-	// navigates rather than setting state the URL would then contradict.
-	const handleViewChange = useCallback(
-		(next: RegisterView) => {
-			router.replace(registerViewHref(next), { scroll: false });
-		},
-		[router]
-	);
 
 	// Revalidates every alerts-derived SWR key (this list + its stats, the Alerts
 	// Management table, dashboard cards/charts) — not just this page's list.
@@ -280,6 +268,7 @@ export default function CallLogsPage(): React.JSX.Element {
 				isRefreshing={isRefreshing || isValidating}
 				exporting={exporting}
 				queueLabel={stageLabel(viewStage)}
+				queueHint={viewStage ? STAGE_DESCRIPTION[viewStage] : null}
 			/>
 
 			{/* The pipeline itself, above the list it filters. Scoped to the same
@@ -321,10 +310,6 @@ export default function CallLogsPage(): React.JSX.Element {
 					onFiltersChange={setFilters}
 					onClearFilters={clearFilters}
 				/>
-			)}
-
-			{view && (
-				<CallLogsRegisterTabs value={view} onChange={handleViewChange} />
 			)}
 
 			<div ref={tableSectionRef}>

@@ -1,7 +1,10 @@
 "use client";
 
-import React, { memo } from "react";
+import React, { memo, useMemo, useState } from "react";
+import { ChevronUp, SlidersHorizontal } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
 	Select,
@@ -36,6 +39,37 @@ interface AlertsFiltersProps {
 	onFiltersChange: (filters: Partial<AlertsFilterState>) => void;
 }
 
+/** The filter grid the toggle shows/hides — referenced by aria-controls. */
+const FILTER_GRID_ID = "alerts-filter-grid";
+
+/**
+ * Fields counted by the badge while the grid is collapsed. The dates are
+ * excluded: the quick-range bar stays visible above the toggle and already
+ * reports them, through the active preset or the "Clear dates" button.
+ */
+const HIDDEN_FILTER_KEYS: readonly (keyof AlertsFilterState)[] = [
+	"status",
+	"region",
+	"district",
+	"source",
+	"sla",
+];
+
+/**
+ * How many filters are set but out of sight, so collapsing the grid can never
+ * narrow the list without saying so.
+ *
+ * "Unset" is tested against both "" and "all" rather than against a defaults
+ * object: the hook seeds these as "" while the Selects write back "all", so a
+ * field cleared by hand does not read as active.
+ */
+function countHiddenFilters(filters: AlertsFilterState): number {
+	return HIDDEN_FILTER_KEYS.filter((key) => {
+		const value = filters[key];
+		return value !== "" && value !== "all";
+	}).length;
+}
+
 export const AlertsFilters = memo<AlertsFiltersProps>(
 	({ filters, onFiltersChange }) => {
 		// Region → District cascade (district scoped to the selected region),
@@ -45,16 +79,60 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 			district: filters.district,
 		});
 
+		// Collapsed by default, matching the Signal Register: most visits here are
+		// to read the list, not to re-filter it. The quick-range bar and the
+		// "N active" badge stay visible, so nothing narrows the list silently.
+		const [showFilters, setShowFilters] = useState(false);
+		const hiddenCount = useMemo(() => countHiddenFilters(filters), [filters]);
+
 		return (
 			<Card className={LAYOUT.card}>
 				<CardContent className="p-3 space-y-3">
-					<DateRangePresetBar
-						fromDate={filters.fromDate}
-						toDate={filters.toDate}
-						onChange={onFiltersChange}
-					/>
+					{/* items-start, not items-center: the preset bar wraps to two
+					    rows on narrow screens and the toggle should stay on the
+					    first one. */}
+					<div className="flex items-start justify-between gap-2">
+						<DateRangePresetBar
+							fromDate={filters.fromDate}
+							toDate={filters.toDate}
+							onChange={onFiltersChange}
+						/>
 
-					<div className={LAYOUT.filtersGrid}>
+						<div className="flex items-center gap-1.5 shrink-0">
+							{!showFilters && hiddenCount > 0 && (
+								<Badge
+									variant="secondary"
+									className="h-5 px-2 text-[10px] font-medium"
+								>
+									{hiddenCount} active
+								</Badge>
+							)}
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								onClick={() => setShowFilters((open) => !open)}
+								aria-expanded={showFilters}
+								aria-controls={FILTER_GRID_ID}
+								title={showFilters ? "Hide filters" : "Show filters"}
+								className="h-7 w-7"
+							>
+								{showFilters ? <ChevronUp /> : <SlidersHorizontal />}
+								<span className="sr-only">
+									{showFilters ? "Hide filters" : "Show filters"}
+								</span>
+							</Button>
+						</div>
+					</div>
+
+					{/* Toggled by swapping the display utility rather than
+					    unmounting: the grid stays in the DOM (so the region /
+					    district cascade does not remount and refetch) but
+					    display:none keeps it out of the tab order while hidden. */}
+					<div
+						id={FILTER_GRID_ID}
+						className={showFilters ? LAYOUT.filtersGrid : "hidden"}
+					>
 						<div className="space-y-1 min-w-0">
 							<Label htmlFor="status-filter" className="text-[11px]">
 								Status

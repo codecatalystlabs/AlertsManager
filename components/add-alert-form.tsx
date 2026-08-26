@@ -775,15 +775,26 @@ export function AddAlertForm({
 
           <Separator />
 
-          {/* Where is this happening? */}
+          {/* Location */}
           <div className="space-y-4">
-            <SectionHeading
-              icon={MapPinIcon}
-              title="Where is this happening?"
-            />
+            <SectionHeading icon={MapPinIcon} title="Location" />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {locationSelect}
               {villageParishFields}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Person affected — optional on purpose */}
+          <div className="space-y-4">
+            <SectionHeading icon={UserIcon} title="Person affected" />
+            <p className="text-sm text-gray-600">
+              Only fill this in if you know the details. You can send the report
+              without it.
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+              {patientFields}
             </div>
           </div>
 
@@ -800,20 +811,6 @@ export function AddAlertForm({
               {sourceField}
               {channelField}
               {reportedBeforeField}
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Person affected — optional on purpose */}
-          <div className="space-y-4">
-            <SectionHeading icon={UserIcon} title="Person affected" />
-            <p className="text-sm text-gray-600">
-              Only fill this in if you know the details. You can send the report
-              without it.
-            </p>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-              {patientFields}
             </div>
           </div>
         </>

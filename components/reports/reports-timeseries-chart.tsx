@@ -91,9 +91,9 @@ export const ReportsTimeseriesChart = memo<ReportsTimeseriesChartProps>(
 					<div className="flex shrink-0 gap-1">
 						<Button
 							type="button"
-							variant="outline"
+							variant="ghost"
 							size="sm"
-							className="h-7 px-2 gap-1"
+							className="h-7 px-2 gap-1 text-muted-foreground hover:text-foreground"
 							disabled={!hasData || isLoading}
 							onClick={handleExportCsv}
 							title="Export CSV"
@@ -103,8 +103,9 @@ export const ReportsTimeseriesChart = memo<ReportsTimeseriesChartProps>(
 						</Button>
 						<Button
 							type="button"
+							variant="ghost"
 							size="sm"
-							className="h-7 px-2 gap-1 bg-uganda-red hover:bg-uganda-red/90"
+							className="h-7 px-2 gap-1 text-muted-foreground hover:text-foreground"
 							disabled={!hasData || isLoading}
 							onClick={handleExportExcel}
 							title="Export Excel"
