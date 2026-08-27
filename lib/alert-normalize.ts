@@ -70,14 +70,6 @@ export interface ApiAlert {
 	riskControl?: boolean | null;
 	riskAssessedAt?: string | null;
 	riskAssessedBy?: string | null;
-	/** Risk-assessment worksheet (§6 matrix axes, three tiers, RRT). */
-	riskLikelihood?: string | null;
-	riskImpact?: string | null;
-	riskHazardNote?: string | null;
-	riskExposureNote?: string | null;
-	riskContextNote?: string | null;
-	riskTeamLead?: string | null;
-	riskTeamMembers?: string | null;
 	/** Reporter feedback (EBS step 7). */
 	feedbackGivenAt?: string | null;
 	feedbackBy?: string | null;
@@ -253,13 +245,6 @@ export function normalizeAlertFromApi(raw: unknown): ApiAlert {
 		riskControl: boolOrNull(body.riskControl ?? body.risk_control),
 		riskAssessedAt: str(body.riskAssessedAt ?? body.risk_assessed_at) ?? null,
 		riskAssessedBy: str(body.riskAssessedBy ?? body.risk_assessed_by) ?? null,
-		riskLikelihood: str(body.riskLikelihood ?? body.risk_likelihood) ?? null,
-		riskImpact: str(body.riskImpact ?? body.risk_impact) ?? null,
-		riskHazardNote: str(body.riskHazardNote ?? body.risk_hazard_note) ?? null,
-		riskExposureNote: str(body.riskExposureNote ?? body.risk_exposure_note) ?? null,
-		riskContextNote: str(body.riskContextNote ?? body.risk_context_note) ?? null,
-		riskTeamLead: str(body.riskTeamLead ?? body.risk_team_lead) ?? null,
-		riskTeamMembers: str(body.riskTeamMembers ?? body.risk_team_members) ?? null,
 		feedbackGivenAt: str(body.feedbackGivenAt ?? body.feedback_given_at) ?? null,
 		feedbackBy: str(body.feedbackBy ?? body.feedback_by) ?? null,
 		feedbackChannel: str(body.feedbackChannel ?? body.feedback_channel) ?? null,

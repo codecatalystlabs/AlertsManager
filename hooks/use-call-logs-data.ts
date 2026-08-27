@@ -73,14 +73,6 @@ export interface AlertLog {
     riskControl?: boolean | null;
     riskAssessedAt?: string | null;
     riskAssessedBy?: string | null;
-    /** Risk-assessment worksheet. */
-    riskLikelihood?: string | null;
-    riskImpact?: string | null;
-    riskHazardNote?: string | null;
-    riskExposureNote?: string | null;
-    riskContextNote?: string | null;
-    riskTeamLead?: string | null;
-    riskTeamMembers?: string | null;
     /** Reporter feedback (EBS step 7). */
     feedbackGivenAt?: string | null;
     feedbackBy?: string | null;
