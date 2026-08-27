@@ -1,5 +1,7 @@
-import React, { memo } from "react";
+import React, { memo, useMemo, useState } from "react";
+import { ChevronUp, SlidersHorizontal } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,12 +14,31 @@ import {
 } from "@/components/ui/select";
 import {
 	EIDSR_FORWARD_VERIFICATION_FILTER_OPTIONS,
+	EIDSR_INITIAL_FILTERS,
 	EIDSR_SEX_FILTER_OPTIONS,
 	EIDSR_STATUS_FILTER_OPTIONS,
 	type EidsrAlertsFilterState,
 } from "@/constants/eidsr-alerts";
 import { useSourceOfAlertOptions } from "@/hooks/use-lookup-options";
 import { LAYOUT } from "@/constants/layout";
+
+/** The filter grid the toggle shows/hides — referenced by aria-controls. */
+const FILTER_GRID_ID = "eidsr-filter-grid";
+
+/**
+ * How many fields are narrowing the list while the grid is collapsed.
+ *
+ * Nothing is excluded here, unlike the register's bar: every field on this card
+ * lives inside the grid, so every field set is a field the reader cannot see
+ * once it closes. The badge is what keeps a filter from quietly hiding rows.
+ */
+function countActiveFilters(filters: EidsrAlertsFilterState): number {
+	const keys = Object.keys(
+		EIDSR_INITIAL_FILTERS
+	) as (keyof EidsrAlertsFilterState)[];
+	return keys.filter((key) => filters[key] !== EIDSR_INITIAL_FILTERS[key])
+		.length;
+}
 
 interface EidsrAlertsFiltersProps {
 	filters: EidsrAlertsFilterState;
@@ -33,10 +54,62 @@ export const EidsrAlertsFilters = memo<EidsrAlertsFiltersProps>(
 		// Admin-managed list (Administration -> Dropdown Options).
 		const sourceOptions = useSourceOfAlertOptions();
 
+		// Collapsed by default, matching the Signal Register and the Alerts page:
+		// eleven fields is most of a screen, and most visits here are to read the
+		// list or to sync it, not to re-filter it.
+		const [showFilters, setShowFilters] = useState(false);
+		const activeCount = useMemo(() => countActiveFilters(filters), [filters]);
+
 		return (
 			<Card className={LAYOUT.card}>
 				<CardContent className="p-3">
-					<div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2 items-end">
+					<div className="flex items-center justify-between gap-2">
+						{/* The card carries no always-visible control of its own — no
+						    quick-range bar as on the register — so once it closes it is
+						    a bare strip. The label says what the strip is. */}
+						<span className="text-xs font-medium text-muted-foreground">
+							Filters
+						</span>
+
+						<div className="flex items-center gap-1.5 shrink-0">
+							{!showFilters && activeCount > 0 && (
+								<Badge
+									variant="secondary"
+									className="h-5 px-2 text-[10px] font-medium"
+								>
+									{activeCount} active
+								</Badge>
+							)}
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								onClick={() => setShowFilters((open) => !open)}
+								aria-expanded={showFilters}
+								aria-controls={FILTER_GRID_ID}
+								title={showFilters ? "Hide filters" : "Show filters"}
+								className="h-7 w-7"
+							>
+								{showFilters ? <ChevronUp /> : <SlidersHorizontal />}
+								<span className="sr-only">
+									{showFilters ? "Hide filters" : "Show filters"}
+								</span>
+							</Button>
+						</div>
+					</div>
+
+					{/* Toggled by swapping the display utility rather than
+					    unmounting: the fields stay in the DOM, so a half-typed search
+					    survives closing the panel and the source lookup does not
+					    remount, but display:none keeps them out of the tab order. */}
+					<div
+						id={FILTER_GRID_ID}
+						className={
+							showFilters
+								? "mt-3 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2 items-end"
+								: "hidden"
+						}
+					>
 						<div className="space-y-1 min-w-0">
 							<Label htmlFor="eidsr-search" className="text-[11px]">
 								Search
@@ -257,7 +330,13 @@ export const EidsrAlertsFilters = memo<EidsrAlertsFiltersProps>(
 						</div>
 					</div>
 
-					<div className="flex justify-end gap-1.5 mt-3">
+					{/* Hidden with the grid: Apply and Clear act on fields nobody can
+					    see while it is closed. The badge above reports what is set. */}
+					<div
+						className={
+							showFilters ? "flex justify-end gap-1.5 mt-3" : "hidden"
+						}
+					>
 						<Button
 							size="sm"
 							className="h-8 bg-uganda-red hover:bg-uganda-red/90"
@@ -276,6 +355,9 @@ export const EidsrAlertsFilters = memo<EidsrAlertsFiltersProps>(
 							Clear
 						</Button>
 					</div>
+					{/* Stays visible when the grid is closed: it is the reason the
+					    list is showing one row, and hiding the explanation with the
+					    field leaves that looking like a fault. */}
 					{localIdActive && (
 						<p className="text-[11px] text-muted-foreground mt-2">
 							Local ID set — loads a single SMS message. Other filters are
