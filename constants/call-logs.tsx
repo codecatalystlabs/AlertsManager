@@ -1,7 +1,7 @@
 import { altCode } from "@/lib/alt-code";
 import { type ColumnDef } from "@tanstack/react-table";
 import { AlertLog } from "@/hooks/use-call-logs-data";
-import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
+import { sourceOfAlertOptions } from "@/lib/source-of-alert";
 import {
 	dateRangeFilter,
 	exactStringFilter,
@@ -25,7 +25,7 @@ import {
 } from "@/lib/alert-pdf";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { TriagedAnswerBadge } from "@/components/triage";
+import { DiscardLevelBadge, TriagedAnswerBadge } from "@/components/triage";
 import {
 	TRIAGED_FILTER_OPTIONS,
 	verificationBlockedReason,
@@ -193,13 +193,18 @@ export function getActiveStatFromFilters(
 	return null;
 }
 
-// Mirror the canonical first-page source list (lib/source-of-alert.ts) so the
-// filter always offers every source the add-alert form does — and never drifts
-// out of sync (this is why Point Of Entry / Schools had gone missing).
-export const SOURCE_FILTER_OPTIONS = [
-	{ value: "all", label: "All Sources" },
-	...SOURCE_OF_ALERT_OPTIONS.map((name) => ({ value: name, label: name })),
-];
+// Mirrors the canonical source list (lib/source-of-alert.ts) so the filter
+// always offers every source the add-alert form does — and never drifts out of
+// sync (this is why Point Of Entry / Schools had gone missing). A function, not
+// a constant: the list is admin-managed and loads at runtime, so a module-scope
+// array would freeze the fallback values. Callers rendering it should also call
+// useSourceOfAlertOptions() so they re-render when the list arrives.
+export function sourceFilterOptions(): { value: string; label: string }[] {
+	return [
+		{ value: "all", label: "All Sources" },
+		...sourceOfAlertOptions().map((name) => ({ value: name, label: name })),
+	];
+}
 
 export interface CallLogsTableCallbacks {
 	onViewDetails: (alert: AlertLog) => void;
@@ -274,8 +279,22 @@ export function alertLogToPdfData(alert: AlertLog): AlertPdfData {
 	};
 }
 
+/** Columns the register only shows in some of its views. */
+export interface CallLogsTableColumnOptions {
+	/**
+	 * Show "Discarded at" — which gate closed the signal, and why.
+	 *
+	 * Only on the Triaged tab's Discarded half. Everywhere else every row would
+	 * answer blank, and a column that is empty on the list you are actually
+	 * working is worse than no column: it costs width and teaches the reader to
+	 * skip past it.
+	 */
+	showDiscardLevel?: boolean;
+}
+
 export const createCallLogsTableColumns = (
-	callbacks: CallLogsTableCallbacks
+	callbacks: CallLogsTableCallbacks,
+	options: CallLogsTableColumnOptions = {}
 ): ColumnDef<AlertLog>[] => [
 	{
 		accessorKey: "id",
@@ -357,6 +376,27 @@ export const createCallLogsTableColumns = (
 			/>
 		),
 	},
+	// Spread rather than a filtered array: an entry that is not wanted must not
+	// exist at all, or TanStack sizes a hole for it.
+	...(options.showDiscardLevel
+		? [
+				{
+					id: "discardLevel",
+					header: "Discarded at",
+					enableSorting: false,
+					// Derived from two columns (triage_decision, verification_outcome),
+					// so there is no single server field to filter it by. The two
+					// halves of the split ARE the filter.
+					enableColumnFilter: false,
+					// Which gate threw the signal out. The same count means opposite
+					// things at the two levels — a pile discarded at triage is a
+					// duplicate/reporting-quality problem, a pile discarded at
+					// verification is response capacity spent on nothing — so the
+					// level belongs on the row, not behind a click.
+					cell: ({ row }) => <DiscardLevelBadge signal={row.original} />,
+				} satisfies ColumnDef<AlertLog>,
+			]
+		: []),
 	{
 		accessorKey: "date",
 		filterFn: dateRangeFilter,
@@ -455,7 +495,7 @@ export const createCallLogsTableColumns = (
 		filterFn: exactStringFilter,
 		meta: {
 			filterVariant: "select",
-			filterOptions: SOURCE_FILTER_OPTIONS.filter(
+			filterOptions: sourceFilterOptions().filter(
 				(option) => option.value !== "all"
 			),
 		},

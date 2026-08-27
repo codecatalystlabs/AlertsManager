@@ -50,6 +50,8 @@ interface CallLogsTableProps {
 	onColumnFiltersChange?: (filters: ColumnFiltersState) => void;
 	/** Bumped when the parent clears filters, so the table resets its header-filter UI. */
 	filtersResetKey?: number;
+	/** Show the "Discarded at" column — only meaningful on the discard archive. */
+	showDiscardLevel?: boolean;
 }
 
 export const CallLogsTable = memo<CallLogsTableProps>(
@@ -73,6 +75,7 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 		onDeleteAlert,
 		onColumnFiltersChange,
 		filtersResetKey,
+		showDiscardLevel,
 	}) => {
 		const canDelete = canDeleteAlerts(useCurrentUser());
 		const now = useTickingNow();
@@ -91,8 +94,8 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 		);
 
 		const columns = useMemo(
-			() => createCallLogsTableColumns(callbacks),
-			[callbacks]
+			() => createCallLogsTableColumns(callbacks, { showDiscardLevel }),
+			[callbacks, showDiscardLevel]
 		);
 
 		const { sortingState, handleSortingChange } = useServerSort(

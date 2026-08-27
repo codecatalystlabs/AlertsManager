@@ -61,6 +61,10 @@ export type EidsrMessageVerifyPayload = {
 	pointOfContactRelationship?: string;
 	pointOfContactPhone?: string;
 	deskVerificationActions?: string;
+	/** Confirmed | Discarded — the verification conclusion, sent explicitly. */
+	verificationOutcome?: string;
+	/** The verifier's description of the decision. Required on a conclusion. */
+	verificationNote?: string;
 	fieldVerificationFeedback?: string;
 	fieldVerification?: string;
 	fieldVerificationDecision?: string;

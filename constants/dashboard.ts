@@ -1,8 +1,8 @@
 import {
     LucideIcon,
     CheckCircle,
-    Clock,
     Files,
+    ListChecks,
     Siren,
     XCircle,
 } from 'lucide-react';
@@ -25,9 +25,9 @@ export interface StatCardConfig {
     route?: string;
 }
 
-// Signal workflow: raw signals enter the system, verification separates
-// actionable alerts from discarded signals, and unverified signals remain
-// pending triage.
+// Signal workflow, in pipeline order: raw signals enter the system, triage
+// (EBS step 2) decides which ones go forward, and verification (step 3)
+// separates actionable alerts from discarded signals.
 export const STAT_CARDS: StatCardConfig[] = [
     {
         id: 'total',
@@ -50,13 +50,17 @@ export const STAT_CARDS: StatCardConfig[] = [
         route: '/dashboard/alerts',
     },
     {
-        id: 'notVerified',
-        title: 'Unverified Signals',
-        key: 'notVerified',
-        icon: Clock,
-        gradient: 'from-red-50 to-red-100',
-        iconBg: 'bg-red-500',
-        textColor: 'text-red-700',
+        id: 'triaged',
+        title: 'Triaged Signals',
+        key: 'triaged',
+        icon: ListChecks,
+        gradient: 'from-amber-50 to-amber-100',
+        iconBg: 'bg-amber-500',
+        textColor: 'text-amber-700',
+        // Deliberately the alerts list, like every other card. The register's
+        // Triaged view splits into forwarded vs discarded and defaults to the
+        // forwarded half, so linking there would land on a smaller number than
+        // the card shows.
         route: '/dashboard/alerts',
     },
     {

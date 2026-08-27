@@ -68,6 +68,9 @@ export function buildEidsrVerifyPayload(
 		traditionalHealerVisit:
 			String(formData.traditionalHealerVisit || "") || undefined,
 		deskVerificationActions: deskAction || undefined,
+		verificationOutcome:
+			String(formData.verificationOutcome || "") || undefined,
+		verificationNote: String(formData.verificationNote || "") || undefined,
 		fieldVerificationFeedback: fieldFeedback || undefined,
 		fieldVerification: fieldFeedback || undefined,
 		fieldVerificationDecision: fieldFeedback || undefined,

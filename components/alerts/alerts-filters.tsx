@@ -16,7 +16,7 @@ import {
 import { STATUS_OPTIONS } from "@/constants/alerts";
 import { LAYOUT } from "@/constants/layout";
 import { useLocationCascade } from "@/hooks/use-location-cascade";
-import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
+import { useSourceOfAlertOptions } from "@/hooks/use-lookup-options";
 import { SLA_FILTER_OPTIONS, SLA_DOT_CLASS } from "@/lib/alert-sla";
 import {
 	DateRangePresetBar,
@@ -72,6 +72,8 @@ function countHiddenFilters(filters: AlertsFilterState): number {
 
 export const AlertsFilters = memo<AlertsFiltersProps>(
 	({ filters, onFiltersChange }) => {
+		// Admin-managed list (Administration -> Dropdown Options).
+		const sourceOptions = useSourceOfAlertOptions();
 		// Region → District cascade (district scoped to the selected region),
 		// from the official admin-units hierarchy.
 		const { regions, districts: uniqueDistricts } = useLocationCascade({
@@ -243,7 +245,7 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 									<SelectItem value="all">
 										All Sources
 									</SelectItem>
-									{SOURCE_OF_ALERT_OPTIONS.map((source) => (
+									{sourceOptions.map((source) => (
 										<SelectItem
 											key={source}
 											value={source}

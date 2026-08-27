@@ -22,19 +22,18 @@ import { Button } from "@/components/ui/button";
  *
  * The dashboard already reported each step separately — a triage breakdown
  * here, an SLA card there — which tells you how each step is doing but never
- * shows the SHAPE of the pipeline: where signals are piling up right now, and
- * which gate is the bottleneck. That is what a focal person opening the app
+ * shows the SHAPE of the pipeline: how far the register has been carried, and
+ * where work is still standing. That is what a focal person opening the app
  * needs before anything else.
  *
- * Every tile is a link into that gate's queue, and the counts come from the
- * same predicates the queues filter on, so a tile reading 6,022 opens a list of
- * 6,022. The overdue count is the second number because a stage with a national
- * deadline is not doing well merely by being small.
+ * Each tile headlines what has CLEARED that gate — triaged, verified, risk
+ * assessed — with the queue still waiting on it underneath, in red when any of
+ * that queue is past its national deadline. A strip of "awaiting" counts
+ * reported only what was missing: it could not tell a stage nobody had started
+ * from one that was finished, since both read zero-ish from opposite ends.
  *
- * Step 5 is rendered as locked rather than omitted. Ending the strip at risk
- * assessment would let the UI imply that a scored event is finished work, when
- * the guideline's formal output has not been produced — and the gap is the
- * point, not something to tidy away.
+ * Every tile is a link, and its number comes from the same predicate the list
+ * filters on, so a tile reading 6,010 opens a list of 6,010.
  */
 export function PipelineStrip({
 	/** Scope filters passed through, so the strip matches the list beneath it. */
@@ -119,7 +118,7 @@ export function PipelineStrip({
 
 			<ol className="flex items-stretch gap-1 overflow-x-auto pb-1">
 				{isLoading && stages.length === 0
-					? Array.from({ length: 7 }).map((_, i) => (
+					? Array.from({ length: 4 }).map((_, i) => (
 							<li key={i} className="min-w-[124px] flex-1">
 								<div className="h-[68px] animate-pulse rounded-lg bg-gray-100" />
 							</li>
@@ -155,6 +154,7 @@ function StageTile({
 }) {
 	const step = STAGE_STEP[stage.key as StageKey];
 	const overdue = stage.overdue > 0 ? stage.overdue : 0;
+	const pending = stage.pending > 0 ? stage.pending : 0;
 	const description = STAGE_DESCRIPTION[stage.key as StageKey];
 
 	const body = (
@@ -182,18 +182,22 @@ function StageTile({
 					{stage.available ? stage.count.toLocaleString() : "—"}
 				</span>
 			</div>
+			{/* The backlog, demoted to the second line — still the number
+			    someone works today, but no longer the one that stands for the
+			    stage. Detection has no queue of its own, so it says nothing
+			    rather than inventing one. */}
 			{overdue > 0 ? (
 				<p className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold text-destructive">
 					<AlertTriangle aria-hidden className="h-3 w-3" />
-					{overdue.toLocaleString()} overdue
+					{pending.toLocaleString()} waiting · {overdue.toLocaleString()} overdue
 				</p>
 			) : (
 				<p className="mt-0.5 text-[10px] text-gray-400">
-					{!stage.available
-						? "not recorded yet"
-						: stage.overdue === 0
-							? "none overdue"
-							: " "}
+					{pending > 0
+						? `${pending.toLocaleString()} waiting`
+						: stage.overdue < 0
+							? " "
+							: "nothing waiting"}
 				</p>
 			)}
 		</>

@@ -1,5 +1,4 @@
 import { Brain, Thermometer, Droplets, Eye, Heart, Users, AlertTriangle, CheckCircle, Stethoscope } from "lucide-react";
-import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
 
 
 const signsAndSymptoms = [
@@ -18,7 +17,10 @@ const signsAndSymptoms = [
 ];
 
 
-const alertSource = SOURCE_OF_ALERT_OPTIONS.map((name) => ({ name }))
+// NOTE: the "source of alert" list used to live here as a module-scope array.
+// It is now admin-managed and loaded at runtime, so components read it through
+// useSourceOfAlertOptions() (hooks/use-lookup-options.ts) instead — a constant
+// would freeze whatever the fallback list held at first evaluation.
 
 
 // Priority diseases, conditions and events under surveillance.
@@ -200,7 +202,6 @@ const symptoms = [
 
 export {
     signsAndSymptoms,
-    alertSource,
     alertResponse,
     alertStatus,
     alertEntryStatus,

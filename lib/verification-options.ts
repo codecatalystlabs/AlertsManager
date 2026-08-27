@@ -112,6 +112,10 @@ function classifyPart(part: string): {
 		return { action: "Mortality Surveillance/Supervised Burial" };
 	}
 	if (lower.includes("admitted")) return { action: "Admitted" };
+	// Written by legacyDeskValue when a confirmation carries no response action
+	// at all — the ordinary case since the verify form became two questions.
+	// Tested LAST so "confirmed, sample collected" still yields the action.
+	if (lower.includes("confirm")) return { outcome: VERIFICATION_CONFIRMED };
 	return {};
 }
 
@@ -131,18 +135,20 @@ export function splitDeskVerification(value?: string | null): {
 	const actions: string[] = [];
 	let discarded = false;
 	let escalated = false;
+	let confirmed = false;
 
 	for (const part of (value ?? "").split(",")) {
 		const { outcome, action } = classifyPart(part);
 		if (outcome === VERIFICATION_DISCARDED) discarded = true;
 		if (outcome === VERIFICATION_ESCALATED_FIELD) escalated = true;
+		if (outcome === VERIFICATION_CONFIRMED) confirmed = true;
 		if (action && !actions.includes(action)) actions.push(action);
 	}
 
 	let outcome: VerificationOutcome | "" = "";
 	if (discarded) outcome = VERIFICATION_DISCARDED;
 	else if (escalated) outcome = VERIFICATION_ESCALATED_FIELD;
-	else if (actions.length > 0) outcome = VERIFICATION_CONFIRMED;
+	else if (confirmed || actions.length > 0) outcome = VERIFICATION_CONFIRMED;
 
 	return { outcome, actions };
 }
@@ -164,6 +170,15 @@ export function legacyDeskValue(
 	const parts = [...actions];
 	if (outcome === VERIFICATION_DISCARDED) parts.push(VERIFICATION_DISCARDED);
 	if (outcome === VERIFICATION_ESCALATED_FIELD) parts.push(FIELD_CASE_VERIFICATION);
+	// THE MIRROR MUST NEVER BE EMPTY FOR A RECORDED OUTCOME. Confirmed used to
+	// be implied by the actions beside it and wrote nothing of its own; a
+	// two-question verification routinely has no action, and an empty mirror
+	// reads as "not verified" to every legacy reader (the SLA clock, the
+	// verification queue, the dashboard). Only when nothing else was written,
+	// so rows carrying actions keep their exact existing string.
+	if (outcome === VERIFICATION_CONFIRMED && parts.length === 0) {
+		parts.push(VERIFICATION_CONFIRMED);
+	}
 	return parts.join(", ");
 }
 

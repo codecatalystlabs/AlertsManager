@@ -49,6 +49,7 @@ import {
 } from "@/lib/auth";
 import { useDistrictOptions } from "@/hooks/use-district-options";
 import { useRegionOptions } from "@/hooks/use-region-options";
+import { userFullName } from "@/lib/user-name";
 import {
 	Plus,
 	Edit,
@@ -466,13 +467,6 @@ export default function UsersPage() {
 		});
 	};
 
-	function getDisplayName(user: User): string {
-		const names = [user.firstName, user.otherName, user.lastName].filter(
-			Boolean
-		);
-		return names.length > 0 ? names.join(" ") : user.username;
-	}
-
 	// Columns for the shared DataTable (same component used by alerts/call-logs).
 	const userColumns: ColumnDef<User>[] = [
 		{
@@ -487,10 +481,10 @@ export default function UsersPage() {
 		{
 			id: "name",
 			header: "Name",
-			accessorFn: (user) => getDisplayName(user),
+			accessorFn: (user) => userFullName(user),
 			filterFn: textIncludesFilter,
 			meta: { filterLabel: "Name", filterPlaceholder: "Name" },
-			cell: ({ row }) => getDisplayName(row.original),
+			cell: ({ row }) => userFullName(row.original),
 		},
 		{
 			accessorKey: "email",

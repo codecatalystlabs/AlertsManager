@@ -16,7 +16,7 @@ import {
 	EIDSR_STATUS_FILTER_OPTIONS,
 	type EidsrAlertsFilterState,
 } from "@/constants/eidsr-alerts";
-import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
+import { useSourceOfAlertOptions } from "@/hooks/use-lookup-options";
 import { LAYOUT } from "@/constants/layout";
 
 interface EidsrAlertsFiltersProps {
@@ -30,6 +30,8 @@ interface EidsrAlertsFiltersProps {
 export const EidsrAlertsFilters = memo<EidsrAlertsFiltersProps>(
 	({ filters, onFiltersChange, onApply, onClear, isLoading = false }) => {
 		const localIdActive = filters.localId.trim().length > 0;
+		// Admin-managed list (Administration -> Dropdown Options).
+		const sourceOptions = useSourceOfAlertOptions();
 
 		return (
 			<Card className={LAYOUT.card}>
@@ -210,7 +212,7 @@ export const EidsrAlertsFilters = memo<EidsrAlertsFiltersProps>(
 								</SelectTrigger>
 								<SelectContent>
 									<SelectItem value="all">Any source</SelectItem>
-									{SOURCE_OF_ALERT_OPTIONS.map((option) => (
+									{sourceOptions.map((option) => (
 										<SelectItem key={option} value={option}>
 											{option}
 										</SelectItem>

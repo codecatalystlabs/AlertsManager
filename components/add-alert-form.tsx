@@ -23,10 +23,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { FieldHint } from "@/components/field-hint";
-import { alertSource, alertEntryStatus } from "@/constants";
+import { alertEntryStatus } from "@/constants";
 import { CaseLocationSelect } from "@/components/case-location-select";
 import { MultiSelect } from "@/components/searchable-select";
-import { CHANNEL_OF_REPORTING_OPTIONS } from "@/lib/channel-of-reporting";
+import {
+  useChannelOfReportingOptions,
+  useSourceOfAlertOptions,
+} from "@/hooks/use-lookup-options";
 import {
   getLocalDateString,
   getLocalDateTimeIsoString,
@@ -100,7 +103,7 @@ const FIELD_HINTS = {
   nextOfKinPhone: "Phone number for the next of kin.",
   // Step 1, items 3, 4 and 6 — the description carries all three.
   caseDescription:
-    "Describe the unusual occurrence: what was seen, when it started, roughly how many people or animals are affected, and any action already taken.",
+    "Describe the unusual occurrence: what was seen, when it started.",
 } as const;
 
 export const PUBLIC_DEFAULTS = {
@@ -349,9 +352,8 @@ function FieldLabel({
   const label = (
     <Label
       htmlFor={htmlFor}
-      className={`text-sm font-medium ${
-        optional ? "text-gray-600" : "text-gray-700"
-      }`}
+      className={`text-sm font-medium ${optional ? "text-gray-600" : "text-gray-700"
+        }`}
     >
       {children}
       {optional && (
@@ -463,6 +465,11 @@ export function AddAlertForm({
   renderActions,
 }: AddAlertFormProps) {
   const strings = AUDIENCE_STRINGS[audience];
+  // Admin-managed lists (Administration -> Dropdown Options). These start on the
+  // built-in fallbacks and re-render once the API responds, so the PUBLIC form
+  // still shows pickers if the lookup call is slow or fails.
+  const sourceOptions = useSourceOfAlertOptions();
+  const channelOptions = useChannelOfReportingOptions();
   const [values, setValues] = useState<AlertFormValues>(
     createEmptyAlertFormValues,
   );
@@ -592,16 +599,16 @@ export function AddAlertForm({
       </FieldLabel>
       <MultiSelect
         id="sourceOfAlert"
-        options={alertSource.map((source) => ({
-          value: source.name,
-          label: source.name,
+        options={sourceOptions.map((source) => ({
+          value: source,
+          label: source,
         }))}
         values={
           values.sourceOfAlert
             ? values.sourceOfAlert
-                .split(",")
-                .map((s) => s.trim())
-                .filter(Boolean)
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
             : []
         }
         onChange={(vals) => setField("sourceOfAlert", vals.join(", "))}
@@ -634,7 +641,7 @@ export function AddAlertForm({
           <SelectValue placeholder={strings.channelPlaceholder} />
         </SelectTrigger>
         <SelectContent>
-          {CHANNEL_OF_REPORTING_OPTIONS.map((channel) => (
+          {channelOptions.map((channel) => (
             <SelectItem key={channel} value={channel}>
               {channel}
             </SelectItem>
@@ -644,12 +651,12 @@ export function AddAlertForm({
     </div>
   );
 
+  // Staff intake only — EBS triage question 1 is a desk decision, so the public
+  // form does not ask it. Public reports post alertReportedBefore: "No".
   const reportedBeforeField = (
     <div className="space-y-2">
       <FieldLabel optional hint={FIELD_HINTS.alertReportedBefore}>
-        {isPublic
-          ? "Have you reported this before?"
-          : "Signal reported before?"}
+        Signal reported before?
       </FieldLabel>
       <RadioRow
         value={values.alertReportedBefore}
@@ -742,7 +749,7 @@ export function AddAlertForm({
   const descriptionField = (
     <div className="space-y-2">
       <FieldLabel htmlFor="caseDescription" hint={FIELD_HINTS.caseDescription}>
-        {isPublic ? "Describe what is happening *" : "Signal Description *"}
+        {isPublic ? "Describe what is happening(suspected case,sex,age,signs and symptoms,date of onset) *" : "Signal Description(suspected case,sex,age,signs and symptoms,date of onset) *"}
       </FieldLabel>
       <Textarea
         id="caseDescription"
@@ -800,17 +807,20 @@ export function AddAlertForm({
 
           <Separator />
 
-          {/* What are you reporting? */}
+          {/* What are you reporting? The short pickers first and the free-text
+              description last — the big textarea closes the section. */}
           <div className="space-y-4">
             <SectionHeading
               icon={AlertTriangleIcon}
-              title="What are you reporting?"
+              title="Signal Information"
             />
-            {descriptionField}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {sourceField}
               {channelField}
-              {reportedBeforeField}
+            </div>
+
+            <div className="border-t border-gray-200 pt-4">
+              {descriptionField}
             </div>
           </div>
         </>
@@ -932,11 +942,10 @@ export function AddAlertForm({
             }
           >
             <AlertTriangleIcon
-              className={`h-4 w-4 ${
-                submitStatus.type === "success"
-                  ? "text-success"
-                  : "text-destructive"
-              }`}
+              className={`h-4 w-4 ${submitStatus.type === "success"
+                ? "text-success"
+                : "text-destructive"
+                }`}
             />
             <AlertDescription
               className={

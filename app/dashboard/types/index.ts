@@ -25,11 +25,17 @@ interface AlertCounts {
     discarded: number;
     alerts: number;
     total: number;
+    /** Signals past the EBS step-2 triage gate, whichever exit they took. */
+    triaged: number;
 }
 
 interface CallLogAlert {
     id: number;
     status: string;
+    /** EBS step-2 triage: which exit the signal took, blank while untriaged. */
+    triageDecision?: string | null;
+    /** Set only by triage; the pre-decision-column marker that it happened. */
+    priority?: string | null;
     date: string;
     time: string;
     callTaker: string;

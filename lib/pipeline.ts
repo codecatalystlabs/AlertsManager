@@ -8,8 +8,14 @@ import { getClientApiBaseUrl } from "@/lib/api-config";
  * → risk assessment → alert → feedback — and this file is the one place the
  * front end knows that. Stage keys match `services.Stage*` in the Go backend,
  * which uses the SAME predicate to count a stage and to filter its queue. So a
- * strip reading "6,022 awaiting triage" links to a list holding exactly 6,022
- * rows, by construction rather than by two definitions happening to agree.
+ * tile reading 6,010 links to a list holding exactly 6,010 rows, by
+ * construction rather than by two definitions happening to agree.
+ *
+ * Each gate has two keys, because there are two questions about it. The QUEUE
+ * keys (triage, verification, risk) hold what is still waiting — that is what
+ * the register's tabs and the sidebar open. The DONE keys (triaged, verified,
+ * assessed) hold what has cleared it, and those are what the pipeline strip
+ * headlines.
  */
 
 export const STAGE_INTAKE = "intake";
@@ -19,6 +25,16 @@ export const STAGE_RISK = "risk";
 export const STAGE_ALERT = "alert";
 export const STAGE_FEEDBACK = "feedback";
 export const STAGE_OFF_PIPELINE = "offpipeline";
+/**
+ * Not a gate — the archive of everything the pipeline closed WITHOUT an
+ * event, at whichever gate closed it. Twin of services.StageDiscarded.
+ */
+export const STAGE_DISCARDED = "discarded";
+
+/** What has CLEARED each gate — the strip's headline numbers. */
+export const STAGE_TRIAGED = "triaged";
+export const STAGE_VERIFIED = "verified";
+export const STAGE_ASSESSED = "assessed";
 
 export type StageKey =
 	| typeof STAGE_INTAKE
@@ -27,14 +43,20 @@ export type StageKey =
 	| typeof STAGE_RISK
 	| typeof STAGE_ALERT
 	| typeof STAGE_FEEDBACK
-	| typeof STAGE_OFF_PIPELINE;
+	| typeof STAGE_OFF_PIPELINE
+	| typeof STAGE_DISCARDED
+	| typeof STAGE_TRIAGED
+	| typeof STAGE_VERIFIED
+	| typeof STAGE_ASSESSED;
 
 /** One gate's live queue, as the backend reports it. */
 export interface PipelineStage {
 	key: StageKey;
 	label: string;
 	count: number;
-	/** Past this stage's national deadline. -1 when the stage has no clock. */
+	/** Still standing at the gate, behind the headline. */
+	pending: number;
+	/** Of those pending, how many are past the national deadline. -1 when the stage has no clock. */
 	overdue: number;
 	/** False when the system cannot record this stage yet (step 5). */
 	available: boolean;
@@ -46,14 +68,16 @@ export interface PipelineSnapshot {
 	total: number;
 }
 
-/** Which EBS step each stage is, for the strip's numbering. Off-pipeline is not a step. */
+/**
+ * Which EBS step each stage is, for the strip's numbering. Steps 5 (alert) and
+ * 6 (feedback) are not on the strip — alert issuance has no timestamp this
+ * system records, and feedback is its own sidebar destination.
+ */
 export const STAGE_STEP: Partial<Record<StageKey, number>> = {
 	[STAGE_INTAKE]: 1,
-	[STAGE_TRIAGE]: 2,
-	[STAGE_VERIFICATION]: 3,
-	[STAGE_RISK]: 4,
-	[STAGE_ALERT]: 5,
-	[STAGE_FEEDBACK]: 6,
+	[STAGE_TRIAGED]: 2,
+	[STAGE_VERIFIED]: 3,
+	[STAGE_ASSESSED]: 4,
 };
 
 /** One line on what each gate decides, shown on hover. */
@@ -71,6 +95,14 @@ export const STAGE_DESCRIPTION: Record<StageKey, string> = {
 		"Telling the reporter what happened to their signal. Not optional, and not decorative.",
 	[STAGE_OFF_PIPELINE]:
 		"Signals triage discarded as already reported, or logged as no public-health threat. Recorded, never deleted.",
+	[STAGE_DISCARDED]:
+		"Every signal closed without becoming an event, at whichever gate closed it. Recorded, never deleted.",
+	[STAGE_TRIAGED]:
+		"Signals that have been through the triage gate — a decision was taken and recorded, whichever way it went.",
+	[STAGE_VERIFIED]:
+		"Signals verification has adjudicated: an outcome someone recorded, confirmed or discarded.",
+	[STAGE_ASSESSED]:
+		"Confirmed events carrying a risk level — the level that selects the response the guideline mandates.",
 };
 
 /**
@@ -96,11 +128,19 @@ export function stageLabel(key: string | null | undefined): string | null {
 			return "Awaiting risk assessment";
 		case STAGE_FEEDBACK:
 			return "Feedback due";
+		case STAGE_TRIAGED:
+			return "Triaged";
+		case STAGE_VERIFIED:
+			return "Verified";
+		case STAGE_ASSESSED:
+			return "Risk assessed";
 		case STAGE_OFF_PIPELINE:
 			// Named for what it holds rather than for where it sits, because the
 			// sidebar sends people here looking for "Discarded Events" and a
 			// heading reading "Off pipeline" would not answer them.
 			return "Discarded events";
+		case STAGE_DISCARDED:
+			return "Discarded";
 		default:
 			return null;
 	}
@@ -113,7 +153,11 @@ export function isQueueStage(key: string | null | undefined): key is StageKey {
 		key === STAGE_VERIFICATION ||
 		key === STAGE_RISK ||
 		key === STAGE_FEEDBACK ||
-		key === STAGE_OFF_PIPELINE
+		key === STAGE_OFF_PIPELINE ||
+		key === STAGE_DISCARDED ||
+		key === STAGE_TRIAGED ||
+		key === STAGE_VERIFIED ||
+		key === STAGE_ASSESSED
 	);
 }
 

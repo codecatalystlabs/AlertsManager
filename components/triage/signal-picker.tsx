@@ -1,21 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check, Search, X } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
-	EBS_SIGNALS,
 	SIGNAL_DOMAIN_LABEL,
 	SIGNAL_SETTING_LABEL,
+	findSignal,
 	normalizeSignalCode,
 	signalMatches,
 	type EbsSignal,
 	type SignalDomain,
 	type SignalSetting,
 } from "@/lib/ebs-signals";
+import { useEbsSignals } from "@/hooks/use-lookup-options";
 
 /**
  * Picks the Annex I / Annex II signal a report matches.
@@ -33,6 +34,13 @@ import {
  *     hence the Clear control rather than a mandatory choice.
  *   - The full definition is shown, not just the code. Operators pick the
  *     wording they recognise; a grid of bare codes would be guessed at.
+ *
+ * The setting is asked FIRST, as its own question, and the matching list is
+ * rendered underneath the answer. Annex I and Annex II are two different lists
+ * for two different detection points — a health worker reading case notes, a
+ * VHT hearing something in a village — and an operator knows which one they are
+ * in before they know which line of it they want. Showing all 34 entries at
+ * once made them scroll past half a list that could not apply.
  */
 export function SignalPicker({
 	value,
@@ -44,16 +52,25 @@ export function SignalPicker({
 	className?: string;
 }) {
 	const [query, setQuery] = useState("");
-	const [setting, setSetting] = useState<SignalSetting | "all">("all");
+	const [setting, setSetting] = useState<SignalSetting | null>(null);
+	// Admin-managed list (Administration -> Dropdown Options -> EBS Signals).
+	// Retired signals are already excluded, so they can't be picked for new work.
+	const signals = useEbsSignals();
 
 	const selected = normalizeSignalCode(value);
+	const selectedSetting = findSignal(value)?.setting ?? null;
+
+	// A re-triage arrives with a code already on the row: open on that code's own
+	// list rather than back at a question the operator has already answered.
+	useEffect(() => {
+		if (selectedSetting) setSetting(selectedSetting);
+	}, [selectedSetting]);
 
 	// Grouped by domain within the chosen setting, so an animal-health signal is
 	// never hunted for among twenty human ones.
 	const groups = useMemo(() => {
-		const matching = EBS_SIGNALS.filter(
-			(s) =>
-				(setting === "all" || s.setting === setting) && signalMatches(s, query),
+		const matching = signals.filter(
+			(s) => s.setting === setting && signalMatches(s, query),
 		);
 		const order: SignalDomain[] = ["human", "animal", "environment"];
 		return order
@@ -62,7 +79,7 @@ export function SignalPicker({
 				signals: matching.filter((s) => s.domain === domain),
 			}))
 			.filter((g) => g.signals.length > 0);
-	}, [query, setting]);
+	}, [signals, query, setting]);
 
 	return (
 		<div className={cn("space-y-2", className)}>
@@ -82,73 +99,105 @@ export function SignalPicker({
 				)}
 			</div>
 
-			<div className="flex gap-1">
+			<p className="text-sm font-medium">Where was this signal detected?</p>
+			<div className="grid grid-cols-2 gap-2">
 				{(
 					[
-						{ key: "all" as const, label: "All" },
-						{ key: "community" as const, label: "Community · II" },
-						{ key: "facility" as const, label: "Facility · I" },
-					] satisfies { key: SignalSetting | "all"; label: string }[]
-				).map((tab) => (
+						{
+							key: "community" as const,
+							label: "Community",
+							hint: "Annex II — VHT, village, school",
+						},
+						{
+							key: "facility" as const,
+							label: "Health facility",
+							hint: "Annex I — clinician, health worker",
+						},
+					] satisfies { key: SignalSetting; label: string; hint: string }[]
+				).map((choice) => (
 					<button
-						key={tab.key}
+						key={choice.key}
 						type="button"
-						onClick={() => setSetting(tab.key)}
-						aria-pressed={setting === tab.key}
+						onClick={() => {
+							setSetting(choice.key);
+							setQuery("");
+							// The code on show must belong to the list on show, so
+							// switching setting drops a pick from the other annex.
+							if (selectedSetting && selectedSetting !== choice.key) {
+								onChange(null);
+							}
+						}}
+						aria-pressed={setting === choice.key}
 						className={cn(
-							"flex-1 rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors",
-							setting === tab.key
-								? "border-uganda-red bg-uganda-red/5 text-uganda-black"
-								: "border-gray-200 text-muted-foreground hover:bg-gray-50",
+							"rounded-lg border px-3 py-2 text-left transition-colors",
+							setting === choice.key
+								? "border-uganda-red bg-uganda-red/5 ring-1 ring-uganda-red"
+								: "border-gray-200 hover:bg-gray-50",
 						)}
 					>
-						{tab.label}
+						<span className="block text-sm font-semibold text-uganda-black">
+							{choice.label}
+						</span>
+						<span className="block text-[11px] text-muted-foreground">
+							{choice.hint}
+						</span>
 					</button>
 				))}
 			</div>
 
-			<div className="relative">
-				<Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-				<Input
-					value={query}
-					onChange={(e) => setQuery(e.target.value)}
-					placeholder="Search the signal list — bleeding, CH1, animal…"
-					className="h-8 pl-7 text-xs"
-				/>
-			</div>
+			{setting === null ? (
+				<p className="text-[11px] text-muted-foreground">
+					Annex I and II are a guide, not a closed set — anything unusual is
+					reportable whether or not it appears there. Pick a setting to name the
+					signal, or leave this blank when nothing matches.
+				</p>
+			) : (
+				<>
+					<div className="relative">
+						<Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+						<Input
+							value={query}
+							onChange={(e) => setQuery(e.target.value)}
+							placeholder="Search the signal list — bleeding, CH1, animal…"
+							className="h-8 pl-7 text-xs"
+						/>
+					</div>
 
-			<div className="max-h-[380px] space-y-2 overflow-y-auto rounded-lg border border-gray-200 p-2">
-				{groups.length === 0 ? (
-					<p className="px-1 py-6 text-center text-xs text-muted-foreground">
-						Nothing on the list matches “{query}”. That is a valid outcome —
-						leave the signal blank and describe it in the note.
-					</p>
-				) : (
-					groups.map((group) => (
-						<div key={group.domain} className="space-y-1">
-							<p className="px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-								{SIGNAL_DOMAIN_LABEL[group.domain]}
+					<div className="max-h-[300px] space-y-2 overflow-y-auto rounded-lg border border-gray-200 p-2">
+						{groups.length === 0 ? (
+							<p className="px-1 py-6 text-center text-xs text-muted-foreground">
+								Nothing in {SIGNAL_SETTING_LABEL[setting]} matches “{query}”.
+								That is a valid outcome — leave the signal blank and describe it
+								in the note.
 							</p>
-							{group.signals.map((signal) => (
-								<SignalOption
-									key={signal.code}
-									signal={signal}
-									selected={selected === signal.code}
-									onSelect={() =>
-										onChange(selected === signal.code ? null : signal.code)
-									}
-								/>
-							))}
-						</div>
-					))
-				)}
-			</div>
+						) : (
+							groups.map((group) => (
+								<div key={group.domain} className="space-y-1">
+									<p className="px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+										{SIGNAL_DOMAIN_LABEL[group.domain]}
+									</p>
+									{group.signals.map((signal) => (
+										<SignalOption
+											key={signal.code}
+											signal={signal}
+											selected={selected === signal.code}
+											onSelect={() =>
+												onChange(selected === signal.code ? null : signal.code)
+											}
+										/>
+									))}
+								</div>
+							))
+						)}
+					</div>
 
-			<p className="text-[11px] text-muted-foreground">
-				Annex I and II are a guide, not a closed set — anything unusual is
-				reportable whether or not it appears here. Leave blank when nothing
-				matches.
-			</p>
+					<p className="text-[11px] text-muted-foreground">
+						Annex I and II are a guide, not a closed set — anything unusual is
+						reportable whether or not it appears here. Leave blank when nothing
+						matches.
+					</p>
+				</>
+			)}
 		</div>
 	);
 }

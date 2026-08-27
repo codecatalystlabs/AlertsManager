@@ -70,8 +70,8 @@ function toPdfData(
 			values.alertReportedBefore === "yes"
 				? "Yes"
 				: values.alertReportedBefore === "no"
-				? "No"
-				: "",
+					? "No"
+					: "",
 		personReporting: values.personReporting,
 		contactNumber: values.contactNumber,
 		sourceOfAlert: values.sourceOfAlert || PUBLIC_DEFAULTS.sourceOfAlert,
@@ -294,7 +294,7 @@ export default function PublicAddAlertPage() {
 					<AlertDescription className="text-sm text-destructive">
 						<strong>Emergency Contact:</strong> For immediate
 						medical emergencies, please call{" "}
-						<strong>0800-100-066</strong>, SMS <strong>6767</strong>
+						<strong>0800-100-066</strong>, SMS <strong>6767</strong> ,<strong>912</strong>
 						, or visit the nearest health facility. This form is for
 						reporting suspected disease outbreaks and public health
 						concerns.

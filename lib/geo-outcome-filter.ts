@@ -17,6 +17,11 @@ import type { MultiSelectOption } from "@/components/ui/multi-select";
  * isn't one of the named ones) and "Pending" (no outcome recorded yet).
  */
 export const GEO_OUTCOME_FILTER_OPTIONS: MultiSelectOption[] = [
+	// Leads the list because it is the ordinary conclusion of a verification
+	// since the verify form became two questions: confirming a signal no longer
+	// requires a response action beside it, so most confirmations carry nothing
+	// but the word. Without this bucket they would all filter as "Others".
+	{ value: "Confirmed", label: "Confirmed" },
 	{ value: "Field Case Verification", label: "Field Case Verification" },
 	{ value: "Sample Collected", label: "Sample Collected" },
 	{ value: "Validated for EMS Evacuation", label: "Validated for EMS Evacuation" },

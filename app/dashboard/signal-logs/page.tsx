@@ -4,29 +4,32 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
-	STAT_FILTER_PRESETS,
-	type CallLogsStatFilter,
 } from "@/constants/call-logs";
 import {
 	CallLogsHeader,
-	CallLogsStats,
 	CallLogsFilters,
 	CallLogsTable,
+	TriagedSplitTabs,
 } from "@/components/call-logs";
 import { ErrorAlert } from "@/components/dashboard";
 import { TriageDialog } from "@/components/triage";
 import { RiskAssessmentDialog } from "@/components/risk";
 import { FeedbackDialog } from "@/components/feedback";
-import { StatsGridSkeleton, FiltersSkeleton } from "@/components/ui/skeletons";
+import { FiltersSkeleton } from "@/components/ui/skeletons";
 import { useCallLogsData, type AlertLog } from "@/hooks/use-call-logs-data";
 import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
 import { AuthService } from "@/lib/auth";
 import { PipelineStrip } from "@/components/pipeline";
 import { STAGE_DESCRIPTION, isQueueStage, stageLabel } from "@/lib/pipeline";
 import {
+	SPLIT_DISCARDED,
+	VIEW_TRIAGED,
 	registerViewFilters,
 	registerViewFromParams,
+	registerViewHref,
 	registerViewStage,
+	triagedSplitFromParams,
+	type TriagedSplit,
 } from "@/lib/register-view";
 
 const AlertDetailsDialog = dynamic(
@@ -75,7 +78,6 @@ import { LAYOUT } from "@/constants/layout";
 export default function CallLogsPage(): React.JSX.Element {
 	const {
 		filteredAlerts,
-		stats,
 		filters,
 		sort,
 		pagination,
@@ -106,14 +108,20 @@ export default function CallLogsPage(): React.JSX.Element {
 	const searchParams = useSearchParams();
 	const rawStage = searchParams?.get("stage") ?? null;
 	const stageParam = isQueueStage(rawStage) ? rawStage : null;
-	// Null for the queues that are not one of the four tabs (risk, feedback,
-	// off-pipeline): those keep their own list, without a tab strip offering to
-	// navigate out of the queue that was asked for.
+	// Null for the queues that are not one of the four tabs (feedback, which the
+	// sidebar reaches as "Risk Assessed", and off-pipeline): those keep their own
+	// list, without a tab strip offering to navigate out of the queue that was
+	// asked for.
 	const view = registerViewFromParams(searchParams?.get("view"), stageParam);
+	// Which half of the Triaged tab — the verification queue, or the archive of
+	// what was discarded. Read off the same URL, so the split is shareable and
+	// the back button steps between the halves.
+	const split = triagedSplitFromParams(stageParam);
+	const showingDiscarded = view === VIEW_TRIAGED && split === SPLIT_DISCARDED;
 	// The gate this view stands at — drives the page heading and the pipeline
 	// strip's highlight, so landing on Untriaged reads as "Awaiting triage"
 	// rather than as an unexplained partial register.
-	const viewStage = registerViewStage(view) ?? stageParam;
+	const viewStage = registerViewStage(view, split) ?? stageParam;
 
 	// Apply a view's filters ONCE per URL change, keyed by what the URL asked
 	// for. Re-applying whenever the filters drift would undo any refinement the
@@ -121,17 +129,28 @@ export default function CallLogsPage(): React.JSX.Element {
 	// tab would snap straight back).
 	const appliedViewRef = useRef<string | null>(null);
 	useEffect(() => {
-		const wanted = view ?? `stage:${stageParam ?? ""}`;
+		// Keyed on the SPLIT too, or switching halves of the Triaged tab would be
+		// the one navigation that leaves the previous half's stage filter behind.
+		const wanted = view ? `${view}:${split}` : `stage:${stageParam ?? ""}`;
 		if (appliedViewRef.current === wanted) return;
 		appliedViewRef.current = wanted;
 		setFilters(
 			view
-				? registerViewFilters(view)
+				? registerViewFilters(view, split)
 				: { stage: stageParam ?? "", verification: "all" }
 		);
 		// setFilters is stable; re-running on every render would reset paging.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [view, stageParam]);
+	}, [view, split, stageParam]);
+
+	// The URL is the single source of truth for the view, so switching halves
+	// navigates rather than setting state the URL would then contradict.
+	const handleSplitChange = useCallback(
+		(next: TriagedSplit) => {
+			router.replace(registerViewHref(VIEW_TRIAGED, next), { scroll: false });
+		},
+		[router]
+	);
 
 	// Revalidates every alerts-derived SWR key (this list + its stats, the Alerts
 	// Management table, dashboard cards/charts) — not just this page's list.
@@ -144,19 +163,6 @@ export default function CallLogsPage(): React.JSX.Element {
 	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const tableSectionRef = useRef<HTMLDivElement>(null);
-
-	const handleStatCardClick = useCallback(
-		(stat: CallLogsStatFilter) => {
-			setFilters(STAT_FILTER_PRESETS[stat]);
-			requestAnimationFrame(() => {
-				tableSectionRef.current?.scrollIntoView({
-					behavior: "smooth",
-					block: "start",
-				});
-			});
-		},
-		[setFilters]
-	);
 
 	const handleRefresh = useCallback(async () => {
 		setIsRefreshing(true);
@@ -293,22 +299,23 @@ export default function CallLogsPage(): React.JSX.Element {
 			)}
 
 			{loading ? (
-				<StatsGridSkeleton count={4} />
-			) : (
-				<CallLogsStats
-					stats={stats}
-					filters={filters}
-					onStatClick={handleStatCardClick}
-				/>
-			)}
-
-			{loading ? (
 				<FiltersSkeleton fields={5} />
 			) : (
 				<CallLogsFilters
 					filters={filters}
 					onFiltersChange={setFilters}
 					onClearFilters={clearFilters}
+				/>
+			)}
+
+			{/* The triage gate has two endings, and they are opposite kinds of
+			    list — a queue with work due on every row, and an archive with
+			    none — so the two halves stay separately addressable. */}
+			{view === VIEW_TRIAGED && (
+				<TriagedSplitTabs
+					value={split}
+					onChange={handleSplitChange}
+					count={pagination.total}
 				/>
 			)}
 
@@ -326,6 +333,7 @@ export default function CallLogsPage(): React.JSX.Element {
 					onPageSizeChange={setPageSize}
 					onColumnFiltersChange={setColumnFilters}
 					filtersResetKey={filtersResetKey}
+					showDiscardLevel={showingDiscarded}
 					onViewDetails={handleViewDetails}
 					onEditAlert={handleEditAlert}
 					onVerifyAlert={handleVerifyAlert}

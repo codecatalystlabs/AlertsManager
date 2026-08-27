@@ -1,19 +1,11 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useState } from "react";
+
 import { altCode } from "@/lib/alt-code";
-import { useState, useEffect } from "react";
-import hotToast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
 import {
 	Dialog,
 	DialogContent,
@@ -23,50 +15,59 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
 	AlertTriangleIcon,
-	Ambulance as AmbulanceIcon,
 	CheckCircleIcon,
 	XCircleIcon,
 	Loader2,
-	UserIcon,
-	HeartIcon,
-	Stethoscope,
-	MapPin,
-	Contact,
+	ShieldQuestion,
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
 import { verifyEidsrMessage } from "@/lib/fetch-eidsr-messages";
 import { verifyEchisAlert, verifyPoeAlert } from "@/lib/fetch-ndw-alerts";
 import { buildEidsrVerifyPayload } from "@/lib/eidsr-verify-payload";
-import { CaseLocationSelect } from "@/components/case-location-select";
 import {
-	FIELD_VERIFICATION_OPTIONS,
-	FIELD_CASE_VERIFICATION,
-	EMS_EVACUATION_ACTION,
-	VERIFICATION_OUTCOMES,
-	OUTCOME_GUIDANCE,
-	RESPONSE_ACTION_OPTIONS,
-	VERIFICATION_ESCALATED_FIELD,
-	splitDeskVerification,
+	VERIFICATION_CONFIRMED,
+	VERIFICATION_DISCARDED,
 	legacyDeskValue,
 	type VerificationOutcome,
-	hasDeskAction,
-	toggleDeskAction,
 } from "@/lib/verification-options";
 import { useToast } from "@/hooks/use-toast";
-import { alertResponse, alertSource } from "@/constants";
-import { resolveAlertResponseCode } from "@/lib/resolve-alert-response";
-import { getLocalDateString } from "@/lib/utils";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { userFullName } from "@/lib/user-name";
+import { cn } from "@/lib/utils";
 
-/** Current local time as HH:MM, for capping the verification time picker. */
-function currentLocalTime(): string {
-	return new Date().toTimeString().slice(0, 5);
-}
+/**
+ * Verification — EBS step 3, asked as the two questions it actually is.
+ *
+ * The guideline's verification step answers ONE thing: is this signal a real
+ * public-health event? This dialog used to ask forty fields to get there — a
+ * case investigation form (CIF number, case name, age, sex, clinical history,
+ * traditional healer visits) standing between a verifier and the word "no".
+ * Recording a false signal is the cheap, high-volume path in event-based
+ * surveillance, and taxing it hardest is how a register fills with invented
+ * case data and how the signal-to-event conversion rate stops meaning anything.
+ *
+ * So the form asks what verification decides, and nothing else:
+ *
+ *   1. Have you verified this signal?
+ *        no  → say why. NOTHING is recorded as an outcome: the signal keeps
+ *              its place in the queue and its clock keeps running. An attempt
+ *              is not a verification.
+ *        yes → question 2.
+ *   2. Is this a true signal?
+ *        yes → CONFIRMED. It is an event, and goes on to risk assessment.
+ *        no  → DISCARDED. Checked and closed, and the reporter is owed
+ *              feedback saying so.
+ *
+ * Every branch requires the verifier to describe the decision in their own
+ * words. The outcome says what was decided; only the note says what was checked
+ * and on what basis, and for a discard it is the sole record of why nobody
+ * pursued the signal.
+ *
+ * The case details are NOT gone — they are captured at intake and editable in
+ * the alert edit dialog, which is where correcting a case record belongs.
+ */
 
 interface AlertVerificationDialogProps {
 	isOpen: boolean;
@@ -85,59 +86,73 @@ interface AlertVerificationDialogProps {
 	ndwId?: number;
 }
 
-const signsAndSymptoms = [
-	"Fever (≥38°C)",
-	"Headache",
-	"General Weakness",
-	"Skin/Body Rash",
-	"Sore Throat",
-	"Vomiting",
-	"Bleeding",
-	"Abdominal Pain",
-	"Aching Muscles/Pain",
-	"Difficulty Swallowing",
-	"Difficulty Breathing",
-	"Lethargy/Weakness",
-];
+type YesNo = "yes" | "no" | "";
 
-const DEFAULT_CREATE_ACTION = "Alert reported";
+/** One read-only fact about the signal being adjudicated. */
+interface SummaryItem {
+	label: string;
+	value: string;
+}
 
-function resolveInitialDeskAction(alert: {
-	actions?: string;
-	caseVerificationDesk?: string;
-}): string {
-	const desk = alert.caseVerificationDesk?.trim();
-	if (desk) return desk;
+function text(value: unknown): string {
+	if (value == null) return "";
+	const s = String(value).trim();
+	return s === "0" ? "" : s;
+}
 
-	const actions = alert.actions?.trim();
-	if (actions && actions !== DEFAULT_CREATE_ACTION) return actions;
-
-	return "";
+/** Local date + time, for the "verifying as … at …" stamp. */
+function nowLabel(): string {
+	return new Date().toLocaleString(undefined, {
+		day: "numeric",
+		month: "short",
+		year: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
+	});
 }
 
 /**
- * Pre-fill the split fields when re-opening an alert. Prefers the dedicated
- * columns and falls back to unpicking the legacy conflated string, so a signal
- * verified before the split still re-opens showing what was actually decided.
+ * What the verifier is adjudicating, read-only.
+ *
+ * Verification is a judgement about a report, so the report has to be legible
+ * without leaving the dialog — but none of it is editable here. Correcting case
+ * data is the edit dialog's job; conflating the two is what turned this form
+ * into a case investigation in the first place.
  */
-function resolveInitialVerification(alert: {
-	verificationOutcome?: string | null;
-	responseActions?: string | null;
-	actions?: string;
-	caseVerificationDesk?: string;
-}): { outcome: string; actions: string[] } {
-	const storedOutcome = (alert.verificationOutcome ?? "").trim();
-	const storedActions = (alert.responseActions ?? "").trim();
-	if (storedOutcome || storedActions) {
-		return {
-			outcome: storedOutcome,
-			actions: storedActions
-				.split(",")
-				.map((a) => a.trim())
-				.filter(Boolean),
-		};
-	}
-	return splitDeskVerification(resolveInitialDeskAction(alert));
+function buildSummary(alert: any): SummaryItem[] {
+	if (!alert) return [];
+
+	const place = [
+		text(alert.alertCaseVillage) || text(alert.village),
+		text(alert.alertCaseSubCounty) || text(alert.subCounty),
+		text(alert.alertCaseDistrict),
+	]
+		.filter(Boolean)
+		.join(", ");
+
+	const reporter = [text(alert.personReporting), text(alert.contactNumber)]
+		.filter(Boolean)
+		.join(" · ");
+
+	const items: SummaryItem[] = [
+		{ label: "Signal", value: text(alert.signalReported).replaceAll("_", " ") },
+		{ label: "Case", value: text(alert.alertCaseName) },
+		{ label: "Location", value: place },
+		{ label: "Reported by", value: reporter },
+		{ label: "Source", value: text(alert.sourceOfAlert) },
+		{ label: "Number affected", value: text(alert.numberAffected) },
+		{ label: "Symptoms", value: text(alert.symptoms) },
+		{
+			label: "Description",
+			value:
+				text(alert.briefDescription) ||
+				text(alert.history) ||
+				text(alert.narrative),
+		},
+		{ label: "Additional information", value: text(alert.additionalInformation) },
+	];
+
+	return items.filter((i) => i.value);
 }
 
 export function AlertVerificationDialog({
@@ -159,375 +174,158 @@ export function AlertVerificationDialog({
 	// server-side, so neither needs the per-alert verification token.
 	const isTokenlessMode = isEidsrMode || isNdwMode;
 	const { toast } = useToast();
-	const [verificationToken, setVerificationToken] = useState<string>("");
+	// Who is doing the verifying, read from the signed-in account rather than
+	// asked for: this is the actor recorded against the signal, and a verifier
+	// retyping their own name is how "Verified By" ends up blank or as initials.
+	const currentUser = useCurrentUser();
+	const currentUserName = userFullName(currentUser);
+
+	const [verified, setVerified] = useState<YesNo>("");
+	const [trueSignal, setTrueSignal] = useState<YesNo>("");
+	const [note, setNote] = useState("");
+	const [verificationToken, setVerificationToken] = useState("");
 	const [isGeneratingToken, setIsGeneratingToken] = useState(false);
 	const [isVerifying, setIsVerifying] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [success, setSuccess] = useState<string | null>(null);
-	const [vhfCaseCode, setVhfCaseCode] = useState<string | null>(null);
-	const [showVhfForm, setShowVhfForm] = useState(false);
 
-	const [formData, setFormData] = useState({
-		status: "",
-		verificationDate: getLocalDateString(),
-		verificationTime: currentLocalTime(),
-		cifNo: "",
-		personReporting: alert?.personReporting || "",
-		village: alert?.alertCaseVillage || "",
-		subCounty: alert?.subCounty || "",
-		contactNumber: alert?.contactNumber || "",
-		sourceOfAlert: alert?.sourceOfAlert || "",
-		response: "",
-		alertCaseName: alert?.alertCaseName || "",
-		alertCaseAge: alert?.alertCaseAge || 0,
-		alertCaseSex: alert?.alertCaseSex || "",
-		alertCasePregnantDuration: 0,
-		alertCaseVillage: alert?.alertCaseVillage || "",
-		alertCaseParish: alert?.alertCaseParish || "",
-		alertCaseSubCounty: alert?.alertCaseSubCounty || "",
-		alertCaseDistrict: alert?.alertCaseDistrict || "",
-		region: alert?.region || "",
-		alertCaseNationality: alert?.alertCaseNationality || "",
-		pointOfContactName: alert?.pointOfContactName || "",
-		pointOfContactRelationship: "",
-		pointOfContactPhone: alert?.pointOfContactPhone || "",
-		history: alert?.history || "",
-		healthFacilityVisit: "",
-		traditionalHealerVisit: "",
-		symptoms: alert?.symptoms || "",
-		actions: "",
-		feedback: "",
-		verifiedBy: "",
-		deskVerificationActions: "",
-		// The verification split. `deskVerificationActions` above is now DERIVED
-		// from these two (see the effect below) and kept only because the legacy
-		// string is what the 6767/eCHIS/POE verify endpoints accept and what the
-		// backend mirrors into case_verification_desk.
-		verificationOutcome: "",
-		responseActions: "",
-		fieldVerificationFeedback: "",
-	});
+	const summary = useMemo(() => buildSummary(alert), [alert]);
 
-	useEffect(() => {
-		if (isOpen && alert) {
-			const responseCode =
-				resolveAlertResponseCode(String(alert.response || "")) ||
-				String(alert.response || "");
-			const legacyDiseaseInCaseName =
-				isEidsrMode && !responseCode && alert.alertCaseName
-					? resolveAlertResponseCode(String(alert.alertCaseName))
-					: "";
-			const resolvedResponse =
-				responseCode || legacyDiseaseInCaseName || "";
-			const caseName =
-				legacyDiseaseInCaseName && legacyDiseaseInCaseName === resolvedResponse
-					? ""
-					: String(alert.alertCaseName || "");
-
-			// Reset form data when dialog opens
-			setFormData({
-				status: isEidsrMode && alert.status ? String(alert.status) : "",
-				verificationDate: getLocalDateString(),
-				verificationTime: currentLocalTime(),
-				cifNo: "",
-				personReporting: alert.personReporting || "",
-				village: alert.alertCaseVillage || "",
-				subCounty: alert.subCounty || "",
-				contactNumber: alert.contactNumber || "",
-				sourceOfAlert: alert.sourceOfAlert || "",
-				response: resolvedResponse,
-				alertCaseName: caseName,
-				alertCaseAge: alert.alertCaseAge || 0,
-				alertCaseSex: alert.alertCaseSex || "",
-				alertCasePregnantDuration: 0,
-				alertCaseVillage: alert.alertCaseVillage || "",
-				alertCaseParish: alert.alertCaseParish || "",
-				alertCaseSubCounty: alert.alertCaseSubCounty || "",
-				alertCaseDistrict: alert.alertCaseDistrict || "",
-				region: alert.region || "",
-				alertCaseNationality: alert.alertCaseNationality || "",
-				pointOfContactName: alert.pointOfContactName || "",
-				pointOfContactRelationship: "",
-				pointOfContactPhone: alert.pointOfContactPhone || "",
-				history: alert.history || "",
-				healthFacilityVisit: "",
-				traditionalHealerVisit: "",
-				symptoms: alert.symptoms || "",
-				actions: resolveInitialDeskAction(alert),
-				feedback: alert.feedback || "",
-				verifiedBy: "",
-				deskVerificationActions: resolveInitialDeskAction(alert),
-				verificationOutcome: resolveInitialVerification(alert).outcome,
-				responseActions: resolveInitialVerification(alert).actions.join(", "),
-				fieldVerificationFeedback:
-					alert.fieldVerificationDecision ||
-					alert.fieldVerification ||
-					"",
-			});
-			setVerificationToken("");
-			setError(null);
-			setSuccess(null);
-
-			if (isTokenlessMode) {
-				setVerificationToken("ndw-jwt");
-			} else {
-				generateTokenAutomatically();
-			}
-		}
-		// Key off the stable alert id, NOT the `alert` object reference. Callers
-		// like the eCHIS/POE pages rebuild the alert shape (echisToAlertShape) on
-		// every render, so depending on `alert` would re-run this reset on each
-		// SWR auto-refresh (60s interval / focus revalidation) and wipe whatever
-		// the user has typed. The id is enough to detect a genuinely new signal.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [isOpen, alert?.id, isTokenlessMode]);
-
-	// Show the VHF case-investigation form when the desk escalates to the field.
-	// Keyed off the outcome itself rather than the derived legacy string: an
-	// escalation IS the outcome "Escalated to Field", and reading it directly
-	// keeps the trigger correct even if the legacy encoding ever changes.
-	useEffect(() => {
-		if (formData.verificationOutcome === VERIFICATION_ESCALATED_FIELD) {
-			setShowVhfForm(true);
-		} else {
-			setShowVhfForm(false);
-			setVhfCaseCode(null);
-		}
-	}, [formData.verificationOutcome]);
-
-	// The legacy comma-joined value is DERIVED from the split, never edited
-	// directly. Everything downstream still reads it: the VHF-form trigger below,
-	// the legacy `actions` mirror, and the 6767/eCHIS/POE verify endpoints, which
-	// accept only this single string and re-split it server-side.
-	useEffect(() => {
-		const derived = legacyDeskValue(
-			formData.verificationOutcome as VerificationOutcome | "",
-			formData.responseActions
-				.split(",")
-				.map((a) => a.trim())
-				.filter(Boolean)
-		);
-		setFormData((prev) =>
-			prev.deskVerificationActions === derived
-				? prev
-				: { ...prev, deskVerificationActions: derived }
-		);
-	}, [formData.verificationOutcome, formData.responseActions]);
-
-	// Keep legacy `actions` field in sync with desk verification radio selection
-	useEffect(() => {
-		if (!formData.deskVerificationActions) return;
-		setFormData((prev) => ({
-			...prev,
-			actions: prev.deskVerificationActions,
-		}));
-	}, [formData.deskVerificationActions]);
-
-	const generateTokenAutomatically = async () => {
+	const generateTokenAutomatically = useCallback(async () => {
 		if (isTokenlessMode || !alert?.id) return;
-
 		setIsGeneratingToken(true);
 		setError(null);
-
 		try {
-			const result = await AuthService.generateVerificationToken(
-				alert.id
-			);
+			const result = await AuthService.generateVerificationToken(alert.id);
 			setVerificationToken(result.token);
 		} catch (err) {
-			const errorMessage =
-				err instanceof Error
-					? err.message
-					: "Failed to generate token";
-
-			// Check if it's a database schema error
-			if (errorMessage.includes("Unknown column 'created_at'")) {
-				const dbError =
-					"Database configuration error. Please contact the system administrator to fix the database schema.";
-				setError(dbError);
-
-				// Show error toast for database issues
-				toast({
-					title: "🔧 Database Configuration Error",
-					description:
-						"Please contact the system administrator to fix the database schema.",
-					variant: "destructive",
-					duration: 8000,
-				});
-			} else {
-				setError(errorMessage);
-
-				// Show error toast for token generation
-				toast({
-					title: "⚠️ Token Generation Failed",
-					description: errorMessage,
-					variant: "destructive",
-					duration: 5000,
-				});
-			}
+			const message =
+				err instanceof Error ? err.message : "Failed to generate token";
+			setError(message);
+			toast({
+				title: "⚠️ Could not open verification",
+				description: message,
+				variant: "destructive",
+				duration: 5000,
+			});
 		} finally {
 			setIsGeneratingToken(false);
 		}
-	};
+	}, [alert?.id, isTokenlessMode, toast]);
 
-	const handleInputChange = (field: string, value: string | number) => {
-		setFormData((prev) => ({ ...prev, [field]: value }));
-	};
-
-	// Handle VHF form iframe messages
-	const handleVhfMessage = (event: MessageEvent) => {
-		// Check if the message is from the VHF form success page
-		if (event.origin === "https://response.health.go.ug") {
-			const url = event.data?.url || window.location.href;
-
-			// Extract case code from success URL
-			const urlParams = new URLSearchParams(url.split("?")[1]);
-			const caseCode = urlParams.get("case_code");
-
-			if (caseCode) {
-				setVhfCaseCode(caseCode);
-				setShowVhfForm(false);
-				toast({
-					title: "VHF Form Submitted Successfully",
-					description: `Case Code: ${caseCode}`,
-				});
-			}
-		}
-	};
-
-	// Listen for VHF form messages
+	// Reset on open. Keyed off the stable alert id, NOT the `alert` object
+	// reference: the eCHIS/POE pages rebuild the alert shape on every render, so
+	// depending on `alert` would re-run this on each SWR refresh and wipe what
+	// the verifier has typed.
 	useEffect(() => {
-		if (showVhfForm) {
-			window.addEventListener("message", handleVhfMessage);
-			return () =>
-				window.removeEventListener("message", handleVhfMessage);
+		if (!isOpen || !alert) return;
+		setVerified("");
+		setTrueSignal("");
+		setNote("");
+		setError(null);
+		setSuccess(null);
+		if (isTokenlessMode) {
+			setVerificationToken("ndw-jwt");
+		} else {
+			setVerificationToken("");
+			generateTokenAutomatically();
 		}
-	}, [showVhfForm]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [isOpen, alert?.id, isTokenlessMode]);
 
-	const handleVerification = async () => {
-		if (isEidsrMode || isNdwMode) {
-			if (isEidsrMode && !eidsrMessageId) {
-				setError("EIDSR message ID is missing.");
-				return;
-			}
-			if (isNdwMode && !ndwId) {
-				setError("NDW alert ID is missing.");
-				return;
-			}
-			if (!formData.verificationOutcome) {
-				setError("Please select a desk verification action.");
-				return;
-			}
-			if (!formData.response) {
-				setError("Please select a response type.");
-				return;
-			}
-		} else if (!alert?.id || !verificationToken) {
-			setError(
-				"Verification token not available. Please close and reopen the dialog."
-			);
-			return;
-		} else if (
-			!formData.status ||
-			!formData.cifNo ||
-			!formData.personReporting ||
-			!formData.contactNumber ||
-			!formData.sourceOfAlert ||
-			!formData.response ||
-			!formData.alertCaseName ||
-			// Age 0 (an infant) is valid — only reject a missing/NaN age.
-			!Number.isFinite(Number(formData.alertCaseAge)) ||
-			!formData.alertCaseSex ||
-			!formData.history ||
-			!formData.verifiedBy ||
-			!formData.verificationDate ||
-			!formData.verificationOutcome
-		) {
-			setError("Please fill in all required fields");
-			return;
-		}
+	/**
+	 * An external signal answering "not verified" has nowhere to record a
+	 * reason: it is not on the alerts register yet, and shadowing the eCHIS /
+	 * POE / 6767 mirror tables to give it one is exactly what we do not do.
+	 * Leaving it alone IS the correct outcome — it stays on its source list.
+	 */
+	const pendingIsNoOp = isTokenlessMode && verified === "no";
 
-		// An alert can't be verified in the future — reject a verification
-		// date/time later than now (compared in local time).
-		if (formData.verificationDate && formData.verificationTime) {
-			const selectedWhen = new Date(
-				`${formData.verificationDate}T${formData.verificationTime}`
-			);
-			if (
-				!Number.isNaN(selectedWhen.getTime()) &&
-				selectedWhen.getTime() > Date.now()
-			) {
-				setError(
-					"Verification date and time cannot be in the future."
-				);
-				return;
-			}
-		}
+	const outcome: VerificationOutcome | "" =
+		verified === "yes"
+			? trueSignal === "yes"
+				? VERIFICATION_CONFIRMED
+				: trueSignal === "no"
+				? VERIFICATION_DISCARDED
+				: ""
+			: "";
 
+	const answered = verified === "no" || (verified === "yes" && !!outcome);
+	const canSubmit = answered && note.trim().length > 0 && !isVerifying;
+
+	const submit = async () => {
+		if (!canSubmit) return;
 		setIsVerifying(true);
 		onVerifyingChange?.(true);
 		setError(null);
 
-		try {
-			if (isEidsrMode) {
-				const meta = alert?._eidsrMeta as
-					| {
-							signalVerified?: string;
-							triage?: string;
-							riskAssessmentLevel?: string;
-					  }
-					| undefined;
-				const result = await verifyEidsrMessage(
-					eidsrMessageId!,
-					buildEidsrVerifyPayload(
-						formData as unknown as Record<string, unknown>,
-						meta
-					),
-					eidsrEventLocalId ?? eidsrMessageId!
-				);
-				const alertId =
-					result.alertId ??
-					result.message?.linkedAlertId ??
-					null;
+		const trimmedNote = note.trim();
+		const verifiedBy = currentUserName;
 
-				setSuccess("EIDSR message verified successfully.");
+		try {
+			// ---- "No, I have not verified this signal" -------------------
+			if (verified === "no") {
+				await AuthService.recordVerificationAttempt(alert.id, {
+					token: verificationToken,
+					verificationPendingReason: trimmedNote,
+					verifiedBy,
+				});
+				setSuccess("Recorded as not yet verified.");
 				toast({
-					title: "EIDSR message verified successfully.",
-					description:
-						alertId != null
-							? `Saved as alert ${altCode(alertId)}.`
-							: "Message verified into alerts.",
+					title: "Saved — still awaiting verification",
+					description: `${altCode(
+						alert.id
+					)} stays on the Triaged list with its clock running.`,
 					duration: 5000,
 				});
-
-				onEidsrVerified?.(alertId ?? null);
 				setTimeout(() => {
 					onVerificationComplete();
 					onClose();
-				}, 1500);
+				}, 1200);
 				return;
 			}
 
-			if (isNdwMode) {
-				const payload = buildEidsrVerifyPayload(
-					formData as unknown as Record<string, unknown>
-				);
-				const result =
-					ndwSource === "echis"
-						? await verifyEchisAlert(ndwId!, payload)
-						: await verifyPoeAlert(ndwId!, payload);
-				const alertId = result.alertId || null;
+			// ---- 6767 / eCHIS / POE: verify the signal into alerts --------
+			if (isTokenlessMode) {
+				const payload = buildEidsrVerifyPayload({
+					verificationOutcome: outcome,
+					verificationNote: trimmedNote,
+					deskVerificationActions: legacyDeskValue(outcome, []),
+					verifiedBy,
+					verificationDate: new Date().toISOString(),
+					verificationTime: new Date().toTimeString().slice(0, 5),
+				});
+
+				let alertId: number | null = null;
+				if (isEidsrMode) {
+					const result = await verifyEidsrMessage(
+						eidsrMessageId!,
+						payload,
+						eidsrEventLocalId ?? eidsrMessageId!
+					);
+					alertId =
+						result.alertId ?? result.message?.linkedAlertId ?? null;
+					onEidsrVerified?.(alertId);
+				} else {
+					const result =
+						ndwSource === "echis"
+							? await verifyEchisAlert(ndwId!, payload)
+							: await verifyPoeAlert(ndwId!, payload);
+					alertId = result.alertId || null;
+				}
 
 				setSuccess("Verified into alerts successfully.");
 				toast({
-					title: "Verified into alerts",
+					title:
+						outcome === VERIFICATION_CONFIRMED
+							? "Confirmed as an event"
+							: "Discarded",
 					description:
 						alertId != null
 							? `Saved as alert ${altCode(alertId)}.`
 							: "Signal verified into alerts.",
 					duration: 5000,
 				});
-
 				setTimeout(() => {
 					onVerificationComplete();
 					onClose();
@@ -535,115 +333,42 @@ export function AlertVerificationDialog({
 				return;
 			}
 
-			// Format dates for API. Guard against an invalid/cleared date so
-			// .toISOString() can't throw RangeError ("Invalid time value").
-			const verificationDate = new Date(formData.verificationDate);
-			if (Number.isNaN(verificationDate.getTime())) {
-				setError("Please provide a valid verification date");
-				return;
-			}
-			const verificationTime = new Date();
-			const [hours, minutes] = formData.verificationTime.split(":");
-			verificationTime.setHours(
-				parseInt(hours),
-				parseInt(minutes),
-				0,
-				0
-			);
-
-			const deskAction = formData.deskVerificationActions;
-			const fieldFeedback = formData.fieldVerificationFeedback;
-
-			const verifyResult = await AuthService.verifyAlert(alert.id, {
+			// ---- A signal already on the register -------------------------
+			const now = new Date();
+			await AuthService.verifyAlert(alert.id, {
 				token: verificationToken,
-				status: formData.status,
-				verificationDate: verificationDate.toISOString(),
-				verificationTime: verificationTime.toISOString(),
-				cifNo: formData.cifNo,
-				personReporting: formData.personReporting,
-				village: formData.village,
-				subCounty: formData.subCounty,
-				contactNumber: formData.contactNumber,
-				sourceOfAlert: formData.sourceOfAlert,
-				response: formData.response,
-				alertCaseName: formData.alertCaseName,
-				alertCaseAge: formData.alertCaseAge,
-				alertCaseSex: formData.alertCaseSex,
-				alertCasePregnantDuration:
-					formData.alertCasePregnantDuration,
-				alertCaseVillage: formData.alertCaseVillage,
-				alertCaseParish: formData.alertCaseParish,
-				alertCaseSubCounty: formData.alertCaseSubCounty,
-				alertCaseDistrict: formData.alertCaseDistrict,
-				region: formData.region,
-				alertCaseNationality: formData.alertCaseNationality,
-				pointOfContactName: formData.pointOfContactName,
-				pointOfContactRelationship:
-					formData.pointOfContactRelationship,
-				pointOfContactPhone: formData.pointOfContactPhone,
-				history: formData.history,
-				healthFacilityVisit: formData.healthFacilityVisit,
-				traditionalHealerVisit: formData.traditionalHealerVisit,
-				symptoms: formData.symptoms,
-				actions: deskAction,
-				feedback: formData.feedback || fieldFeedback || "",
-				verifiedBy: formData.verifiedBy,
-				deskVerificationActions: deskAction,
-				// The split is what the alerts verify endpoint stores; the joined
-				// string above stays for the legacy mirror and the NDW/6767 paths.
-				verificationOutcome: formData.verificationOutcome,
-				responseActions: formData.responseActions
-					.split(",")
-					.map((a) => a.trim())
-					.filter(Boolean),
-				caseVerificationDesk: deskAction,
-				fieldVerificationFeedback: fieldFeedback,
-				fieldVerification: fieldFeedback,
-				fieldVerificationDecision: fieldFeedback,
+				verified: true,
+				verificationOutcome: outcome,
+				verificationNote: trimmedNote,
+				verificationDate: now.toISOString(),
+				verificationTime: now.toISOString(),
+				verifiedBy,
 				isVerified: true,
-				caseCode: vhfCaseCode || "",
 			});
 
-			setSuccess("Alert verified successfully!");
-
-			// Show success toast
+			setSuccess("Verification recorded.");
 			toast({
-				title: "✅ Verification Successful",
-				description: `Alert ${altCode(alert.id)} has been verified successfully.`,
+				title:
+					outcome === VERIFICATION_CONFIRMED
+						? "✅ Confirmed as an event"
+						: "✅ Discarded",
+				description:
+					outcome === VERIFICATION_CONFIRMED
+						? `${altCode(alert.id)} now awaits risk assessment.`
+						: `${altCode(alert.id)} is closed. The reporter is owed feedback.`,
 				duration: 5000,
 			});
-
-			// When this verification validated the case for EMS evacuation, the
-			// backend has dispatched the full alert to the EMS system — surface
-			// that as its own toast alongside the verification one.
-			// "sent" only when a webhook actually went out; with pull-only
-			// integration the case is released to the EMS feed instead — the
-			// wording must not claim a delivery that didn't happen.
-			if (verifyResult.emsNotified) {
-				hotToast.success(
-					verifyResult.emsDispatched
-						? `🚑 Alert ${altCode(alert.id)} sent to EMS for Evacuation`
-						: `🚑 Alert ${altCode(alert.id)} released to EMS for Evacuation`,
-					{ duration: 6000 }
-				);
-			}
-
 			setTimeout(() => {
 				onVerificationComplete();
 				onClose();
-			}, 2000);
+			}, 1500);
 		} catch (err) {
-			const errorMessage =
-				err instanceof Error
-					? err.message
-					: "Failed to verify alert";
-
-			setError(errorMessage);
-
-			// Show error toast
+			const message =
+				err instanceof Error ? err.message : "Failed to save verification";
+			setError(message);
 			toast({
-				title: "❌ Verification Failed",
-				description: errorMessage,
+				title: "❌ Could not save",
+				description: message,
 				variant: "destructive",
 				duration: 5000,
 			});
@@ -653,42 +378,26 @@ export function AlertVerificationDialog({
 		}
 	};
 
-	const showVerificationForm =
-		(verificationToken || isTokenlessMode) && !isGeneratingToken;
+	const ready = (verificationToken || isTokenlessMode) && !isGeneratingToken;
 
 	return (
-		<Dialog
-			open={isOpen}
-			onOpenChange={onClose}
-		>
-			<DialogContent className="max-w-2xl lg:max-w-4xl max-h-[88vh] flex flex-col overflow-hidden">
+		<Dialog open={isOpen} onOpenChange={onClose}>
+			<DialogContent className="max-w-2xl max-h-[88vh] flex flex-col overflow-hidden">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
-						<AlertTriangleIcon className="h-4 w-4 text-uganda-red" />
-						{isEidsrMode ? (
-							<>Verify 6767 SMS #{eidsrMessageId}</>
-						) : isNdwMode ? (
-							<>
-								Verify {ndwSource === "echis" ? "eCHIS" : "POE"}{" "}
-								signal into alerts
-							</>
-						) : (
-							<>
-								Verify Alert - ALT
-								{String(alert?.id).padStart(3, "0")}
-							</>
-						)}
+						<ShieldQuestion className="h-4 w-4 text-uganda-red" />
+						{isEidsrMode
+							? `Verify 6767 SMS #${eidsrMessageId}`
+							: isNdwMode
+							? `Verify ${ndwSource === "echis" ? "eCHIS" : "POE"} signal`
+							: `Verify signal — ${altCode(alert?.id)}`}
 					</DialogTitle>
 					<DialogDescription>
-						{isEidsrMode
-							? "Verify this SMS into the alerts table. Empty fields may be filled from the message by the server."
-							: isNdwMode
-							? "Verify this signal into the alerts table as a signal log. It will then appear under Signal Logs / Alerts."
-							: "Complete the verification process for this health alert"}
+						Verification answers one question: is this signal a real
+						public-health event?
 					</DialogDescription>
 				</DialogHeader>
 
-				{/* Status Messages */}
 				{error && (
 					<Alert className="surface-danger">
 						<XCircleIcon className="h-4 w-4 text-destructive" />
@@ -707,1223 +416,254 @@ export function AlertVerificationDialog({
 					</Alert>
 				)}
 
-				{/* Scrollable form body — header + status + footer stay pinned so the
-				    Verify button and any validation error remain visible on this long form. */}
 				<div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6">
-				{/* Loading State */}
-				{isGeneratingToken && (
-					<div className="flex items-center justify-center p-5">
-						<div className="text-center">
-							<Loader2 className="h-8 w-8 animate-spin text-uganda-red mx-auto mb-4" />
-							<p className="text-muted-foreground">
-								Generating verification token...
-							</p>
-						</div>
-					</div>
-				)}
-
-				{/* Source signal context (eCHIS): keep the reported description and
-				    additional information visible while filling the verify form. */}
-				{showVerificationForm &&
-					(alert?.briefDescription ||
-						alert?.additionalInformation ||
-						alert?.signalReported) && (
-						<div className="mb-3 rounded-md border bg-muted/40 p-3 space-y-2">
-							<h3 className="text-sm font-semibold uppercase tracking-wide">
-								Source signal
-							</h3>
-							<dl className="space-y-1.5 text-sm">
-								{alert?.signalReported && (
-									<div>
-										<dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-											Signal reported
-										</dt>
-										<dd className="break-words">
-											{String(alert.signalReported).replaceAll("_", " ")}
-										</dd>
-									</div>
-								)}
-								{alert?.briefDescription && (
-									<div>
-										<dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-											Description
-										</dt>
-										<dd className="break-words">
-											{alert.briefDescription}
-										</dd>
-									</div>
-								)}
-								{alert?.additionalInformation && (
-									<div>
-										<dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
-											Additional information
-										</dt>
-										<dd className="break-words">
-											{alert.additionalInformation}
-										</dd>
-									</div>
-								)}
-							</dl>
+					{isGeneratingToken && (
+						<div className="flex items-center justify-center p-8">
+							<Loader2 className="h-6 w-6 animate-spin text-uganda-red" />
 						</div>
 					)}
 
-				{/* Verification Form */}
-				{showVerificationForm && (
-					<div className="space-y-3">
-						{/* Basic Information */}
-						<div className="space-y-3">
-							<div className="flex items-center gap-3">
-								<AlertTriangleIcon className="h-4 w-4 text-uganda-red" />
-								<h3 className="text-sm font-semibold uppercase tracking-wide">
-									Verification Details
-								</h3>
-							</div>
-
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-								<div className="space-y-2">
-									<Label
-										htmlFor="status"
-										className="text-sm font-medium"
-									>
-										Status *
-									</Label>
-									<Select
-										value={formData.status}
-										onValueChange={(value) =>
-											handleInputChange(
-												"status",
-												value
-											)
-										}
-									>
-										<SelectTrigger>
-											<SelectValue placeholder="Select status" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="Alive">
-												Alive
-											</SelectItem>
-											<SelectItem value="Dead">
-												Dead
-											</SelectItem>
-											<SelectItem value="Unknown">
-												Unknown
-											</SelectItem>
-										</SelectContent>
-									</Select>
-								</div>
-
-								<div className="space-y-2">
-									<Label
-										htmlFor="cifNo"
-										className="text-sm font-medium"
-									>
-										CIF Number *
-									</Label>
-									<Input
-										id="cifNo"
-										value={formData.cifNo}
-										onChange={(e) =>
-											handleInputChange(
-												"cifNo",
-												e.target.value
-											)
-										}
-										placeholder="Enter CIF number"
-										required
-									/>
-								</div>
-
-								<div className="space-y-2">
-									<Label
-										htmlFor="verifiedBy"
-										className="text-sm font-medium"
-									>
-										Verified By *
-									</Label>
-									<Input
-										id="verifiedBy"
-										value={formData.verifiedBy}
-										onChange={(e) =>
-											handleInputChange(
-												"verifiedBy",
-												e.target.value
-											)
-										}
-										placeholder="Your name"
-										required
-									/>
-								</div>
-							</div>
-
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-								<div className="space-y-2">
-									<Label
-										htmlFor="verificationDate"
-										className="text-sm font-medium"
-									>
-										Verification Date
-									</Label>
-									<Input
-										id="verificationDate"
-										type="date"
-										max={getLocalDateString()}
-										value={
-											formData.verificationDate
-										}
-										onChange={(e) =>
-											handleInputChange(
-												"verificationDate",
-												e.target.value
-											)
-										}
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label
-										htmlFor="verificationTime"
-										className="text-sm font-medium"
-									>
-										Verification Time
-									</Label>
-									<Input
-										id="verificationTime"
-										type="time"
-										max={
-											formData.verificationDate ===
-											getLocalDateString()
-												? currentLocalTime()
-												: undefined
-										}
-										value={
-											formData.verificationTime
-										}
-										onChange={(e) =>
-											handleInputChange(
-												"verificationTime",
-												e.target.value
-											)
-										}
-									/>
-								</div>
-							</div>
-						</div>
-
-						<Separator />
-
-						{/* Case Information */}
-						<div className="space-y-3">
-							<div className="flex items-center gap-3">
-								<Stethoscope className="h-4 w-4 text-uganda-red" />
-								<h3 className="text-sm font-semibold uppercase tracking-wide">
-									Case Information
-								</h3>
-							</div>
-
-							<div className="space-y-2">
-								<Label
-									htmlFor="response"
-									className="text-sm font-medium"
-								>
-									Response Type *
-								</Label>
-								<Select
-									value={formData.response || undefined}
-									onValueChange={(value) =>
-										handleInputChange("response", value)
-									}
-								>
-									<SelectTrigger id="response">
-										<SelectValue placeholder="Select disease" />
-									</SelectTrigger>
-									<SelectContent>
-										{alertResponse.map((disease) => (
-											<SelectItem
-												key={disease.code}
-												value={disease.code}
-											>
-												{disease.name}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-							</div>
-
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-								<div className="space-y-2">
-									<Label
-										htmlFor="alertCaseName"
-										className="text-sm font-medium"
-									>
-										Patient Name *
-									</Label>
-									<Input
-										id="alertCaseName"
-										value={formData.alertCaseName}
-										onChange={(e) =>
-											handleInputChange(
-												"alertCaseName",
-												e.target.value
-											)
-										}
-										required
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label
-										htmlFor="alertCaseAge"
-										className="text-sm font-medium"
-									>
-										Patient Age *
-									</Label>
-									<Input
-										id="alertCaseAge"
-										type="number"
-										value={formData.alertCaseAge}
-										onChange={(e) =>
-											handleInputChange(
-												"alertCaseAge",
-												parseInt(
-													e.target.value
-												)
-											)
-										}
-										required
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label className="text-sm font-medium">
-										Patient Sex *
-									</Label>
-									<RadioGroup
-										value={formData.alertCaseSex}
-										onValueChange={(value) =>
-											handleInputChange(
-												"alertCaseSex",
-												value
-											)
-										}
-										className="flex gap-3 mt-2"
-									>
-										<div className="flex items-center space-x-2">
-											<RadioGroupItem
-												value="Male"
-												id="male"
-											/>
-											<Label
-												htmlFor="male"
-												className="text-sm"
-											>
-												Male
-											</Label>
-										</div>
-										<div className="flex items-center space-x-2">
-											<RadioGroupItem
-												value="Female"
-												id="female"
-											/>
-											<Label
-												htmlFor="female"
-												className="text-sm"
-											>
-												Female
-											</Label>
-										</div>
-									</RadioGroup>
-								</div>
-							</div>
-
-							<div className="space-y-2">
-								<Label
-									htmlFor="history"
-									className="text-sm font-medium"
-								>
-									Case Description *
-								</Label>
-								<Textarea
-									id="history"
-									value={formData.history}
-									onChange={(e) =>
-										handleInputChange(
-											"history",
-											e.target.value
-										)
-									}
-									rows={3}
-									required
-								/>
-							</div>
-						</div>
-
-						<Separator />
-
-						{/* Reporter Information */}
-						<div className="space-y-3">
-							<div className="flex items-center gap-3">
-								<UserIcon className="h-4 w-4 text-uganda-red" />
-								<h3 className="text-sm font-semibold uppercase tracking-wide">
-									Reporter Information
-								</h3>
-							</div>
-
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-								<div className="space-y-2">
-									<Label
-										htmlFor="personReporting"
-										className="text-sm font-medium"
-									>
-										Person Reporting *
-									</Label>
-									<Input
-										id="personReporting"
-										value={
-											formData.personReporting
-										}
-										onChange={(e) =>
-											handleInputChange(
-												"personReporting",
-												e.target.value
-											)
-										}
-										required
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label
-										htmlFor="contactNumber"
-										className="text-sm font-medium"
-									>
-										Contact Number *
-									</Label>
-									<Input
-										id="contactNumber"
-										value={formData.contactNumber}
-										onChange={(e) =>
-											handleInputChange(
-												"contactNumber",
-												e.target.value
-											)
-										}
-										required
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label
-										htmlFor="sourceOfAlert"
-										className="text-sm font-medium"
-									>
-										Source of signal *
-									</Label>
-									<Select
-										value={formData.sourceOfAlert}
-										onValueChange={(value) =>
-											handleInputChange(
-												"sourceOfAlert",
-												value
-											)
-										}
-									>
-										<SelectTrigger>
-											<SelectValue placeholder="Select source" />
-										</SelectTrigger>
-										<SelectContent>
-											{alertSource?.map((source) => (
-															<SelectItem
-																key={source.name}
-																value={source.name}
-															>
-																{source.name}
-															</SelectItem>
-														))}
-										</SelectContent>
-									</Select>
-								</div>
-							</div>
-						</div>
-
-						<Separator />
-
-						{/* Location Information */}
-						<div className="space-y-3">
-							<div className="flex items-center gap-3">
-								<MapPin className="h-4 w-4 text-uganda-red" />
-								<h3 className="text-sm font-semibold uppercase tracking-wide">
-									Location Information
-								</h3>
-							</div>
-
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-								<div className="space-y-2">
-									<Label htmlFor="village" className="text-sm font-medium">
-										Village (Reporter)
-									</Label>
-									<Input
-										id="village"
-										value={formData.village}
-										onChange={(e) => handleInputChange("village", e.target.value)}
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label htmlFor="subCounty" className="text-sm font-medium">
-										Sub County (Reporter)
-									</Label>
-									<Input
-										id="subCounty"
-										value={formData.subCounty}
-										onChange={(e) => handleInputChange("subCounty", e.target.value)}
-									/>
-								</div>
-							</div>
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-								<CaseLocationSelect
-									value={{
-										region: formData.region,
-										district: formData.alertCaseDistrict,
-										subcounty: formData.alertCaseSubCounty,
-									}}
-									onChange={(loc) =>
-										setFormData((prev) => ({
-											...prev,
-											region: loc.region,
-											alertCaseDistrict: loc.district,
-											alertCaseSubCounty: loc.subcounty,
-										}))
-									}
-									labelClassName="text-sm font-medium"
-								/>
-							</div>
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-								<div className="space-y-2">
-									<Label htmlFor="alertCaseVillage" className="text-sm font-medium">
-										Case Village
-									</Label>
-									<Input
-										id="alertCaseVillage"
-										value={formData.alertCaseVillage}
-										onChange={(e) => handleInputChange("alertCaseVillage", e.target.value)}
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label htmlFor="alertCaseParish" className="text-sm font-medium">
-										Case Parish
-									</Label>
-									<Input
-										id="alertCaseParish"
-										value={formData.alertCaseParish}
-										onChange={(e) => handleInputChange("alertCaseParish", e.target.value)}
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label htmlFor="alertCaseNationality" className="text-sm font-medium">
-										Case Nationality
-									</Label>
-									<Input
-										id="alertCaseNationality"
-										value={formData.alertCaseNationality}
-										onChange={(e) => handleInputChange("alertCaseNationality", e.target.value)}
-									/>
-								</div>
-							</div>
-						</div>
-
-						<Separator />
-
-						{/* Point of Contact Information */}
-						<div className="space-y-3">
-							<div className="flex items-center gap-3">
-								<Contact className="h-4 w-4 text-uganda-red" />
-								<h3 className="text-sm font-semibold uppercase tracking-wide">
-									Point of Contact Information
-								</h3>
-							</div>
-
-							<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-								<div className="space-y-2">
-									<Label
-										htmlFor="pointOfContactName"
-										className="text-sm font-medium"
-									>
-										Point of Contact Name
-									</Label>
-									<Input
-										id="pointOfContactName"
-										value={
-											formData.pointOfContactName
-										}
-										onChange={(e) =>
-											handleInputChange(
-												"pointOfContactName",
-												e.target.value
-											)
-										}
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label
-										htmlFor="pointOfContactRelationship"
-										className="text-sm font-medium"
-									>
-										Relationship
-									</Label>
-									<Input
-										id="pointOfContactRelationship"
-										value={
-											formData.pointOfContactRelationship
-										}
-										onChange={(e) =>
-											handleInputChange(
-												"pointOfContactRelationship",
-												e.target.value
-											)
-										}
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label
-										htmlFor="pointOfContactPhone"
-										className="text-sm font-medium"
-									>
-										Point of Contact Phone
-									</Label>
-									<Input
-										id="pointOfContactPhone"
-										value={
-											formData.pointOfContactPhone
-										}
-										onChange={(e) =>
-											handleInputChange(
-												"pointOfContactPhone",
-												e.target.value
-											)
-										}
-									/>
-								</div>
-							</div>
-						</div>
-
-						<Separator />
-
-						{/* Medical Information */}
-						<div className="space-y-3">
-							<div className="flex items-center gap-3">
-								<HeartIcon className="h-4 w-4 text-uganda-red" />
-								<h3 className="text-sm font-semibold uppercase tracking-wide">
-									Medical Information
-								</h3>
-							</div>
-
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-								<div className="space-y-2">
-									<Label
-										htmlFor="alertCasePregnantDuration"
-										className="text-sm font-medium"
-									>
-										Pregnant Duration (months)
-									</Label>
-									<Input
-										id="alertCasePregnantDuration"
-										type="number"
-										value={
-											formData.alertCasePregnantDuration
-										}
-										onChange={(e) =>
-											handleInputChange(
-												"alertCasePregnantDuration",
-												parseInt(
-													e.target.value
-												) || 0
-											)
-										}
-										min="0"
-										max="9"
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label
-										htmlFor="symptoms"
-										className="text-sm font-medium"
-									>
-										Symptoms
-									</Label>
-									<Textarea
-										id="symptoms"
-										value={formData.symptoms}
-										onChange={(e) =>
-											handleInputChange(
-												"symptoms",
-												e.target.value
-											)
-										}
-										rows={2}
-										placeholder="List symptoms separated by commas"
-									/>
-								</div>
-							</div>
-
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-								<div className="space-y-2">
-									<Label
-										htmlFor="healthFacilityVisit"
-										className="text-sm font-medium"
-									>
-										Health Facility Visit
-									</Label>
-									<Textarea
-										id="healthFacilityVisit"
-										value={
-											formData.healthFacilityVisit
-										}
-										onChange={(e) =>
-											handleInputChange(
-												"healthFacilityVisit",
-												e.target.value
-											)
-										}
-										rows={2}
-										placeholder="Details about health facility visits"
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label
-										htmlFor="traditionalHealerVisit"
-										className="text-sm font-medium"
-									>
-										Traditional Healer Visit
-									</Label>
-									<Textarea
-										id="traditionalHealerVisit"
-										value={
-											formData.traditionalHealerVisit
-										}
-										onChange={(e) =>
-											handleInputChange(
-												"traditionalHealerVisit",
-												e.target.value
-											)
-										}
-										rows={2}
-										placeholder="Details about traditional healer visits"
-									/>
-								</div>
-							</div>
-						</div>
-
-						<Separator />
-
-						{/* Verification outcome — EBS step 3: is this signal a real event? */}
-						<div className="space-y-3">
-							<div className="flex items-center gap-3">
-								<AlertTriangleIcon className="h-4 w-4 text-uganda-red" />
-								<h3 className="text-sm font-semibold uppercase tracking-wide">
-									Verification Outcome
-									<span className="ml-1 text-uganda-red">*</span>
-								</h3>
-							</div>
-
-							<p className="text-xs text-muted-foreground">
-								Is this signal a genuine public-health event? Exactly one answer —
-								a confirmed signal becomes an event and is counted in the
-								signal-to-event conversion rate.
-							</p>
-
-							<div className="space-y-2">
-								{VERIFICATION_OUTCOMES.map((option) => {
-									const selected = formData.verificationOutcome === option;
-									return (
-										<button
-											key={option}
-											type="button"
-											aria-pressed={selected}
-											onClick={() =>
-												handleInputChange("verificationOutcome", option)
-											}
-											className={`w-full rounded-lg border p-3 text-left transition-colors ${
-												selected
-													? "border-uganda-red bg-uganda-red/5 ring-1 ring-uganda-red"
-													: "border-gray-200 hover:bg-gray-50"
-											}`}
-										>
-											<span className="text-sm font-semibold">{option}</span>
-											<p className="mt-1 text-xs text-muted-foreground">
-												{OUTCOME_GUIDANCE[option]}
-											</p>
-										</button>
-									);
-								})}
-							</div>
-						</div>
-
-						<Separator />
-
-						{/* Response actions — EBS step 6: what was DONE. Separate from the
-						    outcome because one event can carry several actions, and because
-						    an action can accompany ANY outcome: a sample is often collected
-						    from a signal that is then discarded. */}
-						<div className="space-y-3">
-							<div className="flex items-center gap-3">
-								<AlertTriangleIcon className="h-4 w-4 text-uganda-red" />
-								<h3 className="text-sm font-semibold uppercase tracking-wide">
-									Response Actions Taken
-								</h3>
-							</div>
-
-							<div className="bg-muted p-4 rounded-lg">
-								<p className="text-xs text-muted-foreground mb-3">
-									Select every action taken. Optional — leave blank if none was
-									needed. Each is recorded separately, so nothing is lost when
-									several apply.
-								</p>
-								<div className="flex flex-wrap gap-3">
-									{RESPONSE_ACTION_OPTIONS.map((option) => {
-										const id = `action-${option
-											.toLowerCase()
-											.replace(/[^a-z0-9]/g, "-")}`;
-										return (
+					{ready && (
+						<div className="space-y-4">
+							{/* What is being adjudicated. Read-only by design. */}
+							{summary.length > 0 && (
+								<div className="rounded-lg border bg-muted/40 p-3">
+									<h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+										The signal
+									</h3>
+									<dl className="mt-2 space-y-1.5 text-sm">
+										{summary.map((item) => (
 											<div
-												key={option}
-												className="flex items-center space-x-2"
+												key={item.label}
+												className="grid grid-cols-[9rem_1fr] gap-2"
 											>
-												<Checkbox
-													id={id}
-													checked={hasDeskAction(
-														formData.responseActions,
-														option
-													)}
-													onCheckedChange={(checked) =>
-														handleInputChange(
-															"responseActions",
-															toggleDeskAction(
-																formData.responseActions,
-																option,
-																checked === true
-															)
-														)
-													}
-												/>
-												<Label
-													htmlFor={id}
-													className="text-sm font-medium"
-												>
-													{option}
-												</Label>
+												<dt className="text-xs uppercase tracking-wide text-muted-foreground">
+													{item.label}
+												</dt>
+												<dd className="break-words">{item.value}</dd>
 											</div>
-										);
-									})}
-								</div>
-							</div>
-
-							{/* Ticking the EMS action is what triggers the whole EMS
-							    integration, so say so BEFORE submit — afterwards it is only a
-							    toast the verifier may miss, and this is the point at which an
-							    ambulance gets involved. */}
-							{hasDeskAction(
-								formData.responseActions,
-								EMS_EVACUATION_ACTION
-							) && (
-								<div className="flex items-start gap-3 rounded-lg border border-violet-200 bg-violet-50 p-3">
-									<AmbulanceIcon className="mt-0.5 h-4 w-4 shrink-0 text-violet-700" />
-									<div className="space-y-1 text-xs text-violet-900">
-										<p className="font-semibold">
-											This case will be sent to the EMS system for
-											evacuation
-										</p>
-										<p>
-											On submit, the complete verified alert — including
-											the patient&apos;s location and point-of-contact
-											phone — is released to the Emergency Medical
-											Services team so they can dispatch an ambulance.
-											Check the case district, village and contact phone
-											above before you verify.
-										</p>
-									</div>
+										))}
+									</dl>
 								</div>
 							)}
-						</div>
 
-						{/* VHF Case Investigation Form - Only show when Field Case Verification is selected */}
-						{showVhfForm && (
-							<>
-								<Separator />
-								<div className="space-y-3">
-									<div className="flex items-center gap-3">
-										<AlertTriangleIcon className="h-4 w-4 text-uganda-red" />
-										<h3 className="text-sm font-semibold uppercase tracking-wide">
-											VHF Case Investigation
-											Form
-										</h3>
-									</div>
+							{/* Question 1 */}
+							<QuestionCard
+								step={1}
+								question="Have you verified this signal?"
+								hint="Did you actually check it — with the reporter, the facility, or on site?"
+								value={verified}
+								onChange={(v) => {
+									setVerified(v);
+									setTrueSignal("");
+								}}
+							/>
 
-									<div className="surface-info p-4 rounded-lg">
-										<p className="text-sm text-foreground mb-2">
-											<strong>Note:</strong>{" "}
-											Complete the VHF (Viral
-											Hemorrhagic Fever) Case
-											Investigation Form below.
-											The "Get Location" button
-											in the form will capture
-											your GPS coordinates
-											automatically. After
-											submission, the case code
-											will be automatically
-											captured.
-										</p>
-									</div>
+							{/* Question 2 — only once the first is answered yes. */}
+							{verified === "yes" && (
+								<QuestionCard
+									step={2}
+									question="Is this a true signal?"
+									hint="A true signal is a real or probable public-health event. Confirming it makes it an event."
+									value={trueSignal}
+									onChange={setTrueSignal}
+									yesLabel="Yes — it is a true signal"
+									noLabel="No — it is not"
+								/>
+							)}
 
-									<div className="border rounded-lg overflow-hidden">
-										<iframe
-											src="https://response.health.go.ug/vhf-cif"
-											className="w-full h-[600px]"
-											title="VHF Case Investigation Form"
-											sandbox="allow-same-origin allow-scripts allow-forms allow-navigation"
-											allow="geolocation; camera; microphone"
-											onLoad={() => {
-												// Monitor for navigation to success page
-												const iframe =
-													document.querySelector(
-														'iframe[title="VHF Case Investigation Form"]'
-													) as HTMLIFrameElement;
-												if (
-													iframe?.contentWindow
-												) {
-													try {
-														// Check iframe URL periodically for success page
-														const checkUrl =
-															setInterval(
-																() => {
-																	try {
-																		const currentUrl =
-																			iframe
-																				.contentWindow
-																				?.location
-																				.href;
-																		if (
-																			currentUrl?.includes(
-																				"/vhf-cif/success"
-																			)
-																		) {
-																			const urlParams =
-																				new URLSearchParams(
-																					currentUrl.split(
-																						"?"
-																					)[1]
-																				);
-																			const caseCode =
-																				urlParams.get(
-																					"case_code"
-																				);
-																			if (
-																				caseCode
-																			) {
-																				setVhfCaseCode(
-																					caseCode
-																				);
-																				setShowVhfForm(
-																					false
-																				);
-																				clearInterval(
-																					checkUrl
-																				);
-																				toast(
-																					{
-																						title: "VHF Form Submitted Successfully",
-																						description: `Case Code: ${caseCode}`,
-																					}
-																				);
-																			}
-																		}
-																	} catch (e) {
-																		// Cross-origin error - expected
-																	}
-																},
-																1000
-															);
+							{/* Where the answer leads, shown before it is committed. */}
+							{outcome === VERIFICATION_CONFIRMED && (
+								<Consequence
+									tone="confirm"
+									title="Confirmed — this is an event"
+									body="It is counted in the signal-to-event conversion rate and moves on to risk assessment."
+								/>
+							)}
+							{outcome === VERIFICATION_DISCARDED && (
+								<Consequence
+									tone="discard"
+									title="Discarded — closed without becoming an event"
+									body="Recorded, never deleted. The reporter is still owed feedback telling them what was found."
+								/>
+							)}
+							{verified === "no" && !pendingIsNoOp && (
+								<Consequence
+									tone="pending"
+									title="Not verified yet"
+									body="No outcome is recorded. The signal stays on the Triaged list awaiting verification, and its clock keeps running."
+								/>
+							)}
+							{pendingIsNoOp && (
+								<Consequence
+									tone="pending"
+									title="Nothing to record yet"
+									body={`This signal is not on the alerts register until it is verified, so there is no record to attach a reason to. It stays on the ${
+										isEidsrMode
+											? "6767"
+											: ndwSource === "echis"
+											? "eCHIS"
+											: "POE"
+									} list and can be verified later.`}
+								/>
+							)}
 
-														// Clean up interval after 10 minutes
-														setTimeout(
-															() =>
-																clearInterval(
-																	checkUrl
-																),
-															600000
-														);
-													} catch (e) {
-														// Cross-origin restrictions
-													}
-												}
-											}}
-										/>
-									</div>
-
-									<div className="flex justify-between items-center">
-										<Button
-											type="button"
-											variant="outline"
-											onClick={() => {
-												setShowVhfForm(
-													false
-												);
-												handleInputChange(
-													"deskVerificationActions",
-													toggleDeskAction(
-														formData.deskVerificationActions,
-														FIELD_CASE_VERIFICATION,
-														false
-													)
-												);
-											}}
-										>
-											Cancel VHF Form
-										</Button>
-										<p className="text-sm text-muted-foreground">
-											The form will close
-											automatically after
-											successful submission
-										</p>
-									</div>
-								</div>
-							</>
-						)}
-
-						{/* Manual Case Code Input - Show when Field Case Verification is selected */}
-						{hasDeskAction(
-							formData.deskVerificationActions,
-							FIELD_CASE_VERIFICATION
-						) && (
-							<>
-								<Separator />
-								<div className="space-y-3">
-									<div className="flex items-center gap-3">
-										<UserIcon className="h-4 w-4 text-uganda-red" />
-										<h3 className="text-sm font-semibold uppercase tracking-wide">
-											VHF Case Code
-										</h3>
-									</div>
-
-									<div className="space-y-2">
-										<Label
-											htmlFor="vhfCaseCode"
-											className="text-sm font-medium"
-										>
-											Case Code{" "}
-											{vhfCaseCode
-												? "(Auto-captured)"
-												: "(Manual Entry)"}
-										</Label>
-										<Input
-											id="vhfCaseCode"
-											type="text"
-											value={vhfCaseCode || ""}
-											onChange={(e) =>
-												setVhfCaseCode(
-													e.target.value
-												)
-											}
-											placeholder="Enter VHF case code (e.g., VHF-20250816-8022)"
-											className={
-												vhfCaseCode
-													? "bg-success/10 border-success"
-													: ""
-											}
-										/>
-										<p className="text-xs text-muted-foreground">
-											{vhfCaseCode
-												? "This code was automatically captured from the VHF form submission. You can edit it if needed."
-												: "Enter the case code manually or complete the VHF form above for automatic capture."}
-										</p>
-									</div>
-								</div>
-							</>
-						)}
-
-						{/* VHF Case Code Display - Show when case code is captured */}
-						{vhfCaseCode && (
-							<>
-								<Separator />
-								<div className="space-y-3">
-									<div className="flex items-center gap-3">
-										<CheckCircleIcon className="h-5 w-5 text-success" />
-										<h3 className="text-sm font-semibold uppercase tracking-wide text-success">
-											VHF Case Investigation
-											Completed
-										</h3>
-									</div>
-
-									<div className="surface-success p-4 rounded-lg">
-										<div className="flex items-center gap-2">
-											<CheckCircleIcon className="h-5 w-5 text-success" />
-											<div>
-												<p className="text-sm font-medium text-success">
-													VHF Case Code:{" "}
-													<span className="font-mono">
-														{
-															vhfCaseCode
-														}
-													</span>
-												</p>
-												<p className="text-xs text-success mt-1">
-													The VHF Case
-													Investigation
-													Form has been
-													successfully
-													submitted and
-													linked to this
-													alert.
-												</p>
-											</div>
-										</div>
-									</div>
-								</div>
-							</>
-						)}
-
-						{/* Field Verification Feedback - Only show when Field Case Verification is selected */}
-						{hasDeskAction(
-							formData.deskVerificationActions,
-							FIELD_CASE_VERIFICATION
-						) && (
-							<>
-								<Separator />
-								<div className="space-y-3">
-									<div className="flex items-center gap-3">
-										<CheckCircleIcon className="h-4 w-4 text-uganda-red" />
-										<h3 className="text-sm font-semibold uppercase tracking-wide">
-											Field Verification
-											Feedback
-										</h3>
-									</div>
-
-									<div className="bg-muted p-4 rounded-lg">
-										<RadioGroup
-											value={
-												formData.fieldVerificationFeedback
-											}
-											onValueChange={(value) =>
-												handleInputChange(
-													"fieldVerificationFeedback",
-													value
-												)
-											}
-											className="flex flex-wrap gap-3"
-										>
-											{FIELD_VERIFICATION_OPTIONS.map((option) => (
-												<div
-													key={option}
-													className="flex items-center space-x-2"
-												>
-													<RadioGroupItem
-														value={
-															option
-														}
-														id={`feedback-${option
-															.toLowerCase()
-															.replace(
-																/[^a-z0-9]/g,
-																"-"
-															)}`}
-													/>
-													<Label
-														htmlFor={`feedback-${option
-															.toLowerCase()
-															.replace(
-																/[^a-z0-9]/g,
-																"-"
-															)}`}
-														className="text-sm font-medium"
-													>
-														{option}
-													</Label>
-												</div>
-											))}
-										</RadioGroup>
-									</div>
-								</div>
-							</>
-						)}
-
-						<Separator />
-
-						{/* Additional Information */}
-						<div className="space-y-3">
-							<div className="flex items-center gap-3">
-								<HeartIcon className="h-4 w-4 text-uganda-red" />
-								<h3 className="text-sm font-semibold uppercase tracking-wide">
-									Additional Information
-								</h3>
-							</div>
-
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+							{/* The note. Required on every branch. */}
+							{answered && !pendingIsNoOp && (
 								<div className="space-y-2">
-									<Label
-										htmlFor="actions"
-										className="text-sm font-medium"
-									>
-										Actions (from desk verification)
-									</Label>
-									<Input
-										id="actions"
-										value={formData.actions}
-										readOnly
-										className="bg-muted/50"
-									/>
-									<p className="text-xs text-muted-foreground">
-										Updated automatically from the desk
-										verification action selected above.
-									</p>
-								</div>
-								<div className="space-y-2">
-									<Label
-										htmlFor="feedback"
-										className="text-sm font-medium"
-									>
-										Feedback
+									<Label htmlFor="verification-note" className="text-sm font-medium">
+										{verified === "no"
+											? "Why has it not been verified?"
+											: "Describe the decision taken"}
+										<span className="ml-1 text-uganda-red">*</span>
 									</Label>
 									<Textarea
-										id="feedback"
-										value={formData.feedback}
-										onChange={(e) =>
-											handleInputChange(
-												"feedback",
-												e.target.value
-											)
+										id="verification-note"
+										value={note}
+										onChange={(e) => setNote(e.target.value)}
+										rows={4}
+										placeholder={
+											verified === "no"
+												? "e.g. reporter's phone off since yesterday; facility focal person away until Thursday"
+												: outcome === VERIFICATION_DISCARDED
+												? "e.g. spoke to the VHT and the clinician — the two children had malaria confirmed by RDT, no cluster"
+												: "e.g. confirmed by the health centre in-charge; three linked cases in one household, samples taken"
 										}
-										rows={3}
-										placeholder="Any additional feedback or notes"
 									/>
+									<p className="text-xs text-muted-foreground">
+										Say what you checked and who you spoke to. This is the
+										only record of how the decision was reached.
+									</p>
 								</div>
-							</div>
-						</div>
-					</div>
-				)}
+							)}
 
+							{currentUserName && (
+								<p className="text-xs text-muted-foreground">
+									Recording as <strong>{currentUserName}</strong> · {nowLabel()}
+								</p>
+							)}
+						</div>
+					)}
 				</div>
 
 				<DialogFooter className="border-t pt-4">
-					<Button
-						variant="outline"
-						onClick={onClose}
-					>
-						Cancel
+					<Button variant="outline" onClick={onClose}>
+						{pendingIsNoOp ? "Close" : "Cancel"}
 					</Button>
-					{showVerificationForm && (
+					{ready && !pendingIsNoOp && (
 						<Button
-							onClick={handleVerification}
-							disabled={isVerifying}
+							onClick={submit}
+							disabled={!canSubmit}
 							className="bg-gradient-to-r from-uganda-red to-uganda-yellow hover:from-uganda-red/90 hover:to-uganda-yellow/90 text-white"
 						>
 							{isVerifying ? (
 								<>
 									<Loader2 className="h-4 w-4 animate-spin mr-2" />
-									Verifying...
+									Saving...
 								</>
-							) : isEidsrMode || isNdwMode ? (
-								"Verify into alerts"
+							) : verified === "no" ? (
+								"Save reason"
 							) : (
-								"Verify Alert"
+								"Record verification"
 							)}
 						</Button>
 					)}
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
+	);
+}
+
+/** One yes/no question, asked as two buttons rather than a dropdown. */
+function QuestionCard({
+	step,
+	question,
+	hint,
+	value,
+	onChange,
+	yesLabel = "Yes",
+	noLabel = "No",
+}: {
+	step: number;
+	question: string;
+	hint: string;
+	value: YesNo;
+	onChange: (value: YesNo) => void;
+	yesLabel?: string;
+	noLabel?: string;
+}) {
+	return (
+		<div className="space-y-2 rounded-lg border p-3">
+			<div className="flex items-start gap-2">
+				<span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-uganda-red text-[11px] font-semibold text-white">
+					{step}
+				</span>
+				<div>
+					<p className="text-sm font-semibold">
+						{question}
+						<span className="ml-1 text-uganda-red">*</span>
+					</p>
+					<p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
+				</div>
+			</div>
+			<div className="flex gap-2 pl-7">
+				{(
+					[
+						["yes", yesLabel],
+						["no", noLabel],
+					] as const
+				).map(([key, label]) => (
+					<button
+						key={key}
+						type="button"
+						aria-pressed={value === key}
+						onClick={() => onChange(key)}
+						className={cn(
+							"rounded-md border px-4 py-1.5 text-sm font-medium transition-colors",
+							value === key
+								? "border-uganda-red bg-uganda-red/10 text-uganda-red ring-1 ring-uganda-red"
+								: "border-gray-200 hover:bg-gray-50"
+						)}
+					>
+						{label}
+					</button>
+				))}
+			</div>
+		</div>
+	);
+}
+
+/** Where the chosen answer leads, stated before it is committed. */
+function Consequence({
+	tone,
+	title,
+	body,
+}: {
+	tone: "confirm" | "discard" | "pending";
+	title: string;
+	body: string;
+}) {
+	const Icon =
+		tone === "confirm"
+			? CheckCircleIcon
+			: tone === "discard"
+			? XCircleIcon
+			: AlertTriangleIcon;
+
+	return (
+		<div
+			className={cn(
+				"flex items-start gap-3 rounded-lg border p-3 text-xs",
+				tone === "confirm" && "border-success/30 surface-success",
+				tone === "discard" && "border-destructive/30 surface-danger",
+				tone === "pending" && "border-amber-200 bg-amber-50 text-amber-900"
+			)}
+		>
+			<Icon className="mt-0.5 h-4 w-4 shrink-0" />
+			<div className="space-y-1">
+				<p className="font-semibold">{title}</p>
+				<p>{body}</p>
+			</div>
+		</div>
 	);
 }

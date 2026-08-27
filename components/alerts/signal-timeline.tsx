@@ -53,6 +53,10 @@ function styleFor(action: string): ActionStyle {
 			return { label: "Sent to EMS", icon: Ambulance, tone: "text-violet-700 border-violet-600 bg-violet-50" };
 		case "forwarded":
 			return { label: "Forwarded to district", icon: Send, tone: "text-blue-600 border-blue-500 bg-blue-50" };
+		case "verification_pending":
+			// An attempt that did not conclude. Amber, not green: nothing was
+			// decided, and the signal is still owed a verification.
+			return { label: "Could not verify", icon: ShieldQuestion, tone: "text-amber-600 border-amber-500 bg-amber-50" };
 		case "desk_verified":
 			return { label: "Desk verified", icon: ShieldCheck, tone: "text-emerald-600 border-emerald-500 bg-emerald-50" };
 		case "verified":
@@ -115,6 +119,10 @@ function summarise(event: AlertHistoryEvent): string {
 		case "ems_notified":
 			if (d.event) parts.push(String(d.event));
 			break;
+		case "verification_pending":
+			// The reason IS the entry — there is no outcome to lead with.
+			if (d.reason) parts.push(`“${d.reason}”`);
+			break;
 		case "desk_verified":
 		case "verified":
 			if (d.outcome) parts.push(d.outcome);
@@ -122,6 +130,8 @@ function summarise(event: AlertHistoryEvent): string {
 			if (d.actions) parts.push(String(d.actions));
 			if (d.field) parts.push(d.field);
 			if (d.status) parts.push(d.status);
+			// What the verifier actually checked, in their own words.
+			if (d.note) parts.push(`“${d.note}”`);
 			break;
 		case "deleted":
 			if (d.caseName) parts.push(d.caseName);
