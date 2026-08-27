@@ -8,7 +8,6 @@ import {
 import {
 	CallLogsHeader,
 	CallLogsFilters,
-	CallLogsRegisterTabs,
 	CallLogsTable,
 	TriagedSplitTabs,
 } from "@/components/call-logs";
@@ -21,7 +20,7 @@ import { useCallLogsData, type AlertLog } from "@/hooks/use-call-logs-data";
 import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
 import { AuthService } from "@/lib/auth";
 import { PipelineStrip } from "@/components/pipeline";
-import { isQueueStage, stageLabel } from "@/lib/pipeline";
+import { STAGE_DESCRIPTION, isQueueStage, stageLabel } from "@/lib/pipeline";
 import {
 	SPLIT_DISCARDED,
 	VIEW_TRIAGED,
@@ -30,7 +29,6 @@ import {
 	registerViewHref,
 	registerViewStage,
 	triagedSplitFromParams,
-	type RegisterView,
 	type TriagedSplit,
 } from "@/lib/register-view";
 
@@ -145,18 +143,8 @@ export default function CallLogsPage(): React.JSX.Element {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [view, split, stageParam]);
 
-	// The URL is the single source of truth for the view, so a tab click
+	// The URL is the single source of truth for the view, so switching halves
 	// navigates rather than setting state the URL would then contradict.
-	const handleViewChange = useCallback(
-		(next: RegisterView) => {
-			// A tab click always opens that tab's default half: someone leaving
-			// the register and coming back to Triaged wants the work, not the
-			// archive they were last reading.
-			router.replace(registerViewHref(next), { scroll: false });
-		},
-		[router]
-	);
-
 	const handleSplitChange = useCallback(
 		(next: TriagedSplit) => {
 			router.replace(registerViewHref(VIEW_TRIAGED, next), { scroll: false });
@@ -286,6 +274,7 @@ export default function CallLogsPage(): React.JSX.Element {
 				isRefreshing={isRefreshing || isValidating}
 				exporting={exporting}
 				queueLabel={stageLabel(viewStage)}
+				queueHint={viewStage ? STAGE_DESCRIPTION[viewStage] : null}
 			/>
 
 			{/* The pipeline itself, above the list it filters. Scoped to the same
@@ -319,12 +308,9 @@ export default function CallLogsPage(): React.JSX.Element {
 				/>
 			)}
 
-			{view && (
-				<CallLogsRegisterTabs value={view} onChange={handleViewChange} />
-			)}
-
-			{/* Second level, and only under the tab it belongs to: the Triaged
-			    gate has two endings, and they are opposite kinds of list. */}
+			{/* The triage gate has two endings, and they are opposite kinds of
+			    list — a queue with work due on every row, and an archive with
+			    none — so the two halves stay separately addressable. */}
 			{view === VIEW_TRIAGED && (
 				<TriagedSplitTabs
 					value={split}

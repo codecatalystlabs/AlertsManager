@@ -1,5 +1,7 @@
-import React, { memo } from "react";
+import React, { memo, useMemo, useState } from "react";
+import { ChevronUp, SlidersHorizontal } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,6 +13,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import {
+	CALL_LOGS_INITIAL_FILTERS,
 	STATUS_FILTER_OPTIONS,
 	sourceFilterOptions,
 	VERIFICATION_FILTER_OPTIONS,
@@ -28,6 +31,33 @@ import {
 	DateRangeInputs,
 } from "@/components/filters/date-range-filter";
 import { useSourceOfAlertOptions } from "@/hooks/use-lookup-options";
+
+/** The filter grid the toggle shows/hides — referenced by aria-controls. */
+const FILTER_GRID_ID = "call-logs-filter-grid";
+
+/**
+ * Fields that are set but NOT visible while the grid is collapsed — the badge
+ * counts these so a filter can never narrow the register out of sight.
+ * Excluded:
+ *  - `stage`: comes from ?stage=, a destination rather than something this bar
+ *    can set or clear.
+ *  - the dates: the quick-range bar above the toggle stays visible and already
+ *    reports them (an active preset, or the "Clear dates" button).
+ */
+const HIDDEN_FILTER_EXCLUSIONS: ReadonlySet<keyof CallLogsFilterState> = new Set(
+	["stage", "fromDate", "toDate"]
+);
+
+function countHiddenFilters(filters: CallLogsFilterState): number {
+	const keys = Object.keys(
+		CALL_LOGS_INITIAL_FILTERS
+	) as (keyof CallLogsFilterState)[];
+	return keys.filter(
+		(key) =>
+			!HIDDEN_FILTER_EXCLUSIONS.has(key) &&
+			filters[key] !== CALL_LOGS_INITIAL_FILTERS[key]
+	).length;
+}
 
 interface CallLogsFiltersProps {
 	filters: CallLogsFilterState;
@@ -54,16 +84,61 @@ export const CallLogsFilters = memo<CallLogsFiltersProps>(
 			district: filters.district,
 		});
 
+		// Collapsed by default: the grid is ~17 fields tall and most visits to the
+		// register are to read the list, not to re-filter it. The quick-range bar
+		// and the "N active" badge stay visible, so nothing is narrowing the list
+		// without saying so.
+		const [showFilters, setShowFilters] = useState(false);
+		const hiddenCount = useMemo(() => countHiddenFilters(filters), [filters]);
+
 		return (
 			<Card className={LAYOUT.card}>
 				<CardContent className="p-3 space-y-3">
-					<DateRangePresetBar
-						fromDate={filters.fromDate}
-						toDate={filters.toDate}
-						onChange={onFiltersChange}
-					/>
+					{/* items-start, not items-center: the preset bar wraps to two
+					    rows on narrow screens and the toggle should stay on the
+					    first one. */}
+					<div className="flex items-start justify-between gap-2">
+						<DateRangePresetBar
+							fromDate={filters.fromDate}
+							toDate={filters.toDate}
+							onChange={onFiltersChange}
+						/>
 
-					<div className={LAYOUT.filtersGrid}>
+						<div className="flex items-center gap-1.5 shrink-0">
+							{!showFilters && hiddenCount > 0 && (
+								<Badge
+									variant="secondary"
+									className="h-5 px-2 text-[10px] font-medium"
+								>
+									{hiddenCount} active
+								</Badge>
+							)}
+							<Button
+								type="button"
+								variant="ghost"
+								size="icon"
+								onClick={() => setShowFilters((open) => !open)}
+								aria-expanded={showFilters}
+								aria-controls={FILTER_GRID_ID}
+								title={showFilters ? "Hide filters" : "Show filters"}
+								className="h-7 w-7"
+							>
+								{showFilters ? <ChevronUp /> : <SlidersHorizontal />}
+								<span className="sr-only">
+									{showFilters ? "Hide filters" : "Show filters"}
+								</span>
+							</Button>
+						</div>
+					</div>
+
+					{/* Toggled by swapping the display utility rather than
+					    unmounting: the grid stays in the DOM (so nothing remounts
+					    or refetches) but display:none keeps it out of the tab
+					    order while hidden. */}
+					<div
+						id={FILTER_GRID_ID}
+						className={showFilters ? LAYOUT.filtersGrid : "hidden"}
+					>
 						<div className="space-y-1 min-w-0">
 							<Label htmlFor="search" className="text-[11px]">
 								Search

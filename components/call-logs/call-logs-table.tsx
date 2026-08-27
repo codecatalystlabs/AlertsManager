@@ -1,6 +1,6 @@
 import React, { memo, useMemo } from "react";
 import { type ColumnFiltersState } from "@tanstack/react-table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useServerSort } from "@/hooks/use-server-sort";
 import { DataTable } from "@/components/ui/data-table";
 import { AlertLog, type CallLogsSort } from "@/hooks/use-call-logs-data";
@@ -107,12 +107,7 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 
 		return (
 			<Card className={LAYOUT.card}>
-				<CardHeader className={LAYOUT.cardHeader}>
-					<CardTitle className={LAYOUT.cardTitle}>
-						Signals ({totalCount.toLocaleString()})
-					</CardTitle>
-				</CardHeader>
-				<CardContent className={LAYOUT.cardContent}>
+				<CardContent className="p-3">
 					<DataTable
 						columns={columns}
 						data={alerts}

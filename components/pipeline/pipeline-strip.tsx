@@ -13,7 +13,9 @@ import {
 	type PipelineStage,
 	type StageKey,
 } from "@/lib/pipeline";
-import { AlertTriangle, ChevronRight, Lock } from "lucide-react";
+import { AlertTriangle, ChevronRight, Lock, RefreshCw } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 
 /**
  * The EBS pipeline, made visible.
@@ -45,20 +47,50 @@ export function PipelineStrip({
 	className?: string;
 }) {
 	const key = ["pipeline", JSON.stringify(params ?? {})];
-	const { data, error, isLoading } = useSWR(key, () => fetchPipeline(params), {
-		revalidateOnFocus: false,
-		keepPreviousData: true,
-	});
+	const { data, error, isLoading, isValidating, mutate } = useSWR(
+		key,
+		() => fetchPipeline(params),
+		{
+			revalidateOnFocus: false,
+			keepPreviousData: true,
+		}
+	);
 
 	if (error) {
+		// Non-blocking by construction: the strip is a summary OF the list, so
+		// losing it costs context, not data. Amber rather than red says exactly
+		// that — a red banner nobody can clear is how people learn to stop
+		// reading red banners — and Retry means a transient blip costs a click
+		// instead of a page reload.
 		return (
 			<div
+				role="status"
 				className={cn(
-					"rounded-lg border border-destructive/30 surface-danger px-4 py-3 text-sm text-destructive",
+					"flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border surface-warning px-4 py-3",
 					className
 				)}
 			>
-				Could not load the pipeline. The signal list below is unaffected.
+				<AlertTriangle className="h-4 w-4 shrink-0 text-warning" aria-hidden />
+				<div className="min-w-0 flex-1">
+					<p className="text-sm font-medium">Pipeline summary unavailable</p>
+					<p className="text-xs text-muted-foreground">
+						The step-by-step signal counts could not be loaded. The signal
+						list below is complete and unaffected.
+					</p>
+				</div>
+				<Button
+					type="button"
+					size="sm"
+					variant="outline"
+					className="h-8 gap-1.5"
+					onClick={() => void mutate()}
+					disabled={isValidating}
+				>
+					<RefreshCw
+						className={cn("h-3.5 w-3.5", isValidating && "animate-spin")}
+					/>
+					{isValidating ? "Retrying…" : "Retry"}
+				</Button>
 			</div>
 		);
 	}

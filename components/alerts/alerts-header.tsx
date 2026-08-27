@@ -51,17 +51,18 @@ export const AlertsHeader = memo<AlertsHeaderProps>(
 					</Button>
 					<Button
 						onClick={onExportCsv}
-						variant="outline"
+						variant="ghost"
 						size="sm"
-						className="gap-1.5 h-8"
+						className="gap-1.5 h-8 text-muted-foreground hover:text-foreground"
 					>
 						<Download className="w-4 h-4" />
 						Export CSV
 					</Button>
 					<Button
 						onClick={onExportExcel}
+						variant="ghost"
 						size="sm"
-						className="bg-gradient-to-r from-uganda-red to-uganda-yellow text-white hover:from-uganda-red/90 hover:to-uganda-yellow/90 gap-1.5 h-8"
+						className="gap-1.5 h-8 text-muted-foreground hover:text-foreground"
 					>
 						<FileSpreadsheet className="w-4 h-4" />
 						Export Excel

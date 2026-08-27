@@ -784,12 +784,12 @@ function NextStepButton({
 	return (
 		<Button
 			size="sm"
-			variant={action.actionable ? "default" : "outline"}
+			variant={action.actionable ? "secondary" : "outline"}
 			title={action.hint}
 			onClick={() => run[action.key]()}
 			className={
 				action.actionable
-					? "h-7 bg-uganda-red px-2.5 text-xs font-semibold text-white hover:bg-uganda-red/90"
+					? "h-7 px-2.5 text-xs font-semibold"
 					: "h-7 px-2.5 text-xs"
 			}
 		>

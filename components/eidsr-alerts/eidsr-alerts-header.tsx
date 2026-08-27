@@ -62,9 +62,9 @@ export const EidsrAlertsHeader = memo<EidsrAlertsHeaderProps>(
 					</Button>
 					<Button
 						onClick={onExportExcel}
-						variant="outline"
+						variant="ghost"
 						size="sm"
-						className="gap-1.5 h-8"
+						className="gap-1.5 h-8 text-muted-foreground hover:text-foreground"
 						disabled={isExporting}
 					>
 						<FileSpreadsheet className="h-4 w-4" />

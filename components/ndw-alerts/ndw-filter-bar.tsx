@@ -105,7 +105,7 @@ export const NdwFilterBar = memo<NdwFilterBarProps>(
 		};
 
 		return (
-			<div className="rounded-lg border bg-card p-2">
+			<div className="rounded-none border bg-card p-2">
 				<div className="flex flex-col sm:flex-row gap-2 sm:items-center">
 					<div className="relative flex-1 min-w-0">
 						<Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />

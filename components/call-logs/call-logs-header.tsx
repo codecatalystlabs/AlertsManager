@@ -18,6 +18,13 @@ interface CallLogsHeaderProps {
 	 * someone concludes there are only 6,022 signals in the country.
 	 */
 	queueLabel?: string | null;
+	/**
+	 * One line on what that queue holds. Passed in rather than assumed, because
+	 * the register's four tabs only render for the tabbed views — on the
+	 * feedback and discarded queues there is no "All tab below" to switch to,
+	 * so the old sentence pointed at something that is not on the page.
+	 */
+	queueHint?: string | null;
 }
 
 export const CallLogsHeader = memo<CallLogsHeaderProps>(
@@ -28,6 +35,7 @@ export const CallLogsHeader = memo<CallLogsHeaderProps>(
 		isRefreshing = false,
 		exporting = null,
 		queueLabel = null,
+		queueHint = null,
 	}) => {
 		const isExporting = exporting !== null;
 		return (
@@ -38,7 +46,8 @@ export const CallLogsHeader = memo<CallLogsHeaderProps>(
 					</h1>
 					<p className={LAYOUT.pageSubtitle}>
 						{queueLabel
-							? "One gate of the EBS pipeline. Switch to the All tab below to see the whole register."
+							? (queueHint ??
+								"One gate of the EBS pipeline, not the whole register.")
 							: CALL_LOGS_CONFIG.PAGE_DESCRIPTION}
 					</p>
 				</div>
@@ -59,9 +68,9 @@ export const CallLogsHeader = memo<CallLogsHeaderProps>(
 					</Button>
 					<Button
 						onClick={onExportCsv}
-						variant="outline"
+						variant="ghost"
 						size="sm"
-						className="gap-1.5 h-8"
+						className="gap-1.5 h-8 text-muted-foreground hover:text-foreground"
 						disabled={isExporting || isRefreshing}
 					>
 						{exporting === "csv" ? (
@@ -73,8 +82,9 @@ export const CallLogsHeader = memo<CallLogsHeaderProps>(
 					</Button>
 					<Button
 						onClick={onExportExcel}
+						variant="ghost"
 						size="sm"
-						className="bg-uganda-red hover:bg-uganda-red/90 gap-1.5 h-8"
+						className="gap-1.5 h-8 text-muted-foreground hover:text-foreground"
 						disabled={isExporting || isRefreshing}
 					>
 						{exporting === "excel" ? (
