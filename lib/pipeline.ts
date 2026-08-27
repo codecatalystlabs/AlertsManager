@@ -135,12 +135,17 @@ export function stageLabel(key: string | null | undefined): string | null {
 		case STAGE_ASSESSED:
 			return "Risk assessed";
 		case STAGE_OFF_PIPELINE:
+			// One gate's share of the archive below — what TRIAGE took off the
+			// pipeline, without what verification threw out. Nothing links here
+			// now that the sidebar opens the whole archive, but the URL still
+			// resolves, so the heading has to say which discards these are.
+			return "Discarded at triage";
+		case STAGE_DISCARDED:
 			// Named for what it holds rather than for where it sits, because the
 			// sidebar sends people here looking for "Discarded Events" and a
-			// heading reading "Off pipeline" would not answer them.
+			// heading reading "Discarded" would leave them guessing whether this
+			// is the whole archive or one gate's share of it.
 			return "Discarded events";
-		case STAGE_DISCARDED:
-			return "Discarded";
 		default:
 			return null;
 	}

@@ -58,9 +58,9 @@ export const STAT_CARDS: StatCardConfig[] = [
         iconBg: 'bg-amber-500',
         textColor: 'text-amber-700',
         // Deliberately the alerts list, like every other card. The register's
-        // Triaged view splits into forwarded vs discarded and defaults to the
-        // forwarded half, so linking there would land on a smaller number than
-        // the card shows.
+        // Triaged view holds only what triage forwarded — the discards are
+        // their own destination — so linking there would land on a smaller
+        // number than the card shows.
         route: '/dashboard/alerts',
     },
     {

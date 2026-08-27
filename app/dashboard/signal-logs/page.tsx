@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
 } from "@/constants/call-logs";
@@ -9,7 +9,6 @@ import {
 	CallLogsHeader,
 	CallLogsFilters,
 	CallLogsTable,
-	TriagedSplitTabs,
 } from "@/components/call-logs";
 import { ErrorAlert } from "@/components/dashboard";
 import { TriageDialog } from "@/components/triage";
@@ -20,16 +19,16 @@ import { useCallLogsData, type AlertLog } from "@/hooks/use-call-logs-data";
 import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
 import { AuthService } from "@/lib/auth";
 import { PipelineStrip } from "@/components/pipeline";
-import { STAGE_DESCRIPTION, isQueueStage, stageLabel } from "@/lib/pipeline";
 import {
-	SPLIT_DISCARDED,
-	VIEW_TRIAGED,
+	STAGE_DESCRIPTION,
+	STAGE_DISCARDED,
+	isQueueStage,
+	stageLabel,
+} from "@/lib/pipeline";
+import {
 	registerViewFilters,
 	registerViewFromParams,
-	registerViewHref,
 	registerViewStage,
-	triagedSplitFromParams,
-	type TriagedSplit,
 } from "@/lib/register-view";
 
 const AlertDetailsDialog = dynamic(
@@ -104,24 +103,23 @@ export default function CallLogsPage(): React.JSX.Element {
 	// shareable destination rather than a filter someone has to rebuild. An
 	// unrecognised ?stage= is ignored, which shows the register rather than an
 	// empty list with no explanation.
-	const router = useRouter();
 	const searchParams = useSearchParams();
 	const rawStage = searchParams?.get("stage") ?? null;
 	const stageParam = isQueueStage(rawStage) ? rawStage : null;
-	// Null for the queues that are not one of the four tabs (feedback, which the
-	// sidebar reaches as "Risk Assessed", and off-pipeline): those keep their own
-	// list, without a tab strip offering to navigate out of the queue that was
-	// asked for.
+	// Null for the queues that are not one of the four tabs: the feedback queue
+	// (sidebar "Risk Assessed") and the discard archive (sidebar "Discarded
+	// Events"). Those keep their own list, without a tab strip offering to
+	// navigate out of the queue that was asked for.
 	const view = registerViewFromParams(searchParams?.get("view"), stageParam);
-	// Which half of the Triaged tab — the verification queue, or the archive of
-	// what was discarded. Read off the same URL, so the split is shareable and
-	// the back button steps between the halves.
-	const split = triagedSplitFromParams(stageParam);
-	const showingDiscarded = view === VIEW_TRIAGED && split === SPLIT_DISCARDED;
+	// The discard archive is a destination of its own, reached from the sidebar
+	// rather than from inside the Triaged queue: nothing is due on any row, so
+	// the only thing each row has left to say is WHICH gate closed it, and that
+	// column is the reason this flag exists.
+	const showingDiscarded = stageParam === STAGE_DISCARDED;
 	// The gate this view stands at — drives the page heading and the pipeline
 	// strip's highlight, so landing on Untriaged reads as "Awaiting triage"
 	// rather than as an unexplained partial register.
-	const viewStage = registerViewStage(view, split) ?? stageParam;
+	const viewStage = registerViewStage(view) ?? stageParam;
 
 	// Apply a view's filters ONCE per URL change, keyed by what the URL asked
 	// for. Re-applying whenever the filters drift would undo any refinement the
@@ -129,28 +127,17 @@ export default function CallLogsPage(): React.JSX.Element {
 	// tab would snap straight back).
 	const appliedViewRef = useRef<string | null>(null);
 	useEffect(() => {
-		// Keyed on the SPLIT too, or switching halves of the Triaged tab would be
-		// the one navigation that leaves the previous half's stage filter behind.
-		const wanted = view ? `${view}:${split}` : `stage:${stageParam ?? ""}`;
+		const wanted = view ? `view:${view}` : `stage:${stageParam ?? ""}`;
 		if (appliedViewRef.current === wanted) return;
 		appliedViewRef.current = wanted;
 		setFilters(
 			view
-				? registerViewFilters(view, split)
+				? registerViewFilters(view)
 				: { stage: stageParam ?? "", verification: "all" }
 		);
 		// setFilters is stable; re-running on every render would reset paging.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [view, split, stageParam]);
-
-	// The URL is the single source of truth for the view, so switching halves
-	// navigates rather than setting state the URL would then contradict.
-	const handleSplitChange = useCallback(
-		(next: TriagedSplit) => {
-			router.replace(registerViewHref(VIEW_TRIAGED, next), { scroll: false });
-		},
-		[router]
-	);
+	}, [view, stageParam]);
 
 	// Revalidates every alerts-derived SWR key (this list + its stats, the Alerts
 	// Management table, dashboard cards/charts) — not just this page's list.
@@ -305,17 +292,6 @@ export default function CallLogsPage(): React.JSX.Element {
 					filters={filters}
 					onFiltersChange={setFilters}
 					onClearFilters={clearFilters}
-				/>
-			)}
-
-			{/* The triage gate has two endings, and they are opposite kinds of
-			    list — a queue with work due on every row, and an archive with
-			    none — so the two halves stay separately addressable. */}
-			{view === VIEW_TRIAGED && (
-				<TriagedSplitTabs
-					value={split}
-					onChange={handleSplitChange}
-					count={pagination.total}
 				/>
 			)}
 

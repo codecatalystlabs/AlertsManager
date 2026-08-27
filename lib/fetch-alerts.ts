@@ -35,8 +35,8 @@ export interface AlertsListParams {
 	triaged?: string;
 	/**
 	 * EBS pipeline stage queue: triage | verification | risk | feedback |
-	 * offpipeline. Applied server-side with the SAME predicate the pipeline
-	 * strip counts with, so a stage's tile and its list always agree.
+	 * offpipeline | discarded. Applied server-side with the SAME predicate the
+	 * pipeline strip counts with, so a stage's tile and its list always agree.
 	 */
 	stage?: string;
 	/** Division/subcounty name; matched against alert_case_sub_county or sub_county. */

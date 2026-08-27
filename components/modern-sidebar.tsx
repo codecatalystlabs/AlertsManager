@@ -97,15 +97,23 @@ const navigationGroups: NavigationGroup[] = [
 			},
 			{ name: "Confirmed Events", href: "/dashboard/alerts", icon: Siren },
 			// The pipeline's other exit, and the reason it needs a door: the
-			// guideline's rule is "discard AND record", so a signal triage took
-			// off the pipeline — already reported and under investigation, or
-			// logged as no public-health threat — is a decision that was taken,
-			// not a row that vanished. Until now nothing in the app linked to
-			// this queue, so the recorded discards were only reachable by
-			// building the filter by hand. Archive, not a bin: they are kept.
+			// guideline's rule is "discard AND record", so a signal that left
+			// the pipeline is a decision that was taken, not a row that
+			// vanished. Archive, not a bin: they are kept.
+			//
+			// Both gates' discards, in one list. A signal can be thrown out at
+			// triage — already reported, or no public-health threat — or at
+			// verification, after someone investigated it and found no event,
+			// and anyone asking "what did we throw out?" means both. Which gate
+			// did the throwing is not lost by merging them: every row says so,
+			// from lib/discard-level.ts.
+			//
+			// It is a destination rather than a corner of the Triaged queue
+			// because nothing is due on any row here. Mixing an archive into a
+			// queue pads a count that is supposed to mean outstanding work.
 			{
 				name: "Discarded Events",
-				href: "/dashboard/signal-logs?stage=offpipeline",
+				href: "/dashboard/signal-logs?stage=discarded",
 				icon: Archive,
 			},
 		],
