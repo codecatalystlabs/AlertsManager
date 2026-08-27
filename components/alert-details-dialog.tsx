@@ -36,11 +36,7 @@ import { formatDateTime } from "@/lib/format-date";
 import { PriorityBadge, TriageBadge } from "@/components/triage";
 import { signalSummary } from "@/lib/ebs-signals";
 import { RiskBadge } from "@/components/risk";
-import {
-	RISK_ACTION,
-	normalizeRiskLevel,
-	riskWorksheetComplete,
-} from "@/lib/alert-risk";
+import { RISK_ACTION, normalizeRiskLevel } from "@/lib/alert-risk";
 
 /**
  * Render a tri-state risk answer. "Not recorded" is distinct from "No": an
@@ -463,71 +459,6 @@ export function AlertDetailsDialog({
 										{normalizeRiskLevel(alert.riskLevel) && (
 											<p className="mt-1 text-xs text-muted-foreground">
 												{RISK_ACTION[normalizeRiskLevel(alert.riskLevel)!]}
-											</p>
-										)}
-									</div>
-								)}
-
-								{/* The completed risk-assessment worksheet §10 requires
-								    per verified event: the matrix axes, the three tiers of
-								    analysis, and the RRT. Shown only once something was
-								    recorded, and flagged when the analysis is missing —
-								    a Very High level with no justification behind it is
-								    exactly what a supervisor needs to see. */}
-								{alert.riskLevel && (
-									<div className="rounded-md border border-dashed border-gray-300 px-3 py-2">
-										<div className="flex items-center justify-between gap-2">
-											<p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-												Risk Assessment Worksheet
-											</p>
-											<span
-												className={cn(
-													"rounded px-1.5 py-0.5 text-[10px] font-semibold",
-													riskWorksheetComplete(alert)
-														? "bg-emerald-100 text-emerald-800"
-														: "bg-amber-100 text-amber-900"
-												)}
-											>
-												{riskWorksheetComplete(alert)
-													? "Complete"
-													: "Incomplete"}
-											</span>
-										</div>
-										<div className="mt-1 grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-											<span>
-												<span className="text-muted-foreground">Likelihood: </span>
-												{alert.riskLikelihood || "Not recorded"}
-											</span>
-											<span>
-												<span className="text-muted-foreground">Impact: </span>
-												{alert.riskImpact || "Not recorded"}
-											</span>
-										</div>
-										{[
-											["Hazard", alert.riskHazardNote],
-											["Exposure", alert.riskExposureNote],
-											["Context", alert.riskContextNote],
-										].map(([label, value]) => (
-											<p key={label as string} className="mt-1 text-sm">
-												<span className="text-muted-foreground">
-													{label}:{" "}
-												</span>
-												{value || (
-													<span className="italic text-muted-foreground">
-														not documented
-													</span>
-												)}
-											</p>
-										))}
-										{(alert.riskTeamLead || alert.riskTeamMembers) && (
-											<p className="mt-1 text-sm">
-												<span className="text-muted-foreground">RRT: </span>
-												{alert.riskTeamLead && (
-													<>led by {alert.riskTeamLead}</>
-												)}
-												{alert.riskTeamMembers && (
-													<> · {alert.riskTeamMembers}</>
-												)}
 											</p>
 										)}
 									</div>
