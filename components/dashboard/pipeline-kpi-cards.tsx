@@ -4,6 +4,7 @@ import { memo } from "react";
 import {
 	ArrowRight,
 	CircleSlash,
+	ClipboardList,
 	ShieldAlert,
 	ShieldQuestion,
 	Timer,
@@ -218,6 +219,7 @@ export const RiskKpiCards = memo<RowProps>(({ summary, isLoading }) => {
 	const rate = summary?.riskAssessmentRate ?? 0;
 	const onTime = summary?.riskAssessedWithin24h ?? 0;
 	const late = summary?.riskAssessedLate ?? 0;
+	const worksheets = summary?.riskWorksheetComplete ?? 0;
 	const severe = countOf(levels, "High") + countOf(levels, "Very High");
 
 	const cards = [
@@ -251,6 +253,17 @@ export const RiskKpiCards = memo<RowProps>(({ summary, isLoading }) => {
 			icon: TrendingUp,
 			ink: whiteInk("bg-gradient-to-br from-red-500 to-rose-700"),
 		},
+		{
+			title: "Worksheet completed",
+			value: worksheets,
+			sub:
+				assessed > 0
+					? `${pct(worksheets, assessed)}% of assessments`
+					: "nothing assessed yet",
+			hint: "Assessments that also recorded the §6 worksheet — hazard, exposure and context — rather than the three algorithm answers alone. The level says what; the worksheet says why.",
+			icon: ClipboardList,
+			ink: whiteInk("bg-gradient-to-br from-violet-500 to-purple-700"),
+		},
 	];
 
 	return (
@@ -270,7 +283,7 @@ export const RiskKpiCards = memo<RowProps>(({ summary, isLoading }) => {
 					</p>
 				)}
 			</header>
-			<div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3">
+			<div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
 				{cards.map((c) => (
 					<StatCardShell
 						key={c.title}

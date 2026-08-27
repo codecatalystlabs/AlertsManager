@@ -60,6 +60,13 @@ export interface ExportableAlert {
 	riskSevere?: boolean | null;
 	riskSpread?: boolean | null;
 	riskControl?: boolean | null;
+	riskLikelihood?: string | null;
+	riskImpact?: string | null;
+	riskHazardNote?: string | null;
+	riskExposureNote?: string | null;
+	riskContextNote?: string | null;
+	riskTeamLead?: string | null;
+	riskTeamMembers?: string | null;
 	riskAssessedAt?: string | null;
 	riskAssessedBy?: string | null;
 	// --- Reporter feedback (EBS step 7) --------------------------------------
@@ -199,6 +206,13 @@ const RISK_COLUMNS: ExportColumn[] = [
 		header: "Risk: Control Measures Available",
 		getValue: (a) => yesNo(a.riskControl),
 	},
+	{ header: "Risk Likelihood", getValue: (a) => a.riskLikelihood ?? "" },
+	{ header: "Risk Impact", getValue: (a) => a.riskImpact ?? "" },
+	{ header: "Risk Hazard Notes", getValue: (a) => a.riskHazardNote ?? "" },
+	{ header: "Risk Exposure Notes", getValue: (a) => a.riskExposureNote ?? "" },
+	{ header: "Risk Context Notes", getValue: (a) => a.riskContextNote ?? "" },
+	{ header: "RRT Lead", getValue: (a) => a.riskTeamLead ?? "" },
+	{ header: "RRT Members", getValue: (a) => a.riskTeamMembers ?? "" },
 	{
 		header: "Risk Assessed Date",
 		getValue: (a) => formatExportDate(a.riskAssessedAt),
