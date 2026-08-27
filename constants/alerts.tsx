@@ -18,7 +18,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
+import { sourceOfAlertOptions } from "@/lib/source-of-alert";
 import { DeleteAlertDialog } from "@/components/alerts/delete-alert-dialog";
 import {
 	VerificationBadge,
@@ -191,7 +191,7 @@ export const createAlertsTableColumns = (
 		filterFn: exactStringFilter,
 		meta: {
 			filterVariant: "select",
-			filterOptions: SOURCE_OF_ALERT_OPTIONS.map((source) => ({
+			filterOptions: sourceOfAlertOptions().map((source) => ({
 				value: source,
 				label: source,
 			})),

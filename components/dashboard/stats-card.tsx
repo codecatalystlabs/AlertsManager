@@ -25,6 +25,7 @@ const CHIP_STYLES: Record<string, { bg: string; text: string }> = {
   'bg-purple-500': { bg: 'bg-primary/15', text: 'text-primary' },
   'bg-indigo-500': { bg: 'bg-primary/15', text: 'text-primary' },
   'bg-teal-500': { bg: 'bg-success/15', text: 'text-success' },
+  'bg-amber-500': { bg: 'bg-warning/15', text: 'text-warning' },
 };
 
 const DEFAULT_CHIP = { bg: 'bg-muted', text: 'text-muted-foreground' };
@@ -53,7 +54,11 @@ export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, classNam
       case 'verified':
         return `${data.verified} of ${data.total} signals verified`;
       case 'notVerified':
-        return `${data.notVerified} signals pending triage`;
+        return `${data.notVerified} signals pending verification`;
+      case 'triaged':
+        // The remainder is what still sits at the gate, which is the number a
+        // desk acts on — so name it rather than restating the headline figure.
+        return `${Math.max(0, data.total - data.triaged)} still awaiting triage`;
       case 'discarded':
         return `${data.discarded} verified signals discarded`;
       case 'alerts':

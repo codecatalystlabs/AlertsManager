@@ -7,6 +7,7 @@
 
 import { CallLogAlert, AlertCounts } from '@/app/dashboard/types';
 import { deriveAlertOutcome } from '@/lib/alert-outcome';
+import { isTriaged } from '@/lib/alert-triage';
 
 /**
  * Calculates alert statistics from raw alert data
@@ -19,6 +20,12 @@ export const calculateAlertStatistics = (alerts: CallLogAlert[]): AlertCounts & 
     verifiedToday: number;
 } => {
     const verified = alerts.filter(alert => alert.isVerified === true).length;
+    // Triaged: a recorded decision, or a priority (which only triage ever set —
+    // the historical signals predating the decision column). Mirrors
+    // rowIsTriaged in the Go dashboard service.
+    const triaged = alerts.filter(
+        alert => Boolean(alert.triageDecision?.trim()) || isTriaged(alert.priority)
+    ).length;
     const notVerified = alerts.filter(alert => alert.isVerified === false).length;
     const discarded = alerts.filter(alert => alert.isVerified && deriveAlertOutcome(alert) === 'Discarded').length;
     const total = alerts.length;
@@ -36,6 +43,7 @@ export const calculateAlertStatistics = (alerts: CallLogAlert[]): AlertCounts & 
         verified,
         notVerified,
         discarded,
+        triaged,
         // Every signal is either discarded or an alert; alerts = all signals
         // that were not discarded (keeps backend parity in dashboard.go).
         alerts: Math.max(0, total - discarded),

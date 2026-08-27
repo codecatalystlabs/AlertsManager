@@ -1,3 +1,4 @@
+export { DiscardLevelBadge } from "./discard-level-badge";
 export { PriorityBadge } from "./priority-badge";
 export { SignalPicker } from "./signal-picker";
 export { TriageBadge } from "./triage-badge";

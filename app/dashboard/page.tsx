@@ -68,6 +68,7 @@ const DashboardCharts = dynamic(
 const EMPTY_COUNTS: AlertCounts = {
 	verified: 0,
 	notVerified: 0,
+	triaged: 0,
 	discarded: 0,
 	alerts: 0,
 	total: 0,
@@ -153,6 +154,7 @@ export default function DashboardPage(): React.JSX.Element {
 		? {
 				verified: summary.verified,
 				notVerified: summary.notVerified,
+				triaged: summary.triaged,
 				discarded: summary.discarded,
 				alerts: summary.alerts,
 				total: summary.total,

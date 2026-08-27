@@ -533,6 +533,48 @@ export function AlertDetailsDialog({
 									</div>
 								)}
 
+								{/* What the verifier actually checked. The outcome says
+								    what was decided; only this says on what basis, and
+								    for a discard it is the sole record of why nobody
+								    pursued the signal. */}
+								{alert.verificationNote && (
+									<div>
+										<p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+											Verification Note
+										</p>
+										<p className="mt-1 whitespace-pre-wrap rounded-md bg-muted px-3 py-2 text-sm">
+											{alert.verificationNote}
+										</p>
+									</div>
+								)}
+
+								{/* An attempt that did not conclude. Amber because it
+								    is work still owed, not work done. */}
+								{alert.verificationPendingReason && (
+									<div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+										<p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+											Not Verified Yet
+										</p>
+										<p className="mt-1 whitespace-pre-wrap text-sm">
+											{alert.verificationPendingReason}
+										</p>
+										{(alert.verificationAttemptedBy ||
+											alert.verificationAttemptedAt) && (
+											<p className="mt-1 text-xs text-muted-foreground">
+												Last attempted
+												{alert.verificationAttemptedBy
+													? ` by ${alert.verificationAttemptedBy}`
+													: ""}
+												{alert.verificationAttemptedAt
+													? ` on ${formatDate(
+															alert.verificationAttemptedAt
+													  )}`
+													: ""}
+											</p>
+										)}
+									</div>
+								)}
+
 								{alert.responseActions && (
 									<div>
 										<p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">

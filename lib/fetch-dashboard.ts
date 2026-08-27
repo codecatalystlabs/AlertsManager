@@ -90,6 +90,8 @@ export interface DashboardSummary {
 	notVerified: number;
 	discarded: number;
 	alerts: number;
+	/** Signals past the EBS step-2 triage gate, whichever exit they took. */
+	triaged: number;
 	fieldVerification: DashboardCountItem[];
 	deskVerification: DashboardCountItem[];
 	verification: DashboardCountItem[];
@@ -156,6 +158,7 @@ const EMPTY_SUMMARY: DashboardSummary = {
 	notVerified: 0,
 	discarded: 0,
 	alerts: 0,
+	triaged: 0,
 	fieldVerification: [],
 	deskVerification: [],
 	verification: [],

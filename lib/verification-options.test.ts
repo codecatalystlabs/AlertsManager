@@ -80,6 +80,9 @@ check("misspelled SDB", splitDeskVerification("Mortality Survaillance/Supervised
 
 // The legacy mirror must round-trip, or the UI and the stored column diverge.
 const roundTrips: [string, string[]][] = [
+	// The ordinary case since the verify form became two questions: a
+	// confirmation with no response action beside it.
+	[VERIFICATION_CONFIRMED, []],
 	[VERIFICATION_CONFIRMED, [SAMPLE]],
 	[VERIFICATION_CONFIRMED, [SAMPLE, EMS_EVACUATION_ACTION]],
 	[VERIFICATION_DISCARDED, []],
@@ -94,5 +97,23 @@ for (const [outcome, actions] of roundTrips) {
 		actions,
 	});
 }
+
+// Every legacy reader still asks case_verification_desk whether a signal was
+// verified at all. An empty mirror therefore means "not verified" — so a
+// recorded outcome must never produce one, or a confirmed signal would keep its
+// SLA clock running and count as pending while verificationOutcome said
+// Confirmed. Twin of TestLegacyMirrorIsNeverEmptyForARecordedOutcome.
+for (const outcome of [
+	VERIFICATION_CONFIRMED,
+	VERIFICATION_DISCARDED,
+	VERIFICATION_ESCALATED_FIELD,
+]) {
+	check(
+		`mirror is non-empty for ${outcome}`,
+		legacyDeskValue(outcome as never, []).trim().length > 0,
+		true
+	);
+}
+check("mirror stays empty for no outcome", legacyDeskValue("" as never, []), "");
 
 console.log(`ok — ${passed} assertions passed`);

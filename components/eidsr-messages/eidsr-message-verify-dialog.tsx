@@ -27,7 +27,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
-import { SOURCE_OF_ALERT_OPTIONS } from "@/lib/source-of-alert";
+import { useSourceOfAlertOptions } from "@/hooks/use-lookup-options";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { hasFullName, userFullName } from "@/lib/user-name";
 import {
 	verifyEidsrMessage,
 	type EidsrMessageOptions,
@@ -60,7 +62,6 @@ function pickOptionList(
 
 const DEFAULT_STATUS = ["Alive", "Dead", "Unknown"];
 const DEFAULT_SEX = ["Male", "Female", "Unknown"];
-const DEFAULT_SOURCE = [...SOURCE_OF_ALERT_OPTIONS];
 const DEFAULT_TRIAGE = ["High", "Medium", "Low"];
 const DEFAULT_SIGNAL = ["Yes", "No", "Pending"];
 
@@ -77,6 +78,12 @@ export function EidsrMessageVerifyDialog({
 	onVerified,
 }: EidsrMessageVerifyDialogProps) {
 	const { toast } = useToast();
+	// Fallback when the API response carries no source list of its own: the
+	// admin-managed list (Administration -> Dropdown Options).
+	const managedSourceOptions = useSourceOfAlertOptions();
+	// The actor recorded against the signal — taken from the signed-in account.
+	const currentUser = useCurrentUser();
+	const currentUserName = userFullName(currentUser);
 	const [isVerifying, setIsVerifying] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [linkedAlertId, setLinkedAlertId] = useState<number | null>(null);
@@ -131,7 +138,9 @@ export function EidsrMessageVerifyDialog({
 			symptoms: message.symptoms,
 			actions: desk,
 			feedback: message.feedback,
-			verifiedBy: message.verifiedBy,
+			// An already-verified message keeps whoever verified it; a fresh one
+			// names the person doing it now rather than asking them to type it.
+			verifiedBy: message.verifiedBy || currentUserName,
 			deskVerificationActions: desk,
 			fieldVerificationFeedback: "",
 			caseVerificationDesk: desk,
@@ -163,7 +172,7 @@ export function EidsrMessageVerifyDialog({
 		pickOptionList(options, "alertCaseSex", "sex", "sexes") || DEFAULT_SEX;
 	const sourceOptions =
 		pickOptionList(options, "sourceOfAlert", "sourceOfAlert", "sources") ||
-		DEFAULT_SOURCE;
+		managedSourceOptions;
 	const triageOptions =
 		pickOptionList(options, "triage", "triageLevels") || DEFAULT_TRIAGE;
 	const signalOptions =
@@ -595,7 +604,20 @@ export function EidsrMessageVerifyDialog({
 								<Input
 									value={form.verifiedBy}
 									onChange={(e) => update("verifiedBy", e.target.value)}
+									placeholder="First and last name"
 								/>
+								{currentUser && !hasFullName(currentUser) ? (
+									<p className="text-xs text-amber-700">
+										Your profile records only one name. Enter your
+										first and last name — this is who the signal will
+										show as verified by.
+									</p>
+								) : (
+									<p className="text-xs text-muted-foreground">
+										Taken from your account. Change it if you are
+										verifying on someone else&apos;s behalf.
+									</p>
+								)}
 							</div>
 							<div className="grid gap-1.5">
 								<Label>Signal verified</Label>

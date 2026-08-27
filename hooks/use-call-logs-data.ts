@@ -15,6 +15,7 @@ import {
     type AlertsListParams,
 } from '@/lib/fetch-alerts';
 import { columnFiltersToAlertParams } from '@/lib/alert-column-filters';
+import { stageLabel } from '@/lib/pipeline';
 import { sourceFilterValues } from '@/lib/source-of-alert';
 import { useInvalidateAlerts } from '@/hooks/use-invalidate-alerts';
 
@@ -364,6 +365,12 @@ function applyClientFilters(alerts: AlertLog[], filters: CallLogsFilters): Alert
  */
 function buildExportFilterTokens(filters: CallLogsFilters): string[] {
     const tokens: string[] = [];
+    // The stage FIRST, because it is the widest cut: a file of 525 discards and
+    // a file of the whole register are the same download until the name says
+    // which. sanitizeToken turns "Awaiting verification" into
+    // "Awaiting-verification", so the label can be the human one.
+    const stage = stageLabel(filters.stage);
+    if (stage) tokens.push(stage);
     if (filters.region && filters.region !== 'all') tokens.push(filters.region);
     if (filters.district && filters.district !== 'all') tokens.push(filters.district);
     if (filters.division && filters.division !== 'all') tokens.push(filters.division);

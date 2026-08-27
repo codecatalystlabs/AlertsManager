@@ -181,7 +181,7 @@ export function TriageDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
+			<DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2 text-base">
 						<ShieldQuestion className="h-4 w-4 text-uganda-red" />
@@ -204,142 +204,141 @@ export function TriageDialog({
 					</DialogDescription>
 				</DialogHeader>
 
-				{/* Two columns on a wide screen: naming the signal on the left,
-				    the gate that decides its fate on the right. They are read
-				    together — the Annex definition an operator picks is the same
-				    text they are judging in question 2 — so putting one below the
-				    other would mean scrolling between them. */}
-				{/* The signal list takes the larger share: its Annex definitions
-				    are full sentences and have to be readable at a glance, while
-				    the gate is two questions and a card. */}
-				<div className="grid gap-6 md:grid-cols-[1.35fr_1fr]">
-					<SignalPicker
-						value={signalCode}
-						onChange={setSignalCode}
-						className="md:border-r md:border-gray-100 md:pr-6"
+				{/* One column, read top to bottom: the gate first, then the
+				    naming. Side by side, the signal list sat level with question 1
+				    and read as something to answer before it — but naming the
+				    signal is not a gate, and an operator who has not yet decided
+				    the report is worth verifying has no reason to hunt for its
+				    Annex line. The list only appears on the forward path. */}
+				<div className="space-y-4">
+					<Question
+						step={1}
+						prompt="Has this signal been reported before?"
+						hint="Only a signal someone is already working counts. A signal reported twice that nobody has picked up is not a duplicate — it is untriaged."
+						value={reportedBefore}
+						onChange={(v) => {
+							setReportedBefore(v);
+							if (v) setGenuineThreat(null);
+						}}
+						yesLeadsOff
 					/>
 
-					<div className="space-y-4">
+					{reportedBefore === false && (
 						<Question
-							step={1}
-							prompt="Has this signal been reported before, and is it already under investigation?"
-							hint="Only a signal someone is already working counts. A signal reported twice that nobody has picked up is not a duplicate — it is untriaged."
-							value={reportedBefore}
-							onChange={(v) => {
-								setReportedBefore(v);
-								if (v) setGenuineThreat(null);
-							}}
-							yesLeadsOff
+							step={2}
+							prompt="Does it represent a genuine or potential threat to public health?"
+							hint="Triage decides whether verification is warranted — not whether the report is true."
+							value={genuineThreat}
+							onChange={setGenuineThreat}
+							noLeadsOff
 						/>
+					)}
 
-						{reportedBefore === false && (
-							<Question
-								step={2}
-								prompt="Does it represent a genuine or potential threat to public health?"
-								hint="Triage decides whether verification is warranted — not whether the report is true."
-								value={genuineThreat}
-								onChange={setGenuineThreat}
-								noLeadsOff
+					{/* Only on the way FORWARD. A signal leaving the pipeline is
+					    being discarded or logged, not classified — asking an
+					    operator to name the Annex line of a report nobody will
+					    verify is work for a code that answers nothing. Any code
+					    already on the row is still submitted untouched. */}
+					{continues && (
+						<div className="space-y-2 border-t border-gray-100 pt-4">
+							<SignalPicker value={signalCode} onChange={setSignalCode} />
+						</div>
+					)}
+
+					{decision !== null && (
+						<div
+							className={cn(
+								"rounded-lg border p-3",
+								continues
+									? "border-emerald-200 bg-emerald-50"
+									: "border-slate-200 bg-slate-50",
+							)}
+						>
+							<p className="flex items-center gap-2 text-sm font-semibold">
+								{continues ? (
+									<ArrowRight className="h-4 w-4 text-emerald-700" />
+								) : (
+									<CircleSlash className="h-4 w-4 text-slate-500" />
+								)}
+								{decision === TRIAGE_FORWARDED
+									? "Forward to verification"
+									: decision === TRIAGE_LOGGED
+										? "Log and monitor"
+										: "Discard as already reported"}
+							</p>
+							<p className="mt-1 text-xs text-muted-foreground">
+								{TRIAGE_DECISION_GUIDANCE[decision]}
+							</p>
+							{signalSummary(signalCode) && (
+								<p className="mt-1 text-[11px] text-muted-foreground">
+									Recorded as{" "}
+									<span className="font-mono font-semibold">{signalCode}</span>{" "}
+									— {signalSummary(signalCode)?.split(" — ")[1]}
+								</p>
+							)}
+						</div>
+					)}
+
+					{decision === TRIAGE_DISCARDED && (
+						<div className="space-y-1">
+							<Label htmlFor="triage-duplicate-of" className="text-xs">
+								Duplicate of{" "}
+								<span className="text-muted-foreground">
+									(optional signal ID)
+								</span>
+							</Label>
+							<Input
+								id="triage-duplicate-of"
+								inputMode="numeric"
+								value={duplicateOf}
+								onChange={(e) => setDuplicateOf(e.target.value)}
+								placeholder="e.g. 6142"
+								className="h-8 text-xs"
 							/>
-						)}
+							<p className="text-[11px] text-muted-foreground">
+								Links this signal to the one it repeats, so the reporting
+								cluster is visible instead of just the discard.
+							</p>
+						</div>
+					)}
 
-						{decision !== null && (
-							<div
-								className={cn(
-									"rounded-lg border p-3",
-									continues
-										? "border-emerald-200 bg-emerald-50"
-										: "border-slate-200 bg-slate-50",
+					{decision !== null && (
+						<div className="space-y-1">
+							<Label htmlFor="triage-reason" className="text-xs">
+								{reasonRequired ? (
+									<>
+										Why is this signal leaving the pipeline?{" "}
+										<span className="text-uganda-red">*</span>
+									</>
+								) : (
+									<>
+										Triage note{" "}
+										<span className="text-muted-foreground">(optional)</span>
+									</>
 								)}
-							>
-								<p className="flex items-center gap-2 text-sm font-semibold">
-									{continues ? (
-										<ArrowRight className="h-4 w-4 text-emerald-700" />
-									) : (
-										<CircleSlash className="h-4 w-4 text-slate-500" />
-									)}
-									{decision === TRIAGE_FORWARDED
-										? "Forward to verification"
-										: decision === TRIAGE_LOGGED
-											? "Log and monitor"
-											: "Discard as already reported"}
-								</p>
-								<p className="mt-1 text-xs text-muted-foreground">
-									{TRIAGE_DECISION_GUIDANCE[decision]}
-								</p>
-								{signalSummary(signalCode) && (
-									<p className="mt-1 text-[11px] text-muted-foreground">
-										Recorded as{" "}
-										<span className="font-mono font-semibold">
-											{signalCode}
-										</span>{" "}
-										— {signalSummary(signalCode)?.split(" — ")[1]}
-									</p>
-								)}
-							</div>
-						)}
-
-						{decision === TRIAGE_DISCARDED && (
-							<div className="space-y-1">
-								<Label htmlFor="triage-duplicate-of" className="text-xs">
-									Duplicate of{" "}
-									<span className="text-muted-foreground">
-										(optional signal ID)
-									</span>
-								</Label>
-								<Input
-									id="triage-duplicate-of"
-									inputMode="numeric"
-									value={duplicateOf}
-									onChange={(e) => setDuplicateOf(e.target.value)}
-									placeholder="e.g. 6142"
-									className="h-8 text-xs"
-								/>
-								<p className="text-[11px] text-muted-foreground">
-									Links this signal to the one it repeats, so the reporting
-									cluster is visible instead of just the discard.
-								</p>
-							</div>
-						)}
-
-						{decision !== null && (
-							<div className="space-y-1">
-								<Label htmlFor="triage-reason" className="text-xs">
-									{reasonRequired ? (
-										<>
-											Why is this signal leaving the pipeline?{" "}
-											<span className="text-uganda-red">*</span>
-										</>
-									) : (
-										<>
-											Triage note{" "}
-											<span className="text-muted-foreground">(optional)</span>
-										</>
-									)}
-								</Label>
-								<Textarea
-									id="triage-reason"
-									value={reasonRequired ? reason : note}
-									onChange={(e) =>
-										reasonRequired
-											? setReason(e.target.value)
-											: setNote(e.target.value)
-									}
-									placeholder={
-										reasonRequired
-											? "e.g. same cluster as ALT6142, RRT already deployed"
-											: "e.g. cluster of 3 in one village, bleeding reported"
-									}
-									className="min-h-[64px] text-xs"
-								/>
-								<p className="text-[11px] text-muted-foreground">
-									{reasonRequired
-										? "Required. Without a stated reason a discard is indistinguishable from a signal nobody looked at."
-										: "Kept on the signal's traceability timeline, so a later re-triage does not erase the original reasoning."}
-								</p>
-							</div>
-						)}
-					</div>
+							</Label>
+							<Textarea
+								id="triage-reason"
+								value={reasonRequired ? reason : note}
+								onChange={(e) =>
+									reasonRequired
+										? setReason(e.target.value)
+										: setNote(e.target.value)
+								}
+								placeholder={
+									reasonRequired
+										? "e.g. same cluster as ALT6142, RRT already deployed"
+										: "e.g. cluster of 3 in one village, bleeding reported"
+								}
+								className="min-h-[64px] text-xs"
+							/>
+							<p className="text-[11px] text-muted-foreground">
+								{reasonRequired
+									? "Required. Without a stated reason a discard is indistinguishable from a signal nobody looked at."
+									: "Kept on the signal's traceability timeline, so a later re-triage does not erase the original reasoning."}
+							</p>
+						</div>
+					)}
 				</div>
 
 				<div className="flex justify-end gap-2">

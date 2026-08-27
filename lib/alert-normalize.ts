@@ -54,6 +54,15 @@ export interface ApiAlert {
 	verificationOutcome?: string | null;
 	/** Comma-joined response actions taken. */
 	responseActions?: string | null;
+	/** The verifier's description of the decision. Mandatory on every conclusion. */
+	verificationNote?: string | null;
+	/**
+	 * An attempt that did NOT conclude: why the signal could not be verified.
+	 * Carries no outcome, so the signal stays in the verification queue.
+	 */
+	verificationPendingReason?: string | null;
+	verificationAttemptedAt?: string | null;
+	verificationAttemptedBy?: string | null;
 	/** Risk assessment (EBS step 4). */
 	riskLevel?: string | null;
 	riskSevere?: boolean | null;
@@ -226,6 +235,18 @@ export function normalizeAlertFromApi(raw: unknown): ApiAlert {
 		verificationOutcome:
 			str(body.verificationOutcome ?? body.verification_outcome) ?? null,
 		responseActions: str(body.responseActions ?? body.response_actions) ?? null,
+		verificationNote:
+			str(body.verificationNote ?? body.verification_note) ?? null,
+		verificationPendingReason:
+			str(
+				body.verificationPendingReason ?? body.verification_pending_reason
+			) ?? null,
+		verificationAttemptedAt:
+			str(body.verificationAttemptedAt ?? body.verification_attempted_at) ??
+			null,
+		verificationAttemptedBy:
+			str(body.verificationAttemptedBy ?? body.verification_attempted_by) ??
+			null,
 		riskLevel: str(body.riskLevel ?? body.risk_level) ?? null,
 		riskSevere: boolOrNull(body.riskSevere ?? body.risk_severe),
 		riskSpread: boolOrNull(body.riskSpread ?? body.risk_spread),

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { LogOut } from "lucide-react";
 
 import { AuthService } from "@/lib/auth";
+import { userFullName, userInitials } from "@/lib/user-name";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -12,14 +13,6 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-function getInitials(name: string): string {
-	if (!name) return "AU";
-	const parts = name.trim().split(/\s+/);
-	return parts.length > 1
-		? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-		: parts[0].substring(0, 2).toUpperCase();
-}
 
 /**
  * Account menu shown at the top-right of the dashboard. Replaces the old
@@ -35,20 +28,13 @@ export function UserMenu() {
 		setUser(AuthService.getUser());
 	}, []);
 
-	const displayName = (() => {
-		if (!user) return "Admin User";
-		const full = [user.firstName, user.lastName]
-			.filter(Boolean)
-			.join(" ")
-			.trim();
-		return full || user.username || "Admin User";
-	})();
+	const displayName = userFullName(user) || "Admin User";
 
 	const email =
 		user?.email ||
 		(user ? `${user.username}@health.go.ug` : "admin@health.go.ug");
 
-	const initials = getInitials(displayName);
+	const initials = userInitials(user) || "AU";
 
 	const handleLogout = async () => {
 		if (isLoggingOut) return;

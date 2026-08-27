@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import {
 	STATUS_FILTER_OPTIONS,
-	SOURCE_FILTER_OPTIONS,
+	sourceFilterOptions,
 	VERIFICATION_FILTER_OPTIONS,
 	SEX_FILTER_OPTIONS,
 	type CallLogsFilterState,
@@ -27,6 +27,7 @@ import {
 	DateRangePresetBar,
 	DateRangeInputs,
 } from "@/components/filters/date-range-filter";
+import { useSourceOfAlertOptions } from "@/hooks/use-lookup-options";
 
 interface CallLogsFiltersProps {
 	filters: CallLogsFilterState;
@@ -36,6 +37,9 @@ interface CallLogsFiltersProps {
 
 export const CallLogsFilters = memo<CallLogsFiltersProps>(
 	({ filters, onFiltersChange, onClearFilters }) => {
+		// Subscribes to the admin-managed source list so this re-renders when it
+		// loads; sourceFilterOptions() then reads the freshly hydrated list.
+		useSourceOfAlertOptions();
 		// Region → District → Division cascade from the admin-units hierarchy.
 		const {
 			regions,
@@ -143,7 +147,7 @@ export const CallLogsFilters = memo<CallLogsFiltersProps>(
 									<SelectValue placeholder="All" />
 								</SelectTrigger>
 								<SelectContent>
-									{SOURCE_FILTER_OPTIONS.map((option) => (
+									{sourceFilterOptions().map((option) => (
 										<SelectItem
 											key={option.value}
 											value={option.value}

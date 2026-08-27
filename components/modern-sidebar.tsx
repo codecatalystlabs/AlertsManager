@@ -13,6 +13,7 @@ import {
 	BellPlus,
 	Siren,
 	UsersRound,
+	ListTree,
 	X,
 	RadioTower,
 	Headset,
@@ -21,9 +22,9 @@ import {
 	Map as MapIcon,
 	Stethoscope,
 	PlaneLanding,
+	MessageCircleReply,
 	ShieldQuestion,
 	ShieldCheck,
-	MessageCircleReply,
 } from "lucide-react";
 import { MohLogo } from "@/components/moh-logo";
 
@@ -70,12 +71,14 @@ const navigationGroups: NavigationGroup[] = [
 		label: "Signal Pipeline",
 		items: [
 			{ name: "Signal Register", href: "/dashboard/signal-logs", icon: RadioTower },
-			// The register's own tabs, as destinations: the register opens on the
-			// untriaged signals, "Triaged" is the forwarded-but-unverified queue
-			// (?stage=verification is the gate they are waiting AT), and
-			// "Verified" is the confirmed events waiting to be risk-assessed —
-			// step 4 has no separate entry because risk can only be assessed on a
-			// verified signal, so the Verified tab IS the risk queue.
+			// The pipeline's queues as destinations, each named for the state a
+			// signal has REACHED and holding the work due NEXT: "Triaged" is the
+			// forwarded-but-unverified queue (?stage=verification is the gate they
+			// are waiting AT), "Verified" is the confirmed events waiting to be
+			// scored, and "Risk Assessed" is the concluded signals whose reporter
+			// has not been told. Steps 4 and 6 have no entries of their own for
+			// that reason — you cannot score an unverified signal or close a loop
+			// on an unconcluded one, so those queues ARE these entries.
 			{
 				name: "Triaged",
 				href: "/dashboard/signal-logs?stage=verification",
@@ -87,7 +90,7 @@ const navigationGroups: NavigationGroup[] = [
 				icon: ShieldCheck,
 			},
 			{
-				name: "Feedback Due",
+				name: "Risk Assessed",
 				href: "/dashboard/signal-logs?stage=feedback",
 				icon: MessageCircleReply,
 			},
@@ -119,6 +122,12 @@ const navigationGroups: NavigationGroup[] = [
 		label: "Administration",
 		items: [
 			{ name: "Manage Users", href: "/dashboard/users", icon: UsersRound, adminOnly: true },
+			{
+				name: "Dropdown Options",
+				href: "/dashboard/dropdown-options",
+				icon: ListTree,
+				adminOnly: true,
+			},
 			{ name: "Profile", href: "/dashboard/profile", icon: CircleUser },
 		],
 	},

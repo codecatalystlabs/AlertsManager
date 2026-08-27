@@ -41,12 +41,14 @@ import { AuthService, type Alert as ApiAlert } from "@/lib/auth";
 import { getLocalDateString } from "@/lib/utils";
 import {
 	alertResponse,
-	alertSource,
 	alertStatus,
 	signsAndSymptoms,
 } from "@/constants";
 import { CaseLocationSelect } from "@/components/case-location-select";
-import { CHANNEL_OF_REPORTING_OPTIONS } from "@/lib/channel-of-reporting";
+import {
+	useChannelOfReportingOptions,
+	useSourceOfAlertOptions,
+} from "@/hooks/use-lookup-options";
 import { useToast } from "@/hooks/use-toast";
 
 import {
@@ -71,6 +73,9 @@ export function AlertEditDialog({
 	onEditComplete,
 }: AlertEditDialogProps) {
 	const { toast } = useToast();
+	// Admin-managed lists (Administration -> Dropdown Options).
+	const sourceOptions = useSourceOfAlertOptions();
+	const channelOptions = useChannelOfReportingOptions();
 	const [formData, setFormData] = useState({
 		date: "",
 		time: "",
@@ -590,12 +595,12 @@ export function AlertEditDialog({
 										<SelectValue placeholder="Select signal source" />
 									</SelectTrigger>
 									<SelectContent>
-										{alertSource?.map((source) => (
+										{sourceOptions.map((source) => (
 															<SelectItem
-																key={source.name}
-																value={source.name}
+																key={source}
+																value={source}
 															>
-																{source.name}
+																{source}
 															</SelectItem>
 														))}
 									</SelectContent>
@@ -621,7 +626,7 @@ export function AlertEditDialog({
 										<SelectValue placeholder="Select channel of reporting" />
 									</SelectTrigger>
 									<SelectContent>
-										{CHANNEL_OF_REPORTING_OPTIONS.map(
+										{channelOptions.map(
 											(channel) => (
 												<SelectItem
 													key={channel}

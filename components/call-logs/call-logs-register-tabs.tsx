@@ -17,7 +17,9 @@ interface CallLogsRegisterTabsProps {
  *
  * Each tab holds rows whose next action is the same one, which is what makes
  * the list workable — Triage every row on the Untriaged tab, Verify every row
- * on the Triaged tab. See lib/register-view.ts for what each selects.
+ * on the Triaged tab. The step after that (the feedback queue) is a sidebar
+ * destination, "Risk Assessed", not a tab. See lib/register-view.ts for what
+ * each selects.
  */
 export const CallLogsRegisterTabs = memo<CallLogsRegisterTabsProps>(
 	({ value, onChange }) => {

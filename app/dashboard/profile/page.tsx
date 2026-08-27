@@ -32,6 +32,7 @@ import {
 	type User,
 } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { userFullName, userInitials } from "@/lib/user-name";
 
 type ProfileForm = Pick<
 	User,
@@ -66,17 +67,6 @@ function formatDate(dateString: string): string {
 		month: "short",
 		day: "numeric",
 	});
-}
-
-function getFullName(user: User): string {
-	const names = [user.firstName, user.otherName, user.lastName].filter(Boolean);
-	return names.length > 0 ? names.join(" ") : user.username;
-}
-
-function getInitials(user: User): string {
-	const first = user.firstName || user.username.charAt(0);
-	const last = user.lastName || user.username.charAt(1);
-	return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
 }
 
 function getRoleBadgeClass(level: string): string {
@@ -295,7 +285,7 @@ export default function ProfilePage() {
 		);
 	}
 
-	const fullName = getFullName(user);
+	const fullName = userFullName(user);
 	const level = user.level || "User";
 
 	return (
@@ -307,7 +297,7 @@ export default function ProfilePage() {
 							<Avatar className="h-16 w-16 border border-white/20">
 								<AvatarImage src="" alt={fullName} />
 								<AvatarFallback className="bg-uganda-yellow text-lg font-bold text-slate-950">
-									{getInitials(user)}
+									{userInitials(user)}
 								</AvatarFallback>
 							</Avatar>
 							<div className="min-w-0">

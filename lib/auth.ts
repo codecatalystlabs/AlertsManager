@@ -197,6 +197,15 @@ export interface Alert {
     verificationOutcome?: string | null
     /** Comma-joined response actions taken. */
     responseActions?: string | null
+    /** The verifier's description of the decision. Mandatory on every conclusion. */
+    verificationNote?: string | null
+    /**
+     * An attempt that did NOT conclude: why the signal could not be verified.
+     * Carries no outcome, so the signal stays in the verification queue.
+     */
+    verificationPendingReason?: string | null
+    verificationAttemptedAt?: string | null
+    verificationAttemptedBy?: string | null
     /** Risk assessment (EBS step 4). */
     riskLevel?: string | null
     riskSevere?: boolean | null
@@ -784,52 +793,67 @@ export class AuthService {
         }
     }
 
+    /**
+     * Record an ATTEMPT that did not conclude — "no, I have not verified this
+     * signal" plus the reason.
+     *
+     * Hits the same endpoint as a conclusion, with `verified: false`, which the
+     * server routes to a branch that writes ONLY the reason: no outcome, no
+     * is_verified, no verification timestamp. The signal keeps its place in the
+     * verification queue and its SLA clock keeps running, because an attempt is
+     * not a verification.
+     */
+    static async recordVerificationAttempt(alertId: number, data: {
+        token: string
+        verificationPendingReason: string
+        verifiedBy?: string
+    }): Promise<void> {
+        const response = await fetch(`${API_BASE_URL}/alerts/${alertId}/verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...data, verified: false }),
+            credentials: 'omit',
+        })
+
+        if (!response.ok) {
+            let errorMessage = 'Failed to record the verification attempt'
+            try {
+                const errorData = await response.json()
+                errorMessage = errorData.message || errorData.error || errorMessage
+            } catch {
+                errorMessage = response.statusText || errorMessage
+            }
+            throw new Error(errorMessage)
+        }
+
+        notifyAlertsChanged()
+    }
+
+    /**
+     * Record a CONCLUDED verification (EBS step 3).
+     *
+     * Every field is optional except the token and the two things a conclusion
+     * must carry: the outcome and the verifier's note. The verify endpoint only
+     * writes columns the client actually sent, so a short payload can no longer
+     * blank case data — which is what let the form stop being a case
+     * investigation. The wider fields remain accepted for the paths that still
+     * submit them.
+     */
     static async verifyAlert(alertId: number, verificationData: {
         token: string
-        status: string
-        verificationDate: string
-        verificationTime: string
-        cifNo: string
-        personReporting: string
-        village: string
-        subCounty: string
-        contactNumber: string
-        sourceOfAlert: string
-        response?: string
-        alertCaseName: string
-        alertCaseAge: number
-        alertCaseSex: string
-        alertCasePregnantDuration: number
-        alertCaseVillage: string
-        alertCaseParish: string
-        alertCaseSubCounty: string
-        alertCaseDistrict: string
-        region?: string
-        alertCaseNationality: string
-        pointOfContactName: string
-        pointOfContactRelationship: string
-        pointOfContactPhone: string
-        history: string
-        healthFacilityVisit: string
-        traditionalHealerVisit: string
-        symptoms: string
-        actions: string
-        feedback: string
-        verifiedBy: string
-        deskVerificationActions: string
-        fieldVerificationFeedback: string
-        caseVerificationDesk?: string
-        /**
-         * The verification split (preferred). The backend stores these directly
-         * and mirrors them back into caseVerificationDesk; when they are absent
-         * it derives them from that legacy string instead, so older callers keep
-         * working.
-         */
+        /** Answer to "have you verified this signal?". False takes the pending path. */
+        verified?: boolean
+        /** Confirmed | Discarded. Required on a conclusion. */
         verificationOutcome?: string
-        responseActions?: string[]
-        fieldVerification?: string
-        fieldVerificationDecision?: string
+        /** The verifier's description of the decision. Required on a conclusion. */
+        verificationNote?: string
+        status?: string
+        verificationDate?: string
+        verificationTime?: string
+        verifiedBy?: string
         isVerified?: boolean
+        /** EBS step 6. Kept accepted so the EMS-evacuation trigger stays reachable. */
+        responseActions?: string[]
         caseCode?: string
     }): Promise<{ alert: Alert; emsNotified: boolean; emsDispatched: boolean }> {
         try {

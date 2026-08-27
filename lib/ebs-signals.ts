@@ -16,21 +16,43 @@
  * The list is reviewed annually by IES&PHE, which is why the codes carry their
  * annex rather than being treated as permanent constants.
  *
+ * The list is ADMIN-MANAGED: it lives in `ebs_signal_definition` behind the
+ * /ebs-signals CRUD API (Administration → Dropdown Options → EBS Signals),
+ * precisely because IES&PHE revises it annually and a yearly revision should
+ * not need a redeploy. The array below is the FALLBACK rendered before the API
+ * responds, and the set the backend seeds a fresh database with.
+ *
  * Twins that must stay in step:
- *   - alertsMIS/backend/internal/services/ebs_signals.go (validation)
+ *   - alertsMIS/backend/internal/services/ebs_signals.go (seed + validation)
  *   - alertsMIS/backend/migrations/ebs/01_reference.sql (ebs_signal_definition)
+ *
+ * This file imports only lib/lookup-registry.ts, which itself imports nothing —
+ * the helpers below are synchronous and called from render paths and plain-node
+ * test scripts, neither of which can pull in fetch/auth machinery.
  */
+
+import { SnapshotStore } from "@/lib/lookup-registry";
 
 export type SignalSetting = "facility" | "community";
 export type SignalDomain = "human" | "animal" | "environment";
 
 export interface EbsSignal {
-	/** FH1..FE2 (Annex I), CH1..CE7 (Annex II). */
+	/** FH1..FE2 (Annex I), CH1..CE7 (Annex II). Stored on alerts.signal_code. */
 	code: string;
 	label: string;
 	domain: SignalDomain;
 	setting: SignalSetting;
 	annex: "I" | "II";
+}
+
+/** One row as the /ebs-signals API returns it. */
+export interface EbsSignalRow extends EbsSignal {
+	id: number;
+	/** Retired signals are hidden from the picker but still resolve on old rows. */
+	active: boolean;
+	sortOrder: number;
+	/** How many alerts currently record this code. */
+	usageCount: number;
 }
 
 /** Annex I — health facility signals. */
@@ -300,8 +322,12 @@ const COMMUNITY_SIGNALS: EbsSignal[] = [
 	},
 ];
 
-/** All 34 signals, community first — most signals reaching the desk are CH*. */
-export const EBS_SIGNALS: EbsSignal[] = [
+/**
+ * Fallback list — the 34 published signals, community first (most signals
+ * reaching the desk are CH*). Mirrors services.DefaultEbsSignals on the backend.
+ * The live list comes from the API; this is what renders until it arrives.
+ */
+export const DEFAULT_EBS_SIGNALS: EbsSignal[] = [
 	...COMMUNITY_SIGNALS,
 	...FACILITY_SIGNALS,
 ];
@@ -317,7 +343,76 @@ export const SIGNAL_DOMAIN_LABEL: Record<SignalDomain, string> = {
 	environment: "Environment",
 };
 
-const BY_CODE = new Map(EBS_SIGNALS.map((s) => [s.code, s]));
+/**
+ * The resolved list. `selectable` is what the picker offers (active only);
+ * `byCode` deliberately includes RETIRED signals, so an alert classified under
+ * a signal that has since left the Annex still resolves to its definition
+ * instead of displaying a bare code.
+ */
+interface SignalRegistry {
+	all: EbsSignalRow[];
+	selectable: EbsSignal[];
+	byCode: Map<string, EbsSignal>;
+}
+
+function buildSignalRegistry(rows: EbsSignalRow[]): SignalRegistry {
+	const sorted = [...rows].sort(
+		(a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code)
+	);
+	return {
+		all: sorted,
+		selectable: sorted.filter((s) => s.active),
+		byCode: new Map(sorted.map((s) => [s.code.toUpperCase(), s])),
+	};
+}
+
+/** Same codes in the same order, with the same definitions and availability. */
+function sameSignals(a: SignalRegistry, b: SignalRegistry): boolean {
+	if (a.all.length !== b.all.length) return false;
+	return a.all.every((signal, i) => {
+		const other = b.all[i];
+		return (
+			signal.code === other.code &&
+			signal.label === other.label &&
+			signal.domain === other.domain &&
+			signal.setting === other.setting &&
+			signal.active === other.active
+		);
+	});
+}
+
+export const ebsSignalStore = new SnapshotStore<SignalRegistry>(
+	buildSignalRegistry(
+		DEFAULT_EBS_SIGNALS.map((signal, index) => ({
+			...signal,
+			id: -(index + 1),
+			active: true,
+			sortOrder: (index + 1) * 10,
+			usageCount: 0,
+		}))
+	),
+	sameSignals
+);
+
+/** Replace the live list — called once by the hydrator, then after admin edits. */
+export function setEbsSignals(rows: EbsSignalRow[]): void {
+	if (rows.length === 0) return; // never blank out the picker on an empty read
+	ebsSignalStore.set(buildSignalRegistry(rows));
+}
+
+/**
+ * The signals a picker may offer, in admin-defined order. A function, not a
+ * constant: a module-scope array would freeze the fallback list. Components
+ * should prefer `useEbsSignals()` so they re-render when the list loads.
+ */
+export function ebsSignals(): EbsSignal[] {
+	return ebsSignalStore.get().selectable;
+}
+
+/** Every signal including retired ones — for the admin screen. */
+export function allEbsSignals(): EbsSignalRow[] {
+	return ebsSignalStore.get().all;
+}
 
 /**
  * Fold free-text onto a canonical signal code; null when absent or not on the
@@ -326,13 +421,13 @@ const BY_CODE = new Map(EBS_SIGNALS.map((s) => [s.code, s]));
  */
 export function normalizeSignalCode(value?: string | null): string | null {
 	const code = (value ?? "").trim().toUpperCase();
-	return BY_CODE.has(code) ? code : null;
+	return ebsSignalStore.get().byCode.has(code) ? code : null;
 }
 
 /** The definition behind a code, or null when it is absent/unrecognised. */
 export function findSignal(value?: string | null): EbsSignal | null {
 	const code = normalizeSignalCode(value);
-	return code ? (BY_CODE.get(code) ?? null) : null;
+	return code ? (ebsSignalStore.get().byCode.get(code) ?? null) : null;
 }
 
 /** "CH1 — Unexplained bleeding…", or null when there is nothing to describe. */
