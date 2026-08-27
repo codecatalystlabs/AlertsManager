@@ -35,14 +35,16 @@ const CELL_TINT: Record<string, string> = {
  * Risk assessment matrix — the EBS §6 likelihood × impact grid, populated with
  * the confirmed events actually assessed.
  *
- * The colour rule is the whole point, and it is deliberately NOT the textbook
- * "red top-right" heat map: the guideline publishes that grid only as a shaded
- * figure, so the app never derives a level from a cell's position. Instead each
- * event is POSITIONED by its recorded likelihood/impact and the cell is COLOURED
- * by the events' own algorithm-derived levels. Plotting the two instruments
- * against each other is what lets a supervisor see where they disagree — an
- * event sitting top-right but carrying only a "Moderate" algorithm level is a
- * flag, not something the tool should paint over.
+ * The colour rule is the whole point: each event is POSITIONED by its recorded
+ * likelihood/impact and each cell is COLOURED by the risk levels the events in
+ * it actually carry — never by the cell's position on the grid.
+ *
+ * For an event assessed on the matrix those two agree by construction, because
+ * the level came from the cell (Figure 4, see lib/alert-risk deriveMatrixLevel).
+ * For one assessed on the three-question algorithm they can disagree, and that
+ * disagreement is exactly what this card exists to surface: an event sitting
+ * top-right but carrying only a "Moderate" algorithm level is a flag, not
+ * something the tool should paint over.
  */
 export function RiskMatrixCard({ matrix, scope, isLoading }: Props) {
 	const [target, setTarget] = useState<RiskMatrixCellTarget | null>(null);
@@ -100,9 +102,10 @@ export function RiskMatrixCard({ matrix, scope, isLoading }: Props) {
 							<p className="text-xs text-muted-foreground">
 								Each confirmed event is placed by its recorded{" "}
 								<strong>likelihood</strong> and <strong>impact</strong>; a cell is
-								coloured by the <strong>algorithm-derived risk level</strong> of the
-								events in it — never by the cell position. Click a cell to see its
-								events.
+								coloured by the <strong>recorded risk level</strong> of the events in
+								it — never by the cell position, so an event whose level came from
+								the three-question algorithm can sit in a cell of a different colour.
+								Click a cell to see its events.
 							</p>
 
 							<div className="overflow-x-auto">

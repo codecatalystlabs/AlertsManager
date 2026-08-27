@@ -25,7 +25,7 @@ import {
 	RISK_LIKELIHOODS,
 	RISK_IMPACTS,
 	RISK_TIERS,
-	deriveRiskLevel,
+	deriveMatrixLevel,
 	normalizeRiskLevel,
 	riskWorksheetComplete,
 } from "@/lib/alert-risk";
@@ -119,20 +119,16 @@ export function RiskAssessmentDialog({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [open, current?.riskSevere, current?.riskSpread, current?.riskControl]);
 
-	const complete =
-		answers.severe !== undefined &&
-		answers.spread !== undefined &&
-		answers.control !== undefined;
-
-	// Preview the level, but only once all three are answered — a partial answer
-	// set has no defined level, and guessing at one would misinform the assessor.
+	// With the algorithm questions hidden, the MATRIX carries the level: both
+	// bands together, and the server derives the same level from the same grid.
 	const level = useMemo(
-		() =>
-			complete
-				? deriveRiskLevel(answers.severe!, answers.spread!, answers.control!)
-				: null,
-		[complete, answers.severe, answers.spread, answers.control]
+		() => deriveMatrixLevel(sheet.likelihood, sheet.impact),
+		[sheet.likelihood, sheet.impact]
 	);
+
+	// A half-placed event has no level — preview nothing and save nothing until
+	// both bands are chosen, rather than guessing at the missing axis.
+	const complete = level !== null;
 
 	const submit = useCallback(async () => {
 		if (!alertId || !complete) return;
@@ -142,10 +138,12 @@ export function RiskAssessmentDialog({
 				`${API_BASE_URL}/alerts/${alertId}/risk-assessment`,
 				{
 					method: "POST",
+					// The three algorithm answers are deliberately NOT sent while the
+					// questions are hidden: sending the seeded values would have the
+					// server derive an algorithm level that contradicts the matrix
+					// level previewed above. Answers already on the alert are left
+					// untouched rather than blanked.
 					body: JSON.stringify({
-						severe: answers.severe,
-						spread: answers.spread,
-						control: answers.control,
 						note: note.trim() || undefined,
 						...sheet,
 					}),
@@ -168,7 +166,7 @@ export function RiskAssessmentDialog({
 		} finally {
 			setSaving(false);
 		}
-	}, [alertId, complete, answers, note, sheet, level, onAssessed, onOpenChange]);
+	}, [alertId, complete, note, sheet, level, onAssessed, onOpenChange]);
 
 	const reassessing = Boolean(normalizeRiskLevel(current?.riskLevel));
 	const sheetComplete = riskWorksheetComplete({
@@ -189,12 +187,16 @@ export function RiskAssessmentDialog({
 						{altCode(alertId)}
 					</DialogTitle>
 					<DialogDescription className="text-xs">
-						Answer all three questions. The risk level is calculated from your
-						answers using the national algorithm — it is not chosen directly.
+						Place the event on the risk matrix. The risk level is calculated from
+						the likelihood and impact you select — it is not chosen directly.
 					</DialogDescription>
 				</DialogHeader>
 
 				<div className="space-y-3">
+					{/* Risk algorithm questions — temporarily commented out.
+					    The three yes/no answers are the only input to deriveRiskLevel,
+					    so while this block is hidden no level can be calculated and
+					    "Record assessment" stays disabled. Uncomment to restore.
 					{RISK_QUESTIONS.map((q, index) => {
 						const value = answers[q.key];
 						return (
@@ -235,29 +237,7 @@ export function RiskAssessmentDialog({
 							</div>
 						);
 					})}
-
-					{/* The consequence of the answers, shown before saving. */}
-					<div
-						className={cn(
-							"rounded-lg border p-3",
-							level ? RISK_BADGE_CLASS[level] : "border-gray-200 bg-gray-50"
-						)}
-					>
-						{level ? (
-							<>
-								<p className="text-xs font-semibold uppercase tracking-wide opacity-80">
-									Calculated risk level
-								</p>
-								<p className="text-lg font-bold leading-tight">{level}</p>
-								<p className="mt-1 text-xs">{RISK_ACTION[level]}</p>
-							</>
-						) : (
-							<p className="text-xs text-muted-foreground">
-								Answer all three questions to see the calculated risk level and
-								the response it requires.
-							</p>
-						)}
-					</div>
+					*/}
 
 					{/* The worksheet §10 requires: the two matrix axes and the three
 					    tiers of analysis that justify the level. Optional by design —
@@ -276,15 +256,34 @@ export function RiskAssessmentDialog({
 										: "bg-gray-100 text-gray-600"
 								)}
 							>
-								{sheetComplete ? "Complete" : "Optional — not complete"}
+								{sheetComplete ? "Complete" : "Analysis notes optional"}
 							</span>
 						</div>
 
-						{/* Matrix axes. Recorded for the record; the LEVEL above always
-						    comes from the algorithm, never from this pair. */}
+						{/* The three tiers of analysis (§2 step 4). */}
+						{RISK_TIERS.map((tier) => (
+							<div key={tier.key} className="space-y-1">
+								<Label htmlFor={`risk-${tier.key}`} className="text-xs">
+									{tier.label} assessment
+								</Label>
+								<p className="text-[11px] text-muted-foreground">{tier.prompt}</p>
+								<Textarea
+									id={`risk-${tier.key}`}
+									value={sheet[tier.key]}
+									onChange={(e) => setField(tier.key, e.target.value)}
+									className="min-h-[52px] text-xs"
+								/>
+							</div>
+						))}
+
+						{/* Matrix axes — Figure 4. These two now CARRY the level, so unlike
+						    the rest of the worksheet they are required: the save is gated on
+						    both being chosen. */}
 						<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
 							<div className="space-y-1">
-								<Label className="text-xs">Likelihood</Label>
+								<Label className="text-xs">
+									Likelihood <span className="text-uganda-red">*</span>
+								</Label>
 								<select
 									value={sheet.likelihood}
 									onChange={(e) => setField("likelihood", e.target.value)}
@@ -299,7 +298,9 @@ export function RiskAssessmentDialog({
 								</select>
 							</div>
 							<div className="space-y-1">
-								<Label className="text-xs">Impact</Label>
+								<Label className="text-xs">
+									Impact <span className="text-uganda-red">*</span>
+								</Label>
 								<select
 									value={sheet.impact}
 									onChange={(e) => setField("impact", e.target.value)}
@@ -320,21 +321,30 @@ export function RiskAssessmentDialog({
 							</p>
 						)}
 
-						{/* The three tiers of analysis (§2 step 4). */}
-						{RISK_TIERS.map((tier) => (
-							<div key={tier.key} className="space-y-1">
-								<Label htmlFor={`risk-${tier.key}`} className="text-xs">
-									{tier.label} assessment
-								</Label>
-								<p className="text-[11px] text-muted-foreground">{tier.prompt}</p>
-								<Textarea
-									id={`risk-${tier.key}`}
-									value={sheet[tier.key]}
-									onChange={(e) => setField(tier.key, e.target.value)}
-									className="min-h-[52px] text-xs"
-								/>
+						{/* The consequence of the two bands, colour-coded and shown the
+						    moment both are chosen — the assessor sees what the placement
+						    commits the team to BEFORE saving. For a Very High event that is
+						    a response outside normal working hours, so Very High is the one
+						    band that reads as an emergency rather than as a tint. */}
+						{level ? (
+							<div
+								className={cn(
+									"rounded-md border p-3",
+									RISK_BADGE_CLASS[level]
+								)}
+							>
+								<p className="text-[10px] font-semibold uppercase tracking-wide opacity-80">
+									Calculated risk level · {sheet.likelihood} × {sheet.impact}
+								</p>
+								<p className="text-lg font-bold leading-tight">{level}</p>
+								<p className="mt-1 text-xs leading-snug">{RISK_ACTION[level]}</p>
 							</div>
-						))}
+						) : (
+							<p className="text-[11px] text-muted-foreground">
+								Select both a likelihood and an impact to calculate the risk level
+								and the response it requires.
+							</p>
+						)}
 
 						{/* The RRT. The guideline names a TEAM led by the DHO, not an
 						    individual assessor. */}

@@ -105,11 +105,10 @@ export const RISK_ACTION: Record<RiskLevel, string> = {
  * The risk MATRIX (§6). The guidelines say Uganda's ePHEM runs BOTH the matrix
  * and the algorithm, so both are captured.
  *
- * Only the BANDS are published as text. The 5x5 grid mapping a likelihood/impact
- * pair onto a level is a shaded figure, so nothing here derives a level from
- * them — likelihood and impact are recorded for the record and for reporting,
- * and the LEVEL always comes from the algorithm above. Inventing the grid would
- * produce confident, wrong risk levels.
+ * The bands below are published as text; the grid that joins them is published
+ * only as a shaded figure ("Figure 4: The EBS risk categorisation matrix"), and
+ * deriveMatrixLevel() below transcribes it — see its comment for how it was
+ * read and what to re-check against the printed page.
  * ---------------------------------------------------------------------- */
 
 /** Likelihood bands with their published probability ranges, most likely first. */
@@ -129,6 +128,61 @@ export const RISK_IMPACTS: { value: string; meaning: string }[] = [
 	{ value: "Minor", meaning: "Small at-risk group, limited disruption, minimal extra control measures" },
 	{ value: "Minimal", meaning: "Routine response adequate, negligible extra cost" },
 ];
+
+/**
+ * The published grid, transcribed from the guideline's Figure 4 ("The EBS risk
+ * categorisation matrix"), impact across and likelihood down:
+ *
+ *                    Minimal    Minor     Moderate    Major       Severe
+ *   Almost certain     Low     Moderate     High     VERY HIGH   VERY HIGH
+ *   Highly likely      Low     Moderate     High     VERY HIGH   VERY HIGH
+ *   Likely             Low     Moderate     High       High      VERY HIGH
+ *   Unlikely           Low       Low        Low        High        High
+ *   Very unlikely      Low       Low        Low        High        High
+ *
+ * Read from the figure by sampling each cell against the four key swatches. The
+ * Low (green) and Moderate (amber) regions are unambiguous. High and Very High
+ * are both reds and sit close together in print, so they were separated by
+ * measurement: the five Very High cells above measure G/R ≤ 0.31 against ≥ 0.34
+ * for every High cell — a clean gap, and the resulting grid is monotonic on both
+ * axes. If a crisper copy of Figure 4 ever contradicts this, the figure wins.
+ *
+ * The shape is worth noticing before "fixing" it: this matrix is IMPACT-led, not
+ * a symmetric heat map. A Severe-impact event is never below High however
+ * unlikely it is, while an Almost-certain event with Minimal impact stays Low.
+ *
+ * Go twin: alertsMIS/backend/internal/services/risk_assessment.go
+ * DeriveMatrixLevel — the two tables must stay identical, because the UI
+ * previews the level the assessor's bands will produce and the server derives
+ * the level it stores. A drift means the preview lies.
+ */
+const RISK_MATRIX_GRID: Record<string, RiskLevel[]> = {
+	// Impact band → level per likelihood, in RISK_LIKELIHOODS order (most likely
+	// first): Almost certain, Highly likely, Likely, Unlikely, Very unlikely.
+	Severe: [RISK_VERY_HIGH, RISK_VERY_HIGH, RISK_VERY_HIGH, RISK_HIGH, RISK_HIGH],
+	Major: [RISK_VERY_HIGH, RISK_VERY_HIGH, RISK_HIGH, RISK_HIGH, RISK_HIGH],
+	Moderate: [RISK_HIGH, RISK_HIGH, RISK_HIGH, RISK_LOW, RISK_LOW],
+	Minor: [RISK_MODERATE, RISK_MODERATE, RISK_MODERATE, RISK_LOW, RISK_LOW],
+	Minimal: [RISK_LOW, RISK_LOW, RISK_LOW, RISK_LOW, RISK_LOW],
+};
+
+/**
+ * The level a likelihood/impact pair sits on in Figure 4.
+ *
+ * Returns null when either band is missing or unrecognised — a half-placed event
+ * has no cell, and guessing at one would misinform the assessor.
+ */
+export function deriveMatrixLevel(
+	likelihood?: string | null,
+	impact?: string | null
+): RiskLevel | null {
+	const row = RISK_MATRIX_GRID[(impact ?? "").trim()];
+	const column = RISK_LIKELIHOODS.findIndex(
+		(l) => l.value === (likelihood ?? "").trim()
+	);
+	if (!row || column < 0) return null;
+	return row[column];
+}
 
 /**
  * The three tiers of analysis that justify the level (§2 step 4: "systematically

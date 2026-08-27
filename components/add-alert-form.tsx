@@ -749,7 +749,7 @@ export function AddAlertForm({
   const descriptionField = (
     <div className="space-y-2">
       <FieldLabel htmlFor="caseDescription" hint={FIELD_HINTS.caseDescription}>
-        {isPublic ? "Describe what is happening(suspected case,sex,age,signs and symptoms,date of onset) *" : "Signal Description(suspected case,sex,age,signs and symptoms,date of onset) *"}
+        {isPublic ? "Describe what is happening(suspected case , sex, age ,signs and symptoms,date of onset) *" : "Signal Description(suspected case,sex,age,signs and symptoms,date of onset) *"}
       </FieldLabel>
       <Textarea
         id="caseDescription"
@@ -773,7 +773,7 @@ export function AddAlertForm({
         <>
           {/* About you */}
           <div className="space-y-4">
-            <SectionHeading icon={UserIcon} title="About you" />
+            <SectionHeading icon={UserIcon} title="Reporters Details" />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {reporterNameField}
               {reporterPhoneField}
@@ -784,7 +784,7 @@ export function AddAlertForm({
 
           {/* Location */}
           <div className="space-y-4">
-            <SectionHeading icon={MapPinIcon} title="Location" />
+            <SectionHeading icon={MapPinIcon} title="Signal Location" />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {locationSelect}
               {villageParishFields}
