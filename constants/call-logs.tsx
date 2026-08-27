@@ -24,6 +24,7 @@ import {
 	type AlertPdfData,
 } from "@/lib/alert-pdf";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { DiscardLevelBadge, TriagedAnswerBadge } from "@/components/triage";
 import {
@@ -31,7 +32,6 @@ import {
 	verificationBlockedReason,
 } from "@/lib/alert-triage";
 import { nextAction, type NextActionKey } from "@/lib/next-action";
-import { SignalStateBadge } from "@/components/pipeline";
 import { RiskBadge } from "@/components/risk";
 import { feedbackIsDue } from "@/lib/alert-feedback";
 import {
@@ -321,15 +321,9 @@ export const createCallLogsTableColumns = (
 		},
 		cell: ({ row }) => {
 			return (
-				<div className="flex items-center gap-1.5">
-					<span className="font-mono text-sm">
-						{altCode(Number(row.getValue("id")))}
-					</span>
-					{/* Named beside its identifier: whether this is still a
-					    signal or has become an event is the first fact about
-					    it, and it costs no column width here. */}
-					<SignalStateBadge record={row.original} />
-				</div>
+				<span className="font-mono text-sm">
+					{altCode(Number(row.getValue("id")))}
+				</span>
 			);
 		},
 	},
@@ -781,17 +775,30 @@ function NextStepButton({
 		none: () => {},
 	};
 
+	// Solid and filled when there is work due. The muted fill this used to carry
+	// sat within a couple of percent of the row behind it, so the one control
+	// that says "this signal needs something from you" read as a label rather
+	// than as something to press.
+	//
+	// The fill is --action, not the crimson primary: red is the register's
+	// danger colour, and a column of red buttons told the reader every routine
+	// triage was an emergency. This says "act here" without saying anything
+	// about the signal.
+	//
+	// The quiet variant is kept for Re-triage, which is a way back rather than
+	// work waiting — but it is a bordered, raised button too, not text.
 	return (
 		<Button
 			size="sm"
-			variant={action.actionable ? "secondary" : "outline"}
+			variant={action.actionable ? "default" : "outline"}
 			title={action.hint}
 			onClick={() => run[action.key]()}
-			className={
+			className={cn(
+				"h-8 px-3 text-xs shadow-sm",
 				action.actionable
-					? "h-7 px-2.5 text-xs font-semibold"
-					: "h-7 px-2.5 text-xs"
-			}
+					? "bg-action font-semibold text-action-foreground shadow-action/20 hover:bg-action/90 hover:shadow focus-visible:ring-action"
+					: "border-input font-medium text-foreground"
+			)}
 		>
 			{action.label}
 		</Button>

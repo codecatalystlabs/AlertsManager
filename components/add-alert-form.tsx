@@ -771,9 +771,9 @@ export function AddAlertForm({
     <form onSubmit={handleSubmit} className="space-y-5">
       {isPublic ? (
         <>
-          {/* About you */}
+          {/* Reporter's Details */}
           <div className="space-y-4">
-            <SectionHeading icon={UserIcon} title="Reporters Details" />
+            <SectionHeading icon={UserIcon} title="Reporter's Details" />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {reporterNameField}
               {reporterPhoneField}
@@ -793,22 +793,16 @@ export function AddAlertForm({
 
           <Separator />
 
-          {/* Person affected — optional on purpose */}
-          <div className="space-y-4">
-            <SectionHeading icon={UserIcon} title="Person affected" />
-            <p className="text-sm text-gray-600">
-              Only fill this in if you know the details. You can send the report
-              without it.
-            </p>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-              {patientFields}
-            </div>
-          </div>
+          {/* What are you reporting? One section, three blocks, in the order a
+              reporter can answer them: the short pickers, then whoever is
+              affected, then the free-text description — the big textarea closes
+              the section.
 
-          <Separator />
-
-          {/* What are you reporting? The short pickers first and the free-text
-              description last — the big textarea closes the section. */}
+              The person affected used to be a section of its own. It is not a
+              separate question: a heading promised a second thing to fill in,
+              when it is the same report seen from another angle, and every
+              field in it is optional. Hairline rules group the block instead,
+              which is how the staff form has always carried these fields. */}
           <div className="space-y-4">
             <SectionHeading
               icon={AlertTriangleIcon}
@@ -817,6 +811,18 @@ export function AddAlertForm({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {sourceField}
               {channelField}
+            </div>
+
+            {/* The reassurance outlives the heading it sat under: without it the
+                row reads as five more things to find out before reporting. */}
+            <div className="space-y-3 border-t border-gray-200 pt-4">
+              <p className="text-sm text-gray-600">
+                Only fill in the person&apos;s details if you know them. You can
+                send the report without them.
+              </p>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                {patientFields}
+              </div>
             </div>
 
             <div className="border-t border-gray-200 pt-4">

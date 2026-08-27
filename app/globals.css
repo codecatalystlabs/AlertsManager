@@ -67,6 +67,16 @@ body {
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 10%;
+    /* The colour of "do this next".
+
+       Deliberately NOT the crimson primary. In a surveillance system red is
+       already spoken for — destructive, high priority, overdue, discarded —
+       so a queue of red buttons reads as a screenful of emergencies when it
+       is really just a screenful of routine work. Blue carries no status in
+       this palette, which is precisely why it can carry "act here": it draws
+       the eye without claiming anything about the signal underneath. */
+    --action: 214 72% 42%;
+    --action-foreground: 0 0% 100%;
     --border: 20 6% 90%;
     --input: 20 6% 90%;
     --ring: 358 66% 45%;
@@ -110,6 +120,11 @@ body {
     --success-foreground: 0 0% 10%;
     --warning: 38 92% 55%;
     --warning-foreground: 0 0% 10%;
+    /* Held back from the light value rather than brightened past it: white
+       text needs 4.5:1 on the fill, and a lighter blue on near-black loses
+       it. */
+    --action: 213 70% 48%;
+    --action-foreground: 0 0% 100%;
     --border: 20 6% 16%;
     --input: 20 6% 16%;
     --ring: 356 71% 57%;

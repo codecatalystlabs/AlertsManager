@@ -35,6 +35,11 @@ const config: Config = {
           DEFAULT: "hsl(var(--warning) / <alpha-value>)",
           foreground: "hsl(var(--warning-foreground))",
         },
+        // "Do this next" — not a status, an instruction. See --action.
+        action: {
+          DEFAULT: "hsl(var(--action) / <alpha-value>)",
+          foreground: "hsl(var(--action-foreground))",
+        },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
