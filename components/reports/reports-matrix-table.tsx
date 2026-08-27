@@ -80,9 +80,9 @@ export const ReportsMatrixTable = memo<ReportsMatrixTableProps>(
 					<div className="flex shrink-0 gap-1">
 						<Button
 							type="button"
-							variant="outline"
+							variant="ghost"
 							size="sm"
-							className="h-7 px-2 gap-1"
+							className="h-7 px-2 gap-1 text-muted-foreground hover:text-foreground"
 							disabled={!canExport || isLoading}
 							onClick={handleExportCsv}
 							title="Export CSV"
@@ -92,8 +92,9 @@ export const ReportsMatrixTable = memo<ReportsMatrixTableProps>(
 						</Button>
 						<Button
 							type="button"
+							variant="ghost"
 							size="sm"
-							className="h-7 px-2 gap-1 bg-uganda-red hover:bg-uganda-red/90"
+							className="h-7 px-2 gap-1 text-muted-foreground hover:text-foreground"
 							disabled={!canExport || isLoading}
 							onClick={handleExportExcel}
 							title="Export Excel"
@@ -111,7 +112,7 @@ export const ReportsMatrixTable = memo<ReportsMatrixTableProps>(
 							No matrix data for this date range.
 						</p>
 					) : (
-						<div className="max-h-[min(640px,72vh)] overflow-auto rounded-md border border-slate-200 bg-white shadow-sm">
+						<div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-sm">
 							<Table className="min-w-max border-collapse text-xs">
 								<TableHeader className="sticky top-0 z-20">
 									<TableRow className="bg-slate-100 hover:bg-slate-100 border-b-2 border-slate-200">

@@ -84,7 +84,7 @@ export const STAGE_STEP: Partial<Record<StageKey, number>> = {
 export const STAGE_DESCRIPTION: Record<StageKey, string> = {
 	[STAGE_INTAKE]: "Every signal reported into the system, whatever its source.",
 	[STAGE_TRIAGE]:
-		"Two questions decide whether a signal is worth the cost of verification. Due within 24h of receipt.",
+		"New signals only — not triaged, not verified, not risk-assessed. Triage is due within 24 hours of receipt.",
 	[STAGE_VERIFICATION]:
 		"Confirming a forwarded signal represents a real event. Due within the deadline its priority sets — 12h High, 24h Medium, 48h Low.",
 	[STAGE_RISK]:
@@ -135,7 +135,10 @@ export function stageLabel(key: string | null | undefined): string | null {
 		case STAGE_ASSESSED:
 			return "Risk assessed";
 		case STAGE_OFF_PIPELINE:
-			return "Off pipeline";
+			// Named for what it holds rather than for where it sits, because the
+			// sidebar sends people here looking for "Discarded Events" and a
+			// heading reading "Off pipeline" would not answer them.
+			return "Discarded events";
 		case STAGE_DISCARDED:
 			return "Discarded";
 		default:

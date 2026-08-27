@@ -216,10 +216,10 @@ export function SubcountyAlertsDialog({
 								<div className="flex items-center justify-end">
 									<Button
 										size="sm"
-										variant="outline"
+										variant="ghost"
 										onClick={handleExportExcel}
 										disabled={exporting}
-										className="h-8 gap-1.5"
+										className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
 									>
 										{exporting ? (
 											<Loader2 className="h-3.5 w-3.5 animate-spin" />

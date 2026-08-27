@@ -514,7 +514,7 @@ function DetailsCard({
 						{emptyLabel}
 					</p>
 				) : (
-					<div className="max-h-[420px] overflow-y-auto rounded-md border">
+					<div className="overflow-x-auto rounded-md border">
 						<table className="w-full border-collapse text-xs">
 							<thead className="sticky top-0">
 								<tr style={{ backgroundColor: theme.accent }} className="text-white">

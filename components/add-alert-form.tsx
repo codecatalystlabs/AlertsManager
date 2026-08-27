@@ -782,9 +782,9 @@ export function AddAlertForm({
 
           <Separator />
 
-          {/* Where is this happening? */}
+          {/* Location */}
           <div className="space-y-4">
-            <SectionHeading icon={MapPinIcon} title="Signal Location" />
+            <SectionHeading icon={MapPinIcon} title="Location" />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {locationSelect}
               {villageParishFields}
@@ -793,8 +793,21 @@ export function AddAlertForm({
 
           <Separator />
 
-          {/* What are you reporting? The short pickers first, then the person
-              affected as a clearly optional sub-group, and the free-text
+          {/* Person affected — optional on purpose */}
+          <div className="space-y-4">
+            <SectionHeading icon={UserIcon} title="Person affected" />
+            <p className="text-sm text-gray-600">
+              Only fill this in if you know the details. You can send the report
+              without it.
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+              {patientFields}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* What are you reporting? The short pickers first and the free-text
               description last — the big textarea closes the section. */}
           <div className="space-y-4">
             <SectionHeading
@@ -804,22 +817,6 @@ export function AddAlertForm({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {sourceField}
               {channelField}
-            </div>
-
-            <div className="space-y-4 border-t border-gray-200 pt-4">
-              <div>
-                <h4 className="flex items-center gap-2 text-base font-semibold text-uganda-black">
-                  <UserIcon className="h-4 w-4 text-uganda-red" />
-                  Person affected
-                </h4>
-                <p className="mt-1 text-sm text-gray-600">
-                  Only fill this in if you know the details. You can send the
-                  report without it.
-                </p>
-              </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {patientFields}
-              </div>
             </div>
 
             <div className="border-t border-gray-200 pt-4">
