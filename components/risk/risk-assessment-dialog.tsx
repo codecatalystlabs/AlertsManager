@@ -181,7 +181,7 @@ export function RiskAssessmentDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-xl max-h-[88vh] overflow-y-auto">
+			<DialogContent className="max-w-3xl max-h-[88vh] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2 text-base">
 						<ShieldAlert className="h-4 w-4 text-uganda-red" />
