@@ -9,7 +9,7 @@ import {
 import { Check, CircleDashed, CircleSlash, Lock } from "lucide-react";
 
 /**
- * Where one signal stands in the EBS pipeline.
+ * Where one signal stands in the EBS steps.
  *
  * The strip on the list page answers "where is the work?"; this answers "where
  * is THIS?" — which gates it has passed, which one it is sitting at, and how
@@ -45,7 +45,7 @@ function StateIcon({ state }: { state: StageState }) {
 	}
 }
 
-/** Where this signal stands in the EBS pipeline, as a horizontal rail. */
+/** Where this signal stands in the EBS steps, as a horizontal rail. */
 export function StageRail({
 	signal,
 	className,
@@ -57,7 +57,7 @@ export function StageRail({
 
 	return (
 		<ol
-			aria-label="EBS pipeline position"
+			aria-label="EBS steps position"
 			className={cn("flex items-stretch gap-1 overflow-x-auto", className)}
 		>
 			{stages.map((stage) => (

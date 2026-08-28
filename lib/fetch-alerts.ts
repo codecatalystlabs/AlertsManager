@@ -34,9 +34,9 @@ export interface AlertsListParams {
 	 */
 	triaged?: string;
 	/**
-	 * EBS pipeline stage queue: triage | verification | risk | feedback |
-	 * offpipeline | discarded. Applied server-side with the SAME predicate the
-	 * pipeline strip counts with, so a stage's tile and its list always agree.
+	 * EBS steps stage queue: triage | verification | risk | feedback |
+	 * offpipeline. Applied server-side with the SAME predicate the pipeline
+	 * strip counts with, so a stage's tile and its list always agree.
 	 */
 	stage?: string;
 	/** Division/subcounty name; matched against alert_case_sub_county or sub_county. */
@@ -98,6 +98,10 @@ export interface AlertsListParams {
 	sort_by?: string;
 	/** Sort direction. */
 	order?: "asc" | "desc";
+	/** Risk-matrix cell: a single canonical likelihood band (e.g. "Likely"). */
+	risk_likelihood?: string;
+	/** Risk-matrix cell: a single canonical impact band (e.g. "Severe"). */
+	risk_impact?: string;
 }
 
 export interface PaginatedAlertsResult<T> {
@@ -208,6 +212,12 @@ function appendAlertFilterParams(
 	if (params.outcome_recorded !== undefined) {
 		searchParams.set("outcome_recorded", String(params.outcome_recorded));
 	}
+	if (params.risk_likelihood) {
+		searchParams.set("risk_likelihood", params.risk_likelihood);
+	}
+	if (params.risk_impact) {
+		searchParams.set("risk_impact", params.risk_impact);
+	}
 }
 
 function buildAlertsUrl(apiBase: string, params?: AlertsListParams): string {
@@ -293,10 +303,10 @@ function parsePaginatedAlertsResponse(json: unknown): PaginatedAlertsResult<Aler
 		limit =
 			Number(
 				body.limit ??
-					body.page_size ??
-					nested?.limit ??
-					nested?.page_size ??
-					rawItems.length
+				body.page_size ??
+				nested?.limit ??
+				nested?.page_size ??
+				rawItems.length
 			) || rawItems.length;
 		total = Number(body.total ?? nested?.total ?? rawItems.length) || rawItems.length;
 		totalPages =

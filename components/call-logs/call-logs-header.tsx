@@ -1,6 +1,7 @@
 import React, { memo } from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Download, FileSpreadsheet, Loader2 } from "lucide-react";
+import { RefreshCw, Loader2 } from "lucide-react";
+import { ExcelIcon, CsvIcon } from "@/components/ui/file-type-icons";
 import { CALL_LOGS_CONFIG } from "@/constants/call-logs";
 import { LAYOUT } from "@/constants/layout";
 
@@ -18,13 +19,6 @@ interface CallLogsHeaderProps {
 	 * someone concludes there are only 6,022 signals in the country.
 	 */
 	queueLabel?: string | null;
-	/**
-	 * One line on what that queue holds. Passed in rather than assumed, because
-	 * the register's four tabs only render for the tabbed views — on the
-	 * feedback and discarded queues there is no "All tab below" to switch to,
-	 * so the old sentence pointed at something that is not on the page.
-	 */
-	queueHint?: string | null;
 }
 
 export const CallLogsHeader = memo<CallLogsHeaderProps>(
@@ -35,21 +29,18 @@ export const CallLogsHeader = memo<CallLogsHeaderProps>(
 		isRefreshing = false,
 		exporting = null,
 		queueLabel = null,
-		queueHint = null,
 	}) => {
 		const isExporting = exporting !== null;
 		return (
 			<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+				{/* Heading only. The gloss under it explained the queue to a
+				    first-time reader and then went on repeating itself to the people
+				    who work here daily; the pipeline strip below still names each
+				    gate, and hovering a tile still says what it decides. */}
 				<div>
 					<h1 className={LAYOUT.pageTitle}>
 						{queueLabel ?? CALL_LOGS_CONFIG.PAGE_TITLE}
 					</h1>
-					<p className={LAYOUT.pageSubtitle}>
-						{queueLabel
-							? (queueHint ??
-								"One gate of the EBS pipeline, not the whole register.")
-							: CALL_LOGS_CONFIG.PAGE_DESCRIPTION}
-					</p>
 				</div>
 				<div className="flex flex-wrap gap-1.5 justify-end">
 					<Button
@@ -60,9 +51,8 @@ export const CallLogsHeader = memo<CallLogsHeaderProps>(
 						disabled={isRefreshing}
 					>
 						<RefreshCw
-							className={`h-4 w-4 ${
-								isRefreshing ? "animate-spin" : ""
-							}`}
+							className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""
+								}`}
 						/>
 						{isRefreshing ? "Refreshing..." : "Refresh"}
 					</Button>
@@ -76,7 +66,7 @@ export const CallLogsHeader = memo<CallLogsHeaderProps>(
 						{exporting === "csv" ? (
 							<Loader2 className="h-4 w-4 animate-spin" />
 						) : (
-							<Download className="h-4 w-4" />
+							<CsvIcon className="h-4 w-4" />
 						)}
 						{exporting === "csv" ? "Exporting…" : "Export CSV"}
 					</Button>
@@ -90,7 +80,7 @@ export const CallLogsHeader = memo<CallLogsHeaderProps>(
 						{exporting === "excel" ? (
 							<Loader2 className="h-4 w-4 animate-spin" />
 						) : (
-							<FileSpreadsheet className="h-4 w-4" />
+							<ExcelIcon className="h-4 w-4" />
 						)}
 						{exporting === "excel" ? "Exporting…" : "Export Excel"}
 					</Button>

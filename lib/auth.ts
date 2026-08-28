@@ -213,6 +213,18 @@ export interface Alert {
     riskControl?: boolean | null
     riskAssessedAt?: string | null
     riskAssessedBy?: string | null
+    /** Risk-assessment worksheet. */
+    riskLikelihood?: string | null
+    riskImpact?: string | null
+    riskHazardNote?: string | null
+    riskExposureNote?: string | null
+    riskContextNote?: string | null
+    riskTeamLead?: string | null
+    riskTeamMembers?: string | null
+    /** "What action have you taken?" — comma-joined; see lib/alert-risk.ts. */
+    riskActionTaken?: string | null
+    riskEvacuationFacility?: string | null
+    riskEvacuationFacilityUid?: string | null
     /** Reporter feedback (EBS step 7). */
     feedbackGivenAt?: string | null
     feedbackBy?: string | null

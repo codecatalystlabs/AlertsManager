@@ -18,6 +18,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import {
+  ArrowUpDown,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -588,7 +589,7 @@ export function DataTable<TData, TValue>({
   return (
     <div className="w-full">
       {!hideToolbar && (
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-2 flex items-center gap-2">
         {searchKey && (
           <Input
             placeholder={searchPlaceholder}
@@ -645,7 +646,7 @@ export function DataTable<TData, TValue>({
                     <TableHead
                       key={header.id}
                       className={cn(
-                        "sticky top-0 z-10 h-9 whitespace-nowrap bg-muted px-3 text-[11px] font-semibold uppercase tracking-wide",
+                        "sticky top-0 z-10 h-7 whitespace-nowrap bg-muted px-2 text-[10px] font-semibold uppercase tracking-wide",
                         stickyActionsClass(header.column.id, "head")
                       )}
                     >
@@ -676,9 +677,9 @@ export function DataTable<TData, TValue>({
               Array.from({ length: Math.min(pageSize || 8, 8) }).map((_, r) => (
                 <TableRow key={`skeleton-${r}`} className="hover:bg-transparent">
                   {columns.map((_, c) => (
-                    <TableCell key={c} className="px-3 py-2.5">
+                    <TableCell key={c} className="px-2 py-1.5">
                       <Skeleton
-                        className={cn("h-4", c === 0 ? "w-2/3" : "w-full max-w-[8rem]")}
+                        className={cn("h-3.5", c === 0 ? "w-2/3" : "w-full max-w-[8rem]")}
                       />
                     </TableCell>
                   ))}
@@ -696,7 +697,7 @@ export function DataTable<TData, TValue>({
                       key={cell.id}
                       data-cell
                       className={cn(
-                        "px-3 py-1.5 text-sm",
+                        "whitespace-nowrap px-2 py-1 text-[13px]",
                         stickyActionsClass(cell.column.id, "cell")
                       )}
                     >
@@ -707,7 +708,7 @@ export function DataTable<TData, TValue>({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={columns.length} className="h-16 text-center text-xs text-muted-foreground">
                   No results.
                 </TableCell>
               </TableRow>
@@ -722,7 +723,7 @@ export function DataTable<TData, TValue>({
           Array.from({ length: Math.min(pageSize || 4, 4) }).map((_, r) => (
             <div
               key={`skeleton-card-${r}`}
-              className="space-y-2 rounded-none border bg-card p-3 shadow-sm"
+              className="space-y-1.5 rounded-none border bg-card p-2 shadow-sm"
             >
               <Skeleton className="h-4 w-1/2" />
               <Skeleton className="h-4 w-3/4" />
@@ -747,12 +748,12 @@ export function DataTable<TData, TValue>({
                 return (
                   <div
                     key={cell.id}
-                    className="flex items-start justify-between gap-3 border-b border-border/60 py-1.5 last:border-0"
+                    className="flex items-start justify-between gap-3 border-b border-border/60 py-1 last:border-0"
                   >
                     <span className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                       {label}
                     </span>
-                    <span data-cell className="min-w-0 text-right text-sm">
+                    <span data-cell className="min-w-0 text-right text-[13px]">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </span>
                   </div>
@@ -761,14 +762,14 @@ export function DataTable<TData, TValue>({
             </div>
           ))
         ) : (
-          <div className="rounded-md border p-6 text-center text-sm text-muted-foreground">
+          <div className="rounded-md border p-4 text-center text-xs text-muted-foreground">
             No results.
           </div>
         )}
       </div>
 
-      <div className="mt-2 flex flex-col gap-2 rounded-md border bg-muted/30 px-2 py-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-muted-foreground sm:text-sm">
+      <div className="mt-1.5 flex flex-col gap-1.5 rounded-md border bg-muted/30 px-2 py-1 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-muted-foreground">
           {manualPagination && hasActiveClientFilters ? (
             <>
               Showing {pageRows.length} filtered row(s) on this page
@@ -787,7 +788,7 @@ export function DataTable<TData, TValue>({
         </p>
         <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
           <div className="flex items-center gap-2">
-            <span className="whitespace-nowrap text-xs text-muted-foreground sm:text-sm">Rows per page</span>
+            <span className="whitespace-nowrap text-xs text-muted-foreground">Rows per page</span>
             <Select
               value={String(pageSizeValue)}
               onValueChange={(value) => {
@@ -795,7 +796,7 @@ export function DataTable<TData, TValue>({
                 table.setPageIndex(0)
               }}
             >
-              <SelectTrigger className="h-8 w-[72px]">
+              <SelectTrigger className="h-7 w-[68px] text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -860,5 +861,30 @@ export function DataTable<TData, TValue>({
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * The one sortable column header. Every table declared this same ghost button
+ * inline, at the default `h-10` — which set a 43px header on a table whose
+ * rows are 27px. Sizing it here keeps the header in scale with the body, and
+ * keeps it that way when the density changes again.
+ */
+export function SortableHeader({
+  column,
+  children,
+}: {
+  column: { toggleSorting: (desc: boolean) => void; getIsSorted: () => false | "asc" | "desc" }
+  children: React.ReactNode
+}) {
+  return (
+    <Button
+      variant="ghost"
+      onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+      className="-mx-1 h-6 gap-1 px-1 text-[10px] font-semibold uppercase tracking-wide hover:bg-uganda-yellow/10"
+    >
+      {children}
+      <ArrowUpDown className="h-3 w-3 shrink-0" />
+    </Button>
   )
 }

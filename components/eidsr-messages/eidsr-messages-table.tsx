@@ -236,7 +236,7 @@ export const EidsrMessagesTable = memo<EidsrMessagesTableProps>(
 
 		return (
 			<Card>
-				<CardHeader className="pb-2">
+				<CardHeader>
 					<CardTitle className="text-base">SMS messages</CardTitle>
 				</CardHeader>
 				<CardContent>

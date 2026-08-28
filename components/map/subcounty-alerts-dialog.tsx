@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import useSWR from "swr";
 import hotToast from "react-hot-toast";
-import { AlertCircle, FileSpreadsheet, Loader2, MapPin } from "lucide-react";
+import { AlertCircle, Loader2, MapPin } from "lucide-react";
+import { ExcelIcon } from "@/components/ui/file-type-icons";
 
 import {
 	Dialog,
@@ -224,7 +225,7 @@ export function SubcountyAlertsDialog({
 										{exporting ? (
 											<Loader2 className="h-3.5 w-3.5 animate-spin" />
 										) : (
-											<FileSpreadsheet className="h-3.5 w-3.5" />
+											<ExcelIcon className="h-3.5 w-3.5" />
 										)}
 										{exporting ? "Exporting…" : "Export to Excel"}
 									</Button>

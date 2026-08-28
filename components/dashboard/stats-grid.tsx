@@ -39,7 +39,7 @@ export const StatsGrid = memo<StatsGridProps>(({
   return (
     // Five workflow cards: signals first, actionable alerts last. Packed tighter
     // (up to 5 across on large screens) so the row stays compact.
-    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
       {STAT_CARDS.map(renderStatCard)}
     </div>
   );

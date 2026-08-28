@@ -1,10 +1,9 @@
 export { StatsCard } from './stats-card';
-export { StatCardShell, DEFAULT_STAT_INK, type StatCardInk } from './stat-card-shell';
+export { StatCard, DEFAULT_STAT_INK, type StatCardInk } from '@/components/ui/stat-card';
 export { WelcomeSection } from './welcome-section';
 export { ErrorAlert } from './error-alert';
 export { LoadingSpinner } from './loading-spinner';
 export { StatsGrid } from './stats-grid';
-export { VerificationSlaCards } from './verification-sla-cards';
 export { RecentActivityCard } from './recent-activity-card';
 export { DashboardCharts } from './dashboard-charts';
 export {
@@ -16,4 +15,11 @@ export {
 export { DashboardDistrictPicker } from './dashboard-district-picker';
 export { DashboardRegionPicker } from './dashboard-region-picker';
 export { SignalCoverageCard } from "./signal-coverage-card";
-export { TriageKpiCards, RiskKpiCards } from "./pipeline-kpi-cards";
+export { RiskMatrixCard } from "./risk-matrix-card";
+export {
+	TriageKpiCards,
+	VerificationKpiCards,
+	RiskKpiCards,
+	FeedbackKpiCards,
+} from "./pipeline-kpi-cards";
+export { KpiScorecard } from "./kpi-scorecard";

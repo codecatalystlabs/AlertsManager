@@ -29,13 +29,14 @@ import {
 	TRIAGE_LOGGED,
 } from "@/lib/alert-triage";
 import { normalizeSignalCode, signalSummary } from "@/lib/ebs-signals";
+import { SignalSummaryCard } from "@/components/signal-summary";
 import { SignalPicker } from "./signal-picker";
 import { ArrowRight, CircleSlash, Loader2, ShieldQuestion } from "lucide-react";
 
 const API_BASE_URL = getClientApiBaseUrl();
 
 /**
- * Triage — step 2 of the EBS pipeline, as the guideline actually specifies it.
+ * Triage — step 2 of the EBS steps, as the guideline actually specifies it.
  *
  * Triage is a GATE, not a labelling exercise. It asks two questions in order,
  * and each has its own exit:
@@ -66,6 +67,7 @@ export function TriageDialog({
 	open,
 	onOpenChange,
 	alertId,
+	alert,
 	currentPriority,
 	currentDecision,
 	currentSignalCode,
@@ -74,6 +76,10 @@ export function TriageDialog({
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	alertId: number | null;
+	/** The row being triaged, for the read-only "The signal" card. Optional:
+	 *  the gate still works without it, it just asks the operator to decide
+	 *  from memory. */
+	alert?: unknown;
 	currentPriority?: string | null;
 	currentDecision?: string | null;
 	currentSignalCode?: string | null;
@@ -131,8 +137,8 @@ export function TriageDialog({
 						reason: reason.trim() || undefined,
 						duplicateOf:
 							decision === TRIAGE_DISCARDED &&
-							Number.isFinite(parsedDuplicate) &&
-							parsedDuplicate > 0
+								Number.isFinite(parsedDuplicate) &&
+								parsedDuplicate > 0
 								? parsedDuplicate
 								: undefined,
 						note: note.trim() || undefined,
@@ -148,7 +154,7 @@ export function TriageDialog({
 					? `${altCode(alertId)} forwarded for verification`
 					: decision === TRIAGE_DISCARDED
 						? `${altCode(alertId)} discarded as already reported — kept on the register`
-						: `${altCode(alertId)} logged and monitored — off the EBS pipeline, kept on the register`,
+						: `${altCode(alertId)} logged and monitored — off the EBS steps, kept on the register`,
 			);
 			onTriaged?.();
 			onOpenChange(false);
@@ -211,6 +217,13 @@ export function TriageDialog({
 				    the report is worth verifying has no reason to hunt for its
 				    Annex line. The list only appears on the forward path. */}
 				<div className="space-y-4">
+					{/* What is being triaged, read-only — the same card the
+					    verification dialog opens with. Question 1 asks whether this
+					    signal has been reported before, which is unanswerable from a
+					    reference number alone: the operator needs the case, the
+					    place and the reporter in front of them. */}
+					<SignalSummaryCard alert={alert} />
+
 					<Question
 						step={1}
 						prompt="Has this signal been reported before?"
@@ -279,7 +292,7 @@ export function TriageDialog({
 						</div>
 					)}
 
-					{decision === TRIAGE_DISCARDED && (
+					{/* {decision === TRIAGE_DISCARDED && (
 						<div className="space-y-1">
 							<Label htmlFor="triage-duplicate-of" className="text-xs">
 								Duplicate of{" "}
@@ -300,14 +313,14 @@ export function TriageDialog({
 								cluster is visible instead of just the discard.
 							</p>
 						</div>
-					)}
+					)} */}
 
 					{decision !== null && (
 						<div className="space-y-1">
 							<Label htmlFor="triage-reason" className="text-xs">
 								{reasonRequired ? (
 									<>
-										Why is this signal leaving the pipeline?{" "}
+										Reason for discarding?{" "}
 										<span className="text-uganda-red">*</span>
 									</>
 								) : (
@@ -411,11 +424,11 @@ function Question({
 							)}
 						>
 							{option.label}
-							{option.off && (
+							{/* {option.off && (
 								<span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
 									leaves pipeline
 								</span>
-							)}
+							)} */}
 						</button>
 					);
 				})}

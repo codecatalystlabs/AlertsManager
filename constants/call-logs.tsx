@@ -3,12 +3,12 @@ import { type ColumnDef } from "@tanstack/react-table";
 import { AlertLog } from "@/hooks/use-call-logs-data";
 import { sourceOfAlertOptions } from "@/lib/source-of-alert";
 import {
+	SortableHeader,
 	dateRangeFilter,
 	exactStringFilter,
 	textIncludesFilter,
 } from "@/components/ui/data-table";
 import {
-	ArrowUpDown,
 	MoreHorizontal,
 	Eye,
 	Edit,
@@ -26,11 +26,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { DiscardLevelBadge, TriagedAnswerBadge } from "@/components/triage";
-import {
-	TRIAGED_FILTER_OPTIONS,
-	verificationBlockedReason,
-} from "@/lib/alert-triage";
+import { DiscardLevelBadge } from "@/components/triage";
+import { verificationBlockedReason } from "@/lib/alert-triage";
 import { nextAction, type NextActionKey } from "@/lib/next-action";
 import { RiskBadge } from "@/components/risk";
 import { feedbackIsDue } from "@/lib/alert-feedback";
@@ -50,7 +47,7 @@ import {
 
 export const CALL_LOGS_CONFIG = {
 	PAGE_TITLE: "Signal Register",
-	PAGE_DESCRIPTION: "Every signal reported into the system, at every stage of the EBS pipeline",
+	PAGE_DESCRIPTION: "Every signal reported into the system, at every stage of the EBS steps",
 	ITEMS_PER_PAGE: 10,
 	EXPORT_FILENAME_PREFIX: "signal_logs_export",
 } as const;
@@ -107,7 +104,7 @@ export interface CallLogsFilterState {
 	 */
 	triageDecision: string;
 	/**
-	 * EBS pipeline stage queue, set from the ?stage= URL param rather than the
+	 * EBS steps stage queue, set from the ?stage= URL param rather than the
 	 * filter bar — it is a destination ("Awaiting triage"), not a refinement of
 	 * one. Empty means the whole register.
 	 */
@@ -272,9 +269,9 @@ export function alertLogToPdfData(alert: AlertLog): AlertPdfData {
 		narrative: alert.narrative,
 		symptoms: alert.symptoms
 			? alert.symptoms
-					.split(",")
-					.map((s) => s.trim())
-					.filter(Boolean)
+				.split(",")
+				.map((s) => s.trim())
+				.filter(Boolean)
 			: [],
 	};
 }
@@ -290,90 +287,91 @@ export interface CallLogsTableColumnOptions {
 	 * skip past it.
 	 */
 	showDiscardLevel?: boolean;
+	/**
+	 * Show the "Risk" column.
+	 *
+	 * Only on the Risk Assessed list (?stage=feedback), the one place where
+	 * every row carries a level. Everywhere else the column is a wall of "Not
+	 * assessed" — on the queues by definition, since a signal reaches them
+	 * BEFORE assessment — which reads as missing data rather than as the
+	 * pipeline working, and costs width the worklist columns need.
+	 */
+	showRisk?: boolean;
+	/**
+	 * Show the "Verified" column.
+	 *
+	 * Same rule as Risk and Response. On the register's default list and inside
+	 * the Triaged tab, verification has not happened yet by construction — every
+	 * row answers "Pending", so the column is a wall of identical badges that
+	 * costs width and says nothing. On the Discarded half the "Discarded at"
+	 * column already names which gate closed the signal, which is the same fact
+	 * with the reason attached.
+	 */
+	showVerification?: boolean;
+	/**
+	 * Show the "Response" column.
+	 *
+	 * Same rule as the Risk column, for the same reason: the response a signal
+	 * mandates is settled at risk assessment, so on every earlier queue this
+	 * column is a wall of orange "Pending" badges — flagging work that is not
+	 * owed yet, on rows that cannot have an answer.
+	 */
+	showResponse?: boolean;
 }
 
 export const createCallLogsTableColumns = (
 	callbacks: CallLogsTableCallbacks,
 	options: CallLogsTableColumnOptions = {}
 ): ColumnDef<AlertLog>[] => [
-	{
-		accessorKey: "id",
-		filterFn: textIncludesFilter,
-		meta: {
-			filterLabel: "Signal ID",
-			filterPlaceholder: "ALT number",
-		},
-		header: ({ column }) => {
-			return (
-				<Button
-					variant="ghost"
-					onClick={() =>
-						column.toggleSorting(
-							column.getIsSorted() === "asc"
-						)
-					}
-					className="hover:bg-uganda-yellow/10"
-				>
-					Signal ID
-					<ArrowUpDown className="ml-2 h-4 w-4" />
-				</Button>
-			);
-		},
-		cell: ({ row }) => {
-			return (
-				<span className="font-mono text-sm">
-					{altCode(Number(row.getValue("id")))}
-				</span>
-			);
-		},
-	},
-	{
-		id: "nextAction",
-		header: "Next step",
-		enableSorting: false,
-		enableColumnFilter: false,
-		// The pipeline's next move, as a button. The menu beside it still holds
-		// every action; this one says which is actually due, so the queue reads
-		// as work rather than as rows.
-		cell: ({ row }) => (
-			<NextStepButton alert={row.original} callbacks={callbacks} />
+		{
+			accessorKey: "id",
+			filterFn: textIncludesFilter,
+			meta: {
+				filterLabel: "Signal ID",
+				filterPlaceholder: "ALT number",
+			},
+			header: ({ column }) => (
+			<SortableHeader column={column}>Signal ID</SortableHeader>
 		),
-	},
-	{
-		id: "risk",
-		accessorKey: "riskLevel",
-		header: "Risk",
-		enableSorting: false,
-		meta: { filterLabel: "Risk" },
-		// The assessed risk level: what drives how fast and how hard the team
-		// responds.
-		cell: ({ row }) => <RiskBadge level={row.original.riskLevel} />,
-	},
-	{
-		id: "triaged",
-		accessorKey: "triageDecision",
-		header: "Is signal triaged",
-		enableSorting: false,
-		meta: {
-			filterLabel: "Is signal triaged",
-			filterVariant: "select",
-			filterOptions: TRIAGED_FILTER_OPTIONS,
+			cell: ({ row }) => {
+				return (
+					<span className="whitespace-nowrap font-mono text-xs">
+						{altCode(Number(row.getValue("id")))}
+					</span>
+				);
+			},
 		},
-		// A yes/no question, answered. Every "No" has the same next move, which
-		// is what makes the register scannable as a worklist; which exit a
-		// triaged signal took is on the badge's tooltip and in the details
-		// dialog, so the recorded discards stay findable.
-		cell: ({ row }) => (
-			<TriagedAnswerBadge
-				decision={row.original.triageDecision}
-				priority={row.original.priority}
-			/>
-		),
-	},
-	// Spread rather than a filtered array: an entry that is not wanted must not
-	// exist at all, or TanStack sizes a hole for it.
-	...(options.showDiscardLevel
-		? [
+		{
+			id: "nextAction",
+			header: "Next step",
+			enableSorting: false,
+			enableColumnFilter: false,
+			// The pipeline's next move, as a button. The menu beside it still holds
+			// every action; this one says which is actually due, so the queue reads
+			// as work rather than as rows.
+			cell: ({ row }) => (
+				<NextStepButton alert={row.original} callbacks={callbacks} />
+			),
+		},
+		// Spread, not a filtered array — see the note on "Discarded at" below.
+		...(options.showRisk
+			? [
+				{
+					id: "risk",
+					accessorKey: "riskLevel",
+					header: "Risk",
+					enableSorting: false,
+					meta: { filterLabel: "Risk" },
+					// The assessed risk level: what drives how fast and how hard the
+					// team responds.
+					cell: ({ row }) => <RiskBadge level={row.original.riskLevel} />,
+				} satisfies ColumnDef<AlertLog>,
+			]
+			: []),
+		// Spread rather than a filtered array: an entry that is not wanted must not
+		// exist at all, or TanStack sizes a hole for it.
+		...(options.showDiscardLevel
+			? [
 				{
 					id: "discardLevel",
 					header: "Discarded at",
@@ -390,355 +388,343 @@ export const createCallLogsTableColumns = (
 					cell: ({ row }) => <DiscardLevelBadge signal={row.original} />,
 				} satisfies ColumnDef<AlertLog>,
 			]
-		: []),
-	{
-		accessorKey: "date",
-		filterFn: dateRangeFilter,
-		meta: {
-			filterLabel: "Date",
-			filterVariant: "dateRange",
-		},
-		header: ({ column }) => {
-			return (
-				<Button
-					variant="ghost"
-					onClick={() =>
-						column.toggleSorting(
-							column.getIsSorted() === "asc"
-						)
-					}
-					className="hover:bg-uganda-yellow/10"
-				>
-					Date
-					<ArrowUpDown className="ml-2 h-4 w-4" />
-				</Button>
-			);
-		},
-		cell: ({ row }) => {
-			const date = new Date(row.getValue("date"));
-			return (
-				<div className="text-sm">{date.toLocaleDateString()}</div>
-			);
-		},
-	},
-	{
-		accessorKey: "time",
-		header: "Time",
-		filterFn: textIncludesFilter,
-		meta: {
-			filterPlaceholder: "Time",
-		},
-		cell: ({ row }) => {
-			const time = new Date(row.getValue("time"));
-			return (
-				<div className="font-mono text-sm">
-					{time.toLocaleTimeString()}
-				</div>
-			);
-		},
-	},
-	{
-		accessorKey: "personReporting",
-		meta: {
-			filterLabel: "Reporter",
-			filterPlaceholder: "Reporter name",
-		},
-		header: ({ column }) => {
-			return (
-				<Button
-					variant="ghost"
-					onClick={() =>
-						column.toggleSorting(
-							column.getIsSorted() === "asc"
-						)
-					}
-					className="hover:bg-uganda-yellow/10"
-				>
-					Reporter
-					<ArrowUpDown className="ml-2 h-4 w-4" />
-				</Button>
-			);
-		},
-		cell: ({ row }) => {
-			const reporter = row.getValue("personReporting") as string;
-			return (
-				<div className="font-medium">
-					{reporter || "Not specified"}
-				</div>
-			);
-		},
-	},
-	{
-		accessorKey: "contactNumber",
-		header: "Contact Number",
-		meta: {
-			filterPlaceholder: "Phone number",
-		},
-		cell: ({ row }) => {
-			const contact = row.getValue("contactNumber") as string;
-			return (
-				<div className="font-mono text-sm">
-					{contact || "Not provided"}
-				</div>
-			);
-		},
-	},
-	{
-		accessorKey: "sourceOfAlert",
-		header: "Source",
-		filterFn: exactStringFilter,
-		meta: {
-			filterVariant: "select",
-			filterOptions: sourceFilterOptions().filter(
-				(option) => option.value !== "all"
-			),
-		},
-		cell: ({ row }) => {
-			const source = row.getValue("sourceOfAlert") as string;
-			return (
-				<div className="min-w-[160px]">
-					<Badge variant="outline" className="text-xs">
-						{source}
-					</Badge>
-				</div>
-			);
-		},
-	},
-	{
-		id: "forwardedFrom",
-		header: "Forwarded From",
-		enableColumnFilter: false,
-		cell: ({ row }) => {
-			// A 6767 alert forwarded into a district's signal log is stamped with
-			// alertFrom = "6767 Forward" by the backend.
-			const from = (row.original.alertFrom ?? "").toLowerCase();
-			return from.includes("6767") ? (
-				<Badge variant="secondary" className="text-xs">
-					6767
-				</Badge>
-			) : (
-				<span className="text-sm text-muted-foreground">—</span>
-			);
-		},
-	},
-	{
-		accessorKey: "alertCaseDistrict",
-		header: "District",
-		meta: {
-			filterPlaceholder: "District",
-		},
-		cell: ({ row }) => {
-			const district = row.getValue("alertCaseDistrict") as string;
-			return (
-				<div className="text-sm">{district || "Not specified"}</div>
-			);
-		},
-	},
-	{
-		accessorKey: "status",
-		header: "Status",
-		filterFn: exactStringFilter,
-		meta: {
-			filterVariant: "select",
-			filterOptions: STATUS_FILTER_OPTIONS.filter(
-				(option) =>
-					option.value !== "all" && option.value !== "other"
-			).map((option) => ({
-				value:
-					option.value === "alive"
-						? "Alive"
-						: option.value === "dead"
-						? "Dead"
-						: "Unknown",
-				label: option.label,
-			})),
-		},
-		cell: ({ row }) => {
-			const status = row.getValue("status") as string;
-			return (
-				<Badge variant="secondary" className={statusBadgeClass(status)}>
-					{status}
-				</Badge>
-			);
-		},
-	},
-	{
-		accessorKey: "response",
-		header: "Response",
-		meta: {
-			filterPlaceholder: "Response",
-		},
-		cell: ({ row }) => {
-			const response = row.getValue("response") as string;
-			return response ? (
-				<Badge variant="secondary" className="text-xs">
-					{response}
-				</Badge>
-			) : (
-				<Badge className={`${PENDING_BADGE_CLASS} text-xs`}>Pending</Badge>
-			);
-		},
-	},
-	{
-		accessorKey: "isVerified",
-		header: "Verified",
-		filterFn: exactStringFilter,
-		meta: {
-			filterVariant: "select",
-			filterOptions: [
-				{ value: "true", label: "Verified" },
-				{ value: "false", label: "Pending" },
-			],
-		},
-		cell: ({ row }) => (
-			<VerificationBadge verified={row.getValue("isVerified") as boolean} />
+			: []),
+		{
+			accessorKey: "date",
+			filterFn: dateRangeFilter,
+			meta: {
+				filterLabel: "Date",
+				filterVariant: "dateRange",
+			},
+			header: ({ column }) => (
+			<SortableHeader column={column}>Date</SortableHeader>
 		),
-	},
-	{
-		id: "actions",
-		enableColumnFilter: false,
-		cell: ({ row }) => {
-			const alertItem = row.original;
+			cell: ({ row }) => {
+				const date = new Date(row.getValue("date"));
+				return (
+					<div className="text-sm">{date.toLocaleDateString()}</div>
+				);
+			},
+		},
+		{
+			accessorKey: "time",
+			header: "Time",
+			filterFn: textIncludesFilter,
+			meta: {
+				filterPlaceholder: "Time",
+			},
+			cell: ({ row }) => {
+				const time = new Date(row.getValue("time"));
+				return (
+					<div className="whitespace-nowrap font-mono text-xs">
+						{time.toLocaleTimeString()}
+					</div>
+				);
+			},
+		},
+		{
+			accessorKey: "personReporting",
+			meta: {
+				filterLabel: "Reporter",
+				filterPlaceholder: "Reporter name",
+			},
+			header: ({ column }) => (
+			<SortableHeader column={column}>Reporter</SortableHeader>
+		),
+			cell: ({ row }) => {
+				const reporter = row.getValue("personReporting") as string;
+				return (
+					<div className="font-medium">
+						{reporter || "Not specified"}
+					</div>
+				);
+			},
+		},
+		{
+			accessorKey: "contactNumber",
+			header: "Contact Number",
+			meta: {
+				filterPlaceholder: "Phone number",
+			},
+			cell: ({ row }) => {
+				const contact = row.getValue("contactNumber") as string;
+				return (
+					<div className="font-mono text-sm">
+						{contact || "Not provided"}
+					</div>
+				);
+			},
+		},
+		{
+			accessorKey: "sourceOfAlert",
+			header: "Source",
+			filterFn: exactStringFilter,
+			meta: {
+				filterVariant: "select",
+				filterOptions: sourceFilterOptions().filter(
+					(option) => option.value !== "all"
+				),
+			},
+			cell: ({ row }) => {
+				const source = row.getValue("sourceOfAlert") as string;
+				return (
+					<div className="min-w-[160px]">
+						<Badge variant="outline" className="text-xs">
+							{source}
+						</Badge>
+					</div>
+				);
+			},
+		},
+		{
+			id: "forwardedFrom",
+			header: "Forwarded From",
+			enableColumnFilter: false,
+			cell: ({ row }) => {
+				// A 6767 alert forwarded into a district's signal log is stamped with
+				// alertFrom = "6767 Forward" by the backend.
+				const from = (row.original.alertFrom ?? "").toLowerCase();
+				return from.includes("6767") ? (
+					<Badge variant="secondary" className="text-xs">
+						6767
+					</Badge>
+				) : (
+					<span className="text-sm text-muted-foreground">—</span>
+				);
+			},
+		},
+		{
+			accessorKey: "alertCaseDistrict",
+			header: "District",
+			meta: {
+				filterPlaceholder: "District",
+			},
+			cell: ({ row }) => {
+				const district = row.getValue("alertCaseDistrict") as string;
+				return (
+					<div className="text-sm">{district || "Not specified"}</div>
+				);
+			},
+		},
+		{
+			accessorKey: "status",
+			header: "Status",
+			filterFn: exactStringFilter,
+			meta: {
+				filterVariant: "select",
+				filterOptions: STATUS_FILTER_OPTIONS.filter(
+					(option) =>
+						option.value !== "all" && option.value !== "other"
+				).map((option) => ({
+					value:
+						option.value === "alive"
+							? "Alive"
+							: option.value === "dead"
+								? "Dead"
+								: "Unknown",
+					label: option.label,
+				})),
+			},
+			cell: ({ row }) => {
+				const status = row.getValue("status") as string;
+				return (
+					<Badge variant="secondary" className={statusBadgeClass(status)}>
+						{status}
+					</Badge>
+				);
+			},
+		},
+		// Spread, not a filtered array — see the note on "Discarded at" below.
+		...(options.showResponse
+			? [
+				{
+					accessorKey: "response",
+					header: "Response",
+					meta: {
+						filterPlaceholder: "Response",
+					},
+					cell: ({ row }) => {
+						const response = row.getValue("response") as string;
+						return response ? (
+							<Badge variant="secondary" className="text-xs">
+								{response}
+							</Badge>
+						) : (
+							<Badge className={`${PENDING_BADGE_CLASS} text-xs`}>
+								Pending
+							</Badge>
+						);
+					},
+				} satisfies ColumnDef<AlertLog>,
+			]
+			: []),
+		// Spread, not a filtered array — see the note on "Discarded at" below.
+		...(options.showVerification
+			? [
+				{
+					accessorKey: "isVerified",
+					header: "Verified",
+					filterFn: exactStringFilter,
+					meta: {
+						filterVariant: "select",
+						filterOptions: [
+							{ value: "true", label: "Verified" },
+							{ value: "false", label: "Pending" },
+						],
+					},
+					cell: ({ row }) => (
+						<VerificationBadge
+							verified={row.getValue("isVerified") as boolean}
+						/>
+					),
+				} satisfies ColumnDef<AlertLog>,
+			]
+			: []),
+		{
+			id: "actions",
+			enableColumnFilter: false,
+			cell: ({ row }) => {
+				const alertItem = row.original;
 
-			return (
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<Button
-							variant="ghost"
-							className="h-8 w-8 p-0"
-						>
-							<span className="sr-only">Open menu</span>
-							<MoreHorizontal className="h-4 w-4" />
-						</Button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end">
-						<DropdownMenuLabel>Actions</DropdownMenuLabel>
-						<DropdownMenuItem
-							onClick={() =>
-								navigator.clipboard.writeText(
-									alertItem.id.toString()
-								)
-							}
-						>
-							Copy signal ID
-						</DropdownMenuItem>
-						<DropdownMenuSeparator />
-						<DropdownMenuItem
-							onClick={() =>
-								callbacks.onViewDetails(alertItem)
-							}
-						>
-							<Eye className="h-4 w-4 mr-2" />
-							View details
-						</DropdownMenuItem>
-						<DropdownMenuItem
-							onClick={() =>
-								callbacks.onEditAlert(alertItem)
-							}
-						>
-							<Edit className="h-4 w-4 mr-2" />
-							Edit signal
-						</DropdownMenuItem>
-						{feedbackIsDue(alertItem.verificationOutcome) && (
+				return (
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button
+								variant="ghost"
+								className="h-6 w-6 p-0"
+							>
+								<span className="sr-only">Open menu</span>
+								<MoreHorizontal className="h-4 w-4" />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end">
+							<DropdownMenuLabel>Actions</DropdownMenuLabel>
 							<DropdownMenuItem
 								onClick={() =>
-									callbacks.onRecordFeedback(alertItem)
-								}
-								className={
-									alertItem.feedbackGivenAt
-										? undefined
-										: "text-uganda-red focus:text-uganda-red"
+									navigator.clipboard.writeText(
+										alertItem.id.toString()
+									)
 								}
 							>
-								<MessageCircleReply className="h-4 w-4 mr-2" />
-								{alertItem.feedbackGivenAt
-									? "Feedback given"
-									: "Record feedback"}
+								Copy signal ID
 							</DropdownMenuItem>
-						)}
-						{alertItem.verificationOutcome === "Confirmed" && (
+							<DropdownMenuSeparator />
 							<DropdownMenuItem
 								onClick={() =>
-									callbacks.onAssessRisk(alertItem)
+									callbacks.onViewDetails(alertItem)
 								}
 							>
-								<ShieldAlert className="h-4 w-4 mr-2" />
-								{alertItem.riskLevel ? "Re-assess risk" : "Assess risk"}
+								<Eye className="h-4 w-4 mr-2" />
+								View details
 							</DropdownMenuItem>
-						)}
-						{!alertItem.isVerified && (
 							<DropdownMenuItem
 								onClick={() =>
-									callbacks.onTriageAlert(alertItem)
+									callbacks.onEditAlert(alertItem)
 								}
 							>
-								<ShieldQuestion className="h-4 w-4 mr-2" />
-								{alertItem.priority || alertItem.triageDecision ? "Re-triage" : "Triage"}
+								<Edit className="h-4 w-4 mr-2" />
+								Edit signal
 							</DropdownMenuItem>
-						)}
-						{/* Triage is a MANDATORY gate: the server rejects verification
+							{feedbackIsDue(alertItem.verificationOutcome) && (
+								<DropdownMenuItem
+									onClick={() =>
+										callbacks.onRecordFeedback(alertItem)
+									}
+									className={
+										alertItem.feedbackGivenAt
+											? undefined
+											: "text-uganda-red focus:text-uganda-red"
+									}
+								>
+									<MessageCircleReply className="h-4 w-4 mr-2" />
+									{alertItem.feedbackGivenAt
+										? "Feedback given"
+										: "Record feedback"}
+								</DropdownMenuItem>
+							)}
+							{alertItem.verificationOutcome === "Confirmed" && (
+								<DropdownMenuItem
+									onClick={() =>
+										callbacks.onAssessRisk(alertItem)
+									}
+								>
+									<ShieldAlert className="h-4 w-4 mr-2" />
+									{alertItem.riskLevel ? "Re-assess risk" : "Assess risk"}
+								</DropdownMenuItem>
+							)}
+							{!alertItem.isVerified && (
+								<DropdownMenuItem
+									onClick={() =>
+										callbacks.onTriageAlert(alertItem)
+									}
+								>
+									<ShieldQuestion className="h-4 w-4 mr-2" />
+									{alertItem.priority || alertItem.triageDecision ? "Re-triage" : "Triage"}
+								</DropdownMenuItem>
+							)}
+							{/* Triage is a MANDATORY gate: the server rejects verification
 						    of a signal that has not been forwarded. Disabling the
 						    action here says so before the click rather than after,
 						    with the reason in the tooltip. */}
-						{!alertItem.isVerified &&
-							(() => {
-								const blocked = verificationBlockedReason(
-									alertItem.triageDecision,
-									alertItem.priority
-								);
-								return (
+							{!alertItem.isVerified &&
+								(() => {
+									const blocked = verificationBlockedReason(
+										alertItem.triageDecision,
+										alertItem.priority
+									);
+									return (
+										<DropdownMenuItem
+											disabled={Boolean(blocked)}
+											title={blocked || undefined}
+											onClick={() =>
+												callbacks.onVerifyAlert(alertItem)
+											}
+											className={
+												blocked
+													? undefined
+													: "text-green-600 focus:text-green-600"
+											}
+										>
+											<Shield className="h-4 w-4 mr-2" />
+											{blocked ? "Verify — triage first" : "Verify signal"}
+										</DropdownMenuItem>
+									);
+								})()}
+							{callbacks.canDelete && (
+								<>
+									<DropdownMenuSeparator />
 									<DropdownMenuItem
-										disabled={Boolean(blocked)}
-										title={blocked || undefined}
+										className="text-red-600 focus:text-red-600"
 										onClick={() =>
-											callbacks.onVerifyAlert(alertItem)
-										}
-										className={
-											blocked
-												? undefined
-												: "text-green-600 focus:text-green-600"
+											callbacks.onDeleteAlert(alertItem.id)
 										}
 									>
-										<Shield className="h-4 w-4 mr-2" />
-										{blocked ? "Verify — triage first" : "Verify signal"}
+										Delete signal
 									</DropdownMenuItem>
-								);
-							})()}
-						{callbacks.canDelete && (
-							<>
-								<DropdownMenuSeparator />
-								<DropdownMenuItem
-									className="text-red-600 focus:text-red-600"
-									onClick={() =>
-										callbacks.onDeleteAlert(alertItem.id)
-									}
-								>
-									Delete signal
-								</DropdownMenuItem>
-							</>
-						)}
-						<DropdownMenuSeparator />
-						<DropdownMenuItem
-							onClick={() => {
-								void downloadAlertConfirmationPdf(
-									alertLogToPdfData(alertItem)
-								).catch((err) => {
-									console.error(
-										"Failed to export alert PDF",
-										err
-									);
-								});
-							}}
-						>
-							<FileDown className="h-4 w-4 mr-2" />
-							Export to PDF
-						</DropdownMenuItem>
-					</DropdownMenuContent>
-				</DropdownMenu>
-			);
+								</>
+							)}
+							<DropdownMenuSeparator />
+							<DropdownMenuItem
+								onClick={() => {
+									void downloadAlertConfirmationPdf(
+										alertLogToPdfData(alertItem)
+									).catch((err) => {
+										console.error(
+											"Failed to export alert PDF",
+											err
+										);
+									});
+								}}
+							>
+								<FileDown className="h-4 w-4 mr-2" />
+								Export to PDF
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				);
+			},
 		},
-	},
-];
+	];
 
 /**
  * The single action this signal is actually waiting on.
@@ -772,7 +758,7 @@ function NextStepButton({
 		verify: () => callbacks.onVerifyAlert(alert),
 		"assess-risk": () => callbacks.onAssessRisk(alert),
 		feedback: () => callbacks.onRecordFeedback(alert),
-		none: () => {},
+		none: () => { },
 	};
 
 	// Solid and filled when there is work due. The muted fill this used to carry
@@ -780,10 +766,10 @@ function NextStepButton({
 	// that says "this signal needs something from you" read as a label rather
 	// than as something to press.
 	//
-	// The fill is --action, not the crimson primary: red is the register's
-	// danger colour, and a column of red buttons told the reader every routine
-	// triage was an emergency. This says "act here" without saying anything
-	// about the signal.
+	// The fill is the theme primary. An earlier version used a separate blue
+	// so a column of red buttons would not read as a column of emergencies,
+	// but a control the app paints in no other palette reads as foreign to it;
+	// the site's own colour is what says "this belongs here, press it".
 	//
 	// The quiet variant is kept for Re-triage, which is a way back rather than
 	// work waiting — but it is a bordered, raised button too, not text.
@@ -794,9 +780,9 @@ function NextStepButton({
 			title={action.hint}
 			onClick={() => run[action.key]()}
 			className={cn(
-				"h-8 px-3 text-xs shadow-sm",
+				"h-6 px-2 text-[11px] shadow-sm",
 				action.actionable
-					? "bg-action font-semibold text-action-foreground shadow-action/20 hover:bg-action/90 hover:shadow focus-visible:ring-action"
+					? "font-semibold shadow-primary/20 hover:shadow focus-visible:ring-primary"
 					: "border-input font-medium text-foreground"
 			)}
 		>

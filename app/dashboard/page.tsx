@@ -21,9 +21,11 @@ import { downloadDashboardPdf, type DashboardPdfSection } from "@/lib/charts-pdf
 import {
 	ErrorAlert,
 	StatsGrid,
-	VerificationSlaCards,
 	TriageKpiCards,
+	VerificationKpiCards,
 	RiskKpiCards,
+	FeedbackKpiCards,
+	KpiScorecard,
 	RecentActivityCard,
 	DashboardRangePicker,
 	DashboardDistrictPicker,
@@ -32,6 +34,7 @@ import {
 	DEFAULT_RANGE_PRESET,
 	type DashboardRangeValue,
 	SignalCoverageCard,
+	RiskMatrixCard,
 } from "@/components/dashboard";
 import { useDashboardSummary } from "@/hooks/use-dashboard-summary";
 import type { AlertCounts } from "@/app/dashboard/types";
@@ -124,7 +127,11 @@ export default function DashboardPage(): React.JSX.Element {
 		try {
 			const sections: DashboardPdfSection[] = [];
 			if (overviewRef.current) {
-				sections.push({ container: overviewRef.current, heading: "Overview" });
+				sections.push({
+					container: overviewRef.current,
+					splitCards: true,
+					heading: "Overview & national KPIs",
+				});
 			}
 			if (chartsRef.current) {
 				sections.push({
@@ -291,27 +298,28 @@ export default function DashboardPage(): React.JSX.Element {
 				/>
 			)}
 
-			<div ref={overviewRef} className="space-y-2.5">
+			{/* Inside overviewRef so the PDF export carries the scorecard and the
+			    per-gate KPI rows: §11 sets a monthly reporting cadence, and a
+			    downloaded report that omits the indicators is not the report. */}
+			<div ref={overviewRef} className={LAYOUT.pageGap}>
 				<StatsGrid
 					alertCounts={statCounts}
 					kpiLoading={loading && !summary}
 				/>
-				{/* Verification-SLA row — same scope (range/district/region/response)
-				    as the KPI cards above. */}
-				<VerificationSlaCards
-					sla={summary?.verificationSla}
-					verifiedTotal={summary?.verified ?? 0}
-					pendingTotal={summary?.notVerified ?? 0}
-					isLoading={loading && !summary}
-				/>
-			</div>
 
-			{/* The other two gates that carry a national KPI. They sit in
-			    pipeline order — triage before verification's row would be
-			    ideal, but the SLA row above is long-established furniture, so
-			    these follow rather than displace it. */}
-			<TriageKpiCards summary={summary} isLoading={loading && !summary} />
-			<RiskKpiCards summary={summary} isLoading={loading && !summary} />
+				{/* The ten §11 indicators on one card, including the three that
+				    are not measurable from what the system captures. Placed
+				    directly under the overview because it is the M&E answer to
+				    "how are we doing"; the rows beneath it are the drill-down. */}
+				<KpiScorecard summary={summary} isLoading={loading && !summary} />
+
+				{/* Each pipeline gate that carries a national KPI, in EBS step
+				    order: triage, verification, risk assessment, feedback. */}
+				<TriageKpiCards summary={summary} isLoading={loading && !summary} />
+				<VerificationKpiCards summary={summary} isLoading={loading && !summary} />
+				<RiskKpiCards summary={summary} isLoading={loading && !summary} />
+				<FeedbackKpiCards summary={summary} isLoading={loading && !summary} />
+			</div>
 
 			{/* Recent-activity triage snapshot — its own rolling/custom window,
 			    independent of the page date range but scoped by district. */}
@@ -328,6 +336,20 @@ export default function DashboardPage(): React.JSX.Element {
 					<DashboardCharts summary={summary} />
 				) : null}
 			</div>
+
+			{/* EBS §6 risk matrix — confirmed events plotted by their recorded
+			    likelihood × impact, coloured by the algorithm level. Scoped like
+			    every chart above (range/district/region). */}
+			<RiskMatrixCard
+				matrix={summary?.riskMatrix}
+				isLoading={loading && !summary}
+				scope={{
+					fromDate: range.from || undefined,
+					toDate: range.to || undefined,
+					district,
+					region,
+				}}
+			/>
 
 			{/* What everything above does NOT count: signals still sitting in the
 			    6767 / eCHIS / POE feeds, which never entered triage or

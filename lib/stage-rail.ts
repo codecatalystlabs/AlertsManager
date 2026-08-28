@@ -8,7 +8,7 @@ import {
 } from "@/lib/alert-triage";
 
 /**
- * Where one signal stands in the EBS pipeline, as data.
+ * Where one signal stands in the EBS steps, as data.
  *
  * Pure and presentation-free so it can be tested directly: the rail's substance
  * is which state each gate is in, and that is a state machine, not a layout.

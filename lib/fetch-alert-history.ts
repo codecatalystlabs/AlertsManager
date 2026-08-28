@@ -52,6 +52,8 @@ export async function fetchAlertHistory(
 /** Parsed detail bag (all optional — depends on the action). */
 export interface AlertHistoryDetail {
 	origin?: string;
+	/** created: where the signal came from. risk_assessed: which instrument
+	 *  produced the level ("matrix" | "algorithm"). */
 	source?: string;
 	district?: string;
 	outcome?: string;
@@ -75,9 +77,20 @@ export interface AlertHistoryDetail {
 	priority?: string;
 	deadline?: number;
 	previousPriority?: string;
-	/** risk_assessed: the derived level and the one it replaced. */
+	/** risk_assessed: the whole assessment, so a superseded one stays readable.
+	 *  The columns on the alert only ever hold the LATEST — everything a
+	 *  re-assessment overwrote survives here and nowhere else. */
 	level?: string;
 	previousLevel?: string;
+	likelihood?: string;
+	impact?: string;
+	hazardNote?: string;
+	exposureNote?: string;
+	contextNote?: string;
+	teamLead?: string;
+	teamMembers?: string;
+	/** "complete" | "incomplete" — whether the three tiers were all documented. */
+	worksheet?: string;
 	/** desk_verified: response actions, now recorded separately from the outcome. */
 	actions?: string;
 	/** ems_notified: the dispatched event type. */

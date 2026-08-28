@@ -42,10 +42,7 @@ interface AlertsTableProps {
 	isLoading?: boolean;
 	onPageChange: (page: number) => void;
 	onPageSizeChange: (pageSize: number) => void;
-	deletingId: number | null;
-	onDeleteAlert: (alertId: number) => Promise<void>;
 	onViewAlert?: (alert: AlertType) => void;
-	onEditAlert?: (alert: AlertType) => void;
 	/** Receives per-column header filter changes so they query the whole dataset. */
 	onColumnFiltersChange?: (filters: ColumnFiltersState) => void;
 	/** Current server-side sort, and a setter, so a header sort orders the whole dataset. */
@@ -63,25 +60,15 @@ export const AlertsTable = memo<AlertsTableProps>(
 		isLoading,
 		onPageChange,
 		onPageSizeChange,
-		deletingId,
-		onDeleteAlert,
 		onViewAlert,
-		onEditAlert,
 		onColumnFiltersChange,
 		sort,
 		onSortChange,
 	}) => {
-		const canDelete = canDeleteAlerts(useCurrentUser());
 		const now = useTickingNow();
 		const callbacks: AlertsTableCallbacks = useMemo(
-			() => ({
-				onDelete: onDeleteAlert,
-				onView: onViewAlert,
-				onEdit: onEditAlert,
-				deletingId,
-				canDelete,
-			}),
-			[onDeleteAlert, onViewAlert, onEditAlert, deletingId, canDelete]
+			() => ({ onView: onViewAlert }),
+			[onViewAlert]
 		);
 
 		const columns = useMemo(

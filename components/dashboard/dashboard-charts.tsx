@@ -32,6 +32,7 @@ import {
 	ListChecks,
 	MapPin,
 	Megaphone,
+	Network,
 	PieChart as PieChartIcon,
 	Stethoscope,
 	TrendingUp,
@@ -97,6 +98,10 @@ const sourceConfig: ChartConfig = {
 	count: { label: "Alerts", color: "#0066CC" },
 };
 
+const levelConfig: ChartConfig = {
+	count: { label: "Signals", color: "#0f766e" },
+};
+
 const ageConfig: ChartConfig = {
 	count: { label: "Cases", color: "#7c3aed" },
 };
@@ -152,14 +157,14 @@ function VerificationBreakdownCard({
 
 	return (
 		<Card>
-			<CardHeader className="p-4 pb-2">
+			<CardHeader>
 				<div className="flex items-center gap-2">
 					<ListChecks className="h-4 w-4 text-uganda-red" />
 					<CardTitle className="text-base">{title}</CardTitle>
 				</div>
 				<CardDescription>{description}</CardDescription>
 			</CardHeader>
-			<CardContent className="p-4 pt-0">
+			<CardContent>
 				{total === 0 ? (
 					<ChartEmptyState message="No verification decisions recorded yet." />
 				) : (
@@ -193,6 +198,10 @@ function VerificationBreakdownCard({
 }
 
 export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
+	/* Field / Desk verification breakdowns — temporarily commented out, with
+	   their cards below. The server still sends both tables and
+	   VerificationBreakdownCard is still defined, so restoring the pair is a
+	   pure uncomment of this block and the one in the grid.
 	const fieldVerificationData = useMemo<ChartCountItem[]>(
 		() =>
 			summary.fieldVerification.map((item) => ({
@@ -209,6 +218,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			})),
 		[summary.deskVerification]
 	);
+	*/
 	const verificationData = summary.verification;
 	const statusData = summary.status;
 	const timelineData = summary.timeline;
@@ -221,12 +231,14 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 		[summary.topDistricts]
 	);
 	const timelineGranularity = summary.granularity;
+	const levelData = summary.signalLevels ?? [];
 
 	const verificationTotal = verificationData.reduce((sum, d) => sum + d.count, 0);
 	const hasSignals = summary.total > 0;
 
 	return (
 		<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+			{/* Temporarily commented out — see the note on the two tables above.
 			<VerificationBreakdownCard
 				title="Field Verification"
 				description="Field team verification decisions (field_verification_decision)"
@@ -237,9 +249,10 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 				description="Desk triage actions — multiple allowed per alert"
 				items={deskVerificationData}
 			/>
+			*/}
 
 			<Card>
-				<CardHeader className="p-4 pb-2">
+				<CardHeader>
 					<div className="flex items-center gap-2">
 						<PieChartIcon className="h-4 w-4 text-uganda-red" />
 						<CardTitle className="text-base">Signal Verification</CardTitle>
@@ -248,7 +261,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 						Verified and unverified signal backlog
 					</CardDescription>
 				</CardHeader>
-				<CardContent className="p-4 pt-0">
+				<CardContent>
 					{!hasSignals || verificationTotal === 0 ? (
 						<ChartEmptyState message="No signal data available for verification breakdown." />
 					) : (
@@ -285,7 +298,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="p-4 pb-2">
+				<CardHeader>
 					<div className="flex items-center gap-2">
 						<BarChart3 className="h-4 w-4 text-uganda-red" />
 						<CardTitle className="text-base">Case Status</CardTitle>
@@ -294,7 +307,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 						Alive, dead, and unknown outcomes
 					</CardDescription>
 				</CardHeader>
-				<CardContent className="p-4 pt-0">
+				<CardContent>
 					{statusData.length === 0 ? (
 						<ChartEmptyState message="No status data available in signals." />
 					) : (
@@ -334,7 +347,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="p-4 pb-2">
+				<CardHeader>
 					<div className="flex items-center gap-2">
 						<TrendingUp className="h-4 w-4 text-uganda-red" />
 						<CardTitle className="text-base">Signals Over Time</CardTitle>
@@ -345,7 +358,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 							: "Daily volume (last 30 days)"}
 					</CardDescription>
 				</CardHeader>
-				<CardContent className="p-4 pt-0">
+				<CardContent>
 					{timelineData.length === 0 ? (
 						<ChartEmptyState message="No valid dates found in signal records." />
 					) : (
@@ -397,7 +410,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="p-4 pb-2">
+				<CardHeader>
 					<div className="flex items-center gap-2">
 						<MapPin className="h-4 w-4 text-uganda-red" />
 						<CardTitle className="text-base">Top Districts</CardTitle>
@@ -406,7 +419,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 						Highest signal volume by case district
 					</CardDescription>
 				</CardHeader>
-				<CardContent className="p-4 pt-0">
+				<CardContent>
 					{districtData.length === 0 ? (
 						<ChartEmptyState message="No district data available in signals." />
 					) : (
@@ -447,7 +460,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="p-4 pb-2">
+				<CardHeader>
 					<div className="flex items-center gap-2">
 						<Stethoscope className="h-4 w-4 text-uganda-red" />
 						<CardTitle className="text-base">Signals by Disease</CardTitle>
@@ -456,7 +469,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 						Top suspected diseases / syndromes
 					</CardDescription>
 				</CardHeader>
-				<CardContent className="p-4 pt-0">
+				<CardContent>
 					{summary.diseases.length === 0 ? (
 						<ChartEmptyState message="No disease data available in signals." />
 					) : (
@@ -499,7 +512,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="p-4 pb-2">
+				<CardHeader>
 					<div className="flex items-center gap-2">
 						<Megaphone className="h-4 w-4 text-uganda-red" />
 						<CardTitle className="text-base">Signals by Source</CardTitle>
@@ -508,7 +521,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 						How alerts reach the system
 					</CardDescription>
 				</CardHeader>
-				<CardContent className="p-4 pt-0">
+				<CardContent>
 					{summary.sources.length === 0 ? (
 						<ChartEmptyState message="No source data available in signals." />
 					) : (
@@ -550,15 +563,69 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 				</CardContent>
 			</Card>
 
+			{/* KPI 1's second axis. The chart above answers "which source", this
+			    one answers "which LEVEL" — and the two honesty buckets at the
+			    bottom say how much of the data cannot answer it at all, because
+			    the recorded value names only a transport (§12.3). */}
 			<Card>
-				<CardHeader className="p-4 pb-2">
+				<CardHeader>
+					<div className="flex items-center gap-2">
+						<Network className="h-4 w-4 text-uganda-red" />
+						<CardTitle className="text-base">Signals by Detection Level</CardTitle>
+					</div>
+					<CardDescription>
+						Where each signal was detected — community, facility, district,
+						point of entry (EBS §4)
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{levelData.length === 0 ? (
+						<ChartEmptyState message="No signals in scope to classify by level." />
+					) : (
+						<ChartContainer
+							config={levelConfig}
+							className="w-full"
+							style={{ height: barChartHeight(levelData.length) }}
+						>
+							<BarChart
+								data={levelData}
+								layout="vertical"
+								margin={{ left: 8, right: 16, top: 8, bottom: 8 }}
+							>
+								<CartesianGrid horizontal={false} strokeDasharray="3 3" />
+								<XAxis type="number" tickLine={false} axisLine={false} />
+								<YAxis
+									type="category"
+									dataKey="label"
+									width={150}
+									tickLine={false}
+									axisLine={false}
+									tick={{ fontSize: 10 }}
+									tickFormatter={(value) => truncateLabel(String(value))}
+									interval={0}
+								/>
+								<ChartTooltip content={<ChartTooltipContent />} />
+								<Bar
+									dataKey="count"
+									fill="var(--color-count)"
+									radius={[0, 4, 4, 0]}
+									barSize={18}
+								/>
+							</BarChart>
+						</ChartContainer>
+					)}
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
 					<div className="flex items-center gap-2">
 						<Users className="h-4 w-4 text-uganda-red" />
 						<CardTitle className="text-base">Age Distribution</CardTitle>
 					</div>
 					<CardDescription>Case age groups (years)</CardDescription>
 				</CardHeader>
-				<CardContent className="p-4 pt-0">
+				<CardContent>
 					{summary.age.length === 0 ? (
 						<ChartEmptyState message="No age data available in signals." />
 					) : (
@@ -594,14 +661,14 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="p-4 pb-2">
+				<CardHeader>
 					<div className="flex items-center gap-2">
 						<UserCircle className="h-4 w-4 text-uganda-red" />
 						<CardTitle className="text-base">Sex Breakdown</CardTitle>
 					</div>
 					<CardDescription>Case sex distribution</CardDescription>
 				</CardHeader>
-				<CardContent className="p-4 pt-0">
+				<CardContent>
 					{summary.sex.length === 0 ? (
 						<ChartEmptyState message="No sex data available in signals." />
 					) : (

@@ -49,7 +49,7 @@ export function TopDistrictsCard({
 
 	return (
 		<Card className={cn("flex flex-col", className)}>
-			<CardHeader className="pb-2">
+			<CardHeader>
 				<CardTitle className="flex items-center gap-2 text-sm">
 					<TrendingUp className="h-4 w-4 text-uganda-red" />
 					<span className="flex-1">Top {limit} districts</span>
@@ -68,7 +68,7 @@ export function TopDistrictsCard({
 					)}
 				</CardTitle>
 			</CardHeader>
-			<CardContent className="flex-1 space-y-3 pt-0">
+			<CardContent className="flex-1 space-y-3">
 				{loading && !districts ? (
 					<div className="space-y-2.5">
 						{Array.from({ length: limit }, (_, i) => (

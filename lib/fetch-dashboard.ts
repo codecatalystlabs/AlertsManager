@@ -56,6 +56,33 @@ export interface DashboardVerificationSla {
 	teamMedianMinutes: number;
 }
 
+/** One likelihood × impact cell of the risk matrix. */
+export interface RiskMatrixCell {
+	likelihood: string;
+	impact: string;
+	count: number;
+	/** Algorithm-derived risk level -> count of events in this cell carrying it. */
+	levels: Record<string, number>;
+	/** Most severe algorithm level present; shades the cell. "" when none assessed. */
+	highestLevel: string;
+}
+
+/**
+ * The EBS §6 likelihood × impact plot of confirmed events. Cells are positioned
+ * by each event's captured bands and coloured by the events' own algorithm
+ * levels — never by the cell position (the guideline's grid is deliberately not
+ * encoded). `unbanded` keeps the plot honest about confirmed events it can't show.
+ */
+export interface RiskMatrix {
+	likelihoods: string[];
+	impacts: string[];
+	cells: RiskMatrixCell[];
+	confirmed: number;
+	plotted: number;
+	unbanded: number;
+	maxCellCount: number;
+}
+
 /** Full dashboard payload from GET /dashboard/summary. */
 export interface DashboardSummary {
 	total: number;
@@ -72,10 +99,21 @@ export interface DashboardSummary {
 	topDistricts: DashboardCountItem[];
 	diseases: DashboardCountItem[];
 	sources: DashboardCountItem[];
+	/**
+	 * KPI 1's second axis — the governance level each signal was detected at.
+	 * Optional so an older API response doesn't crash the chart.
+	 */
+	signalLevels?: DashboardCountItem[];
+	/** KPI 9 — community-detected signals as a share of all signals, 0–100; -1 for n/a. */
+	communityReportingRate?: number;
+	/** The numerator behind that rate. */
+	communitySignals?: number;
 	age: DashboardCountItem[];
 	sex: DashboardCountItem[];
 	timeline: DashboardTimePoint[];
 	granularity: "daily" | "monthly";
+	/** §6 risk matrix (confirmed events by likelihood × impact). Optional so an older API response doesn't crash the card. */
+	riskMatrix?: RiskMatrix;
 	/** Optional so older API responses without the field don't crash the grid. */
 	verificationSla?: DashboardVerificationSla;
 	/** Which exit each signal took at the triage gate, plus the untriaged remainder. */
@@ -88,10 +126,16 @@ export interface DashboardSummary {
 	riskAssessedWithin24h?: number;
 	/** Assessed, but more than 24h after verification. */
 	riskAssessedLate?: number;
+	/** Assessments carrying the §6 worksheet (hazard/exposure/context), not just the level. */
+	riskWorksheetComplete?: number;
 	/** Share of concluded signals whose reporter has been told, 0–100. KPI 10. */
 	feedbackRate?: number;
 	/** Concluded signals still owing feedback. */
 	feedbackPending?: number;
+	/** KPI 10's raw denominator — signals that have reached a conclusion. */
+	feedbackDue?: number;
+	/** KPI 10's raw numerator — concluded signals whose reporter was told. */
+	feedbackGiven?: number;
 	/** Confirmed events as a share of adjudicated signals, 0–100. KPI 5. */
 	signalToEventRate?: number;
 	/** Distinct response (disease/condition) values available in scope — populates the Response type filter. */
@@ -135,6 +179,9 @@ const EMPTY_SUMMARY: DashboardSummary = {
 	topDistricts: [],
 	diseases: [],
 	sources: [],
+	signalLevels: [],
+	communityReportingRate: -1,
+	communitySignals: 0,
 	age: [],
 	sex: [],
 	timeline: [],
@@ -144,9 +191,21 @@ const EMPTY_SUMMARY: DashboardSummary = {
 	riskAssessmentRate: 0,
 	riskAssessedWithin24h: 0,
 	riskAssessedLate: 0,
+	riskWorksheetComplete: 0,
 	feedbackRate: 0,
 	feedbackPending: 0,
+	feedbackDue: 0,
+	feedbackGiven: 0,
 	signalToEventRate: 0,
+	riskMatrix: {
+		likelihoods: [],
+		impacts: [],
+		cells: [],
+		confirmed: 0,
+		plotted: 0,
+		unbanded: 0,
+		maxCellCount: 0,
+	},
 	verificationSla: {
 		verifiedWithinDeadline: 0,
 		verifiedLate: 0,

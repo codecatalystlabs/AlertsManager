@@ -1,7 +1,8 @@
 "use client";
 
 import { memo, useCallback, useMemo, useState } from "react";
-import { Download, FileSpreadsheet, ListFilter, X } from "lucide-react";
+import { ListFilter, X } from "lucide-react";
+import { ExcelIcon, CsvIcon } from "@/components/ui/file-type-icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -87,7 +88,7 @@ export const ReportsMatrixTable = memo<ReportsMatrixTableProps>(
 							onClick={handleExportCsv}
 							title="Export CSV"
 						>
-							<Download className="h-3 w-3" />
+							<CsvIcon className="h-3 w-3" />
 							<span className="text-xs hidden sm:inline">CSV</span>
 						</Button>
 						<Button
@@ -99,7 +100,7 @@ export const ReportsMatrixTable = memo<ReportsMatrixTableProps>(
 							onClick={handleExportExcel}
 							title="Export Excel"
 						>
-							<FileSpreadsheet className="h-3 w-3" />
+							<ExcelIcon className="h-3 w-3" />
 							<span className="text-xs hidden sm:inline">Excel</span>
 						</Button>
 					</div>

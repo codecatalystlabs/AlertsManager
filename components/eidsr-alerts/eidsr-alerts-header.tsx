@@ -1,11 +1,7 @@
 import React, { memo } from "react";
 import { Button } from "@/components/ui/button";
-import {
-	RefreshCw,
-	CloudDownload,
-	Download,
-	FileSpreadsheet,
-} from "lucide-react";
+import { RefreshCw, CloudDownload } from "lucide-react";
+import { ExcelIcon, CsvIcon } from "@/components/ui/file-type-icons";
 import { EIDSR_ALERTS_CONFIG } from "@/constants/eidsr-alerts";
 import { LAYOUT } from "@/constants/layout";
 
@@ -57,7 +53,7 @@ export const EidsrAlertsHeader = memo<EidsrAlertsHeaderProps>(
 						className="gap-1.5 h-8"
 						disabled={isExporting}
 					>
-						<Download className="h-4 w-4" />
+						<CsvIcon className="h-4 w-4" />
 						{isExporting ? "Exporting…" : "Download CSV"}
 					</Button>
 					<Button
@@ -67,7 +63,7 @@ export const EidsrAlertsHeader = memo<EidsrAlertsHeaderProps>(
 						className="gap-1.5 h-8 text-muted-foreground hover:text-foreground"
 						disabled={isExporting}
 					>
-						<FileSpreadsheet className="h-4 w-4" />
+						<ExcelIcon className="h-4 w-4" />
 						{isExporting ? "Exporting…" : "Download Excel"}
 					</Button>
 					<Button

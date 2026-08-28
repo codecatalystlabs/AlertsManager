@@ -205,7 +205,7 @@ function CoverCard({
 }) {
 	return (
 		<Card style={{ backgroundColor: theme.accent }} className="border-0 text-white">
-			<CardContent className="flex items-center gap-4 py-6">
+			<CardContent className="flex items-center gap-4">
 				{config.cover.logoDataUrl && (
 					// eslint-disable-next-line @next/next/no-img-element
 					<img
@@ -249,7 +249,7 @@ function FocusSection({
 	return (
 		<>
 			<Card style={{ backgroundColor: theme.accent }} className="border-0 text-white">
-				<CardContent className="py-4">
+				<CardContent>
 					<p className="text-xs font-semibold uppercase tracking-wide text-white/80">
 						Disease focus
 					</p>
@@ -304,10 +304,10 @@ function ScopeTableCard({
 	const sections = scope.sections ?? [];
 	return (
 		<Card>
-			<CardHeader className="pb-2">
+			<CardHeader>
 				<CardTitle className="text-sm">{title}</CardTitle>
 			</CardHeader>
-			<CardContent className="overflow-x-auto pt-0">
+			<CardContent className="overflow-x-auto">
 				<table className="w-full min-w-[640px] border-collapse text-xs">
 					<thead>
 						<tr style={{ backgroundColor: theme.accent }} className="text-white">
@@ -447,10 +447,10 @@ function SourcesPieCard({
 	);
 	return (
 		<Card>
-			<CardHeader className="pb-2">
+			<CardHeader>
 				<CardTitle className="text-sm">{title}</CardTitle>
 			</CardHeader>
-			<CardContent className="pt-0">
+			<CardContent>
 				{data.length === 0 ? (
 					<EmptyChart label="No signals in this range." />
 				) : (
@@ -497,7 +497,7 @@ function DetailsCard({
 }) {
 	return (
 		<Card>
-			<CardHeader className="pb-2">
+			<CardHeader>
 				<CardTitle className="text-sm">
 					{title}
 					{detailsTotal > 0 && (
@@ -508,7 +508,7 @@ function DetailsCard({
 					)}
 				</CardTitle>
 			</CardHeader>
-			<CardContent className="pt-0">
+			<CardContent>
 				{details.length === 0 ? (
 					<p className="py-6 text-center text-sm text-muted-foreground">
 						{emptyLabel}
@@ -565,10 +565,10 @@ function CascadeCard({ title, scope }: { title: string; scope: ManagementScope }
 	);
 	return (
 		<Card>
-			<CardHeader className="pb-2">
+			<CardHeader>
 				<CardTitle className="text-sm">{title}</CardTitle>
 			</CardHeader>
-			<CardContent className="pt-0">
+			<CardContent>
 				{statuses.length === 0 ? (
 					<EmptyChart label="No signals in this range." />
 				) : (
@@ -638,10 +638,10 @@ function CountBarCard({
 	const config: ChartConfig = { count: { label: seriesLabel, color } };
 	return (
 		<Card>
-			<CardHeader className="pb-2">
+			<CardHeader>
 				<CardTitle className="text-sm">{title}</CardTitle>
 			</CardHeader>
-			<CardContent className="pt-0">
+			<CardContent>
 				{data.length === 0 ? (
 					<EmptyChart label="Nothing recorded in this range." />
 				) : (
@@ -713,13 +713,13 @@ function MapCard({
 	};
 	return (
 		<Card>
-			<CardHeader className="pb-2">
+			<CardHeader>
 				<CardTitle className="text-sm">
 					Map showing distribution of alerts, N=
 					{report.allPhes.totals.alerts.toLocaleString()}: All PHEs ({range})
 				</CardTitle>
 			</CardHeader>
-			<CardContent className="pt-0">
+			<CardContent>
 				<div className="grid gap-4 lg:grid-cols-2">
 					{map ? (
 						// eslint-disable-next-line @next/next/no-img-element
@@ -807,13 +807,13 @@ function TrendCard({ report }: { report: ManagementReport }) {
 	}));
 	return (
 		<Card>
-			<CardHeader className="pb-2">
+			<CardHeader>
 				<CardTitle className="text-sm">
 					Trend of signals vs alerts reported (
 					{formatReportRange(report.trendFrom, report.toDate)})
 				</CardTitle>
 			</CardHeader>
-			<CardContent className="pt-0">
+			<CardContent>
 				{data.length === 0 ? (
 					<EmptyChart label="No trend data for this range." />
 				) : (

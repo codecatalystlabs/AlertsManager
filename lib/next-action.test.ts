@@ -6,7 +6,7 @@
  *
  * It exits non-zero on the first failed assertion.
  *
- * WHY THIS FILE EXISTS: nextAction states the EBS pipeline's order for the UI,
+ * WHY THIS FILE EXISTS: nextAction states the EBS steps's order for the UI,
  * and getting the order wrong is not a cosmetic bug — it sends a person to the
  * wrong gate. The case that actually bit: ~1,400 signals were verified and
  * confirmed BEFORE triage existed, so they carry an outcome but no triage

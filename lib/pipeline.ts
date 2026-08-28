@@ -2,7 +2,7 @@ import { AuthService } from "@/lib/auth";
 import { getClientApiBaseUrl } from "@/lib/api-config";
 
 /**
- * The EBS pipeline as the UI navigates it.
+ * The EBS steps as the UI navigates it.
  *
  * The guideline (§3) is a sequence of gates — detection → triage → verification
  * → risk assessment → alert → feedback — and this file is the one place the
@@ -80,7 +80,7 @@ export const STAGE_STEP: Partial<Record<StageKey, number>> = {
 	[STAGE_ASSESSED]: 4,
 };
 
-/** One line on what each gate decides, shown on hover. */
+/** One line on what each gate decides, shown on hover over the pipeline strip. */
 export const STAGE_DESCRIPTION: Record<StageKey, string> = {
 	[STAGE_INTAKE]: "Every signal reported into the system, whatever its source.",
 	[STAGE_TRIAGE]:

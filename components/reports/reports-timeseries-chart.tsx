@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback, useMemo } from "react";
-import { Download, FileSpreadsheet } from "lucide-react";
+import { ExcelIcon, CsvIcon } from "@/components/ui/file-type-icons";
 import { Button } from "@/components/ui/button";
 import {
 	CartesianGrid,
@@ -98,7 +98,7 @@ export const ReportsTimeseriesChart = memo<ReportsTimeseriesChartProps>(
 							onClick={handleExportCsv}
 							title="Export CSV"
 						>
-							<Download className="h-3 w-3" />
+							<CsvIcon className="h-3 w-3" />
 							<span className="text-xs hidden sm:inline">CSV</span>
 						</Button>
 						<Button
@@ -110,7 +110,7 @@ export const ReportsTimeseriesChart = memo<ReportsTimeseriesChartProps>(
 							onClick={handleExportExcel}
 							title="Export Excel"
 						>
-							<FileSpreadsheet className="h-3 w-3" />
+							<ExcelIcon className="h-3 w-3" />
 							<span className="text-xs hidden sm:inline">Excel</span>
 						</Button>
 					</div>

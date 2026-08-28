@@ -47,7 +47,7 @@ export default function DashboardAddAlertPage() {
 						Alert Information
 					</CardTitle>
 				</CardHeader>
-				<CardContent className="p-6">
+				<CardContent>
 					<AddAlertForm
 						audience="staff"
 						submitAlert={submitAlert}

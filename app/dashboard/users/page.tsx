@@ -15,6 +15,7 @@ import {
 	dateRangeFilter,
 } from "@/components/ui/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatCard, accentInk } from "@/components/ui/stat-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,6 +60,8 @@ import {
 	Users,
 	Loader2,
 	ListFilter,
+	MapPin,
+	ShieldCheck,
 	X,
 } from "lucide-react";
 
@@ -607,7 +610,7 @@ export default function UsersPage() {
 		return (
 			<div className="container mx-auto p-4">
 				<Card>
-					<CardContent className="p-6">
+					<CardContent>
 						<div className="text-center">
 							<div className="text-destructive mb-4">
 								<AlertCircle className="h-16 w-16 mx-auto" />
@@ -649,69 +652,42 @@ export default function UsersPage() {
 				</Button>
 			</div>
 
-			{/* Stats */}
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-				<Card>
-					<CardContent className="flex items-center justify-between p-3">
-						<div>
-							<p className="text-xs font-medium text-muted-foreground">
-								Total Users
-							</p>
-							<p className="text-2xl font-bold leading-none mt-1">
-								{users.length}
-							</p>
-						</div>
-						<Users className="h-5 w-5 shrink-0 text-muted-foreground" />
-					</CardContent>
-				</Card>
-
-				<Card>
-					<CardContent className="flex items-center justify-between p-3">
-						<div>
-							<p className="text-xs font-medium text-muted-foreground">
-								Admin Users
-							</p>
-							<p className="text-2xl font-bold leading-none mt-1">
-								{
-									users.filter(
-										(user) =>
-											user.level?.toLowerCase() ===
-											"admin"
-									).length
-								}
-							</p>
-						</div>
-						<Users className="h-5 w-5 shrink-0 text-muted-foreground" />
-					</CardContent>
-				</Card>
-
-				<Card>
-					<CardContent className="flex items-center justify-between p-3">
-						<div>
-							<p className="text-xs font-medium text-muted-foreground">
-								District Users
-							</p>
-							<p className="text-2xl font-bold leading-none mt-1">
-								{
-									users.filter(
-										(user) =>
-											user.level?.toLowerCase() ===
-											"district"
-									).length
-								}
-							</p>
-						</div>
-						<Users className="h-5 w-5 shrink-0 text-muted-foreground" />
-					</CardContent>
-				</Card>
+			{/* Stats — the shared StatCard, same tile as every other page. */}
+			<div className="grid grid-cols-2 gap-2 md:grid-cols-3 mb-2.5">
+				<StatCard
+					title="Total Users"
+					value={users.length}
+					icon={Users}
+					ink={accentInk("primary")}
+				/>
+				<StatCard
+					title="Admin Users"
+					value={
+						users.filter(
+							(user) => user.level?.toLowerCase() === "admin"
+						).length
+					}
+					icon={ShieldCheck}
+					ink={accentInk("success")}
+				/>
+				<StatCard
+					title="District Users"
+					value={
+						users.filter(
+							(user) => user.level?.toLowerCase() === "district"
+						).length
+					}
+					icon={MapPin}
+					ink={accentInk("muted")}
+				/>
 			</div>
 
 			{/* Users table */}
 			<Card className="mb-4">
-				<CardHeader className="p-4 pb-2">
-					<CardTitle className="text-lg">Users</CardTitle>
+				<CardHeader>
+					<CardTitle>Users</CardTitle>
 				</CardHeader>
-				<CardContent className="p-4 pt-0">
+				<CardContent>
 					<Dialog
 						open={isAddUserOpen}
 						onOpenChange={setIsAddUserOpen}

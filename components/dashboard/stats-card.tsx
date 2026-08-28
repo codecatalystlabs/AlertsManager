@@ -2,10 +2,10 @@ import React, { memo } from 'react';
 import { StatCardConfig } from '@/constants/dashboard';
 import { AlertCounts } from '@/app/dashboard/types';
 import {
-  DEFAULT_STAT_INK,
-  StatCardShell,
-  type StatCardInk,
-} from './stat-card-shell';
+  StatCard,
+  tintedInk,
+  type StatTone,
+} from '@/components/ui/stat-card';
 
 interface StatsCardProps {
   config: StatCardConfig;
@@ -16,29 +16,23 @@ interface StatsCardProps {
   isLoading?: boolean;
 }
 
-// Soft tinted chip per config colour. Must be LITERAL class strings — Tailwind
-// only generates CSS for class names it can see in source (no runtime `.replace`).
-const CHIP_STYLES: Record<string, { bg: string; text: string }> = {
-  'bg-green-500': { bg: 'bg-success/15', text: 'text-success' },
-  'bg-red-500': { bg: 'bg-destructive/15', text: 'text-destructive' },
-  'bg-blue-500': { bg: 'bg-primary/15', text: 'text-primary' },
-  'bg-purple-500': { bg: 'bg-primary/15', text: 'text-primary' },
-  'bg-indigo-500': { bg: 'bg-primary/15', text: 'text-primary' },
-  'bg-teal-500': { bg: 'bg-success/15', text: 'text-success' },
-  'bg-amber-500': { bg: 'bg-warning/15', text: 'text-warning' },
+// The config's palette class mapped to a semantic tone, so the tile follows the
+// theme rather than the raw palette. A literal map, not a runtime `.replace`:
+// Tailwind only generates CSS for class names it can see in source.
+const ICON_TONES: Record<string, StatTone> = {
+  'bg-green-500': 'success',
+  'bg-red-500': 'destructive',
+  'bg-blue-500': 'primary',
+  'bg-purple-500': 'primary',
+  'bg-indigo-500': 'primary',
+  'bg-teal-500': 'success',
+  'bg-amber-500': 'warning',
 };
-
-const DEFAULT_CHIP = { bg: 'bg-muted', text: 'text-muted-foreground' };
 
 export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, className, isLoading }) => {
   const { title, key, icon: Icon, iconBg } = config;
 
-  const chip = CHIP_STYLES[iconBg] ?? DEFAULT_CHIP;
-  const ink: StatCardInk = {
-    ...DEFAULT_STAT_INK,
-    chipBg: chip.bg,
-    chipText: chip.text,
-  };
+  const ink = tintedInk(ICON_TONES[iconBg] ?? 'muted');
 
   const getValue = (): string => {
     // Fall back to 0 if the count is missing — e.g. an older API response that
@@ -52,17 +46,17 @@ export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, classNam
   const getSubText = (): string => {
     switch (key) {
       case 'verified':
-        return `${data.verified} of ${data.total} signals verified`;
+        return `${data.verified} of ${data.total} verified`;
       case 'notVerified':
-        return `${data.notVerified} signals pending verification`;
+        return `${data.notVerified} pending verification`;
       case 'triaged':
         // The remainder is what still sits at the gate, which is the number a
         // desk acts on — so name it rather than restating the headline figure.
-        return `${Math.max(0, data.total - data.triaged)} still awaiting triage`;
+        return `${Math.max(0, data.total - data.triaged)} awaiting triage`;
       case 'discarded':
-        return `${data.discarded} verified signals discarded`;
+        return `${data.discarded} verified then discarded`;
       case 'alerts':
-        return `${data.verified} verified minus ${data.discarded} discarded`;
+        return `${data.verified} verified − ${data.discarded} discarded`;
       case 'total':
         return `${data.verified} verified, ${data.notVerified} unverified`;
       default:
@@ -71,7 +65,7 @@ export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, classNam
   };
 
   return (
-    <StatCardShell
+    <StatCard
       title={title}
       value={getValue()}
       subText={getSubText()}

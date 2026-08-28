@@ -99,6 +99,13 @@ const row = buildExcelRow({
 	riskSevere: true,
 	riskSpread: true,
 	riskControl: true,
+	riskLikelihood: "Likely",
+	riskImpact: "Severe",
+	riskHazardNote: "Confirmed cholera.",
+	riskExposureNote: "Shared water source.",
+	riskContextNote: "Rainy season.",
+	riskTeamLead: "DHO Tororo",
+	riskTeamMembers: "DSFP, Lab focal person",
 	riskAssessedAt: ASSESSED_AT,
 	riskAssessedBy: "DHO Tororo",
 	feedbackGivenAt: FEEDBACK_AT,
@@ -147,6 +154,9 @@ check("lab result date", row["Lab Result Date"], formatDate("2026-07-26T00:00:00
 
 check("risk level", row["Risk Level"], "High");
 check("risk severe", row["Risk: Severe Illness/Death"], "Yes");
+check("risk likelihood", row["Risk Likelihood"], "Likely");
+check("risk impact", row["Risk Impact"], "Severe");
+check("rrt lead", row["RRT Lead"], "DHO Tororo");
 check("risk assessed date", row["Risk Assessed Date"], formatDate(ASSESSED_AT));
 check("risk assessed time", row["Risk Assessed Time"], formatTime(ASSESSED_AT));
 

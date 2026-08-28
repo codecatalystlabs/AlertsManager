@@ -14,7 +14,10 @@
  */
 import {
 	deriveRiskLevel,
+	deriveMatrixLevel,
 	normalizeRiskLevel,
+	RISK_LIKELIHOODS,
+	RISK_IMPACTS,
 	RISK_ACTION,
 	RISK_LEVELS,
 	RISK_LOW,
@@ -114,5 +117,85 @@ check(
 	RISK_ACTION[RISK_VERY_HIGH].toLowerCase().includes("outside normal working hours"),
 	true
 );
+
+// --- The matrix grid (Figure 4) --------------------------------------------
+// Transcribed from the guideline's figure independently of the table
+// deriveMatrixLevel holds, so a typo in one is caught by the other. This is the
+// TWIN of services.DeriveMatrixLevel / TestDeriveMatrixLevelMatchesPublishedGrid
+// in Go — the two must agree or the dialog's preview lies about the level the
+// server will store.
+//
+// Columns run least → most likely; rows run most → least severe.
+const MATRIX_COLUMNS = [
+	"Very unlikely",
+	"Unlikely",
+	"Likely",
+	"Highly likely",
+	"Almost certain",
+];
+const MATRIX_GRID: Record<string, RiskLevel[]> = {
+	Severe: [RISK_HIGH, RISK_HIGH, RISK_VERY_HIGH, RISK_VERY_HIGH, RISK_VERY_HIGH],
+	Major: [RISK_HIGH, RISK_HIGH, RISK_HIGH, RISK_VERY_HIGH, RISK_VERY_HIGH],
+	Moderate: [RISK_LOW, RISK_LOW, RISK_HIGH, RISK_HIGH, RISK_HIGH],
+	Minor: [RISK_LOW, RISK_LOW, RISK_MODERATE, RISK_MODERATE, RISK_MODERATE],
+	Minimal: [RISK_LOW, RISK_LOW, RISK_LOW, RISK_LOW, RISK_LOW],
+};
+for (const impact of RISK_IMPACTS) {
+	const row = MATRIX_GRID[impact.value];
+	if (!row) {
+		console.error(`FAIL: impact band ${impact.value} missing from the transcribed grid`);
+		process.exit(1);
+	}
+	MATRIX_COLUMNS.forEach((likelihood, i) => {
+		check(`matrix ${likelihood} x ${impact.value}`, deriveMatrixLevel(likelihood, impact.value), row[i]);
+	});
+}
+
+// A half-placed event has no cell, so it has no level.
+check("matrix without impact", deriveMatrixLevel("Almost certain", ""), null);
+check("matrix without likelihood", deriveMatrixLevel("", "Severe"), null);
+check("matrix with unknown band", deriveMatrixLevel("Almost certain", "Catastrophic"), null);
+check("matrix with nulls", deriveMatrixLevel(null, null), null);
+
+// Both axes must be monotonic: worsening one band can never LOWER the level.
+for (const impact of RISK_IMPACTS) {
+	let previous = Number.POSITIVE_INFINITY;
+	for (const likelihood of RISK_LIKELIHOODS) {
+		// RISK_LIKELIHOODS runs most likely first, so the level must not rise.
+		const current = RISK_LEVELS.indexOf(deriveMatrixLevel(likelihood.value, impact.value)!);
+		if (current > previous) {
+			console.error(`FAIL: ${impact.value} rises going down the likelihood axis`);
+			process.exit(1);
+		}
+		previous = current;
+		passed += 1;
+	}
+}
+for (const likelihood of RISK_LIKELIHOODS) {
+	let previous = Number.POSITIVE_INFINITY;
+	for (const impact of RISK_IMPACTS) {
+		// RISK_IMPACTS runs most severe first, so the level must not rise.
+		const current = RISK_LEVELS.indexOf(deriveMatrixLevel(likelihood.value, impact.value)!);
+		if (current > previous) {
+			console.error(`FAIL: ${likelihood.value} rises going down the impact axis`);
+			process.exit(1);
+		}
+		previous = current;
+		passed += 1;
+	}
+}
+
+// The matrix is IMPACT-led, not a symmetric heat map. These two rules are what a
+// reviewer would "correct" if they assumed a textbook grid, and correcting them
+// would change which events stand up command and control.
+for (const likelihood of RISK_LIKELIHOODS) {
+	const severe = deriveMatrixLevel(likelihood.value, "Severe");
+	if (severe !== RISK_HIGH && severe !== RISK_VERY_HIGH) {
+		console.error(`FAIL: ${likelihood.value} x Severe = ${severe}, want High or Very High`);
+		process.exit(1);
+	}
+	check(`${likelihood.value} x Minimal stays Low`, deriveMatrixLevel(likelihood.value, "Minimal"), RISK_LOW);
+	passed += 1;
+}
 
 console.log(`ok — ${passed} assertions passed`);

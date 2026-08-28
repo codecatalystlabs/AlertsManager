@@ -52,6 +52,12 @@ interface CallLogsTableProps {
 	filtersResetKey?: number;
 	/** Show the "Discarded at" column — only meaningful on the discard archive. */
 	showDiscardLevel?: boolean;
+	/** Show the "Risk" column — only meaningful once risk has been assessed. */
+	showRisk?: boolean;
+	/** Show the "Response" column — likewise only settled at risk assessment. */
+	showResponse?: boolean;
+	/** Show the "Verified" column — only where rows can actually differ. */
+	showVerification?: boolean;
 }
 
 export const CallLogsTable = memo<CallLogsTableProps>(
@@ -76,6 +82,9 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 		onColumnFiltersChange,
 		filtersResetKey,
 		showDiscardLevel,
+		showRisk,
+		showResponse,
+		showVerification,
 	}) => {
 		const canDelete = canDeleteAlerts(useCurrentUser());
 		const now = useTickingNow();
@@ -94,8 +103,14 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 		);
 
 		const columns = useMemo(
-			() => createCallLogsTableColumns(callbacks, { showDiscardLevel }),
-			[callbacks, showDiscardLevel]
+			() =>
+				createCallLogsTableColumns(callbacks, {
+					showDiscardLevel,
+					showRisk,
+					showResponse,
+					showVerification,
+				}),
+			[callbacks, showDiscardLevel, showRisk, showResponse, showVerification]
 		);
 
 		const { sortingState, handleSortingChange } = useServerSort(
@@ -107,7 +122,7 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 
 		return (
 			<Card className={LAYOUT.card}>
-				<CardContent className="p-3">
+				<CardContent>
 					<DataTable
 						columns={columns}
 						data={alerts}
