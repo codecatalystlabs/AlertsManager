@@ -483,7 +483,7 @@ export function AlertVerificationDialog({
 							{outcome === VERIFICATION_DISCARDED && (
 								<Consequence
 									tone="discard"
-									title="Discarded — closed without becoming an event"
+									title="Discarded - signal closed"
 									body="Recorded, never deleted. The reporter is still owed feedback telling them what was found."
 								/>
 							)}

@@ -565,6 +565,15 @@ export function AddAlertForm({
 
   const villageParishFields = (
     <>
+        <TextField
+          id="parish"
+          hint={FIELD_HINTS.parish}
+          label="Parish"
+          optional
+          value={values.parish}
+          onChange={(v) => setField("parish", v)}
+          placeholder="Enter parish name"
+        />
       <TextField
         id="village"
         hint={FIELD_HINTS.village}
@@ -573,15 +582,6 @@ export function AddAlertForm({
         value={values.village}
         onChange={(v) => setField("village", v)}
         placeholder="Enter village name"
-      />
-      <TextField
-        id="parish"
-        hint={FIELD_HINTS.parish}
-        label="Parish"
-        optional
-        value={values.parish}
-        onChange={(v) => setField("parish", v)}
-        placeholder="Enter parish name"
       />
     </>
   );
@@ -749,7 +749,7 @@ export function AddAlertForm({
   const descriptionField = (
     <div className="space-y-2">
       <FieldLabel htmlFor="caseDescription" hint={FIELD_HINTS.caseDescription}>
-        {isPublic ? "Describe what is happening(suspected case , sex, age ,signs and symptoms,date of onset) *" : "Signal Description(suspected case,sex,age,signs and symptoms,date of onset) *"}
+        {isPublic ? "Describe what is happening(presentation , sex, age ,signs and symptoms,date of onset) *" : "Signal Description(suspected case,sex,age,signs and symptoms,date of onset) *"}
       </FieldLabel>
       <Textarea
         id="caseDescription"
@@ -759,7 +759,7 @@ export function AddAlertForm({
         rows={8}
         placeholder={
           isPublic
-            ? "What did you see? When did it start? How many people are affected?"
+            ? "What have you seen or  heard? When did it start? number affected?"
             : "Describe what happened, when it started, who is affected, and any other relevant details"
         }
         className={`min-h-48 ${FIELD_CLASS}`}

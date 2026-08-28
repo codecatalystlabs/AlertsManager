@@ -131,8 +131,8 @@ export function TriageDialog({
 						reason: reason.trim() || undefined,
 						duplicateOf:
 							decision === TRIAGE_DISCARDED &&
-							Number.isFinite(parsedDuplicate) &&
-							parsedDuplicate > 0
+								Number.isFinite(parsedDuplicate) &&
+								parsedDuplicate > 0
 								? parsedDuplicate
 								: undefined,
 						note: note.trim() || undefined,
@@ -279,7 +279,7 @@ export function TriageDialog({
 						</div>
 					)}
 
-					{decision === TRIAGE_DISCARDED && (
+					{/* {decision === TRIAGE_DISCARDED && (
 						<div className="space-y-1">
 							<Label htmlFor="triage-duplicate-of" className="text-xs">
 								Duplicate of{" "}
@@ -300,14 +300,14 @@ export function TriageDialog({
 								cluster is visible instead of just the discard.
 							</p>
 						</div>
-					)}
+					)} */}
 
 					{decision !== null && (
 						<div className="space-y-1">
 							<Label htmlFor="triage-reason" className="text-xs">
 								{reasonRequired ? (
 									<>
-										Why is this signal leaving the pipeline?{" "}
+										Reason for discarding?{" "}
 										<span className="text-uganda-red">*</span>
 									</>
 								) : (
