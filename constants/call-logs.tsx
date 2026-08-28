@@ -27,6 +27,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { forwardedFromSourceLabel } from "@/lib/signal-register-link";
 import { DiscardLevelBadge } from "@/components/triage";
 import { verificationBlockedReason } from "@/lib/alert-triage";
 import { nextAction, type NextActionKey } from "@/lib/next-action";
@@ -490,12 +491,10 @@ export const createCallLogsTableColumns = (
 			header: "Forwarded From",
 			enableColumnFilter: false,
 			cell: ({ row }) => {
-				// A 6767 alert forwarded into a district's signal log is stamped with
-				// alertFrom = "6767 Forward" by the backend.
-				const from = (row.original.alertFrom ?? "").toLowerCase();
-				return from.includes("6767") ? (
+				const label = forwardedFromSourceLabel(row.original.alertFrom);
+				return label ? (
 					<Badge variant="secondary" className="text-xs">
-						6767
+						{label}
 					</Badge>
 				) : (
 					<span className="text-sm text-muted-foreground">—</span>

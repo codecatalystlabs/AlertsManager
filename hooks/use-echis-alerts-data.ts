@@ -15,5 +15,6 @@ export function useEchisAlertsData() {
 		itemsPerPage: ECHIS_ALERTS_CONFIG.ITEMS_PER_PAGE,
 		autoRefreshMs: ECHIS_ALERTS_CONFIG.AUTO_REFRESH_INTERVAL_MS,
 		columnParamsFn: columnFiltersToEchisLocalParams,
+		autoForwardWithDistrict: true,
 	});
 }

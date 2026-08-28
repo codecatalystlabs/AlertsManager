@@ -12,6 +12,7 @@ import {
 } from '@/lib/fetch-alerts';
 import { columnFiltersToAlertParams } from '@/lib/alert-column-filters';
 import { useInvalidateAlerts } from '@/hooks/use-invalidate-alerts';
+import { shouldShowInAlertsManagement } from '@/lib/forwarded-signal';
 
 interface AlertsFilters {
     status: string;
@@ -195,8 +196,13 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         { keepPreviousData: true }
     );
 
-    const alerts = useMemo(() => (data?.data ?? []) as AlertType[], [data]);
-
+    const alerts = useMemo(
+        () =>
+            ((data?.data ?? []) as AlertType[]).filter(
+                shouldShowInAlertsManagement
+            ),
+        [data]
+    );
     const pagination: AlertsPagination = {
         page: data?.page ?? page,
         limit: data?.limit ?? limit,
@@ -226,7 +232,9 @@ export const useAlertsData = (): UseAlertsDataReturn => {
             });
 
         const first = await fetchExportPage(1);
-        const collected: AlertType[] = [...(first.data as AlertType[])];
+        const collected: AlertType[] = [
+            ...(first.data as AlertType[]).filter(shouldShowInAlertsManagement),
+        ];
 
         const lastPage = Math.min(Math.max(first.totalPages ?? 1, 1), MAX_EXPORT_PAGES);
         if (lastPage > 1) {
@@ -236,7 +244,11 @@ export const useAlertsData = (): UseAlertsDataReturn => {
                 )
             );
             for (const pageResult of rest) {
-                collected.push(...(pageResult.data as AlertType[]));
+                collected.push(
+                    ...(pageResult.data as AlertType[]).filter(
+                        shouldShowInAlertsManagement
+                    )
+                );
             }
         }
 

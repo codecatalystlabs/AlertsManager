@@ -24,6 +24,7 @@ import {
 } from "@/lib/eidsr-message-normalize";
 import { EIDSR_STATUS_FILTER_OPTIONS } from "@/constants/eidsr-alerts";
 import { LAYOUT } from "@/constants/layout";
+import { ForwardedDistrictBadge } from "@/components/forwarded-district-badge";
 import { verifiedTableRowClass } from "@/lib/verified-row-style";
 import { isEidsr6767Verified } from "@/lib/eidsr-verified-state";
 import { canForwardAlerts } from "@/lib/auth";
@@ -206,18 +207,11 @@ function createColumns(handlers: {
 					return <span className="text-muted-foreground">—</span>;
 				}
 				return (
-					<div className="flex flex-col items-start gap-1">
-						<Badge
-							variant="secondary"
-							className="gap-1 whitespace-nowrap"
-							title={`Forwarded to ${m.forwardedToDistrict}`}
-						>
-							<Send className="h-3 w-3" />
-							{m.forwardedToDistrict}
-						</Badge>
-						{/* Traceability: did the district verify the forwarded alert? */}
-						<AlertVerifyChip alert={m.forwardedAlert} />
-					</div>
+					<ForwardedDistrictBadge
+						district={m.forwardedToDistrict}
+						forwardedAlertId={m.forwardedAlertId}
+						forwardedAlert={m.forwardedAlert}
+					/>
 				);
 			},
 		},

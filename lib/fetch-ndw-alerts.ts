@@ -1,6 +1,7 @@
 import { AuthService } from "@/lib/auth";
 import { getClientApiBaseUrl } from "@/lib/api-config";
 import { notifyAlertsChanged } from "@/lib/alerts-events";
+import { buildForwardToSignalPayload } from "@/lib/forward-to-signal-payload";
 import type { EidsrMessageVerifyPayload } from "@/lib/fetch-eidsr-messages";
 
 export class NdwFetchError extends Error {
@@ -261,12 +262,13 @@ export function createNdwSource<TRow>(base: "echis" | "poe"): NdwSource<TRow> {
 			return ndwRequest<NdwSyncProgress>(`${root}/sync/status`);
 		},
 		async forward(id, payload) {
+			const body = buildForwardToSignalPayload(payload.district, payload.note);
 			const json = await ndwRequest<{ alertId?: number; district?: string }>(
 				`${root}/${id}/forward`,
 				{
 					method: "POST",
 					headers: jsonHeaders,
-					body: JSON.stringify(payload),
+					body: JSON.stringify(body),
 				}
 			);
 			notifyAlertsChanged();
