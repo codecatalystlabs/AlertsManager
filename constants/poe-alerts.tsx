@@ -1,5 +1,5 @@
 export const POE_ALERTS_CONFIG = {
-	PAGE_TITLE: "POE Alerts",
+	PAGE_TITLE: "POE Signals",
 	PAGE_DESCRIPTION:
 		"Point of Entry traveller health alerts — sync from NDW and review",
 	ITEMS_PER_PAGE: 10,

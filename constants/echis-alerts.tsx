@@ -1,5 +1,5 @@
 export const ECHIS_ALERTS_CONFIG = {
-	PAGE_TITLE: "eCHIS Alerts",
+	PAGE_TITLE: "eCHIS Signals",
 	PAGE_DESCRIPTION:
 		"Community Health Toolkit (eCHIS) EBS signals — sync from NDW and review",
 	ITEMS_PER_PAGE: 10,

@@ -295,19 +295,45 @@ export const RISK_ACTION_EMS = "EMS Evacuation";
 export const RISK_ACTION_SDB = "SDB";
 export const RISK_ACTION_NO_INVESTIGATION = "No Investigation";
 
-/** In display order — must match services.RiskActionOptions. */
-export const RISK_ACTION_OPTIONS = [
+/**
+ * The vocabulary is TWO-LEVEL. Exactly one PRIMARY option says what stance was
+ * taken; under Respond only, any number of RESPONSE options say how that
+ * response was mounted — a team can sample, evacuate and bury from one event.
+ *
+ * Sample Collected / EMS Evacuation / SDB are not alternatives to Respond: each
+ * one IS a response, and recording one without Respond would let an evacuated
+ * patient read as an event nobody responded to.
+ */
+export const RISK_ACTION_PRIMARY_OPTIONS = [
 	RISK_ACTION_RESPOND,
 	RISK_ACTION_MONITOR,
+	RISK_ACTION_NO_INVESTIGATION,
+] as const;
+
+/** The ways a response was mounted — only legal alongside Respond. */
+export const RISK_ACTION_RESPONSE_OPTIONS = [
 	RISK_ACTION_SAMPLE,
 	RISK_ACTION_EMS,
 	RISK_ACTION_SDB,
+] as const;
+
+/**
+ * In display order — must match services.RiskActionOptions. This is also the
+ * order a value is stored in, so a row reads as the form asked it
+ * ("Respond, Sample Collected, SDB").
+ */
+export const RISK_ACTION_OPTIONS = [
+	RISK_ACTION_RESPOND,
+	RISK_ACTION_SAMPLE,
+	RISK_ACTION_EMS,
+	RISK_ACTION_SDB,
+	RISK_ACTION_MONITOR,
 	RISK_ACTION_NO_INVESTIGATION,
 ] as const;
 
 export type RiskAction = (typeof RISK_ACTION_OPTIONS)[number];
 
-/** What each action commits the team to, shown next to the checkbox. */
+/** What each action commits the team to, shown next to its control. */
 export const RISK_ACTION_HINTS: Record<string, string> = {
 	[RISK_ACTION_RESPOND]: "A response was mounted for this event",
 	[RISK_ACTION_MONITOR]: "Kept under enhanced surveillance, no response yet",
@@ -318,24 +344,31 @@ export const RISK_ACTION_HINTS: Record<string, string> = {
 };
 
 /**
- * Read a stored value back to a canonical option, or "" when there is none.
- *
- * The question is SINGLE-select and the API refuses a list, but this tolerates a
- * comma-joined value so a row written before that rule (or by hand) still
- * renders as its first recognised action rather than as nothing.
+ * Read a stored value back to canonical options, in published order.
+ * Unrecognised entries are dropped — this is a reader, not a validator.
  */
-export function parseRiskAction(raw: string | null | undefined): string {
-	if (!raw) return "";
+export function parseRiskActions(raw: string | null | undefined): string[] {
+	if (!raw) return [];
+	const seen = new Set<string>();
 	for (const part of raw.split(",")) {
 		const match = RISK_ACTION_OPTIONS.find(
 			(o) => o.toLowerCase() === part.trim().toLowerCase()
 		);
-		if (match) return match;
+		if (match) seen.add(match);
 	}
-	return "";
+	return RISK_ACTION_OPTIONS.filter((o) => seen.has(o));
+}
+
+/** The stance in a stored value, or "" — at most one is ever legal. */
+export function riskActionPrimary(actions: string[]): string {
+	return (
+		actions.find((a) =>
+			(RISK_ACTION_PRIMARY_OPTIONS as readonly string[]).includes(a)
+		) ?? ""
+	);
 }
 
 /** EMS Evacuation is the one action that requires a destination. */
-export function riskActionNeedsFacility(action: string): boolean {
-	return action === RISK_ACTION_EMS;
+export function riskActionsNeedFacility(actions: string[]): boolean {
+	return actions.includes(RISK_ACTION_EMS);
 }

@@ -1,5 +1,5 @@
 export const EIDSR_ALERTS_CONFIG = {
-	PAGE_TITLE: "6767 Alerts",
+	PAGE_TITLE: "6767 Signals",
 	PAGE_DESCRIPTION:
 		"6767 EIDSR SMS messages — sync, review, and verify into alerts",
 	ITEMS_PER_PAGE: 10,

@@ -8,6 +8,7 @@ import {
   CallLogsHeader,
   CallLogsFilters,
   CallLogsTable,
+  TriagedSplitTabs,
 } from '@/components/call-logs';
 import { ErrorAlert } from '@/components/dashboard';
 import { TriageDialog } from '@/components/triage';
@@ -15,7 +16,7 @@ import { RiskAssessmentDialog } from '@/components/risk';
 import { FeedbackDialog } from '@/components/feedback';
 import { useCallLogsData, type AlertLog } from '@/hooks/use-call-logs-data';
 import { useInvalidateAlerts } from '@/hooks/use-invalidate-alerts';
-import { AuthService } from '@/lib/auth';
+import { AuthService, type Alert } from '@/lib/auth';
 import { PipelineStrip } from '@/components/pipeline';
 import { STAGE_FEEDBACK, isQueueStage, stageLabel } from '@/lib/pipeline';
 import {
@@ -39,6 +40,16 @@ const AlertVerificationDialog = dynamic(
   () =>
     import('@/components/alert-verification-dialog').then((m) => ({
       default: m.AlertVerificationDialog,
+    })),
+  { ssr: false },
+);
+
+// The composer pulls in `docx` and jsPDF on demand; keeping the whole dialog out
+// of the initial bundle keeps the register's first paint where it was.
+const SpotRepDialog = dynamic(
+  () =>
+    import('@/components/spotrep').then((m) => ({
+      default: m.SpotRepDialog,
     })),
   { ssr: false },
 );
@@ -217,6 +228,30 @@ export default function CallLogsPage(): React.JSX.Element {
     setFeedbackAlert(alert);
   }, []);
 
+  // Spot report (EBS step 5). Unlike triage and risk assessment this one reads
+  // the WHOLE record — the verifier's note, the lab result, the risk worksheet
+  // all end up in the narrative — and the list endpoint does not carry every
+  // one of those columns. So the full alert is fetched, and the composer opens
+  // immediately with a loading state rather than after the round trip.
+  const [spotRepOpen, setSpotRepOpen] = useState(false);
+  const [spotRepAlert, setSpotRepAlert] = useState<Alert | null>(null);
+  const [spotRepLoading, setSpotRepLoading] = useState(false);
+  const handleGenerateSpotRep = useCallback(async (alert: AlertLog) => {
+    setSpotRepAlert(null);
+    setSpotRepLoading(true);
+    setSpotRepOpen(true);
+    try {
+      setSpotRepAlert(await AuthService.fetchAlert(alert.id));
+    } catch (error) {
+      console.error('Failed to load full alert for the spot report:', error);
+      // The row itself still carries most of the report; drafting from it is
+      // better than an empty dialog.
+      setSpotRepAlert(alert as unknown as Alert);
+    } finally {
+      setSpotRepLoading(false);
+    }
+  }, []);
+
   const handleEditAlert = useCallback(
     async (alert: AlertLog) => {
       try {
@@ -336,6 +371,7 @@ export default function CallLogsPage(): React.JSX.Element {
           onVerifyAlert={handleVerifyAlert}
           onTriageAlert={handleTriageAlert}
           onAssessRisk={handleAssessRisk}
+          onGenerateSpotRep={handleGenerateSpotRep}
           onRecordFeedback={handleRecordFeedback}
           onDeleteAlert={handleDeleteAlert}
         />
@@ -358,6 +394,16 @@ export default function CallLogsPage(): React.JSX.Element {
         alertId={riskAlert?.id ?? null}
         current={riskAlert ?? undefined}
         onAssessed={handleVerificationComplete}
+      />
+
+      <SpotRepDialog
+        open={spotRepOpen}
+        onOpenChange={(open) => {
+          setSpotRepOpen(open);
+          if (!open) setSpotRepAlert(null);
+        }}
+        alert={spotRepAlert}
+        loading={spotRepLoading}
       />
 
       <FeedbackDialog

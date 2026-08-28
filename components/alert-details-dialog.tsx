@@ -565,8 +565,8 @@ export function AlertDetailsDialog({
 													Action taken:{" "}
 												</span>
 												{alert.riskActionTaken ? (
-													// Single-valued; split defensively so a
-													// legacy comma-joined row still reads.
+													// A stance plus any response sub-actions,
+													// stored comma-joined in the one column.
 													alert.riskActionTaken.split(",").join(" · ")
 												) : (
 													<span className="text-amber-700">

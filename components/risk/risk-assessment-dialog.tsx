@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FacilityPicker } from "@/components/facilities/facility-picker";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -30,10 +31,13 @@ import {
 	deriveMatrixLevel,
 	normalizeRiskLevel,
 	riskWorksheetComplete,
-	RISK_ACTION_OPTIONS,
+	RISK_ACTION_PRIMARY_OPTIONS,
+	RISK_ACTION_RESPONSE_OPTIONS,
+	RISK_ACTION_RESPOND,
 	RISK_ACTION_HINTS,
-	parseRiskAction,
-	riskActionNeedsFacility,
+	parseRiskActions,
+	riskActionPrimary,
+	riskActionsNeedFacility,
 } from "@/lib/alert-risk";
 import {
 	EMPTY_RRT_PERSON,
@@ -121,9 +125,12 @@ export function RiskAssessmentDialog({
 	// The RRT is structured here and flattened on save — see lib/rrt-team.ts
 	// for the encoding and why it stays in the two existing text columns.
 	const [lead, setLead] = useState<RrtPerson>(EMPTY_RRT_PERSON);
-	// "What action have you taken?" — the last question on the form. ONE action:
-	// the form asks what was done, not for a checklist.
-	const [action, setAction] = useState("");
+	// "What action have you taken?" — the last question on the form, in two
+	// levels: ONE stance, and (under Respond only) any number of the sub-actions
+	// saying how that response was mounted. Held apart so choosing a stance that
+	// is not a response cannot leave orphaned sub-actions behind.
+	const [stance, setStance] = useState("");
+	const [subActions, setSubActions] = useState<string[]>([]);
 	const [evacFacility, setEvacFacility] = useState("");
 	const [evacFacilityUid, setEvacFacilityUid] = useState("");
 	const [members, setMembers] = useState<MemberRow[]>([blankMember()]);
@@ -167,7 +174,20 @@ export function RiskAssessmentDialog({
 			exposureNote: current?.riskExposureNote ?? "",
 			contextNote: current?.riskContextNote ?? "",
 		});
-		setAction(parseRiskAction(current?.riskActionTaken));
+		// Seeded from the stored column. Rows written before the question became
+		// two-level can carry a bare "EMS Evacuation" with no stance; those adopt
+		// Respond, because that is what a sub-action already meant. Without the
+		// heal the checkboxes would not render and a re-assessment would silently
+		// drop the evacuation it inherited.
+		const stored = parseRiskActions(current?.riskActionTaken);
+		const storedSubs = stored.filter((a) =>
+			(RISK_ACTION_RESPONSE_OPTIONS as readonly string[]).includes(a)
+		);
+		setStance(
+			riskActionPrimary(stored) ||
+			(storedSubs.length > 0 ? RISK_ACTION_RESPOND : "")
+		);
+		setSubActions(storedSubs);
 		setEvacFacility(current?.riskEvacuationFacility ?? "");
 		setEvacFacilityUid(current?.riskEvacuationFacilityUid ?? "");
 		setLead(parseRrtPerson(current?.riskTeamLead));
@@ -191,11 +211,39 @@ export function RiskAssessmentDialog({
 	// both bands are chosen, rather than guessing at the missing axis.
 	const complete = level !== null;
 
+	// Sub-actions only count under Respond — the server refuses them under any
+	// other stance, so the form must not send what a stale checkbox left behind.
+	const responding = stance === RISK_ACTION_RESPOND;
+	const actions = useMemo(
+		() =>
+			parseRiskActions(
+				[stance, ...(responding ? subActions : [])].join(",")
+			),
+		[stance, responding, subActions]
+	);
+
 	// EMS Evacuation is the one action that needs a destination: an evacuation
 	// with nowhere recorded cannot say where to follow the patient up, so the
 	// form blocks on it rather than saving a half-record the API would reject.
-	const needsFacility = riskActionNeedsFacility(action);
+	const needsFacility = riskActionsNeedFacility(actions);
 	const blockedOnFacility = needsFacility && !evacFacility.trim();
+
+	// Picking a stance is a decision about the whole question: leaving Respond
+	// must not leave "Monitor" carrying an evacuation nobody can see any more.
+	const chooseStance = useCallback((next: string) => {
+		setStance(next);
+		if (next !== RISK_ACTION_RESPOND) {
+			setSubActions([]);
+			setEvacFacility("");
+			setEvacFacilityUid("");
+		}
+	}, []);
+
+	const toggleSubAction = useCallback((option: string, on: boolean) => {
+		setSubActions((prev) =>
+			on ? [...prev, option] : prev.filter((a) => a !== option)
+		);
+	}, []);
 
 	const submit = useCallback(async () => {
 		if (!alertId || !complete || blockedOnFacility) return;
@@ -215,7 +263,7 @@ export function RiskAssessmentDialog({
 						...sheet,
 						teamLead: formatRrtPerson(lead),
 						teamMembers: formatRrtMembers(members),
-						actionTaken: action,
+						actionTaken: actions.join(", "),
 						evacuationFacility: needsFacility ? evacFacility : "",
 						evacuationFacilityUid: needsFacility ? evacFacilityUid : "",
 					}),
@@ -247,7 +295,7 @@ export function RiskAssessmentDialog({
 		sheet,
 		lead,
 		members,
-		action,
+		actions,
 		evacFacility,
 		evacFacilityUid,
 		level,
@@ -537,9 +585,36 @@ export function RiskAssessmentDialog({
 						title="Earlier assessments"
 					/>
 
+					{/* The reasoning behind the level, kept with the ASSESSMENT it
+					    explains rather than after the action taken. The form reads as
+					    one thought that way — score the event, say why — and leaves
+					    "what have you done about it?" as the closing question. */}
+					<div className="space-y-1">
+						<Label htmlFor="risk-note" className="text-xs">
+							Assessment notes{" "}
+							<span className="text-muted-foreground">(optional)</span>
+						</Label>
+						<Textarea
+							id="risk-note"
+							value={note}
+							onChange={(e) => setNote(e.target.value)}
+							placeholder="e.g. no vaccine stock in district; border sub-county with daily crossings"
+							className="min-h-[64px] text-xs"
+						/>
+						<p className="text-[11px] text-muted-foreground">
+							Kept on the signal&apos;s traceability timeline, so a later
+							re-assessment does not erase the original reasoning.
+						</p>
+					</div>
+
 					{/* The last question: what was actually DONE. A risk level with
 					    no action recorded against it is a score nobody acted on, and
 					    the RRT that assessed the event is the team that knows.
+
+					    TWO LEVELS: one stance (Respond / Monitor / No Investigation),
+					    and under Respond only, any number of sub-actions saying how
+					    the response was mounted — a team can sample, evacuate and bury
+					    from the same event, so those are checkboxes, not alternatives.
 
 					    Stored in its own column, NOT alerts.response_actions — that
 					    one is desk verification's record, and writing it from here
@@ -550,7 +625,7 @@ export function RiskAssessmentDialog({
 								<p className="text-xs font-medium leading-none">
 									What action have you taken?{" "}
 									<span className="font-normal text-muted-foreground">
-										(optional — choose one)
+										(optional)
 									</span>
 								</p>
 								<p className="mt-1 text-[11px] text-muted-foreground">
@@ -560,13 +635,13 @@ export function RiskAssessmentDialog({
 							</div>
 							{/* A radio group cannot be un-picked, and this question is
 							    optional — without this, a mis-click is permanent. */}
-							{action && (
+							{stance && (
 								<Button
 									type="button"
 									variant="ghost"
 									size="sm"
 									className="h-6 shrink-0 px-2 text-[11px]"
-									onClick={() => setAction("")}
+									onClick={() => chooseStance("")}
 								>
 									Clear
 								</Button>
@@ -574,25 +649,62 @@ export function RiskAssessmentDialog({
 						</div>
 
 						<RadioGroup
-							value={action}
-							onValueChange={setAction}
-							className="grid gap-1.5 sm:grid-cols-2"
+							value={stance}
+							onValueChange={chooseStance}
+							className="grid gap-1.5"
 						>
-							{RISK_ACTION_OPTIONS.map((option) => (
-								<label
-									key={option}
-									className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 hover:bg-gray-50"
-								>
-									<RadioGroupItem value={option} className="mt-0.5" />
-									<span className="min-w-0">
-										<span className="block text-xs font-medium leading-none">
-											{option}
+							{RISK_ACTION_PRIMARY_OPTIONS.map((option) => (
+								<div key={option}>
+									<label className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 hover:bg-gray-50">
+										<RadioGroupItem value={option} className="mt-0.5" />
+										<span className="min-w-0">
+											<span className="block text-xs font-medium leading-none">
+												{option}
+											</span>
+											<span className="mt-0.5 block text-[11px] text-muted-foreground">
+												{RISK_ACTION_HINTS[option]}
+											</span>
 										</span>
-										<span className="mt-0.5 block text-[11px] text-muted-foreground">
-											{RISK_ACTION_HINTS[option]}
-										</span>
-									</span>
-								</label>
+									</label>
+
+									{/* Nested under Respond, and only there: each of these
+									    IS a response, so recording one without Respond
+									    would read as an event nobody responded to. */}
+									{option === RISK_ACTION_RESPOND && responding && (
+										<div className="ml-6 mt-1 space-y-1.5 border-l-2 border-gray-200 pl-3">
+											<p className="text-[11px] font-medium text-muted-foreground">
+												What did the response involve?{" "}
+												<span className="font-normal">
+													(optional — tick any that apply)
+												</span>
+											</p>
+											<div className="grid gap-1.5 sm:grid-cols-2">
+												{RISK_ACTION_RESPONSE_OPTIONS.map((sub) => (
+													<label
+														key={sub}
+														className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 hover:bg-gray-50"
+													>
+														<Checkbox
+															checked={subActions.includes(sub)}
+															onCheckedChange={(checked) =>
+																toggleSubAction(sub, checked === true)
+															}
+															className="mt-0.5"
+														/>
+														<span className="min-w-0">
+															<span className="block text-xs font-medium leading-none">
+																{sub}
+															</span>
+															<span className="mt-0.5 block text-[11px] text-muted-foreground">
+																{RISK_ACTION_HINTS[sub]}
+															</span>
+														</span>
+													</label>
+												))}
+											</div>
+										</div>
+									)}
+								</div>
 							))}
 						</RadioGroup>
 
@@ -619,24 +731,6 @@ export function RiskAssessmentDialog({
 								)}
 							</div>
 						)}
-					</div>
-
-					<div className="space-y-1">
-						<Label htmlFor="risk-note" className="text-xs">
-							Assessment notes{" "}
-							<span className="text-muted-foreground">(optional)</span>
-						</Label>
-						<Textarea
-							id="risk-note"
-							value={note}
-							onChange={(e) => setNote(e.target.value)}
-							placeholder="e.g. no vaccine stock in district; border sub-county with daily crossings"
-							className="min-h-[64px] text-xs"
-						/>
-						<p className="text-[11px] text-muted-foreground">
-							Kept on the signal&apos;s traceability timeline, so a later
-							re-assessment does not erase the original reasoning.
-						</p>
 					</div>
 				</div>
 
