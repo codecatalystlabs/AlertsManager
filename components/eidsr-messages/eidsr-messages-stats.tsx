@@ -1,6 +1,6 @@
 import React, { memo, useMemo } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { MessageSquare, CheckCircle2, Clock, Cloud, Link2, Unlink } from "lucide-react";
+import { StatCard, accentInk, type StatCardInk } from "@/components/ui/stat-card";
+import { MessageSquare, CheckCircle2, Clock, Cloud, Link2, Unlink, type LucideIcon } from "lucide-react";
 import {
 	EIDSR_MESSAGE_STAT_LABELS,
 } from "@/constants/eidsr-messages";
@@ -14,7 +14,7 @@ interface EidsrMessagesStatsProps {
 	onFilterChange: (filter: "all" | "linked" | "unlinked") => void;
 }
 
-const STAT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+const STAT_ICONS: Record<string, LucideIcon> = {
 	total: MessageSquare,
 	totalMessages: MessageSquare,
 	linked: Link2,
@@ -28,18 +28,18 @@ const STAT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
 	pending: Clock,
 };
 
-const STAT_COLORS: Record<string, { border: string; text: string; icon: string }> = {
-	total: { border: "border-l-primary", text: "text-primary", icon: "text-primary" },
-	totalMessages: { border: "border-l-primary", text: "text-primary", icon: "text-primary" },
-	linked: { border: "border-l-success", text: "text-success", icon: "text-success" },
-	unlinked: { border: "border-l-warning", text: "text-warning", icon: "text-warning" },
-	verified: { border: "border-l-success", text: "text-success", icon: "text-success" },
-	verifiedMessages: { border: "border-l-success", text: "text-success", icon: "text-success" },
-	unverified: { border: "border-l-warning", text: "text-warning", icon: "text-warning" },
-	unverifiedMessages: { border: "border-l-warning", text: "text-warning", icon: "text-warning" },
-	synced: { border: "border-l-muted-foreground", text: "text-muted-foreground", icon: "text-muted-foreground" },
-	syncedMessages: { border: "border-l-muted-foreground", text: "text-muted-foreground", icon: "text-muted-foreground" },
-	pending: { border: "border-l-warning", text: "text-warning", icon: "text-warning" },
+const STAT_INK: Record<string, StatCardInk> = {
+	total: accentInk("primary"),
+	totalMessages: accentInk("primary"),
+	linked: accentInk("success"),
+	unlinked: accentInk("warning"),
+	verified: accentInk("success"),
+	verifiedMessages: accentInk("success"),
+	unverified: accentInk("warning"),
+	unverifiedMessages: accentInk("warning"),
+	synced: accentInk("muted"),
+	syncedMessages: accentInk("muted"),
+	pending: accentInk("warning"),
 };
 
 function statFilterForKey(
@@ -71,62 +71,24 @@ export const EidsrMessagesStats = memo<EidsrMessagesStatsProps>(
 				{entries.map(([key, value]) => {
 					const filter = statFilterForKey(key);
 					const isActive = filter != null && activeFilter === filter;
-					const colors = STAT_COLORS[key] ?? {
-						border: "border-l-gray-400",
-						text: "text-gray-700",
-						icon: "text-gray-500",
-					};
-					const Icon = STAT_ICONS[key] ?? MessageSquare;
 					const title =
 						EIDSR_MESSAGE_STAT_LABELS[key] ??
 						formatEidsrMessageStatLabel(key);
 
 					return (
-						<Card
+						<StatCard
 							key={key}
-							role={filter ? "button" : undefined}
-							tabIndex={filter ? 0 : undefined}
+							title={title}
+							value={value}
+							icon={STAT_ICONS[key] ?? MessageSquare}
+							ink={STAT_INK[key] ?? accentInk("muted")}
+							isActive={isActive}
 							onClick={
 								filter
 									? () => onFilterChange(isActive ? "all" : filter)
 									: undefined
 							}
-							onKeyDown={
-								filter
-									? (e) => {
-											if (e.key === "Enter" || e.key === " ") {
-												e.preventDefault();
-												onFilterChange(isActive ? "all" : filter);
-											}
-										}
-									: undefined
-							}
-							className={cn(
-								"min-w-0 border-l-4",
-								colors.border,
-								filter && "cursor-pointer hover:shadow-md transition-all",
-								isActive && "ring-2 ring-uganda-red shadow-md bg-muted/30"
-							)}
-						>
-							<CardContent className="p-2">
-								<div className="flex items-center gap-2 min-w-0">
-									<Icon className={cn("h-5 w-5 shrink-0", colors.icon)} />
-									<div className="min-w-0">
-										<p className="text-[11px] font-medium text-gray-600 truncate">
-											{title}
-										</p>
-										<p
-											className={cn(
-												"text-lg font-bold leading-tight",
-												colors.text
-											)}
-										>
-											{value.toLocaleString()}
-										</p>
-									</div>
-								</div>
-							</CardContent>
-						</Card>
+						/>
 					);
 				})}
 			</div>

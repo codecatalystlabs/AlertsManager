@@ -35,7 +35,7 @@ import { ArrowRight, CircleSlash, Loader2, ShieldQuestion } from "lucide-react";
 const API_BASE_URL = getClientApiBaseUrl();
 
 /**
- * Triage — step 2 of the EBS pipeline, as the guideline actually specifies it.
+ * Triage — step 2 of the EBS steps, as the guideline actually specifies it.
  *
  * Triage is a GATE, not a labelling exercise. It asks two questions in order,
  * and each has its own exit:
@@ -148,7 +148,7 @@ export function TriageDialog({
 					? `${altCode(alertId)} forwarded for verification`
 					: decision === TRIAGE_DISCARDED
 						? `${altCode(alertId)} discarded as already reported — kept on the register`
-						: `${altCode(alertId)} logged and monitored — off the EBS pipeline, kept on the register`,
+						: `${altCode(alertId)} logged and monitored — off the EBS steps, kept on the register`,
 			);
 			onTriaged?.();
 			onOpenChange(false);
@@ -411,11 +411,11 @@ function Question({
 							)}
 						>
 							{option.label}
-							{option.off && (
+							{/* {option.off && (
 								<span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
 									leaves pipeline
 								</span>
-							)}
+							)} */}
 						</button>
 					);
 				})}

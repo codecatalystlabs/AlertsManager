@@ -34,7 +34,7 @@ export interface AlertsListParams {
 	 */
 	triaged?: string;
 	/**
-	 * EBS pipeline stage queue: triage | verification | risk | feedback |
+	 * EBS steps stage queue: triage | verification | risk | feedback |
 	 * offpipeline. Applied server-side with the SAME predicate the pipeline
 	 * strip counts with, so a stage's tile and its list always agree.
 	 */
@@ -303,10 +303,10 @@ function parsePaginatedAlertsResponse(json: unknown): PaginatedAlertsResult<Aler
 		limit =
 			Number(
 				body.limit ??
-					body.page_size ??
-					nested?.limit ??
-					nested?.page_size ??
-					rawItems.length
+				body.page_size ??
+				nested?.limit ??
+				nested?.page_size ??
+				rawItems.length
 			) || rawItems.length;
 		total = Number(body.total ?? nested?.total ?? rawItems.length) || rawItems.length;
 		totalPages =

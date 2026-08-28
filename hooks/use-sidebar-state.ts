@@ -59,5 +59,5 @@ export function useSidebarState() {
 
 /** Main content left padding matching sidebar width on lg+ */
 export function getMainContentPaddingClass(collapsed: boolean): string {
-	return collapsed ? "lg:pl-16" : "lg:pl-72";
+	return collapsed ? "lg:pl-14" : "lg:pl-56";
 }

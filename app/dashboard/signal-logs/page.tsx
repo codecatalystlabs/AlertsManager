@@ -15,15 +15,20 @@ import { ErrorAlert } from "@/components/dashboard";
 import { TriageDialog } from "@/components/triage";
 import { RiskAssessmentDialog } from "@/components/risk";
 import { FeedbackDialog } from "@/components/feedback";
-import { FiltersSkeleton } from "@/components/ui/skeletons";
 import { useCallLogsData, type AlertLog } from "@/hooks/use-call-logs-data";
 import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
 import { AuthService } from "@/lib/auth";
 import { PipelineStrip } from "@/components/pipeline";
-import { STAGE_DESCRIPTION, isQueueStage, stageLabel } from "@/lib/pipeline";
+import {
+	STAGE_DESCRIPTION,
+	STAGE_FEEDBACK,
+	isQueueStage,
+	stageLabel,
+} from "@/lib/pipeline";
 import {
 	SPLIT_DISCARDED,
 	VIEW_TRIAGED,
+	VIEW_UNTRIAGED,
 	registerViewFilters,
 	registerViewFromParams,
 	registerViewHref,
@@ -118,6 +123,19 @@ export default function CallLogsPage(): React.JSX.Element {
 	// the back button steps between the halves.
 	const split = triagedSplitFromParams(stageParam);
 	const showingDiscarded = view === VIEW_TRIAGED && split === SPLIT_DISCARDED;
+	// The Risk and Response columns earn their width only on the Risk Assessed
+	// list, which is the feedback queue: every row there has been scored, so the
+	// columns read as data. On the queues ahead of it a signal is not assessed
+	// YET, so the same columns answer "Not assessed" / "Pending" on every row —
+	// work flagged as owed that the pipeline has not reached.
+	const showingRiskAssessed = stageParam === STAGE_FEEDBACK;
+	// The Verified column, by the same rule. On Untriaged nothing has reached
+	// verification yet, and inside the Triaged tab the kept half is the queue
+	// WAITING on it — both answer "Pending" on every row. The Discarded half
+	// already carries "Discarded at", which names the gate that closed the
+	// signal and so says the same thing with the reason attached. It stays on
+	// All and on the later queues, where rows genuinely differ.
+	const showingVerification = view !== VIEW_UNTRIAGED && view !== VIEW_TRIAGED;
 	// The gate this view stands at — drives the page heading and the pipeline
 	// strip's highlight, so landing on Untriaged reads as "Awaiting triage"
 	// rather than as an unexplained partial register.
@@ -298,15 +316,14 @@ export default function CallLogsPage(): React.JSX.Element {
 				/>
 			)}
 
-			{loading ? (
-				<FiltersSkeleton fields={5} />
-			) : (
-				<CallLogsFilters
-					filters={filters}
-					onFiltersChange={setFilters}
-					onClearFilters={clearFilters}
-				/>
-			)}
+			{/* Always mounted, never swapped for a skeleton: unmounting it while
+			    a filter change reloads the list threw away the card's
+			    open/closed state, so the panel snapped shut mid-edit. */}
+			<CallLogsFilters
+				filters={filters}
+				onFiltersChange={setFilters}
+				onClearFilters={clearFilters}
+			/>
 
 			{/* The triage gate has two endings, and they are opposite kinds of
 			    list — a queue with work due on every row, and an archive with
@@ -334,6 +351,9 @@ export default function CallLogsPage(): React.JSX.Element {
 					onColumnFiltersChange={setColumnFilters}
 					filtersResetKey={filtersResetKey}
 					showDiscardLevel={showingDiscarded}
+					showRisk={showingRiskAssessed}
+					showResponse={showingRiskAssessed}
+					showVerification={showingVerification}
 					onViewDetails={handleViewDetails}
 					onEditAlert={handleEditAlert}
 					onVerifyAlert={handleVerifyAlert}

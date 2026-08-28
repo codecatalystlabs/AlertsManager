@@ -21,7 +21,6 @@ import { downloadDashboardPdf, type DashboardPdfSection } from "@/lib/charts-pdf
 import {
 	ErrorAlert,
 	StatsGrid,
-	VerificationSlaCards,
 	TriageKpiCards,
 	RiskKpiCards,
 	RecentActivityCard,
@@ -297,20 +296,10 @@ export default function DashboardPage(): React.JSX.Element {
 					alertCounts={statCounts}
 					kpiLoading={loading && !summary}
 				/>
-				{/* Verification-SLA row — same scope (range/district/region/response)
-				    as the KPI cards above. */}
-				<VerificationSlaCards
-					sla={summary?.verificationSla}
-					verifiedTotal={summary?.verified ?? 0}
-					pendingTotal={summary?.notVerified ?? 0}
-					isLoading={loading && !summary}
-				/>
 			</div>
 
-			{/* The other two gates that carry a national KPI. They sit in
-			    pipeline order — triage before verification's row would be
-			    ideal, but the SLA row above is long-established furniture, so
-			    these follow rather than displace it. */}
+			{/* The other two gates that carry a national KPI, in pipeline
+			    order: triage, then risk assessment. */}
 			<TriageKpiCards summary={summary} isLoading={loading && !summary} />
 			<RiskKpiCards summary={summary} isLoading={loading && !summary} />
 

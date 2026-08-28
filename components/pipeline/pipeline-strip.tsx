@@ -18,7 +18,7 @@ import { AlertTriangle, ChevronRight, Lock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 /**
- * The EBS pipeline, made visible.
+ * The EBS steps, made visible.
  *
  * The dashboard already reported each step separately — a triage breakdown
  * here, an SLA card there — which tells you how each step is doing but never
@@ -99,15 +99,15 @@ export function PipelineStrip({
 
 	return (
 		<nav
-			aria-label="EBS pipeline"
+			aria-label="EBS steps"
 			className={cn(
-				"rounded-xl border border-gray-200 bg-white p-3 shadow-sm",
+				"rounded-none border border-gray-200 bg-white px-2 py-1.5 shadow-sm",
 				className
 			)}
 		>
-			<div className="mb-2 flex items-baseline justify-between gap-3 px-1">
+			<div className="mb-1 flex items-baseline justify-between gap-3 px-1">
 				<h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-					EBS pipeline
+					EBS steps
 				</h2>
 				{data && (
 					<p className="text-[11px] text-gray-500">
@@ -119,27 +119,27 @@ export function PipelineStrip({
 			<ol className="flex items-stretch gap-1 overflow-x-auto pb-1">
 				{isLoading && stages.length === 0
 					? Array.from({ length: 4 }).map((_, i) => (
-							<li key={i} className="min-w-[124px] flex-1">
-								<div className="h-[68px] animate-pulse rounded-lg bg-gray-100" />
-							</li>
-						))
+						<li key={i} className="min-w-[124px] flex-1">
+							<div className="h-[52px] animate-pulse rounded bg-gray-100" />
+						</li>
+					))
 					: stages.map((stage, index) => (
-							<li
-								key={stage.key}
-								className="flex min-w-[124px] flex-1 items-stretch"
-							>
-								<StageTile
-									stage={stage}
-									active={activeStage === stage.key}
+						<li
+							key={stage.key}
+							className="flex min-w-[124px] flex-1 items-stretch"
+						>
+							<StageTile
+								stage={stage}
+								active={activeStage === stage.key}
+							/>
+							{index < stages.length - 1 && (
+								<ChevronRight
+									aria-hidden
+									className="mx-0.5 hidden h-4 w-4 shrink-0 self-center text-gray-300 sm:block"
 								/>
-								{index < stages.length - 1 && (
-									<ChevronRight
-										aria-hidden
-										className="mx-0.5 hidden h-4 w-4 shrink-0 self-center text-gray-300 sm:block"
-									/>
-								)}
-							</li>
-						))}
+							)}
+						</li>
+					))}
 			</ol>
 		</nav>
 	);
@@ -172,10 +172,10 @@ function StageTile({
 					<Lock aria-hidden className="ml-auto h-3 w-3 shrink-0 text-gray-400" />
 				)}
 			</div>
-			<div className="mt-1 flex items-baseline gap-1.5">
+			<div className="mt-0.5 flex items-baseline gap-1.5">
 				<span
 					className={cn(
-						"text-xl font-bold tabular-nums",
+						"text-base font-bold leading-tight tabular-nums",
 						stage.available ? "text-uganda-black" : "text-gray-400"
 					)}
 				>
@@ -204,7 +204,7 @@ function StageTile({
 	);
 
 	const shell = cn(
-		"flex w-full flex-col rounded-lg border px-2.5 py-2 text-left transition-colors",
+		"flex w-full flex-col rounded border px-2 py-1.5 text-left transition-colors",
 		active
 			? "border-uganda-red bg-uganda-red/5 ring-1 ring-uganda-red"
 			: "border-gray-200",

@@ -1,10 +1,8 @@
 "use client";
 
-import React, { memo, useMemo, useState } from "react";
-import { ChevronUp, SlidersHorizontal } from "lucide-react";
+import React, { memo, useCallback, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { FiltersToggle } from "@/components/filters/filters-toggle";
 import { Label } from "@/components/ui/label";
 import {
 	Select,
@@ -85,11 +83,15 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 		// to read the list, not to re-filter it. The quick-range bar and the
 		// "N active" badge stay visible, so nothing narrows the list silently.
 		const [showFilters, setShowFilters] = useState(false);
+		const toggleFilters = useCallback(
+			() => setShowFilters((open) => !open),
+			[]
+		);
 		const hiddenCount = useMemo(() => countHiddenFilters(filters), [filters]);
 
 		return (
 			<Card className={LAYOUT.card}>
-				<CardContent className="p-3 space-y-3">
+				<CardContent className="space-y-3">
 					{/* items-start, not items-center: the preset bar wraps to two
 					    rows on narrow screens and the toggle should stay on the
 					    first one. */}
@@ -100,31 +102,12 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 							onChange={onFiltersChange}
 						/>
 
-						<div className="flex items-center gap-1.5 shrink-0">
-							{!showFilters && hiddenCount > 0 && (
-								<Badge
-									variant="secondary"
-									className="h-5 px-2 text-[10px] font-medium"
-								>
-									{hiddenCount} active
-								</Badge>
-							)}
-							<Button
-								type="button"
-								variant="ghost"
-								size="icon"
-								onClick={() => setShowFilters((open) => !open)}
-								aria-expanded={showFilters}
-								aria-controls={FILTER_GRID_ID}
-								title={showFilters ? "Hide filters" : "Show filters"}
-								className="h-7 w-7"
-							>
-								{showFilters ? <ChevronUp /> : <SlidersHorizontal />}
-								<span className="sr-only">
-									{showFilters ? "Hide filters" : "Show filters"}
-								</span>
-							</Button>
-						</div>
+						<FiltersToggle
+							open={showFilters}
+							onToggle={toggleFilters}
+							controls={FILTER_GRID_ID}
+							activeCount={hiddenCount}
+						/>
 					</div>
 
 					{/* Toggled by swapping the display utility rather than

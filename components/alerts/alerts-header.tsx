@@ -1,7 +1,8 @@
 import React, { memo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Plus, Download, FileSpreadsheet } from "lucide-react";
+import { RefreshCw, Plus } from "lucide-react";
+import { ExcelIcon, CsvIcon } from "@/components/ui/file-type-icons";
 import { ALERTS_CONFIG } from "@/constants/alerts";
 import { LAYOUT } from "@/constants/layout";
 
@@ -55,7 +56,7 @@ export const AlertsHeader = memo<AlertsHeaderProps>(
 						size="sm"
 						className="gap-1.5 h-8 text-muted-foreground hover:text-foreground"
 					>
-						<Download className="w-4 h-4" />
+						<CsvIcon className="w-4 h-4" />
 						Export CSV
 					</Button>
 					<Button
@@ -64,7 +65,7 @@ export const AlertsHeader = memo<AlertsHeaderProps>(
 						size="sm"
 						className="gap-1.5 h-8 text-muted-foreground hover:text-foreground"
 					>
-						<FileSpreadsheet className="w-4 h-4" />
+						<ExcelIcon className="w-4 h-4" />
 						Export Excel
 					</Button>
 				</div>

@@ -184,12 +184,12 @@ export function NdwSignalsTable<TRow extends NdwSignalRow>({
 
 	return (
 		<Card className={LAYOUT.card}>
-			<CardHeader className="py-3 px-4">
+			<CardHeader>
 				<CardTitle className="text-sm font-medium">
 					{title} ({totalCount.toLocaleString()})
 				</CardTitle>
 			</CardHeader>
-			<CardContent className="p-0 pb-2">
+			<CardContent className="p-0">
 				<DataTable
 					columns={columns}
 					data={alerts}

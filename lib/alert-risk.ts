@@ -1,5 +1,5 @@
 /**
- * Risk assessment — step 4 of the Uganda EBS pipeline
+ * Risk assessment — step 4 of the Uganda EBS steps
  * (detection → triage → verification → RISK ASSESSMENT → alert → response → feedback).
  *
  * Once a signal is verified as a real event, a multidisciplinary team scores it
@@ -224,10 +224,10 @@ export function riskWorksheetComplete(a: {
 }): boolean {
 	return Boolean(
 		(a.riskHazardNote ?? "").trim() &&
-			(a.riskExposureNote ?? "").trim() &&
-			(a.riskContextNote ?? "").trim() &&
-			(a.riskLikelihood ?? "").trim() &&
-			(a.riskImpact ?? "").trim()
+		(a.riskExposureNote ?? "").trim() &&
+		(a.riskContextNote ?? "").trim() &&
+		(a.riskLikelihood ?? "").trim() &&
+		(a.riskImpact ?? "").trim()
 	);
 }
 

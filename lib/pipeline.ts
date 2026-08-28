@@ -2,7 +2,7 @@ import { AuthService } from "@/lib/auth";
 import { getClientApiBaseUrl } from "@/lib/api-config";
 
 /**
- * The EBS pipeline as the UI navigates it.
+ * The EBS steps as the UI navigates it.
  *
  * The guideline (§3) is a sequence of gates — detection → triage → verification
  * → risk assessment → alert → feedback — and this file is the one place the

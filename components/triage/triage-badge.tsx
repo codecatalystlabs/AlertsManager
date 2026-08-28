@@ -15,7 +15,7 @@ const TITLE: Record<string, string> = {
 	[TRIAGE_FORWARDED]:
 		"Passed triage — forwarded for verification against its priority deadline",
 	[TRIAGE_LOGGED]:
-		"Triage found no plausible public-health threat — logged and monitored, off the EBS pipeline but on the register",
+		"Triage found no plausible public-health threat — logged and monitored, off the EBS steps but on the register",
 	[TRIAGE_DISCARDED]:
 		"Triage discarded this as already reported and under investigation — recorded, not deleted",
 	untriaged: "Not yet through the triage gate",

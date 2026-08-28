@@ -1,7 +1,7 @@
 "use client";
 
 import React, { memo, useState } from "react";
-import { Clock, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Clock, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,7 +11,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
+import { StatCard, accentInk } from "@/components/ui/stat-card";
 import { cn } from "@/lib/utils";
 import { useRecentActivity } from "@/hooks/use-recent-activity";
 import type { RecentActivityWindow } from "@/lib/fetch-recent-activity";
@@ -105,7 +105,7 @@ export const RecentActivityCard = memo<RecentActivityCardProps>(
 
 		return (
 			<Card className={cn("border border-gray-200 bg-white", className)}>
-				<CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2 space-y-0 p-3 pb-2">
+				<CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2 space-y-0">
 					<div className="min-w-0">
 						<p className="text-sm font-semibold text-gray-900">
 							Recent activity
@@ -174,7 +174,7 @@ export const RecentActivityCard = memo<RecentActivityCardProps>(
 					</div>
 				</CardHeader>
 
-				<CardContent className="p-3 pt-0">
+				<CardContent>
 					{awaitingCustom ? (
 						<p className="rounded-lg border border-dashed border-gray-200 bg-gray-50/60 px-3 py-3 text-center text-xs text-muted-foreground">
 							{isCustomHours
@@ -184,22 +184,22 @@ export const RecentActivityCard = memo<RecentActivityCardProps>(
 					) : error ? (
 						<p className="text-xs text-destructive">{error}</p>
 					) : (
-						<div className="grid grid-cols-2 gap-2.5">
-							<Metric
-								label="Pending verification"
-								value={activity?.pending}
-								caption="Awaiting triage"
+						<div className="grid grid-cols-2 gap-2">
+							<StatCard
+								title="Pending verification"
+								value={activity?.pending ?? 0}
+								subText="Awaiting triage"
 								icon={Clock}
-								tint={{ bg: "bg-warning/15", text: "text-warning" }}
-								loading={showSkeleton}
+								ink={accentInk("warning")}
+								isLoading={showSkeleton}
 							/>
-							<Metric
-								label="Verified"
-								value={activity?.verified}
-								caption="Outcome recorded"
+							<StatCard
+								title="Verified"
+								value={activity?.verified ?? 0}
+								subText="Outcome recorded"
 								icon={ShieldCheck}
-								tint={{ bg: "bg-success/15", text: "text-success" }}
-								loading={showSkeleton}
+								ink={accentInk("success")}
+								isLoading={showSkeleton}
 							/>
 						</div>
 					)}
@@ -210,47 +210,3 @@ export const RecentActivityCard = memo<RecentActivityCardProps>(
 );
 
 RecentActivityCard.displayName = "RecentActivityCard";
-
-interface MetricProps {
-	label: string;
-	value: number | undefined;
-	caption: string;
-	icon: LucideIcon;
-	tint: { bg: string; text: string };
-	loading?: boolean;
-}
-
-function Metric({
-	label,
-	value,
-	caption,
-	icon: Icon,
-	tint,
-	loading,
-}: MetricProps): React.JSX.Element {
-	return (
-		<div className="flex items-start justify-between gap-2 rounded-lg border border-gray-100 bg-gray-50/60 p-2.5">
-			<div className="min-w-0">
-				<p className="text-xs font-medium text-gray-500">{label}</p>
-				{loading ? (
-					<Skeleton className="mt-1 h-6 w-12" />
-				) : (
-					<p className="mt-0.5 text-xl font-bold text-gray-900">
-						{(value ?? 0).toLocaleString()}
-					</p>
-				)}
-				{!loading && (
-					<p className="mt-0.5 text-[11px] text-gray-400">{caption}</p>
-				)}
-			</div>
-			<div
-				className={cn(
-					"flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-					tint.bg
-				)}
-			>
-				<Icon className={cn("h-4 w-4", tint.text)} />
-			</div>
-		</div>
-	);
-}

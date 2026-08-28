@@ -48,7 +48,7 @@ interface NavigationGroup {
 }
 
 /**
- * Navigation follows the EBS pipeline, not the transports signals arrive on.
+ * Navigation follows the EBS steps, not the transports signals arrive on.
  *
  * It used to list one destination per source — 6767, eCHIS, POE, the register —
  * which answers "where did this come from?" A person opening the app needs the
@@ -95,7 +95,7 @@ const navigationGroups: NavigationGroup[] = [
 				href: "/dashboard/signal-logs?stage=feedback",
 				icon: MessageCircleReply,
 			},
-			{ name: "Confirmed Events", href: "/dashboard/alerts", icon: Siren },
+			{ name: "Alerts", href: "/dashboard/alerts", icon: Siren },
 			// The pipeline's other exit, and the reason it needs a door: the
 			// guideline's rule is "discard AND record", so a signal triage took
 			// off the pipeline — already reported and under investigation, or
@@ -224,7 +224,7 @@ export function ModernSidebar({
 				<div
 					ref={mobilePanelRef}
 					className={cn(
-						"fixed inset-y-0 left-0 flex w-[min(17rem,82vw)] flex-col bg-white shadow-2xl transition-transform duration-300 ease-out",
+						"fixed inset-y-0 left-0 flex w-[min(14rem,80vw)] flex-col bg-white shadow-2xl transition-transform duration-300 ease-out",
 						mobileOpen ? "translate-x-0" : "-translate-x-full"
 					)}
 				>
@@ -249,7 +249,7 @@ export function ModernSidebar({
 				id="desktop-sidebar"
 				className={cn(
 					"hidden lg:fixed lg:inset-y-0 lg:z-30 lg:flex lg:flex-col transition-[width] duration-300 ease-in-out",
-					collapsed ? "lg:w-16" : "lg:w-72"
+					collapsed ? "lg:w-14" : "lg:w-56"
 				)}
 				aria-label="Main navigation"
 			>
@@ -284,8 +284,8 @@ function NavLink({
 			title={collapsed ? item.name : undefined}
 			aria-current={isActive ? "page" : undefined}
 			className={cn(
-				"group relative flex items-center rounded-none text-sm transition-colors",
-				collapsed ? "mx-auto h-10 w-10 justify-center" : "gap-3 px-3 py-2",
+				"group relative flex items-center rounded-none text-[13px] leading-tight transition-colors",
+				collapsed ? "mx-auto h-8 w-8 justify-center" : "gap-2 px-2 py-1",
 				isActive
 					? "bg-uganda-red/10 font-semibold text-uganda-red"
 					: "font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
@@ -293,11 +293,11 @@ function NavLink({
 		>
 			{/* Active accent bar */}
 			{isActive && !collapsed && (
-				<span className="absolute inset-y-1.5 left-0 w-0.5 bg-uganda-red" />
+				<span className="absolute inset-y-0.5 left-0 w-0.5 bg-uganda-red" />
 			)}
 			<item.icon
 				className={cn(
-					"h-5 w-5 shrink-0 transition-colors",
+					"h-4 w-4 shrink-0 transition-colors",
 					isActive
 						? "text-uganda-red"
 						: "text-gray-400 group-hover:text-gray-600"
@@ -310,7 +310,7 @@ function NavLink({
 						<Badge
 							variant="secondary"
 							className={cn(
-								"ml-auto h-5 px-1.5 text-[10px] font-semibold",
+								"ml-auto h-4 px-1 text-[10px] font-semibold",
 								isActive
 									? "bg-uganda-red/15 text-uganda-red"
 									: badge === "New"
@@ -376,7 +376,7 @@ function SidebarContent({
 					// layout), so the brand block and the page title share a baseline
 					// instead of the sidebar overhanging it.
 					"flex h-12 shrink-0 items-center border-b border-gray-200",
-					collapsed ? "justify-center px-2" : "gap-3 px-4"
+					collapsed ? "justify-center px-1.5" : "gap-2 px-2.5"
 				)}
 			>
 				<MohLogo size="sm" className="border-gray-200" />
@@ -395,17 +395,17 @@ function SidebarContent({
 			{/* Navigation */}
 			<ScrollArea className="flex-1">
 				<nav
-					className={cn("space-y-5 py-4", collapsed ? "px-2" : "px-3")}
+					className={cn("space-y-3 py-2", collapsed ? "px-1.5" : "px-2")}
 					aria-label="Sidebar navigation"
 				>
 					{visibleGroups.map((group, groupIndex) => (
-						<div key={group.label} className="space-y-1">
+						<div key={group.label} className="space-y-px">
 							{collapsed
 								? groupIndex > 0 && (
-									<div className="mx-2 mb-2 border-t border-gray-200" />
+									<div className="mx-1.5 mb-1.5 border-t border-gray-200" />
 								)
 								: (
-									<h3 className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+									<h3 className="px-2 pb-0.5 text-[10px] font-semibold uppercase leading-none tracking-wider text-gray-400">
 										{group.label}
 									</h3>
 								)}

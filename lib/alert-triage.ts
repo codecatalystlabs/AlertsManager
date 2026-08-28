@@ -1,5 +1,5 @@
 /**
- * Triage — step 2 of the Uganda EBS pipeline
+ * Triage — step 2 of the Uganda EBS steps
  * (detection → TRIAGE → verification → risk assessment → alert → response → feedback).
  *
  * Triage screens a raw signal on two questions — has it been reported already,
@@ -131,7 +131,7 @@ export function formatDeadline(priority?: string | null): string {
  *              duplicates inflating signal counts while keeping the cluster
  *              they form visible on the register.
  *   2. A genuine or potential threat to public health?
- *        no  → LOG, monitor, refer. Leaves the EBS pipeline, stays on the
+ *        no  → LOG, monitor, refer. Leaves the EBS steps, stays on the
  *              register.
  *        yes → FORWARD to verification, against the priority's deadline.
  *
@@ -182,7 +182,7 @@ export function normalizeTriageDecision(
 	return null;
 }
 
-/** Whether this decision keeps the signal on the EBS pipeline. Untriaged does. */
+/** Whether this decision keeps the signal on the EBS steps. Untriaged does. */
 export function triageContinuesToVerification(value?: string | null): boolean {
 	const d = normalizeTriageDecision(value);
 	return d !== TRIAGE_DISCARDED && d !== TRIAGE_LOGGED;
@@ -222,7 +222,7 @@ export const TRIAGE_DECISION_GUIDANCE: Record<TriageDecision, string> = {
 	[TRIAGE_FORWARDED]:
 		"Goes forward for verification, due within 24 hours unless a priority already sets a tighter deadline.",
 	[TRIAGE_LOGGED]:
-		"Logged and monitored, referred for appropriate management. Leaves the EBS pipeline but stays on the register.",
+		"Logged and monitored, referred for appropriate management. Leaves the EBS steps but stays on the register.",
 	[TRIAGE_DISCARDED]:
 		"Recorded as an already-reported duplicate — never deleted, so the reporting cluster stays visible.",
 };
@@ -250,11 +250,11 @@ export const TRIAGE_DECISION_FILTER_OPTIONS: {
 	value: string;
 	label: string;
 }[] = [
-	{ value: TRIAGE_FORWARDED, label: "Forwarded to verification" },
-	{ value: TRIAGE_LOGGED, label: "Logged and monitored" },
-	{ value: TRIAGE_DISCARDED, label: "Discarded — already reported" },
-	{ value: "untriaged", label: "Untriaged — not through the gate" },
-];
+		{ value: TRIAGE_FORWARDED, label: "Forwarded to verification" },
+		{ value: TRIAGE_LOGGED, label: "Logged and monitored" },
+		{ value: TRIAGE_DISCARDED, label: "Discarded — already reported" },
+		{ value: "untriaged", label: "Untriaged — not through the gate" },
+	];
 
 /**
  * The VERIFICATION GATE, mirroring services.VerificationBlockedReason.

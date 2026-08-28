@@ -43,7 +43,7 @@ export default function DashboardLayout({
 						"transition-[padding] duration-300 ease-in-out",
 						hydrated
 							? getMainContentPaddingClass(collapsed)
-							: "lg:pl-72"
+							: "lg:pl-56"
 					)}
 				>
 					<div className="sticky top-0 z-40 flex h-12 items-center gap-x-3 border-b border-gray-200/50 bg-white/80 backdrop-blur-xl px-3 shadow-sm sm:gap-x-4 sm:px-4">

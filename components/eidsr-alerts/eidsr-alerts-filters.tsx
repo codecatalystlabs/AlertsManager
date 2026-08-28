@@ -1,10 +1,9 @@
-import React, { memo, useMemo, useState } from "react";
-import { ChevronUp, SlidersHorizontal } from "lucide-react";
+import React, { memo, useCallback, useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { FiltersToggle } from "@/components/filters/filters-toggle";
 import {
 	Select,
 	SelectContent,
@@ -58,44 +57,25 @@ export const EidsrAlertsFilters = memo<EidsrAlertsFiltersProps>(
 		// eleven fields is most of a screen, and most visits here are to read the
 		// list or to sync it, not to re-filter it.
 		const [showFilters, setShowFilters] = useState(false);
+		const toggleFilters = useCallback(
+			() => setShowFilters((open) => !open),
+			[]
+		);
 		const activeCount = useMemo(() => countActiveFilters(filters), [filters]);
 
 		return (
 			<Card className={LAYOUT.card}>
-				<CardContent className="p-3">
-					<div className="flex items-center justify-between gap-2">
-						{/* The card carries no always-visible control of its own — no
-						    quick-range bar as on the register — so once it closes it is
-						    a bare strip. The label says what the strip is. */}
-						<span className="text-xs font-medium text-muted-foreground">
-							Filters
-						</span>
-
-						<div className="flex items-center gap-1.5 shrink-0">
-							{!showFilters && activeCount > 0 && (
-								<Badge
-									variant="secondary"
-									className="h-5 px-2 text-[10px] font-medium"
-								>
-									{activeCount} active
-								</Badge>
-							)}
-							<Button
-								type="button"
-								variant="ghost"
-								size="icon"
-								onClick={() => setShowFilters((open) => !open)}
-								aria-expanded={showFilters}
-								aria-controls={FILTER_GRID_ID}
-								title={showFilters ? "Hide filters" : "Show filters"}
-								className="h-7 w-7"
-							>
-								{showFilters ? <ChevronUp /> : <SlidersHorizontal />}
-								<span className="sr-only">
-									{showFilters ? "Hide filters" : "Show filters"}
-								</span>
-							</Button>
-						</div>
+				<CardContent>
+					{/* The card carries no always-visible control of its own — no
+					    quick-range bar as on the register — so once it closes it is a
+					    bare strip; the toggle's own "Show filters" label names it. */}
+					<div className="flex items-center justify-end gap-2">
+						<FiltersToggle
+							open={showFilters}
+							onToggle={toggleFilters}
+							controls={FILTER_GRID_ID}
+							activeCount={activeCount}
+						/>
 					</div>
 
 					{/* Toggled by swapping the display utility rather than

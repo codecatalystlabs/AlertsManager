@@ -1,6 +1,7 @@
 import React, { memo } from "react";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Download, FileSpreadsheet, Loader2 } from "lucide-react";
+import { RefreshCw, Loader2 } from "lucide-react";
+import { ExcelIcon, CsvIcon } from "@/components/ui/file-type-icons";
 import { CALL_LOGS_CONFIG } from "@/constants/call-logs";
 import { LAYOUT } from "@/constants/layout";
 
@@ -47,7 +48,7 @@ export const CallLogsHeader = memo<CallLogsHeaderProps>(
 					<p className={LAYOUT.pageSubtitle}>
 						{queueLabel
 							? (queueHint ??
-								"One gate of the EBS pipeline, not the whole register.")
+								"One gate of the EBS steps, not the whole register.")
 							: CALL_LOGS_CONFIG.PAGE_DESCRIPTION}
 					</p>
 				</div>
@@ -60,9 +61,8 @@ export const CallLogsHeader = memo<CallLogsHeaderProps>(
 						disabled={isRefreshing}
 					>
 						<RefreshCw
-							className={`h-4 w-4 ${
-								isRefreshing ? "animate-spin" : ""
-							}`}
+							className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""
+								}`}
 						/>
 						{isRefreshing ? "Refreshing..." : "Refresh"}
 					</Button>
@@ -76,7 +76,7 @@ export const CallLogsHeader = memo<CallLogsHeaderProps>(
 						{exporting === "csv" ? (
 							<Loader2 className="h-4 w-4 animate-spin" />
 						) : (
-							<Download className="h-4 w-4" />
+							<CsvIcon className="h-4 w-4" />
 						)}
 						{exporting === "csv" ? "Exporting…" : "Export CSV"}
 					</Button>
@@ -90,7 +90,7 @@ export const CallLogsHeader = memo<CallLogsHeaderProps>(
 						{exporting === "excel" ? (
 							<Loader2 className="h-4 w-4 animate-spin" />
 						) : (
-							<FileSpreadsheet className="h-4 w-4" />
+							<ExcelIcon className="h-4 w-4" />
 						)}
 						{exporting === "excel" ? "Exporting…" : "Export Excel"}
 					</Button>

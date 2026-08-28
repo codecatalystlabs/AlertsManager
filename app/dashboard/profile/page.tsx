@@ -269,7 +269,7 @@ export default function ProfilePage() {
 		return (
 			<div className="mx-auto w-full max-w-3xl p-4">
 				<Card className="surface-danger">
-					<CardContent className="flex items-start gap-3 p-4">
+					<CardContent className="flex items-start gap-3">
 						<AlertCircle className="mt-0.5 h-5 w-5 text-destructive" />
 						<div>
 							<h1 className="font-semibold text-destructive">
@@ -404,7 +404,7 @@ export default function ProfilePage() {
 
 			<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
 				<Card className="shadow-sm">
-					<CardContent className="p-4 sm:p-5">
+					<CardContent>
 						<div className="mb-4 flex items-center justify-between gap-3">
 							<div>
 								<h2 className="text-base font-semibold text-slate-950">
@@ -503,7 +503,7 @@ export default function ProfilePage() {
 
 				<div className="space-y-4">
 					<Card className="shadow-sm">
-						<CardContent className="p-4">
+						<CardContent>
 							<div className="mb-3 flex items-center gap-2">
 								<ShieldCheck className="h-4 w-4 text-success" />
 								<h2 className="text-sm font-semibold text-slate-950">
@@ -575,7 +575,7 @@ export default function ProfilePage() {
 					</Card>
 
 					<Card className="shadow-sm">
-						<CardContent className="p-4">
+						<CardContent>
 							<h2 className="mb-3 text-sm font-semibold text-slate-950">
 								Account Timeline
 							</h2>

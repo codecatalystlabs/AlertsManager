@@ -16,16 +16,20 @@ import { LAYOUT } from "@/constants/layout";
 /** Single compact KPI/stat card placeholder (matches call-logs/alerts stats). */
 export function StatCardSkeleton({ className }: { className?: string }) {
 	return (
-		<Card className={cn(LAYOUT.card, "min-w-0", className)}>
-			<CardContent className="p-3">
-				<div className="flex items-center gap-2">
-					<Skeleton className="h-8 w-8 shrink-0 rounded-full" />
-					<div className="min-w-0 flex-1 space-y-1.5">
-						<Skeleton className="h-3 w-20" />
-						<Skeleton className="h-5 w-12" />
-					</div>
-				</div>
-			</CardContent>
+		// Mirrors the real StatCard box model exactly (px-2 py-1.5, 6x6 icon,
+		// 11px label over a text-base number) so the swap causes no shift.
+		<Card
+			className={cn(
+				LAYOUT.card,
+				"flex min-w-0 items-center gap-2 px-2 py-1.5",
+				className
+			)}
+		>
+			<Skeleton className="h-6 w-6 shrink-0 rounded" />
+			<div className="min-w-0 flex-1 space-y-1">
+				<Skeleton className="h-2.5 w-20" />
+				<Skeleton className="h-4 w-12" />
+			</div>
 		</Card>
 	);
 }
@@ -95,7 +99,7 @@ export function ChartSkeleton({
 }) {
 	return (
 		<Card className={cn(LAYOUT.card, className)}>
-			<CardHeader className="pb-2">
+			<CardHeader>
 				<Skeleton className="h-4 w-40" />
 				<Skeleton className="h-3 w-56" />
 			</CardHeader>
@@ -175,7 +179,7 @@ export function FiltersSkeleton({
 }) {
 	return (
 		<Card className={cn(LAYOUT.card, className)}>
-			<CardContent className="space-y-3 p-3">
+			<CardContent className="space-y-3">
 				{/* date-preset chip row */}
 				<div className="flex flex-wrap items-center gap-1.5">
 					{Array.from({ length: 5 }).map((_, i) => (

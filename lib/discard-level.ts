@@ -71,7 +71,7 @@ const TRIAGE_NO_THREAT: Discard = {
 	level: DISCARD_AT_TRIAGE,
 	label: "Triage",
 	reason: "No public-health threat",
-	hint: "Closed at triage (step 2): no plausible threat to public health. Logged and monitored, referred for appropriate management — off the EBS pipeline, still on the register.",
+	hint: "Closed at triage (step 2): no plausible threat to public health. Logged and monitored, referred for appropriate management — off the EBS steps, still on the register.",
 	badgeClass: "bg-slate-100 text-slate-700 border-slate-200",
 };
 

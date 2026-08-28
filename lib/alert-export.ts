@@ -252,7 +252,7 @@ const EXPORT_COLUMNS: ExportColumn[] = [
 ];
 
 /**
- * Excel is the full case record: every stage of the EBS pipeline the row has
+ * Excel is the full case record: every stage of the EBS steps the row has
  * been through, with the date, the actor and the detail for each. Blocks run in
  * pipeline order (signal → triage → verification/response → risk → feedback) so
  * a reader scans left to right through the signal's life.

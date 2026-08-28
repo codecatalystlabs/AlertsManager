@@ -9,7 +9,7 @@ import {
 	AlertsTable,
 } from "@/components/alerts";
 import { ErrorAlert } from "@/components/dashboard";
-import { StatsGridSkeleton, FiltersSkeleton } from "@/components/ui/skeletons";
+import { StatsGridSkeleton } from "@/components/ui/skeletons";
 import { useAlertsData } from "@/hooks/use-alerts-data";
 import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
 
@@ -162,14 +162,12 @@ export default function AlertsPage(): React.JSX.Element {
 				<AlertsStats stats={stats} />
 			)}
 
-			{loading ? (
-				<FiltersSkeleton fields={7} />
-			) : (
-				<AlertsFilters
-					filters={filters}
-					onFiltersChange={setFilters}
-				/>
-			)}
+			{/* Always mounted, never swapped for a skeleton. Changing a filter
+			    puts the list back into `loading` (a new SWR key has no cached
+			    data), and unmounting the card there threw away its open/closed
+			    state — the panel snapped shut on every field you touched. The
+			    controls do not depend on the fetched list anyway. */}
+			<AlertsFilters filters={filters} onFiltersChange={setFilters} />
 
 			<AlertsTable
 				alerts={filteredAlerts}

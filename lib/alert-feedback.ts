@@ -1,5 +1,5 @@
 /**
- * Reporter feedback — step 7 of the Uganda EBS pipeline, and the one that keeps
+ * Reporter feedback — step 7 of the Uganda EBS steps, and the one that keeps
  * the other six supplied with signals.
  *
  * Community EBS runs on VHTs, health workers and ordinary people CHOOSING to

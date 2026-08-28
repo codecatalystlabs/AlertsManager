@@ -13,14 +13,20 @@ import {
 } from "lucide-react";
 
 import {
-	StatCardShell,
+	AMBER_INK,
+	EMERALD_INK,
+	ROSE_INK,
+	SKY_INK,
+	SLATE_INK,
+	StatCard,
+	VIOLET_INK,
 	type StatCardInk,
-} from "@/components/dashboard/stat-card-shell";
+} from "@/components/ui/stat-card";
 import { cn } from "@/lib/utils";
 import type { DashboardCountItem, DashboardSummary } from "@/lib/fetch-dashboard";
 
 /**
- * Triage and risk assessment — steps 2 and 4 of the EBS pipeline — as their own
+ * Triage and risk assessment — steps 2 and 4 of the EBS steps — as their own
  * card rows.
  *
  * The dashboard already reported verification thoroughly and these two barely
@@ -32,39 +38,6 @@ import type { DashboardCountItem, DashboardSummary } from "@/lib/fetch-dashboard
  * count alone misleads in opposite directions: a small "awaiting triage" is
  * good, a small "assessed" is bad, and only the denominator says which.
  */
-
-function whiteInk(face: string): StatCardInk {
-	return {
-		face: `border-0 ${face}`,
-		title: "text-white/90",
-		value: "text-white",
-		sub: "text-white/85",
-		chipBg: "bg-white/25",
-		chipText: "text-white",
-		skeleton: "bg-white/40",
-	};
-}
-
-/** Dark ink on amber — white on yellow is unreadable. */
-const AMBER_INK: StatCardInk = {
-	face: "border-0 bg-gradient-to-br from-amber-300 to-amber-500",
-	title: "text-amber-950/90",
-	value: "text-amber-950",
-	sub: "text-amber-950/85",
-	chipBg: "bg-amber-950/15",
-	chipText: "text-amber-950",
-	skeleton: "bg-amber-950/20",
-};
-
-const SLATE_INK: StatCardInk = {
-	face: "border-0 bg-gradient-to-br from-slate-500 to-slate-700",
-	title: "text-white/90",
-	value: "text-white",
-	sub: "text-white/85",
-	chipBg: "bg-white/25",
-	chipText: "text-white",
-	skeleton: "bg-white/40",
-};
 
 function countOf(items: DashboardCountItem[] | undefined, label: string): number {
 	return items?.find((i) => i.label === label)?.count ?? 0;
@@ -125,45 +98,45 @@ export const TriageKpiCards = memo<RowProps>(({ summary, isLoading }) => {
 		icon: LucideIcon;
 		ink: StatCardInk;
 	}[] = [
-		{
-			title: "Awaiting triage",
-			value: untriaged,
-			sub:
-				total > 0
-					? `${100 - completionPct}% of signals in scope`
-					: "no signals in scope",
-			hint: "Signals that have never been through the triage gate. Triage is mandatory, so none of these can be verified until someone decides.",
-			icon: ShieldQuestion,
-			ink: untriaged > 0 ? AMBER_INK : whiteInk("bg-gradient-to-br from-emerald-500 to-emerald-700"),
-		},
-		{
-			title: "Triaged within 24h",
-			value: onTime,
-			sub: triaged > 0 ? `${onTimePct}% of those triaged` : "nothing triaged yet",
-			hint: "KPI 3, target >90%. Triage completed within 24 hours of the signal being received.",
-			icon: Timer,
-			ink: whiteInk("bg-gradient-to-br from-emerald-500 to-emerald-700"),
-		},
-		{
-			title: "Forwarded to verification",
-			value: forwarded,
-			sub: triaged > 0 ? `${pct(forwarded, triaged)}% of decisions` : "no decisions yet",
-			hint: "Passed both triage questions and carries a priority — the only exit that continues down the pipeline.",
-			icon: ArrowRight,
-			ink: whiteInk("bg-gradient-to-br from-sky-500 to-blue-700"),
-		},
-		{
-			title: "Discarded or logged",
-			value: discarded + logged,
-			sub:
-				triaged > 0
-					? `${discarded} duplicate · ${logged} no threat`
-					: "no decisions yet",
-			hint: "Signals triage took off the pipeline: discarded as already reported and under investigation, or logged and monitored as no public-health threat. Recorded, never deleted.",
-			icon: CircleSlash,
-			ink: SLATE_INK,
-		},
-	];
+			{
+				title: "Awaiting triage",
+				value: untriaged,
+				sub:
+					total > 0
+						? `${100 - completionPct}% of signals in scope`
+						: "no signals in scope",
+				hint: "Signals that have never been through the triage gate. Triage is mandatory, so none of these can be verified until someone decides.",
+				icon: ShieldQuestion,
+				ink: untriaged > 0 ? AMBER_INK : EMERALD_INK,
+			},
+			{
+				title: "Triaged within 24h",
+				value: onTime,
+				sub: triaged > 0 ? `${onTimePct}% of those triaged` : "nothing triaged yet",
+				hint: "KPI 3, target >90%. Triage completed within 24 hours of the signal being received.",
+				icon: Timer,
+				ink: EMERALD_INK,
+			},
+			{
+				title: "Forwarded to verification",
+				value: forwarded,
+				sub: triaged > 0 ? `${pct(forwarded, triaged)}% of decisions` : "no decisions yet",
+				hint: "Passed both triage questions and carries a priority — the only exit that continues down the pipeline.",
+				icon: ArrowRight,
+				ink: SKY_INK,
+			},
+			{
+				title: "Discarded or logged",
+				value: discarded + logged,
+				sub:
+					triaged > 0
+						? `${discarded} duplicate · ${logged} no threat`
+						: "no decisions yet",
+				hint: "Signals triage took off the pipeline: discarded as already reported and under investigation, or logged and monitored as no public-health threat. Recorded, never deleted.",
+				icon: CircleSlash,
+				ink: SLATE_INK,
+			},
+		];
 
 	return (
 		<section className="space-y-1.5">
@@ -180,9 +153,9 @@ export const TriageKpiCards = memo<RowProps>(({ summary, isLoading }) => {
 					</p>
 				)}
 			</header>
-			<div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+			<div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
 				{cards.map((c) => (
-					<StatCardShell
+					<StatCard
 						key={c.title}
 						title={c.title}
 						value={c.value.toLocaleString()}
@@ -232,7 +205,7 @@ export const RiskKpiCards = memo<RowProps>(({ summary, isLoading }) => {
 					: "no confirmed events in scope",
 			hint: "Confirmed events with no risk level yet. The level selects the response the guideline mandates, so an unscored event has no assigned response.",
 			icon: ShieldAlert,
-			ink: notAssessed > 0 ? AMBER_INK : whiteInk("bg-gradient-to-br from-emerald-500 to-emerald-700"),
+			ink: notAssessed > 0 ? AMBER_INK : EMERALD_INK,
 		},
 		{
 			title: "Assessed within 24h",
@@ -243,7 +216,7 @@ export const RiskKpiCards = memo<RowProps>(({ summary, isLoading }) => {
 					: "nothing assessed yet",
 			hint: "Risk assessed within 24 hours of verification. Late assessments are counted separately, not forgiven.",
 			icon: Timer,
-			ink: whiteInk("bg-gradient-to-br from-emerald-500 to-emerald-700"),
+			ink: EMERALD_INK,
 		},
 		{
 			title: "High or Very High",
@@ -251,7 +224,7 @@ export const RiskKpiCards = memo<RowProps>(({ summary, isLoading }) => {
 			sub: assessed > 0 ? `${pct(severe, assessed)}% of assessed events` : "nothing assessed yet",
 			hint: "Events the national algorithm scored High or Very High — senior management attention, and for Very High an immediate response even outside working hours.",
 			icon: TrendingUp,
-			ink: whiteInk("bg-gradient-to-br from-red-500 to-rose-700"),
+			ink: ROSE_INK,
 		},
 		{
 			title: "Worksheet completed",
@@ -262,7 +235,7 @@ export const RiskKpiCards = memo<RowProps>(({ summary, isLoading }) => {
 					: "nothing assessed yet",
 			hint: "Assessments that also recorded the §6 worksheet — hazard, exposure and context — rather than the three algorithm answers alone. The level says what; the worksheet says why.",
 			icon: ClipboardList,
-			ink: whiteInk("bg-gradient-to-br from-violet-500 to-purple-700"),
+			ink: VIOLET_INK,
 		},
 	];
 
@@ -283,9 +256,9 @@ export const RiskKpiCards = memo<RowProps>(({ summary, isLoading }) => {
 					</p>
 				)}
 			</header>
-			<div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+			<div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
 				{cards.map((c) => (
-					<StatCardShell
+					<StatCard
 						key={c.title}
 						title={c.title}
 						value={c.value.toLocaleString()}

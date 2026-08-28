@@ -208,7 +208,7 @@ export default function PublicAddAlertPage() {
 			<div className="mx-auto max-w-[1440px] px-4 py-5 pb-28 sm:px-6 lg:px-8">
 				{/* Main Form */}
 				<Card className="border-0 shadow-xl">
-					<CardHeader className="bg-gradient-to-r from-uganda-red to-uganda-yellow px-5 py-4 text-white sm:px-6">
+					<CardHeader className="bg-gradient-to-r from-uganda-red to-uganda-yellow px-5 text-white sm:px-6">
 						<CardTitle className="flex items-center gap-3 text-2xl font-bold">
 							<AlertTriangleIcon className="h-7 w-7" />
 							Report Health Alert
@@ -219,7 +219,7 @@ export default function PublicAddAlertPage() {
 								: "Anyone can report a health alert. Help us protect public health by reporting suspected cases."}
 						</p>
 					</CardHeader>
-					<CardContent className="p-4 sm:p-5 lg:p-6">
+					<CardContent>
 						<AddAlertForm
 							submitAlert={submitAlert}
 							successMessage="Alert submitted successfully! Thank you for reporting this health alert. The relevant authorities have been notified."

@@ -152,14 +152,14 @@ function VerificationBreakdownCard({
 
 	return (
 		<Card>
-			<CardHeader className="p-4 pb-2">
+			<CardHeader>
 				<div className="flex items-center gap-2">
 					<ListChecks className="h-4 w-4 text-uganda-red" />
 					<CardTitle className="text-base">{title}</CardTitle>
 				</div>
 				<CardDescription>{description}</CardDescription>
 			</CardHeader>
-			<CardContent className="p-4 pt-0">
+			<CardContent>
 				{total === 0 ? (
 					<ChartEmptyState message="No verification decisions recorded yet." />
 				) : (
@@ -239,7 +239,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			/>
 
 			<Card>
-				<CardHeader className="p-4 pb-2">
+				<CardHeader>
 					<div className="flex items-center gap-2">
 						<PieChartIcon className="h-4 w-4 text-uganda-red" />
 						<CardTitle className="text-base">Signal Verification</CardTitle>
@@ -248,7 +248,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 						Verified and unverified signal backlog
 					</CardDescription>
 				</CardHeader>
-				<CardContent className="p-4 pt-0">
+				<CardContent>
 					{!hasSignals || verificationTotal === 0 ? (
 						<ChartEmptyState message="No signal data available for verification breakdown." />
 					) : (
@@ -285,7 +285,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="p-4 pb-2">
+				<CardHeader>
 					<div className="flex items-center gap-2">
 						<BarChart3 className="h-4 w-4 text-uganda-red" />
 						<CardTitle className="text-base">Case Status</CardTitle>
@@ -294,7 +294,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 						Alive, dead, and unknown outcomes
 					</CardDescription>
 				</CardHeader>
-				<CardContent className="p-4 pt-0">
+				<CardContent>
 					{statusData.length === 0 ? (
 						<ChartEmptyState message="No status data available in signals." />
 					) : (
@@ -334,7 +334,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="p-4 pb-2">
+				<CardHeader>
 					<div className="flex items-center gap-2">
 						<TrendingUp className="h-4 w-4 text-uganda-red" />
 						<CardTitle className="text-base">Signals Over Time</CardTitle>
@@ -345,7 +345,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 							: "Daily volume (last 30 days)"}
 					</CardDescription>
 				</CardHeader>
-				<CardContent className="p-4 pt-0">
+				<CardContent>
 					{timelineData.length === 0 ? (
 						<ChartEmptyState message="No valid dates found in signal records." />
 					) : (
@@ -397,7 +397,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="p-4 pb-2">
+				<CardHeader>
 					<div className="flex items-center gap-2">
 						<MapPin className="h-4 w-4 text-uganda-red" />
 						<CardTitle className="text-base">Top Districts</CardTitle>
@@ -406,7 +406,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 						Highest signal volume by case district
 					</CardDescription>
 				</CardHeader>
-				<CardContent className="p-4 pt-0">
+				<CardContent>
 					{districtData.length === 0 ? (
 						<ChartEmptyState message="No district data available in signals." />
 					) : (
@@ -447,7 +447,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="p-4 pb-2">
+				<CardHeader>
 					<div className="flex items-center gap-2">
 						<Stethoscope className="h-4 w-4 text-uganda-red" />
 						<CardTitle className="text-base">Signals by Disease</CardTitle>
@@ -456,7 +456,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 						Top suspected diseases / syndromes
 					</CardDescription>
 				</CardHeader>
-				<CardContent className="p-4 pt-0">
+				<CardContent>
 					{summary.diseases.length === 0 ? (
 						<ChartEmptyState message="No disease data available in signals." />
 					) : (
@@ -499,7 +499,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="p-4 pb-2">
+				<CardHeader>
 					<div className="flex items-center gap-2">
 						<Megaphone className="h-4 w-4 text-uganda-red" />
 						<CardTitle className="text-base">Signals by Source</CardTitle>
@@ -508,7 +508,7 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 						How alerts reach the system
 					</CardDescription>
 				</CardHeader>
-				<CardContent className="p-4 pt-0">
+				<CardContent>
 					{summary.sources.length === 0 ? (
 						<ChartEmptyState message="No source data available in signals." />
 					) : (
@@ -551,14 +551,14 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="p-4 pb-2">
+				<CardHeader>
 					<div className="flex items-center gap-2">
 						<Users className="h-4 w-4 text-uganda-red" />
 						<CardTitle className="text-base">Age Distribution</CardTitle>
 					</div>
 					<CardDescription>Case age groups (years)</CardDescription>
 				</CardHeader>
-				<CardContent className="p-4 pt-0">
+				<CardContent>
 					{summary.age.length === 0 ? (
 						<ChartEmptyState message="No age data available in signals." />
 					) : (
@@ -594,14 +594,14 @@ export const DashboardCharts = memo<DashboardChartsProps>(({ summary }) => {
 			</Card>
 
 			<Card>
-				<CardHeader className="p-4 pb-2">
+				<CardHeader>
 					<div className="flex items-center gap-2">
 						<UserCircle className="h-4 w-4 text-uganda-red" />
 						<CardTitle className="text-base">Sex Breakdown</CardTitle>
 					</div>
 					<CardDescription>Case sex distribution</CardDescription>
 				</CardHeader>
-				<CardContent className="p-4 pt-0">
+				<CardContent>
 					{summary.sex.length === 0 ? (
 						<ChartEmptyState message="No sex data available in signals." />
 					) : (

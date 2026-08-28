@@ -31,7 +31,7 @@ export const FIELD_CASE_VERIFICATION = "Field Case Verification";
 export const EMS_EVACUATION_ACTION = "Validated for EMS Evacuation";
 
 /* -------------------------------------------------------------------------
- * Verification outcome vs response action — the split the EBS pipeline needs.
+ * Verification outcome vs response action — the split the EBS steps needs.
  *
  * TS twin of alertsMIS/backend/internal/services/verification_outcome.go. The
  * vocabulary AND the precedence must stay identical in both, because the server
