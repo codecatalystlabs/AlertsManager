@@ -114,10 +114,11 @@ export function TriageDialog({
 	}, [reportedBefore, genuineThreat]);
 
 	const continues = decision === TRIAGE_FORWARDED;
-	const reasonRequired = decision !== null && !continues;
+	// A signal leaving the pipeline still records its reason in its own column
+	// rather than the triage note — the reason is optional, not the field.
+	const isExit = decision !== null && !continues;
 
-	const canSubmit =
-		decision !== null && (!reasonRequired || reason.trim().length > 0);
+	const canSubmit = decision !== null;
 
 	const submit = useCallback(async () => {
 		if (!alertId || decision === null || !canSubmit) return;
@@ -318,10 +319,10 @@ export function TriageDialog({
 					{decision !== null && (
 						<div className="space-y-1">
 							<Label htmlFor="triage-reason" className="text-xs">
-								{reasonRequired ? (
+								{isExit ? (
 									<>
 										Reason for discarding?{" "}
-										<span className="text-uganda-red">*</span>
+										<span className="text-muted-foreground">(optional)</span>
 									</>
 								) : (
 									<>
@@ -332,22 +333,22 @@ export function TriageDialog({
 							</Label>
 							<Textarea
 								id="triage-reason"
-								value={reasonRequired ? reason : note}
+								value={isExit ? reason : note}
 								onChange={(e) =>
-									reasonRequired
+									isExit
 										? setReason(e.target.value)
 										: setNote(e.target.value)
 								}
 								placeholder={
-									reasonRequired
+									isExit
 										? "e.g. same cluster as ALT6142, RRT already deployed"
 										: "e.g. cluster of 3 in one village, bleeding reported"
 								}
 								className="min-h-[64px] text-xs"
 							/>
 							<p className="text-[11px] text-muted-foreground">
-								{reasonRequired
-									? "Required. Without a stated reason a discard is indistinguishable from a signal nobody looked at."
+								{isExit
+									? "Optional, but a stated reason is what separates a discard from a signal nobody looked at."
 									: "Kept on the signal's traceability timeline, so a later re-triage does not erase the original reasoning."}
 							</p>
 						</div>

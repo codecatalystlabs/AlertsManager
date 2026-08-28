@@ -17,6 +17,7 @@ import {
 	ShieldAlert,
 	MessageCircleReply,
 	FileDown,
+	FileText,
 } from "lucide-react";
 import { alertResponse } from "@/constants";
 import {
@@ -30,7 +31,9 @@ import { DiscardLevelBadge } from "@/components/triage";
 import { verificationBlockedReason } from "@/lib/alert-triage";
 import { nextAction, type NextActionKey } from "@/lib/next-action";
 import { RiskBadge } from "@/components/risk";
-import { feedbackIsDue } from "@/lib/alert-feedback";
+import { isRiskAssessed } from "@/lib/alert-risk";
+import { spotRepIsMandated } from "@/lib/spotrep";
+import { feedbackIsReached } from "@/lib/alert-feedback";
 import {
 	PENDING_BADGE_CLASS,
 	VerificationBadge,
@@ -215,6 +218,12 @@ export interface CallLogsTableCallbacks {
 	onAssessRisk: (alert: AlertLog) => void;
 	/** Open the reporter-feedback dialog (EBS step 7 — close the loop). */
 	onRecordFeedback: (alert: AlertLog) => void;
+	/**
+	 * Open the spot-report composer (EBS step 5 — the written alert). Offered
+	 * once a signal has been risk-assessed, because the level and the response
+	 * it mandates are half of what the report exists to communicate.
+	 */
+	onGenerateSpotRep: (alert: AlertLog) => void;
 	onDeleteAlert: (alertId: number) => Promise<void>;
 	/** Whether the current user may delete alerts (admin/EOC only). */
 	canDelete?: boolean;
@@ -625,7 +634,12 @@ export const createCallLogsTableColumns = (
 								<Edit className="h-4 w-4 mr-2" />
 								Edit signal
 							</DropdownMenuItem>
-							{feedbackIsDue(alertItem.verificationOutcome) && (
+							{/* Only once the signal has actually REACHED step 7. A confirmed
+						    event still waiting on its risk assessment owes feedback
+						    eventually, but offering it here puts two competing actions on
+						    one row and closes the loop on an event nobody has scored —
+						    see feedbackIsReached. */}
+							{feedbackIsReached(alertItem) && (
 								<DropdownMenuItem
 									onClick={() =>
 										callbacks.onRecordFeedback(alertItem)
@@ -650,6 +664,26 @@ export const createCallLogsTableColumns = (
 								>
 									<ShieldAlert className="h-4 w-4 mr-2" />
 									{alertItem.riskLevel ? "Re-assess risk" : "Assess risk"}
+								</DropdownMenuItem>
+							)}
+							{/* EBS step 5. Only offered on a scored signal: the report must
+						    state the assigned risk level and the response it mandates,
+						    so before step 4 there is nothing to issue. Flagged red for
+						    High and Very High, which are the events the guidelines
+						    REQUIRE a spot report for. */}
+							{isRiskAssessed(alertItem.riskLevel) && (
+								<DropdownMenuItem
+									onClick={() =>
+										callbacks.onGenerateSpotRep(alertItem)
+									}
+									className={
+										spotRepIsMandated(alertItem.riskLevel)
+											? "text-uganda-red focus:text-uganda-red"
+											: undefined
+									}
+								>
+									<FileText className="h-4 w-4 mr-2" />
+									Generate spot report
 								</DropdownMenuItem>
 							)}
 							{!alertItem.isVerified && (
