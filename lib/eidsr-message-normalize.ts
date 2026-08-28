@@ -149,6 +149,44 @@ export function pickLinkedAlertId(obj: Record<string, unknown>): number | null {
  * linked alert and no verified forwarded alert (a deleted forwarded alert has no
  * live ref, so it correctly reads as "Not linked").
  */
+/**
+ * The Signal Register row this 6767 signal became, or null if it has not been
+ * moved in yet.
+ *
+ * Unlike resolveInAlertsRef below, this does NOT require the row to be verified.
+ * A signal is moved into the register precisely so that it can be triaged and
+ * verified there, so it has a register row from the moment it lands — hiding it
+ * until someone verifies it would mean the register column stayed empty for
+ * exactly the signals with work outstanding.
+ */
+export function resolveRegisterRef(
+	message: Pick<
+		EidsrMessage,
+		| "linkedAlertId"
+		| "linkedAlert"
+		| "forwardedAlertId"
+		| "forwardedAlert"
+		| "forwardedToDistrict"
+	>
+): { id: number; alert: EidsrAlertRef | null; district: string | null } | null {
+	const district = message.forwardedToDistrict?.trim() || null;
+	if (message.linkedAlertId != null) {
+		return {
+			id: message.linkedAlertId,
+			alert: message.linkedAlert ?? message.forwardedAlert,
+			district: district ?? message.linkedAlert?.district ?? null,
+		};
+	}
+	if (message.forwardedAlertId != null) {
+		return {
+			id: message.forwardedAlertId,
+			alert: message.forwardedAlert,
+			district: district ?? message.forwardedAlert?.district ?? null,
+		};
+	}
+	return null;
+}
+
 export function resolveInAlertsRef(
 	message: Pick<EidsrMessage, "linkedAlertId" | "linkedAlert" | "forwardedAlert">
 ): { id: number; alert: EidsrAlertRef | null } | null {

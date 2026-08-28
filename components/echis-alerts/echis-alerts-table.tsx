@@ -5,7 +5,6 @@ import {
 	textIncludesFilter,
 } from "@/components/ui/data-table";
 import type { EchisAlertRow } from "@/lib/fetch-ndw-alerts";
-import { VerificationStatusBadge } from "@/components/ui/status-badges";
 import { formatDateTime } from "@/lib/format-date";
 import {
 	NdwSignalsTable,
@@ -62,15 +61,12 @@ const ECHIS_DOMAIN_COLUMNS: ColumnDef<EchisAlertRow>[] = [
 		meta: { filterPlaceholder: "VHT phone" },
 		cell: ({ row }) => row.original.vhtPhone || "—",
 	},
-	{
-		accessorKey: "verificationStatus",
-		header: "Verification",
-		filterFn: textIncludesFilter,
-		meta: { filterPlaceholder: "Verification status" },
-		cell: ({ row }) => (
-			<VerificationStatusBadge status={row.original.verificationStatus || ""} />
-		),
-	},
+	// NOTE: the "Verification" column was hidden on request (2026-08-28). It is
+	// the eCHIS feed's OWN status field, which reads "Pending Verification" on
+	// essentially every row — a column that never varies is a column that says
+	// nothing. The value is still on the record and still shown per row in the
+	// details dialog; what a signal's verification means to THIS system is
+	// carried by "In alerts" and "Forwarded" instead.
 	{
 		accessorKey: "briefDescription",
 		header: "Description",

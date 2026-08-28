@@ -43,6 +43,7 @@ interface AlertsTableProps {
 	onPageChange: (page: number) => void;
 	onPageSizeChange: (pageSize: number) => void;
 	onViewAlert?: (alert: AlertType) => void;
+	onGenerateSpotRep?: (alert: AlertType) => void;
 	/** Receives per-column header filter changes so they query the whole dataset. */
 	onColumnFiltersChange?: (filters: ColumnFiltersState) => void;
 	/** Current server-side sort, and a setter, so a header sort orders the whole dataset. */
@@ -61,14 +62,15 @@ export const AlertsTable = memo<AlertsTableProps>(
 		onPageChange,
 		onPageSizeChange,
 		onViewAlert,
+		onGenerateSpotRep,
 		onColumnFiltersChange,
 		sort,
 		onSortChange,
 	}) => {
 		const now = useTickingNow();
 		const callbacks: AlertsTableCallbacks = useMemo(
-			() => ({ onView: onViewAlert }),
-			[onViewAlert]
+			() => ({ onView: onViewAlert, onGenerateSpotRep }),
+			[onViewAlert, onGenerateSpotRep]
 		);
 
 		const columns = useMemo(
@@ -87,7 +89,7 @@ export const AlertsTable = memo<AlertsTableProps>(
 			<Card className={LAYOUT.card}>
 				<CardHeader className={LAYOUT.cardHeader}>
 					<CardTitle className={LAYOUT.cardTitle}>
-						Confirmed Events ({totalCount.toLocaleString()})
+						Issued Alerts ({totalCount.toLocaleString()})
 					</CardTitle>
 				</CardHeader>
 				<CardContent className={LAYOUT.cardContent}>

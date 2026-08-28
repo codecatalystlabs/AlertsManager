@@ -26,7 +26,19 @@ export interface CallLogsSort {
     order: 'asc' | 'desc';
 }
 
-export const CALL_LOGS_DEFAULT_SORT: CallLogsSort = { by: '', order: 'desc' };
+/**
+ * The register opens with signals MOVED IN FROM A FEED on top, most recently
+ * moved first, then the usual newest-signal-first order.
+ *
+ * A forwarded signal keeps the feed's own event date, which is routinely months
+ * old, so plain `date DESC` buries a signal the moment somebody moves it — the
+ * one action whose entire purpose is to put it in front of a triage officer.
+ * Sorting any column from the table header replaces this, as it should.
+ */
+export const CALL_LOGS_DEFAULT_SORT: CallLogsSort = {
+    by: 'forwarded_first',
+    order: 'desc',
+};
 
 export interface AlertLog {
     id: number;
