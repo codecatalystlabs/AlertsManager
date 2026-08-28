@@ -22,7 +22,10 @@ import {
 	ErrorAlert,
 	StatsGrid,
 	TriageKpiCards,
+	VerificationKpiCards,
 	RiskKpiCards,
+	FeedbackKpiCards,
+	KpiScorecard,
 	RecentActivityCard,
 	DashboardRangePicker,
 	DashboardDistrictPicker,
@@ -124,7 +127,11 @@ export default function DashboardPage(): React.JSX.Element {
 		try {
 			const sections: DashboardPdfSection[] = [];
 			if (overviewRef.current) {
-				sections.push({ container: overviewRef.current, heading: "Overview" });
+				sections.push({
+					container: overviewRef.current,
+					splitCards: true,
+					heading: "Overview & national KPIs",
+				});
 			}
 			if (chartsRef.current) {
 				sections.push({
@@ -291,17 +298,28 @@ export default function DashboardPage(): React.JSX.Element {
 				/>
 			)}
 
-			<div ref={overviewRef} className="space-y-2.5">
+			{/* Inside overviewRef so the PDF export carries the scorecard and the
+			    per-gate KPI rows: §11 sets a monthly reporting cadence, and a
+			    downloaded report that omits the indicators is not the report. */}
+			<div ref={overviewRef} className={LAYOUT.pageGap}>
 				<StatsGrid
 					alertCounts={statCounts}
 					kpiLoading={loading && !summary}
 				/>
-			</div>
 
-			{/* The other two gates that carry a national KPI, in pipeline
-			    order: triage, then risk assessment. */}
-			<TriageKpiCards summary={summary} isLoading={loading && !summary} />
-			<RiskKpiCards summary={summary} isLoading={loading && !summary} />
+				{/* The ten §11 indicators on one card, including the three that
+				    are not measurable from what the system captures. Placed
+				    directly under the overview because it is the M&E answer to
+				    "how are we doing"; the rows beneath it are the drill-down. */}
+				<KpiScorecard summary={summary} isLoading={loading && !summary} />
+
+				{/* Each pipeline gate that carries a national KPI, in EBS step
+				    order: triage, verification, risk assessment, feedback. */}
+				<TriageKpiCards summary={summary} isLoading={loading && !summary} />
+				<VerificationKpiCards summary={summary} isLoading={loading && !summary} />
+				<RiskKpiCards summary={summary} isLoading={loading && !summary} />
+				<FeedbackKpiCards summary={summary} isLoading={loading && !summary} />
+			</div>
 
 			{/* Recent-activity triage snapshot — its own rolling/custom window,
 			    independent of the page date range but scoped by district. */}

@@ -11,7 +11,6 @@ import {
 import { ErrorAlert } from "@/components/dashboard";
 import { StatsGridSkeleton } from "@/components/ui/skeletons";
 import { useAlertsData } from "@/hooks/use-alerts-data";
-import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
 
 const AlertDetailsDialog = dynamic(
 	() =>
@@ -21,13 +20,6 @@ const AlertDetailsDialog = dynamic(
 	{ ssr: false }
 );
 
-const AlertEditDialog = dynamic(
-	() =>
-		import("@/components/alert-edit-dialog").then((m) => ({
-			default: m.AlertEditDialog,
-		})),
-	{ ssr: false }
-);
 import { Alert as AlertType, AuthService } from "@/lib/auth";
 import { LAYOUT } from "@/constants/layout";
 
@@ -57,7 +49,6 @@ export default function AlertsPage(): React.JSX.Element {
 		loading,
 		isValidating,
 		error,
-		deletingId,
 		setColumnFilters,
 		setFilters,
 		sort,
@@ -65,19 +56,13 @@ export default function AlertsPage(): React.JSX.Element {
 		setPage,
 		setPageSize,
 		refetch,
-		deleteAlert,
 		exportToCSV,
 		exportToExcel,
 	} = useAlertsData();
 
-	// Revalidates every alerts-derived SWR key (this list, Signal Logs, dashboard),
-	// so an edit here also refreshes those views instead of leaving them stale.
-	const invalidateAlerts = useInvalidateAlerts();
-
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [selectedAlert, setSelectedAlert] = useState<AlertType | null>(null);
 	const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
-	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
 	const handleRefresh = useCallback(async () => {
 		setIsRefreshing(true);
@@ -87,18 +72,6 @@ export default function AlertsPage(): React.JSX.Element {
 			setIsRefreshing(false);
 		}
 	}, [refetch]);
-
-	const handleDeleteAlert = useCallback(
-		async (alertId: number) => {
-			try {
-				await deleteAlert(alertId);
-			} catch (error) {
-				// Error is already handled in the hook
-				console.error("Failed to delete alert:", error);
-			}
-		},
-		[deleteAlert]
-	);
 
 	const handleViewAlert = useCallback(async (alert: AlertType) => {
 		try {
@@ -111,27 +84,8 @@ export default function AlertsPage(): React.JSX.Element {
 		setIsDetailsDialogOpen(true);
 	}, []);
 
-	const handleEditAlert = useCallback(async (alert: AlertType) => {
-		try {
-			const fullAlert = await AuthService.fetchAlert(alert.id as number);
-			setSelectedAlert(fullAlert);
-		} catch (error) {
-			console.error("Failed to load full alert for editing:", error);
-			setSelectedAlert(alert);
-		}
-		setIsEditDialogOpen(true);
-	}, []);
-
-	const handleEditComplete = useCallback(() => {
-		// An edit changes data on other alerts-derived views too (Signal Logs,
-		// dashboard cards/charts). Invalidate every alerts-rooted SWR key so they
-		// don't keep painting the pre-edit snapshot from the persisted cache.
-		void invalidateAlerts();
-	}, [invalidateAlerts]);
-
 	const closeDialogs = useCallback(() => {
 		setIsDetailsDialogOpen(false);
-		setIsEditDialogOpen(false);
 		setSelectedAlert(null);
 	}, []);
 
@@ -181,27 +135,15 @@ export default function AlertsPage(): React.JSX.Element {
 				onColumnFiltersChange={setColumnFilters}
 				sort={sort}
 				onSortChange={setSort}
-				deletingId={deletingId}
-				onDeleteAlert={handleDeleteAlert}
 				onViewAlert={handleViewAlert}
-				onEditAlert={handleEditAlert}
 			/>
 
 			{selectedAlert && (
-				<>
-					<AlertDetailsDialog
-						isOpen={isDetailsDialogOpen}
-						onClose={closeDialogs}
-						alert={selectedAlert}
-					/>
-
-					<AlertEditDialog
-						isOpen={isEditDialogOpen}
-						onClose={closeDialogs}
-						alert={selectedAlert}
-						onEditComplete={handleEditComplete}
-					/>
-				</>
+				<AlertDetailsDialog
+					isOpen={isDetailsDialogOpen}
+					onClose={closeDialogs}
+					alert={selectedAlert}
+				/>
 			)}
 		</div>
 	);

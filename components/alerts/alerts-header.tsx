@@ -23,9 +23,6 @@ export const AlertsHeader = memo<AlertsHeaderProps>(
 					<h1 className={LAYOUT.pageTitle}>
 						{ALERTS_CONFIG.PAGE_TITLE}
 					</h1>
-					<p className={LAYOUT.pageSubtitle}>
-						{ALERTS_CONFIG.PAGE_DESCRIPTION}
-					</p>
 				</div>
 				<div className="flex flex-wrap gap-1.5">
 					<Button

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { altCode } from "@/lib/alt-code";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { userFullName } from "@/lib/user-name";
 import { cn } from "@/lib/utils";
+import { SignalSummaryCard } from "@/components/signal-summary";
 
 /**
  * Verification — EBS step 3, asked as the two questions it actually is.
@@ -88,18 +89,6 @@ interface AlertVerificationDialogProps {
 
 type YesNo = "yes" | "no" | "";
 
-/** One read-only fact about the signal being adjudicated. */
-interface SummaryItem {
-	label: string;
-	value: string;
-}
-
-function text(value: unknown): string {
-	if (value == null) return "";
-	const s = String(value).trim();
-	return s === "0" ? "" : s;
-}
-
 /** Local date + time, for the "verifying as … at …" stamp. */
 function nowLabel(): string {
 	return new Date().toLocaleString(undefined, {
@@ -109,50 +98,6 @@ function nowLabel(): string {
 		hour: "2-digit",
 		minute: "2-digit",
 	});
-}
-
-/**
- * What the verifier is adjudicating, read-only.
- *
- * Verification is a judgement about a report, so the report has to be legible
- * without leaving the dialog — but none of it is editable here. Correcting case
- * data is the edit dialog's job; conflating the two is what turned this form
- * into a case investigation in the first place.
- */
-function buildSummary(alert: any): SummaryItem[] {
-	if (!alert) return [];
-
-	const place = [
-		text(alert.alertCaseVillage) || text(alert.village),
-		text(alert.alertCaseSubCounty) || text(alert.subCounty),
-		text(alert.alertCaseDistrict),
-	]
-		.filter(Boolean)
-		.join(", ");
-
-	const reporter = [text(alert.personReporting), text(alert.contactNumber)]
-		.filter(Boolean)
-		.join(" · ");
-
-	const items: SummaryItem[] = [
-		{ label: "Signal", value: text(alert.signalReported).replaceAll("_", " ") },
-		{ label: "Case", value: text(alert.alertCaseName) },
-		{ label: "Location", value: place },
-		{ label: "Reported by", value: reporter },
-		{ label: "Source", value: text(alert.sourceOfAlert) },
-		{ label: "Number affected", value: text(alert.numberAffected) },
-		{ label: "Symptoms", value: text(alert.symptoms) },
-		{
-			label: "Description",
-			value:
-				text(alert.briefDescription) ||
-				text(alert.history) ||
-				text(alert.narrative),
-		},
-		{ label: "Additional information", value: text(alert.additionalInformation) },
-	];
-
-	return items.filter((i) => i.value);
 }
 
 export function AlertVerificationDialog({
@@ -189,7 +134,6 @@ export function AlertVerificationDialog({
 	const [error, setError] = useState<string | null>(null);
 	const [success, setSuccess] = useState<string | null>(null);
 
-	const summary = useMemo(() => buildSummary(alert), [alert]);
 
 	const generateTokenAutomatically = useCallback(async () => {
 		if (isTokenlessMode || !alert?.id) return;
@@ -251,7 +195,13 @@ export function AlertVerificationDialog({
 			: "";
 
 	const answered = verified === "no" || (verified === "yes" && !!outcome);
-	const canSubmit = answered && note.trim().length > 0 && !isVerifying;
+	// Required only on the "not verified" branch — there the note IS the record,
+	// because nothing else on the signal says why it is stuck. Once a decision
+	// has been taken the outcome carries it, so the note is supporting detail
+	// and must not block recording the decision.
+	const noteRequired = verified === "no";
+	const canSubmit =
+		answered && (!noteRequired || note.trim().length > 0) && !isVerifying;
 
 	const submit = async () => {
 		if (!canSubmit) return;
@@ -426,26 +376,7 @@ export function AlertVerificationDialog({
 					{ready && (
 						<div className="space-y-4">
 							{/* What is being adjudicated. Read-only by design. */}
-							{summary.length > 0 && (
-								<div className="rounded-lg border bg-muted/40 p-3">
-									<h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-										The signal
-									</h3>
-									<dl className="mt-2 space-y-1.5 text-sm">
-										{summary.map((item) => (
-											<div
-												key={item.label}
-												className="grid grid-cols-[9rem_1fr] gap-2"
-											>
-												<dt className="text-xs uppercase tracking-wide text-muted-foreground">
-													{item.label}
-												</dt>
-												<dd className="break-words">{item.value}</dd>
-											</div>
-										))}
-									</dl>
-								</div>
-							)}
+							<SignalSummaryCard alert={alert} />
 
 							{/* Question 1 */}
 							<QuestionCard
@@ -508,14 +439,23 @@ export function AlertVerificationDialog({
 								/>
 							)}
 
-							{/* The note. Required on every branch. */}
+							{/* The note. Required only where it is the whole record. */}
 							{answered && !pendingIsNoOp && (
 								<div className="space-y-2">
 									<Label htmlFor="verification-note" className="text-sm font-medium">
-										{verified === "no"
-											? "Why has it not been verified?"
-											: "Describe the decision taken"}
-										<span className="ml-1 text-uganda-red">*</span>
+										{verified === "no" ? (
+											<>
+												Why has it not been verified?
+												<span className="ml-1 text-uganda-red">*</span>
+											</>
+										) : (
+											<>
+												Describe the decision taken
+												<span className="ml-1 font-normal text-muted-foreground">
+													(optional)
+												</span>
+											</>
+										)}
 									</Label>
 									<Textarea
 										id="verification-note"
@@ -531,8 +471,9 @@ export function AlertVerificationDialog({
 										}
 									/>
 									<p className="text-xs text-muted-foreground">
-										Say what you checked and who you spoke to. This is the
-										only record of how the decision was reached.
+										{noteRequired
+											? "Say what you tried and what is blocking it. This is the only record of why the signal is still open."
+											: "Say what you checked and who you spoke to — this is the only record of how the decision was reached, but you can record the decision without it."}
 									</p>
 								</div>
 							)}

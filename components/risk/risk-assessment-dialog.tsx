@@ -13,6 +13,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { FacilityPicker } from "@/components/facilities/facility-picker";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { altCode } from "@/lib/alt-code";
@@ -28,8 +30,21 @@ import {
 	deriveMatrixLevel,
 	normalizeRiskLevel,
 	riskWorksheetComplete,
+	RISK_ACTION_OPTIONS,
+	RISK_ACTION_HINTS,
+	parseRiskAction,
+	riskActionNeedsFacility,
 } from "@/lib/alert-risk";
-import { Loader2, ShieldAlert } from "lucide-react";
+import {
+	EMPTY_RRT_PERSON,
+	formatRrtMembers,
+	formatRrtPerson,
+	parseRrtMembers,
+	parseRrtPerson,
+	type RrtPerson,
+} from "@/lib/rrt-team";
+import { RiskAssessmentHistory } from "./risk-assessment-history";
+import { Loader2, Plus, ShieldAlert, X } from "lucide-react";
 
 const API_BASE_URL = getClientApiBaseUrl();
 
@@ -42,9 +57,17 @@ type Worksheet = {
 	hazardNote: string;
 	exposureNote: string;
 	contextNote: string;
-	teamLead: string;
-	teamMembers: string;
 };
+
+/**
+ * A member row keeps a stable id: keying the inputs by array index makes React
+ * reuse the removed row's DOM, so deleting the middle member moves the cursor
+ * and the value of the one below it.
+ */
+type MemberRow = RrtPerson & { id: number };
+
+let nextMemberId = 1;
+const blankMember = (): MemberRow => ({ ...EMPTY_RRT_PERSON, id: nextMemberId++ });
 
 const EMPTY_WORKSHEET: Worksheet = {
 	likelihood: "",
@@ -52,8 +75,6 @@ const EMPTY_WORKSHEET: Worksheet = {
 	hazardNote: "",
 	exposureNote: "",
 	contextNote: "",
-	teamLead: "",
-	teamMembers: "",
 };
 
 /**
@@ -87,11 +108,43 @@ export function RiskAssessmentDialog({
 		riskContextNote?: string | null;
 		riskTeamLead?: string | null;
 		riskTeamMembers?: string | null;
+		riskActionTaken?: string | null;
+		riskEvacuationFacility?: string | null;
+		riskEvacuationFacilityUid?: string | null;
+		/** The alert's own district, used to seed the evacuation picker. */
+		alertCaseDistrict?: string | null;
 	};
 	onAssessed?: () => void;
 }) {
 	const [answers, setAnswers] = useState<Answers>({});
 	const [sheet, setSheet] = useState<Worksheet>(EMPTY_WORKSHEET);
+	// The RRT is structured here and flattened on save — see lib/rrt-team.ts
+	// for the encoding and why it stays in the two existing text columns.
+	const [lead, setLead] = useState<RrtPerson>(EMPTY_RRT_PERSON);
+	// "What action have you taken?" — the last question on the form. ONE action:
+	// the form asks what was done, not for a checklist.
+	const [action, setAction] = useState("");
+	const [evacFacility, setEvacFacility] = useState("");
+	const [evacFacilityUid, setEvacFacilityUid] = useState("");
+	const [members, setMembers] = useState<MemberRow[]>([blankMember()]);
+
+	const setMember = useCallback((id: number, patch: Partial<RrtPerson>) => {
+		setMembers((rows) =>
+			rows.map((row) => (row.id === id ? { ...row, ...patch } : row))
+		);
+	}, []);
+	// Removing the last row leaves a blank one behind rather than an empty
+	// section with no way back to an input.
+	const removeMember = useCallback((id: number) => {
+		setMembers((rows) => {
+			const left = rows.filter((row) => row.id !== id);
+			return left.length > 0 ? left : [blankMember()];
+		});
+	}, []);
+	const addMember = useCallback(
+		() => setMembers((rows) => [...rows, blankMember()]),
+		[]
+	);
 	const [note, setNote] = useState("");
 	const [saving, setSaving] = useState(false);
 	const setField = (key: keyof Worksheet, value: string) =>
@@ -113,9 +166,17 @@ export function RiskAssessmentDialog({
 			hazardNote: current?.riskHazardNote ?? "",
 			exposureNote: current?.riskExposureNote ?? "",
 			contextNote: current?.riskContextNote ?? "",
-			teamLead: current?.riskTeamLead ?? "",
-			teamMembers: current?.riskTeamMembers ?? "",
 		});
+		setAction(parseRiskAction(current?.riskActionTaken));
+		setEvacFacility(current?.riskEvacuationFacility ?? "");
+		setEvacFacilityUid(current?.riskEvacuationFacilityUid ?? "");
+		setLead(parseRrtPerson(current?.riskTeamLead));
+		setMembers(
+			parseRrtMembers(current?.riskTeamMembers).map((person) => ({
+				...person,
+				id: nextMemberId++,
+			}))
+		);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [open, current?.riskSevere, current?.riskSpread, current?.riskControl]);
 
@@ -130,8 +191,14 @@ export function RiskAssessmentDialog({
 	// both bands are chosen, rather than guessing at the missing axis.
 	const complete = level !== null;
 
+	// EMS Evacuation is the one action that needs a destination: an evacuation
+	// with nowhere recorded cannot say where to follow the patient up, so the
+	// form blocks on it rather than saving a half-record the API would reject.
+	const needsFacility = riskActionNeedsFacility(action);
+	const blockedOnFacility = needsFacility && !evacFacility.trim();
+
 	const submit = useCallback(async () => {
-		if (!alertId || !complete) return;
+		if (!alertId || !complete || blockedOnFacility) return;
 		setSaving(true);
 		try {
 			const response = await AuthService.makeAuthenticatedRequest(
@@ -146,6 +213,11 @@ export function RiskAssessmentDialog({
 					body: JSON.stringify({
 						note: note.trim() || undefined,
 						...sheet,
+						teamLead: formatRrtPerson(lead),
+						teamMembers: formatRrtMembers(members),
+						actionTaken: action,
+						evacuationFacility: needsFacility ? evacFacility : "",
+						evacuationFacilityUid: needsFacility ? evacFacilityUid : "",
 					}),
 				}
 			);
@@ -166,7 +238,22 @@ export function RiskAssessmentDialog({
 		} finally {
 			setSaving(false);
 		}
-	}, [alertId, complete, note, sheet, level, onAssessed, onOpenChange]);
+	}, [
+		alertId,
+		complete,
+		blockedOnFacility,
+		needsFacility,
+		note,
+		sheet,
+		lead,
+		members,
+		action,
+		evacFacility,
+		evacFacilityUid,
+		level,
+		onAssessed,
+		onOpenChange,
+	]);
 
 	const reassessing = Boolean(normalizeRiskLevel(current?.riskLevel));
 	const sheetComplete = riskWorksheetComplete({
@@ -347,33 +434,191 @@ export function RiskAssessmentDialog({
 						)}
 
 						{/* The RRT. The guideline names a TEAM led by the DHO, not an
-						    individual assessor. */}
-						<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+						    individual assessor — and a team that has to be REACHABLE
+						    while the response runs, which is why every person carries a
+						    phone number rather than a job title alone. */}
+						<div className="space-y-3">
 							<div className="space-y-1">
 								<Label htmlFor="risk-team-lead" className="text-xs">
 									RRT lead
 								</Label>
-								<Input
-									id="risk-team-lead"
-									value={sheet.teamLead}
-									onChange={(e) => setField("teamLead", e.target.value)}
-									placeholder="e.g. DHO Kasese"
-									className="h-8 text-xs"
-								/>
+								<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+									<Input
+										id="risk-team-lead"
+										value={lead.name}
+										onChange={(e) =>
+											setLead((p) => ({ ...p, name: e.target.value }))
+										}
+										placeholder="Name — e.g. DHO Kasese"
+										className="h-8 text-xs"
+									/>
+									<Input
+										id="risk-team-lead-phone"
+										type="tel"
+										inputMode="tel"
+										value={lead.phone}
+										onChange={(e) =>
+											setLead((p) => ({ ...p, phone: e.target.value }))
+										}
+										placeholder="Phone — e.g. 0772 123 456"
+										className="h-8 text-xs"
+									/>
+								</div>
 							</div>
-							<div className="space-y-1">
-								<Label htmlFor="risk-team-members" className="text-xs">
-									RRT members
-								</Label>
-								<Input
-									id="risk-team-members"
-									value={sheet.teamMembers}
-									onChange={(e) => setField("teamMembers", e.target.value)}
-									placeholder="e.g. surveillance, clinical, lab, vet"
-									className="h-8 text-xs"
-								/>
+
+							<div className="space-y-2">
+								{/* Not a <Label>: it names the group, and each input
+								    carries its own aria-label — a label element bound to
+								    nothing is worse for a screen reader than none. */}
+								<p className="text-xs font-medium leading-none">RRT members</p>
+								<div className="space-y-2">
+									{members.map((member, index) => (
+										<div key={member.id} className="flex items-center gap-2">
+											<Input
+												value={member.name}
+												onChange={(e) =>
+													setMember(member.id, { name: e.target.value })
+												}
+												placeholder="Name — e.g. surveillance focal person"
+												aria-label={`Member ${index + 1} name`}
+												className="h-8 min-w-0 flex-1 text-xs"
+											/>
+											<Input
+												type="tel"
+												inputMode="tel"
+												value={member.phone}
+												onChange={(e) =>
+													setMember(member.id, { phone: e.target.value })
+												}
+												placeholder="Phone"
+												aria-label={`Member ${index + 1} phone`}
+												className="h-8 w-28 shrink-0 text-xs sm:w-40"
+											/>
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												onClick={() => removeMember(member.id)}
+												aria-label={`Remove member ${index + 1}`}
+												className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+											>
+												<X />
+											</Button>
+										</div>
+									))}
+								</div>
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onClick={addMember}
+									className="h-7 gap-1 text-xs"
+								>
+									<Plus />
+									Add member
+								</Button>
+								<p className="text-[11px] text-muted-foreground">
+									One row per person. Blank rows are dropped when the
+									assessment is saved.
+								</p>
 							</div>
 						</div>
+					</div>
+
+					{/* The series so far. An event is re-assessed as it develops, and
+					    the alert's own columns only hold the latest — the reasoning a
+					    re-assessment is about to overwrite is here and nowhere else,
+					    so it belongs in front of the person overwriting it. Renders
+					    nothing on a first assessment. */}
+					<RiskAssessmentHistory
+						alertId={alertId ?? undefined}
+						enabled={open}
+						skipLatest
+						title="Earlier assessments"
+					/>
+
+					{/* The last question: what was actually DONE. A risk level with
+					    no action recorded against it is a score nobody acted on, and
+					    the RRT that assessed the event is the team that knows.
+
+					    Stored in its own column, NOT alerts.response_actions — that
+					    one is desk verification's record, and writing it from here
+					    would let an assessment silently overwrite the desk. */}
+					<div className="space-y-2 rounded-md border border-gray-200 p-3">
+						<div className="flex items-start justify-between gap-2">
+							<div>
+								<p className="text-xs font-medium leading-none">
+									What action have you taken?{" "}
+									<span className="font-normal text-muted-foreground">
+										(optional — choose one)
+									</span>
+								</p>
+								<p className="mt-1 text-[11px] text-muted-foreground">
+									Leave blank if nothing has been done yet; that is a real
+									state, and guessing one would be worse.
+								</p>
+							</div>
+							{/* A radio group cannot be un-picked, and this question is
+							    optional — without this, a mis-click is permanent. */}
+							{action && (
+								<Button
+									type="button"
+									variant="ghost"
+									size="sm"
+									className="h-6 shrink-0 px-2 text-[11px]"
+									onClick={() => setAction("")}
+								>
+									Clear
+								</Button>
+							)}
+						</div>
+
+						<RadioGroup
+							value={action}
+							onValueChange={setAction}
+							className="grid gap-1.5 sm:grid-cols-2"
+						>
+							{RISK_ACTION_OPTIONS.map((option) => (
+								<label
+									key={option}
+									className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 hover:bg-gray-50"
+								>
+									<RadioGroupItem value={option} className="mt-0.5" />
+									<span className="min-w-0">
+										<span className="block text-xs font-medium leading-none">
+											{option}
+										</span>
+										<span className="mt-0.5 block text-[11px] text-muted-foreground">
+											{RISK_ACTION_HINTS[option]}
+										</span>
+									</span>
+								</label>
+							))}
+						</RadioGroup>
+
+						{/* Only asked when it applies — the destination is meaningless
+						    for any other action, and a picker that is always on screen
+						    invites filling it in when nobody was evacuated. */}
+						{needsFacility && (
+							<div className="space-y-2 rounded-md border border-uganda-red/30 bg-uganda-red/5 p-2.5">
+								<FacilityPicker
+									label="Evacuated to *"
+									value={evacFacility}
+									onChange={(name, uid) => {
+										setEvacFacility(name);
+										setEvacFacilityUid(uid);
+									}}
+									defaultDistrict={current?.alertCaseDistrict ?? undefined}
+									placeholder="Search the facility the patient was taken to…"
+								/>
+								{blockedOnFacility && (
+									<p className="text-[11px] font-medium text-destructive">
+										Select the destination facility to record the
+										evacuation.
+									</p>
+								)}
+							</div>
+						)}
 					</div>
 
 					<div className="space-y-1">
@@ -399,7 +644,11 @@ export function RiskAssessmentDialog({
 					<Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
 						Cancel
 					</Button>
-					<Button size="sm" onClick={submit} disabled={!complete || saving}>
+					<Button
+						size="sm"
+						onClick={submit}
+						disabled={!complete || saving || blockedOnFacility}
+					>
 						{saving && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
 						{reassessing ? "Update assessment" : "Record assessment"}
 					</Button>

@@ -99,6 +99,15 @@ export interface DashboardSummary {
 	topDistricts: DashboardCountItem[];
 	diseases: DashboardCountItem[];
 	sources: DashboardCountItem[];
+	/**
+	 * KPI 1's second axis — the governance level each signal was detected at.
+	 * Optional so an older API response doesn't crash the chart.
+	 */
+	signalLevels?: DashboardCountItem[];
+	/** KPI 9 — community-detected signals as a share of all signals, 0–100; -1 for n/a. */
+	communityReportingRate?: number;
+	/** The numerator behind that rate. */
+	communitySignals?: number;
 	age: DashboardCountItem[];
 	sex: DashboardCountItem[];
 	timeline: DashboardTimePoint[];
@@ -123,6 +132,10 @@ export interface DashboardSummary {
 	feedbackRate?: number;
 	/** Concluded signals still owing feedback. */
 	feedbackPending?: number;
+	/** KPI 10's raw denominator — signals that have reached a conclusion. */
+	feedbackDue?: number;
+	/** KPI 10's raw numerator — concluded signals whose reporter was told. */
+	feedbackGiven?: number;
 	/** Confirmed events as a share of adjudicated signals, 0–100. KPI 5. */
 	signalToEventRate?: number;
 	/** Distinct response (disease/condition) values available in scope — populates the Response type filter. */
@@ -166,6 +179,9 @@ const EMPTY_SUMMARY: DashboardSummary = {
 	topDistricts: [],
 	diseases: [],
 	sources: [],
+	signalLevels: [],
+	communityReportingRate: -1,
+	communitySignals: 0,
 	age: [],
 	sex: [],
 	timeline: [],
@@ -178,6 +194,8 @@ const EMPTY_SUMMARY: DashboardSummary = {
 	riskWorksheetComplete: 0,
 	feedbackRate: 0,
 	feedbackPending: 0,
+	feedbackDue: 0,
+	feedbackGiven: 0,
 	signalToEventRate: 0,
 	riskMatrix: {
 		likelihoods: [],

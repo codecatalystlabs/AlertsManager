@@ -80,7 +80,7 @@ export const STAGE_STEP: Partial<Record<StageKey, number>> = {
 	[STAGE_ASSESSED]: 4,
 };
 
-/** One line on what each gate decides, shown on hover. */
+/** One line on what each gate decides, shown on hover over the pipeline strip. */
 export const STAGE_DESCRIPTION: Record<StageKey, string> = {
 	[STAGE_INTAKE]: "Every signal reported into the system, whatever its source.",
 	[STAGE_TRIAGE]:

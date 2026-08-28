@@ -20,7 +20,6 @@ import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
 import { AuthService } from "@/lib/auth";
 import { PipelineStrip } from "@/components/pipeline";
 import {
-	STAGE_DESCRIPTION,
 	STAGE_FEEDBACK,
 	isQueueStage,
 	stageLabel,
@@ -292,7 +291,6 @@ export default function CallLogsPage(): React.JSX.Element {
 				isRefreshing={isRefreshing || isValidating}
 				exporting={exporting}
 				queueLabel={stageLabel(viewStage)}
-				queueHint={viewStage ? STAGE_DESCRIPTION[viewStage] : null}
 			/>
 
 			{/* The pipeline itself, above the list it filters. Scoped to the same
@@ -368,6 +366,7 @@ export default function CallLogsPage(): React.JSX.Element {
 				open={triageAlert !== null}
 				onOpenChange={(open) => !open && setTriageAlert(null)}
 				alertId={triageAlert?.id ?? null}
+				alert={triageAlert}
 				currentPriority={triageAlert?.priority}
 				currentDecision={triageAlert?.triageDecision}
 				currentSignalCode={triageAlert?.signalCode}

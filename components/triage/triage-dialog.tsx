@@ -29,6 +29,7 @@ import {
 	TRIAGE_LOGGED,
 } from "@/lib/alert-triage";
 import { normalizeSignalCode, signalSummary } from "@/lib/ebs-signals";
+import { SignalSummaryCard } from "@/components/signal-summary";
 import { SignalPicker } from "./signal-picker";
 import { ArrowRight, CircleSlash, Loader2, ShieldQuestion } from "lucide-react";
 
@@ -66,6 +67,7 @@ export function TriageDialog({
 	open,
 	onOpenChange,
 	alertId,
+	alert,
 	currentPriority,
 	currentDecision,
 	currentSignalCode,
@@ -74,6 +76,10 @@ export function TriageDialog({
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	alertId: number | null;
+	/** The row being triaged, for the read-only "The signal" card. Optional:
+	 *  the gate still works without it, it just asks the operator to decide
+	 *  from memory. */
+	alert?: unknown;
 	currentPriority?: string | null;
 	currentDecision?: string | null;
 	currentSignalCode?: string | null;
@@ -211,6 +217,13 @@ export function TriageDialog({
 				    the report is worth verifying has no reason to hunt for its
 				    Annex line. The list only appears on the forward path. */}
 				<div className="space-y-4">
+					{/* What is being triaged, read-only — the same card the
+					    verification dialog opens with. Question 1 asks whether this
+					    signal has been reported before, which is unanswerable from a
+					    reference number alone: the operator needs the case, the
+					    place and the reporter in front of them. */}
+					<SignalSummaryCard alert={alert} />
+
 					<Question
 						step={1}
 						prompt="Has this signal been reported before?"

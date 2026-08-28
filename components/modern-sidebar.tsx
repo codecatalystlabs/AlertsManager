@@ -13,6 +13,7 @@ import {
 	BellPlus,
 	Siren,
 	UsersRound,
+	Building2,
 	ListTree,
 	X,
 	RadioTower,
@@ -140,6 +141,15 @@ const navigationGroups: NavigationGroup[] = [
 				href: "/dashboard/dropdown-options",
 				icon: ListTree,
 				adminOnly: true,
+			},
+			// Not adminOnly: everyone signed in may LOOK UP a facility (a
+			// district biostat needs the list for their district). The page hides
+			// its add/edit/delete controls for non-admins, and the API enforces
+			// that independently.
+			{
+				name: "Health Facilities",
+				href: "/dashboard/facilities",
+				icon: Building2,
 			},
 			{ name: "Profile", href: "/dashboard/profile", icon: CircleUser },
 		],

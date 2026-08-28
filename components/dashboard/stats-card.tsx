@@ -2,9 +2,9 @@ import React, { memo } from 'react';
 import { StatCardConfig } from '@/constants/dashboard';
 import { AlertCounts } from '@/app/dashboard/types';
 import {
-  DEFAULT_STAT_INK,
   StatCard,
-  type StatCardInk,
+  tintedInk,
+  type StatTone,
 } from '@/components/ui/stat-card';
 
 interface StatsCardProps {
@@ -16,25 +16,23 @@ interface StatsCardProps {
   isLoading?: boolean;
 }
 
-// Soft tinted icon per config colour. Must be LITERAL class strings — Tailwind
-// only generates CSS for class names it can see in source (no runtime `.replace`).
-const ICON_STYLES: Record<string, string> = {
-  'bg-green-500': 'text-success',
-  'bg-red-500': 'text-destructive',
-  'bg-blue-500': 'text-primary',
-  'bg-purple-500': 'text-primary',
-  'bg-indigo-500': 'text-primary',
-  'bg-teal-500': 'text-success',
-  'bg-amber-500': 'text-warning',
+// The config's palette class mapped to a semantic tone, so the tile follows the
+// theme rather than the raw palette. A literal map, not a runtime `.replace`:
+// Tailwind only generates CSS for class names it can see in source.
+const ICON_TONES: Record<string, StatTone> = {
+  'bg-green-500': 'success',
+  'bg-red-500': 'destructive',
+  'bg-blue-500': 'primary',
+  'bg-purple-500': 'primary',
+  'bg-indigo-500': 'primary',
+  'bg-teal-500': 'success',
+  'bg-amber-500': 'warning',
 };
 
 export const StatsCard = memo<StatsCardProps>(({ config, data, onClick, className, isLoading }) => {
   const { title, key, icon: Icon, iconBg } = config;
 
-  const ink: StatCardInk = {
-    ...DEFAULT_STAT_INK,
-    icon: ICON_STYLES[iconBg] ?? DEFAULT_STAT_INK.icon,
-  };
+  const ink = tintedInk(ICON_TONES[iconBg] ?? 'muted');
 
   const getValue = (): string => {
     // Fall back to 0 if the count is missing — e.g. an older API response that

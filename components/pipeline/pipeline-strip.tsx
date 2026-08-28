@@ -101,26 +101,20 @@ export function PipelineStrip({
 		<nav
 			aria-label="EBS steps"
 			className={cn(
-				"rounded-none border border-gray-200 bg-white px-2 py-1.5 shadow-sm",
+				"rounded-none border border-gray-200 bg-white px-2 py-1 shadow-sm",
 				className
 			)}
 		>
-			<div className="mb-1 flex items-baseline justify-between gap-3 px-1">
-				<h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-					EBS steps
-				</h2>
-				{data && (
-					<p className="text-[11px] text-gray-500">
-						{data.total.toLocaleString()} signals in scope
-					</p>
-				)}
-			</div>
+			{/* Heading kept for the document outline but not painted: it cost a
+			    full row, and the count beside it ("N signals in scope") was the
+			    SAME number as tile 01, which is `Count: total` server-side. */}
+			<h2 className="sr-only">EBS steps</h2>
 
-			<ol className="flex items-stretch gap-1 overflow-x-auto pb-1">
+			<ol className="flex items-stretch gap-1 overflow-x-auto pb-0.5">
 				{isLoading && stages.length === 0
 					? Array.from({ length: 4 }).map((_, i) => (
 						<li key={i} className="min-w-[124px] flex-1">
-							<div className="h-[52px] animate-pulse rounded bg-gray-100" />
+							<div className="h-[59px] animate-pulse rounded bg-gray-100" />
 						</li>
 					))
 					: stages.map((stage, index) => (
@@ -159,7 +153,7 @@ function StageTile({
 
 	const body = (
 		<>
-			<div className="flex items-center gap-1.5">
+			<div className="flex items-center gap-1.5 leading-none">
 				{step != null && (
 					<span className="font-mono text-[10px] font-semibold text-gray-400">
 						{String(step).padStart(2, "0")}
@@ -187,12 +181,12 @@ function StageTile({
 			    stage. Detection has no queue of its own, so it says nothing
 			    rather than inventing one. */}
 			{overdue > 0 ? (
-				<p className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold text-destructive">
+				<p className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold leading-none text-destructive">
 					<AlertTriangle aria-hidden className="h-3 w-3" />
 					{pending.toLocaleString()} waiting · {overdue.toLocaleString()} overdue
 				</p>
 			) : (
-				<p className="mt-0.5 text-[10px] text-gray-400">
+				<p className="mt-0.5 text-[10px] leading-none text-gray-400">
 					{pending > 0
 						? `${pending.toLocaleString()} waiting`
 						: stage.overdue < 0

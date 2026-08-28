@@ -221,6 +221,10 @@ export interface Alert {
     riskContextNote?: string | null
     riskTeamLead?: string | null
     riskTeamMembers?: string | null
+    /** "What action have you taken?" — comma-joined; see lib/alert-risk.ts. */
+    riskActionTaken?: string | null
+    riskEvacuationFacility?: string | null
+    riskEvacuationFacilityUid?: string | null
     /** Reporter feedback (EBS step 7). */
     feedbackGivenAt?: string | null
     feedbackBy?: string | null

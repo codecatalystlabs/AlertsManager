@@ -1,5 +1,4 @@
 import { altCode } from "@/lib/alt-code";
-import { useState } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { Alert as AlertType } from "@/lib/auth";
 import {
@@ -8,7 +7,7 @@ import {
 	exactStringFilter,
 	textIncludesFilter,
 } from "@/components/ui/data-table";
-import { MoreHorizontal, Eye, Edit, Trash2 } from "lucide-react";
+import { MoreHorizontal, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,7 +19,6 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { sourceOfAlertOptions } from "@/lib/source-of-alert";
-import { DeleteAlertDialog } from "@/components/alerts/delete-alert-dialog";
 import {
 	VerificationBadge,
 	statusBadgeClass,
@@ -48,12 +46,7 @@ export const VERIFICATION_FILTER_OPTIONS = [
 ] as const;
 
 export interface AlertsTableCallbacks {
-	onDelete: (alertId: number) => Promise<void>;
 	onView?: (alert: AlertType) => void;
-	onEdit?: (alert: AlertType) => void;
-	deletingId: number | null;
-	/** Whether the current user may delete alerts (admin/EOC only). */
-	canDelete?: boolean;
 }
 
 export const createAlertsTableColumns = (
@@ -288,9 +281,12 @@ export const createAlertsTableColumns = (
 ];
 
 /**
- * Row action menu for a single alert. The delete confirmation lives OUTSIDE the
- * dropdown (controlled by local state) so the destructive button renders and
- * focuses correctly — an AlertDialog nested in DropdownMenuContent breaks that.
+ * Row action menu for a single alert: copy the id, or open it read-only.
+ *
+ * Editing and deleting were removed from this list on purpose. An alert is the
+ * record of what was reported, and correcting or destroying one from a row menu
+ * on a 6,000-row list is not a decision a hover away. Both flows still exist
+ * (the edit dialog, DeleteAlertDialog) for wherever they are next mounted.
  */
 function AlertRowActions({
 	alert,
@@ -299,87 +295,37 @@ function AlertRowActions({
 	alert: AlertType;
 	callbacks: AlertsTableCallbacks;
 }) {
-	const [menuOpen, setMenuOpen] = useState(false);
-	const [deleteOpen, setDeleteOpen] = useState(false);
-	const isDeleting = callbacks.deletingId === alert.id;
-
-	const handleConfirmDelete = async () => {
-		if (!alert.id) return;
-		await callbacks.onDelete(alert.id);
-		setDeleteOpen(false);
-	};
-
 	return (
-		<>
-			<DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-				<DropdownMenuTrigger asChild>
-					<Button
-						variant="ghost"
-						className="h-8 w-8 p-0 hover:bg-uganda-yellow/10"
-					>
-						<span className="sr-only"> Open menu </span>
-						<MoreHorizontal className="h-4 w-4" />
-					</Button>
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end">
-					<DropdownMenuLabel>Actions </DropdownMenuLabel>
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button
+					variant="ghost"
+					className="h-8 w-8 p-0 hover:bg-uganda-yellow/10"
+				>
+					<span className="sr-only"> Open menu </span>
+					<MoreHorizontal className="h-4 w-4" />
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end">
+				<DropdownMenuLabel>Actions </DropdownMenuLabel>
+				<DropdownMenuItem
+					onClick={() =>
+						navigator.clipboard.writeText(alert.id?.toString() || "")
+					}
+				>
+					Copy Alert ID
+				</DropdownMenuItem>
+				<DropdownMenuSeparator />
+				{callbacks.onView && (
 					<DropdownMenuItem
-						onClick={() =>
-							navigator.clipboard.writeText(alert.id?.toString() || "")
-						}
+						className="flex items-center gap-2"
+						onClick={() => callbacks.onView!(alert)}
 					>
-						Copy Alert ID
+						<Eye className="h-4 w-4" />
+						View Details
 					</DropdownMenuItem>
-					<DropdownMenuSeparator />
-					{callbacks.onView && (
-						<DropdownMenuItem
-							className="flex items-center gap-2"
-							onClick={() => callbacks.onView!(alert)}
-						>
-							<Eye className="h-4 w-4" />
-							View Details
-						</DropdownMenuItem>
-					)}
-					{callbacks.onEdit && (
-						<DropdownMenuItem
-							className="flex items-center gap-2"
-							onClick={() => callbacks.onEdit!(alert)}
-						>
-							<Edit className="h-4 w-4" />
-							Edit Alert
-						</DropdownMenuItem>
-					)}
-					{callbacks.canDelete && (
-						<>
-							<DropdownMenuSeparator />
-							<DropdownMenuItem
-								className="flex items-center gap-2 text-destructive focus:text-destructive"
-								onSelect={(e) => {
-									// Close the menu ourselves, then open the dialog —
-									// avoids the focus hand-off race between the two.
-									e.preventDefault();
-									setMenuOpen(false);
-									setDeleteOpen(true);
-								}}
-							>
-								<Trash2 className="h-4 w-4" />
-								Delete Alert
-							</DropdownMenuItem>
-						</>
-					)}
-				</DropdownMenuContent>
-			</DropdownMenu>
-
-			{callbacks.canDelete && (
-				<DeleteAlertDialog
-					open={deleteOpen}
-					onOpenChange={setDeleteOpen}
-					alertCode={`${altCode(alert.id)}`}
-					caseName={alert.alertCaseName}
-					isDeleting={isDeleting}
-					onConfirm={() => void handleConfirmDelete()}
-				/>
-			)}
-		</>
+				)}
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 }

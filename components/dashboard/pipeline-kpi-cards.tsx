@@ -2,11 +2,17 @@
 
 import { memo } from "react";
 import {
+	AlarmClockOff,
 	ArrowRight,
 	CircleSlash,
 	ClipboardList,
+	Flame,
+	MessageSquareReply,
+	MessageSquareWarning,
 	ShieldAlert,
+	ShieldCheck,
 	ShieldQuestion,
+	Split,
 	Timer,
 	TrendingUp,
 	type LucideIcon,
@@ -15,10 +21,12 @@ import {
 import {
 	AMBER_INK,
 	EMERALD_INK,
+	INDIGO_INK,
 	ROSE_INK,
 	SKY_INK,
 	SLATE_INK,
 	StatCard,
+	TEAL_INK,
 	VIOLET_INK,
 	type StatCardInk,
 } from "@/components/ui/stat-card";
@@ -274,3 +282,201 @@ export const RiskKpiCards = memo<RowProps>(({ summary, isLoading }) => {
 	);
 });
 RiskKpiCards.displayName = "RiskKpiCards";
+
+/**
+ * Step 3 — verification. KPI 4: verified inside the deadline the signal's
+ * priority set (High 12h / Medium 24h / Low 48h), >80%. KPI 5 rides along:
+ * signal-to-event conversion, the share of adjudicated signals that turned out
+ * to be real events.
+ *
+ * The backend has computed all of this since the SLA was re-tiered; nothing
+ * rendered it, which left the dashboard reporting the gate before verification
+ * and the gate after it but not verification's own timeliness.
+ */
+export const VerificationKpiCards = memo<RowProps>(({ summary, isLoading }) => {
+	const sla = summary?.verificationSla;
+	const onTime = sla?.verifiedWithinDeadline ?? 0;
+	const late = sla?.verifiedLate ?? 0;
+	const verified = onTime + late;
+	const breached = sla?.pendingBreached ?? 0;
+	const critical = sla?.pendingCritical ?? 0;
+
+	const onTimePct = pct(onTime, verified);
+	const conversion = summary?.signalToEventRate ?? -1;
+
+	const cards: {
+		title: string;
+		value: string;
+		sub: string;
+		hint: string;
+		icon: LucideIcon;
+		ink: StatCardInk;
+	}[] = [
+		{
+			title: "Verified on time",
+			value: onTime.toLocaleString(),
+			sub: verified > 0 ? `${onTimePct}% of those verified` : "nothing verified yet",
+			hint: "KPI 4, target >80%. Verified inside the deadline the signal's triage priority set — High 12h, Medium 24h, Low 48h. Untriaged signals are held to the Medium deadline.",
+			icon: ShieldCheck,
+			ink: EMERALD_INK,
+		},
+		{
+			title: "Verified late",
+			value: late.toLocaleString(),
+			sub: verified > 0 ? `${100 - onTimePct}% of those verified` : "nothing verified yet",
+			hint: "Verified only after the deadline had passed. Counted, not forgiven — a late verification still closes the signal, so without this number the on-time rate has no denominator.",
+			icon: AlarmClockOff,
+			ink: late > 0 ? AMBER_INK : SLATE_INK,
+		},
+		{
+			title: "Past deadline, still open",
+			value: breached.toLocaleString(),
+			sub:
+				critical > 0
+					? `${critical.toLocaleString()} past twice the deadline`
+					: "none critically overdue",
+			hint: "The live breach list: signals still awaiting verification whose deadline has already passed. Unlike the two cards to the left, this one is actionable right now.",
+			icon: Flame,
+			ink: breached > 0 ? ROSE_INK : EMERALD_INK,
+		},
+		{
+			title: "Signal-to-event rate",
+			value: conversion < 0 ? "n/a" : `${conversion}%`,
+			sub:
+				conversion < 0
+					? "nothing adjudicated yet"
+					: "confirmed ÷ confirmed + discarded",
+			hint: "KPI 5. The share of adjudicated signals that turned out to be real events. The guideline sets no target — it is a baseline to establish. A very low rate means noise is reaching verification; a very high one means signals are being filtered out before they get there.",
+			icon: Split,
+			ink: INDIGO_INK,
+		},
+	];
+
+	return (
+		<section className="space-y-1.5">
+			<header className="flex flex-wrap items-baseline justify-between gap-2 px-0.5">
+				<h2 className="text-sm font-semibold text-uganda-black">
+					Verification{" "}
+					<span className="text-xs font-normal text-gray-500">— EBS step 3</span>
+				</h2>
+				{!isLoading && verified > 0 && (
+					<p className="text-xs text-gray-600">
+						<TargetNote met={onTimePct >= 80}>
+							{onTime.toLocaleString()} of {verified.toLocaleString()} verified on time
+						</TargetNote>{" "}
+						· KPI 4 target &gt;80%
+					</p>
+				)}
+			</header>
+			<div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+				{cards.map((c) => (
+					<StatCard
+						key={c.title}
+						title={c.title}
+						value={c.value}
+						subText={c.sub}
+						hint={c.hint}
+						icon={c.icon}
+						ink={c.ink}
+						isLoading={isLoading}
+					/>
+				))}
+			</div>
+		</section>
+	);
+});
+VerificationKpiCards.displayName = "VerificationKpiCards";
+
+/**
+ * Step 7 — feedback to the reporter. KPI 10: >80% of concluded signals.
+ *
+ * Scored over signals that have a CONCLUSION — confirmed or discarded. Discards
+ * are in the denominator deliberately: "we checked, it was not an outbreak" is
+ * what keeps someone reporting next time, and community EBS runs on people
+ * choosing to report.
+ */
+export const FeedbackKpiCards = memo<RowProps>(({ summary, isLoading }) => {
+	const rate = summary?.feedbackRate ?? -1;
+	const pending = summary?.feedbackPending ?? 0;
+	const communityRate = summary?.communityReportingRate ?? -1;
+	const communitySignals = summary?.communitySignals ?? 0;
+	// Denominator and numerator come from the API as counts. Reconstructing them
+	// from the rounded percentage is undefined at 0% and 100% — exactly where
+	// this KPI currently sits.
+	const due = summary?.feedbackDue ?? 0;
+	const given = summary?.feedbackGiven ?? 0;
+
+	const cards: {
+		title: string;
+		value: string;
+		sub: string;
+		hint: string;
+		icon: LucideIcon;
+		ink: StatCardInk;
+	}[] = [
+		{
+			title: "Feedback still owed",
+			value: pending.toLocaleString(),
+			sub: rate < 0 ? "nothing concluded yet" : `${100 - rate}% of concluded signals`,
+			hint: "Signals that reached a conclusion — confirmed or discarded — whose reporter has not been told what happened. This is a working queue, not just a statistic.",
+			icon: MessageSquareWarning,
+			ink: pending > 0 ? AMBER_INK : EMERALD_INK,
+		},
+		{
+			title: "Feedback given",
+			value: rate < 0 ? "n/a" : `${rate}%`,
+			sub:
+				rate < 0
+					? "nothing concluded yet"
+					: `${given.toLocaleString()} of ${due.toLocaleString()} concluded`,
+			hint: "KPI 10, target >80%. Discarded signals count towards the denominator on purpose — telling someone their report was checked and found to be nothing is what keeps them reporting.",
+			icon: MessageSquareReply,
+			ink: EMERALD_INK,
+		},
+		{
+			title: "Community reporting rate",
+			value: communityRate < 0 ? "n/a" : `${communityRate}%`,
+			sub:
+				communityRate < 0
+					? "no signals in scope"
+					: `${communitySignals.toLocaleString()} community-detected`,
+			hint: "KPI 9. Signals detected at community level — VHTs, CHEWs, community members, schools — as a share of all signals. Tracked as a trend, not against a target: a falling share means the detection arm is degrading quietly, whatever the totals do.",
+			icon: TrendingUp,
+			ink: TEAL_INK,
+		},
+	];
+
+	return (
+		<section className="space-y-1.5">
+			<header className="flex flex-wrap items-baseline justify-between gap-2 px-0.5">
+				<h2 className="text-sm font-semibold text-uganda-black">
+					Feedback &amp; detection{" "}
+					<span className="text-xs font-normal text-gray-500">
+						— EBS step 7 and the community arm
+					</span>
+				</h2>
+				{!isLoading && rate >= 0 && (
+					<p className="text-xs text-gray-600">
+						<TargetNote met={rate >= 80}>{rate}% of concluded signals fed back</TargetNote>{" "}
+						· KPI 10 target &gt;80%
+					</p>
+				)}
+			</header>
+			<div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
+				{cards.map((c) => (
+					<StatCard
+						key={c.title}
+						title={c.title}
+						value={c.value}
+						subText={c.sub}
+						hint={c.hint}
+						icon={c.icon}
+						ink={c.ink}
+						isLoading={isLoading}
+					/>
+				))}
+			</div>
+		</section>
+	);
+});
+FeedbackKpiCards.displayName = "FeedbackKpiCards";

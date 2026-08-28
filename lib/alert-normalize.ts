@@ -78,6 +78,10 @@ export interface ApiAlert {
 	riskContextNote?: string | null;
 	riskTeamLead?: string | null;
 	riskTeamMembers?: string | null;
+	/** "What action have you taken?" — comma-joined; see lib/alert-risk.ts. */
+	riskActionTaken?: string | null;
+	riskEvacuationFacility?: string | null;
+	riskEvacuationFacilityUid?: string | null;
 	/** Reporter feedback (EBS step 7). */
 	feedbackGivenAt?: string | null;
 	feedbackBy?: string | null;
@@ -260,6 +264,14 @@ export function normalizeAlertFromApi(raw: unknown): ApiAlert {
 		riskContextNote: str(body.riskContextNote ?? body.risk_context_note) ?? null,
 		riskTeamLead: str(body.riskTeamLead ?? body.risk_team_lead) ?? null,
 		riskTeamMembers: str(body.riskTeamMembers ?? body.risk_team_members) ?? null,
+		riskActionTaken:
+			str(body.riskActionTaken ?? body.risk_action_taken) ?? null,
+		riskEvacuationFacility:
+			str(body.riskEvacuationFacility ?? body.risk_evacuation_facility) ?? null,
+		riskEvacuationFacilityUid:
+			str(
+				body.riskEvacuationFacilityUid ?? body.risk_evacuation_facility_uid
+			) ?? null,
 		feedbackGivenAt: str(body.feedbackGivenAt ?? body.feedback_given_at) ?? null,
 		feedbackBy: str(body.feedbackBy ?? body.feedback_by) ?? null,
 		feedbackChannel: str(body.feedbackChannel ?? body.feedback_channel) ?? null,

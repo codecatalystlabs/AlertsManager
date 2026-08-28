@@ -89,25 +89,28 @@ export const INDIGO_INK: StatCardInk = solidInk(
 	"bg-gradient-to-br from-indigo-500 to-violet-700"
 );
 
-/**
- * White tile with a coloured left bar and matching number — the list-page stat
- * grids (Alerts, eIDSR messages). `tone` is a semantic token, so these follow
- * the theme rather than hard-coded palette classes.
- */
-export function accentInk(
-	tone: "primary" | "success" | "warning" | "destructive" | "muted"
-): StatCardInk {
-	const map = {
-		primary: { accent: "border-l-primary", ink: "text-primary" },
-		success: { accent: "border-l-success", ink: "text-success" },
-		warning: { accent: "border-l-warning", ink: "text-warning" },
-		destructive: { accent: "border-l-destructive", ink: "text-destructive" },
-		muted: {
-			accent: "border-l-muted-foreground",
-			ink: "text-muted-foreground",
-		},
-	}[tone];
+/** Semantic tone, not a palette colour — these follow the theme. */
+export type StatTone =
+	| "primary"
+	| "success"
+	| "warning"
+	| "destructive"
+	| "muted";
 
+const TONE_INK: Record<StatTone, { accent: string; ink: string }> = {
+	primary: { accent: "border-l-primary", ink: "text-primary" },
+	success: { accent: "border-l-success", ink: "text-success" },
+	warning: { accent: "border-l-warning", ink: "text-warning" },
+	destructive: { accent: "border-l-destructive", ink: "text-destructive" },
+	muted: { accent: "border-l-muted-foreground", ink: "text-muted-foreground" },
+};
+
+/**
+ * White tile with a coloured left bar and matching number — the eIDSR message
+ * grid and the recent-activity pair.
+ */
+export function accentInk(tone: StatTone): StatCardInk {
+	const map = TONE_INK[tone];
 	return {
 		face: "border-border bg-card",
 		accent: map.accent,
@@ -116,6 +119,15 @@ export function accentInk(
 		sub: "text-muted-foreground",
 		icon: map.ink,
 	};
+}
+
+/**
+ * The dashboard KPI look: a plain white tile where the icon carries the only
+ * colour and the number stays in the foreground ink. Same tone vocabulary as
+ * accentInk, so a row moves between the two looks without re-picking colours.
+ */
+export function tintedInk(tone: StatTone): StatCardInk {
+	return { ...DEFAULT_STAT_INK, icon: TONE_INK[tone].ink };
 }
 
 export interface StatCardProps {

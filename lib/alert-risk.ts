@@ -277,3 +277,65 @@ export const RISK_FILTER_OPTIONS: { value: string; label: string }[] = [
 	...RISK_LEVELS.map((l) => ({ value: l, label: l })),
 	{ value: "unassessed", label: "Not assessed" },
 ];
+
+/* ------------------------------------------------------------------------- *
+ * "What action have you taken?" — asked at the end of the risk-assessment
+ * form. TS twin of services/risk_assessment.go's RiskActionOptions.
+ *
+ * A SEPARATE field from `responseActions`, which desk verification writes.
+ * Same vocabulary, different provenance: these are what the response team
+ * recorded at risk assessment, and writing one from the other would let an
+ * assessment silently overwrite the desk's record.
+ * ------------------------------------------------------------------------- */
+
+export const RISK_ACTION_RESPOND = "Respond";
+export const RISK_ACTION_MONITOR = "Monitor";
+export const RISK_ACTION_SAMPLE = "Sample Collected";
+export const RISK_ACTION_EMS = "EMS Evacuation";
+export const RISK_ACTION_SDB = "SDB";
+export const RISK_ACTION_NO_INVESTIGATION = "No Investigation";
+
+/** In display order — must match services.RiskActionOptions. */
+export const RISK_ACTION_OPTIONS = [
+	RISK_ACTION_RESPOND,
+	RISK_ACTION_MONITOR,
+	RISK_ACTION_SAMPLE,
+	RISK_ACTION_EMS,
+	RISK_ACTION_SDB,
+	RISK_ACTION_NO_INVESTIGATION,
+] as const;
+
+export type RiskAction = (typeof RISK_ACTION_OPTIONS)[number];
+
+/** What each action commits the team to, shown next to the checkbox. */
+export const RISK_ACTION_HINTS: Record<string, string> = {
+	[RISK_ACTION_RESPOND]: "A response was mounted for this event",
+	[RISK_ACTION_MONITOR]: "Kept under enhanced surveillance, no response yet",
+	[RISK_ACTION_SAMPLE]: "Laboratory samples were taken",
+	[RISK_ACTION_EMS]: "The patient was evacuated — say where",
+	[RISK_ACTION_SDB]: "Safe and dignified burial",
+	[RISK_ACTION_NO_INVESTIGATION]: "Assessed and no investigation was warranted",
+};
+
+/**
+ * Read a stored value back to a canonical option, or "" when there is none.
+ *
+ * The question is SINGLE-select and the API refuses a list, but this tolerates a
+ * comma-joined value so a row written before that rule (or by hand) still
+ * renders as its first recognised action rather than as nothing.
+ */
+export function parseRiskAction(raw: string | null | undefined): string {
+	if (!raw) return "";
+	for (const part of raw.split(",")) {
+		const match = RISK_ACTION_OPTIONS.find(
+			(o) => o.toLowerCase() === part.trim().toLowerCase()
+		);
+		if (match) return match;
+	}
+	return "";
+}
+
+/** EMS Evacuation is the one action that requires a destination. */
+export function riskActionNeedsFacility(action: string): boolean {
+	return action === RISK_ACTION_EMS;
+}
