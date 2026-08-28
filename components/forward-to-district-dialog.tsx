@@ -26,13 +26,33 @@ interface ForwardToDistrictDialogProps {
 	defaultDistrict?: string;
 	/** District this row was last forwarded to, if any (shows a re-forward warning). */
 	alreadyForwarded?: string | null;
+	/**
+	 * What the reporter said about where this signal came from, shown above the
+	 * picker. The district is chosen by hand and cannot be derived: 6767 records
+	 * a free-text location ("kyabolhokya MLTC KASESE", "Nsambya Hospital") that
+	 * resolves to a real district in under 3% of cases. Whoever picks needs the
+	 * reporter's own words in front of them, not in a dialog they have to close
+	 * this one to read.
+	 */
+	reportedLocation?: string | null;
 	/** Performs the forward request; resolves with the destination district. */
 	onForward: (
 		district: string,
 		note?: string
-	) => Promise<{ district: string }>;
+	) => Promise<{ district: string; alertCode?: string }>;
 	/** Called after a successful forward, with the destination district. */
 	onForwarded: (district: string) => void;
+	/**
+	 * Wording overrides. The 6767 feed uses this dialog to MOVE a signal into the
+	 * Signal Register — one action, its own vocabulary — while eCHIS and POE
+	 * still forward to a district. Same form, same district rule; only the words
+	 * differ, so they are props rather than a second copy of the component.
+	 */
+	title?: string;
+	description?: string;
+	submitLabel?: string;
+	/** Success toast headline, e.g. "Signal moved to the register". */
+	successTitle?: string;
 }
 
 /**
@@ -46,8 +66,13 @@ export function ForwardToDistrictDialog({
 	sourceLabel,
 	defaultDistrict,
 	alreadyForwarded,
+	reportedLocation,
 	onForward,
 	onForwarded,
+	title = "Forward alert to a district",
+	description,
+	submitLabel = "Forward alert",
+	successTitle = "Alert forwarded",
 }: ForwardToDistrictDialogProps) {
 	const { toast } = useToast();
 	const [district, setDistrict] = useState("");
@@ -73,8 +98,10 @@ export function ForwardToDistrictDialog({
 		try {
 			const result = await onForward(district.trim(), note.trim() || undefined);
 			toast({
-				title: "Alert forwarded",
-				description: `Sent to ${result.district} as a signal log.`,
+				title: successTitle,
+				description: result.alertCode
+					? `${result.alertCode} created in ${result.district}, ready to triage.`
+					: `Sent to ${result.district} as a signal log.`,
 			});
 			onForwarded(result.district);
 			onClose();
@@ -99,11 +126,10 @@ export function ForwardToDistrictDialog({
 		>
 			<DialogContent className="sm:max-w-md">
 				<DialogHeader>
-					<DialogTitle>Forward alert to a district</DialogTitle>
+					<DialogTitle>{title}</DialogTitle>
 					<DialogDescription>
-						Send this {sourceLabel} to a district as a signal log. It will
-						appear in that district&apos;s Signal Logs and can be verified
-						there.
+						{description ??
+							`Send this ${sourceLabel} to a district as a signal log. It will appear in that district's Signal Logs and can be verified there.`}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -111,8 +137,7 @@ export function ForwardToDistrictDialog({
 					{warnForwarded && (
 						<Alert className="surface-warning">
 							<AlertDescription className="text-warning">
-								Already forwarded to {warnForwarded}. Forwarding
-								again will create another signal log.
+								Already sent to {warnForwarded}.
 							</AlertDescription>
 						</Alert>
 					)}
@@ -127,6 +152,14 @@ export function ForwardToDistrictDialog({
 						<Label htmlFor="forward-district">
 							District <span className="text-uganda-red">*</span>
 						</Label>
+						{reportedLocation?.trim() && (
+							<p className="text-xs text-muted-foreground">
+								Reported location:{" "}
+								<span className="font-medium text-foreground">
+									{reportedLocation.trim()}
+								</span>
+							</p>
+						)}
 						<DistrictSelect
 							id="forward-district"
 							value={district}
@@ -164,7 +197,7 @@ export function ForwardToDistrictDialog({
 						) : (
 							<Send className="h-4 w-4" />
 						)}
-						Forward alert
+						{submitLabel}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

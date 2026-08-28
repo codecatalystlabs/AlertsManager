@@ -7,7 +7,7 @@ import {
 	exactStringFilter,
 	textIncludesFilter,
 } from "@/components/ui/data-table";
-import { MoreHorizontal, Eye } from "lucide-react";
+import { MoreHorizontal, Eye, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -19,6 +19,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { sourceOfAlertOptions } from "@/lib/source-of-alert";
+import { spotRepIsMandated } from "@/lib/spotrep";
 import {
 	VerificationBadge,
 	statusBadgeClass,
@@ -26,7 +27,8 @@ import {
 
 export const ALERTS_CONFIG = {
 	PAGE_TITLE: "Alerts Management",
-	PAGE_DESCRIPTION: "Monitor and manage health alerts across Uganda",
+	PAGE_DESCRIPTION:
+		"Signals that completed the pipeline — confirmed, risk-assessed, and fed back to the reporter. Issue the spot report from here.",
 	ITEMS_PER_PAGE: 10,
 	EXPORT_FILENAME_PREFIX: "alerts_export",
 } as const;
@@ -47,6 +49,8 @@ export const VERIFICATION_FILTER_OPTIONS = [
 
 export interface AlertsTableCallbacks {
 	onView?: (alert: AlertType) => void;
+	/** EBS step 5 — the spot report. See AlertRowActions. */
+	onGenerateSpotRep?: (alert: AlertType) => void;
 }
 
 export const createAlertsTableColumns = (
@@ -323,6 +327,27 @@ function AlertRowActions({
 					>
 						<Eye className="h-4 w-4" />
 						View Details
+					</DropdownMenuItem>
+				)}
+				{/* EBS step 5, issued from here (user decision 2026-08-28) rather
+				    than from the Risk Assessed queue. It moved because a spot
+				    report is the pipeline's OUTPUT: a signal on the risk queue
+				    still has work due on it, and a report written mid-pipeline
+				    states a conclusion nobody has reached. Every row on THIS list
+				    is finished, so no row-level guard is needed — the list is the
+				    guard. Flagged red for High and Very High, the levels the
+				    guidelines REQUIRE a spot report for. */}
+				{callbacks.onGenerateSpotRep && (
+					<DropdownMenuItem
+						className={`flex items-center gap-2${
+							spotRepIsMandated(alert.riskLevel)
+								? " text-uganda-red focus:text-uganda-red"
+								: ""
+						}`}
+						onClick={() => callbacks.onGenerateSpotRep!(alert)}
+					>
+						<FileText className="h-4 w-4" />
+						Generate spot report
 					</DropdownMenuItem>
 				)}
 			</DropdownMenuContent>

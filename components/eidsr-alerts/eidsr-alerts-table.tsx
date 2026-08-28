@@ -19,7 +19,7 @@ import {
 	textIncludesFilter,
 } from "@/components/ui/data-table";
 import {
-	resolveInAlertsRef,
+	resolveRegisterRef,
 	type EidsrMessage,
 } from "@/lib/eidsr-message-normalize";
 import { EIDSR_STATUS_FILTER_OPTIONS } from "@/constants/eidsr-alerts";
@@ -35,7 +35,6 @@ import {
 	MoreHorizontal,
 	Pencil,
 	Send,
-	ShieldCheck,
 } from "lucide-react";
 
 interface EidsrAlertsTableProps {
@@ -45,26 +44,24 @@ interface EidsrAlertsTableProps {
 	pageSize: number;
 	totalPages: number;
 	isLoading?: boolean;
-	verifyInProgressId?: number | null;
+	moveInProgressId?: number | null;
 	onPageChange: (page: number) => void;
 	onPageSizeChange: (pageSize: number) => void;
-	onInAlertsFilterChange?: (filter: "all" | "linked" | "unlinked") => void;
 	/** Receives per-column header filter changes so they query the whole dataset. */
 	onColumnFiltersChange?: (filters: ColumnFiltersState) => void;
 	/** Bumped when the filter bar is cleared, to also clear the header funnels. */
 	filtersResetKey?: number;
 	onView: (message: EidsrMessage) => void;
 	onEdit: (message: EidsrMessage) => void;
-	onVerify: (message: EidsrMessage) => void;
-	onForward: (message: EidsrMessage) => void;
+	/** Move the signal into the Signal Register (asks for a district first). */
+	onMove: (message: EidsrMessage) => void;
 }
 
 function createColumns(handlers: {
 	onView: (m: EidsrMessage) => void;
 	onEdit: (m: EidsrMessage) => void;
-	onVerify: (m: EidsrMessage) => void;
-	onForward: (m: EidsrMessage) => void;
-	verifyInProgressId: number | null;
+	onMove: (m: EidsrMessage) => void;
+	moveInProgressId: number | null;
 	canForward: boolean;
 }): ColumnDef<EidsrMessage>[] {
 	return [
@@ -154,34 +151,44 @@ function createColumns(handlers: {
 				),
 		},
 		{
-			id: "inAlerts",
+			// One column for one question: is this signal in the Signal Register,
+			// and as what? It replaces the old "In alerts" and "Forwarded" pair,
+			// which asked the same question twice because two different actions
+			// used to answer it — the ALT id in one, the district in the other.
+			id: "inRegister",
 			accessorFn: (row) =>
-				resolveInAlertsRef(row) != null ? "linked" : "unlinked",
-			header: "In alerts",
+				resolveRegisterRef(row) != null ? "moved" : "not_moved",
+			header: "Signal register",
 			filterFn: exactStringFilter,
 			meta: {
 				filterVariant: "select",
 				filterOptions: [
-					{ value: "linked", label: "Linked" },
-					{ value: "unlinked", label: "Not linked" },
+					{ value: "moved", label: "In the register" },
+					{ value: "not_moved", label: "Not moved yet" },
 				],
 			},
 			cell: ({ row }) => {
-				// The verify-into-alerts linked alert, or — failing that — a
-				// forwarded alert the district has since verified. Both surface
-				// here as a green ALT id so a forwarded alert lights up "In
-				// alerts" once verified, the same way verify-into-alerts does.
-				const ref = resolveInAlertsRef(row.original);
-				return ref ? (
+				const ref = resolveRegisterRef(row.original);
+				if (!ref) {
+					return <Badge variant="secondary">Not moved</Badge>;
+				}
+				return (
 					<div className="flex flex-col items-start gap-1">
 						<Badge className="bg-success hover:bg-success">
 							{altCode(ref.id)}
 						</Badge>
-						{/* Surface the alert's live verification state too. */}
+						{ref.district && (
+							<span
+								className="flex items-center gap-1 text-xs text-muted-foreground"
+								title={`In the register under ${ref.district}`}
+							>
+								<Send className="h-3 w-3" />
+								{ref.district}
+							</span>
+						)}
+						{/* Where the signal has got to in the pipeline. */}
 						<AlertVerifyChip alert={ref.alert} />
 					</div>
-				) : (
-					<Badge variant="secondary">Not linked</Badge>
 				);
 			},
 		},
@@ -197,37 +204,14 @@ function createColumns(handlers: {
 				row.original.receivedAt || row.original.createdAt || "—",
 		},
 		{
-			id: "forwarded",
-			header: "Forwarded",
-			enableColumnFilter: false,
-			cell: ({ row }) => {
-				const m = row.original;
-				if (!m.forwardedToDistrict) {
-					return <span className="text-muted-foreground">—</span>;
-				}
-				return (
-					<div className="flex flex-col items-start gap-1">
-						<Badge
-							variant="secondary"
-							className="gap-1 whitespace-nowrap"
-							title={`Forwarded to ${m.forwardedToDistrict}`}
-						>
-							<Send className="h-3 w-3" />
-							{m.forwardedToDistrict}
-						</Badge>
-						{/* Traceability: did the district verify the forwarded alert? */}
-						<AlertVerifyChip alert={m.forwardedAlert} />
-					</div>
-				);
-			},
-		},
-		{
 			id: "actions",
 			header: () => <span className="sr-only">Actions</span>,
 			enableColumnFilter: false,
 			cell: ({ row }) => {
 				const m = row.original;
-				const verifying = handlers.verifyInProgressId === m.id;
+				const moving = handlers.moveInProgressId === m.id;
+				const registerRef = resolveRegisterRef(m);
+				const alreadyMoved = registerRef != null;
 
 				return (
 					<div className="text-right">
@@ -239,7 +223,7 @@ function createColumns(handlers: {
 									aria-label={`Actions for 6767 message ${m.id}`}
 								>
 									<span className="sr-only">Open menu</span>
-									{verifying ? (
+									{moving ? (
 										<Loader2 className="h-4 w-4 animate-spin" />
 									) : (
 										<MoreHorizontal className="h-4 w-4" />
@@ -262,27 +246,34 @@ function createColumns(handlers: {
 									<Pencil className="h-4 w-4" />
 									Edit
 								</DropdownMenuItem>
+								{/* The one way a 6767 signal enters the pipeline.
+								    It replaces "Verify into alerts" (which created
+								    the row already verified, skipping triage) and
+								    "Forward to district" (the same act under a
+								    routing name). Verification now happens in the
+								    register, after triage. */}
 								{handlers.canForward && (
 									<>
 										<DropdownMenuSeparator />
 										<DropdownMenuItem
-											className="flex items-center gap-2"
-											onClick={() => handlers.onForward(m)}
+											className="flex items-center gap-2 text-uganda-red focus:text-uganda-red"
+											onClick={() => handlers.onMove(m)}
+											disabled={alreadyMoved}
+											title={
+												alreadyMoved
+													? `Already in the register as ${altCode(
+															registerRef!.id
+														)}`
+													: undefined
+											}
 										>
 											<Send className="h-4 w-4" />
-											Forward to district
+											{alreadyMoved
+												? "Already in the register"
+												: "Move to Signal Register"}
 										</DropdownMenuItem>
 									</>
 								)}
-								<DropdownMenuSeparator />
-								<DropdownMenuItem
-									className="flex items-center gap-2 text-uganda-red focus:text-uganda-red"
-									onClick={() => handlers.onVerify(m)}
-									disabled={verifying}
-								>
-									<ShieldCheck className="h-4 w-4" />
-									Verify into alerts
-								</DropdownMenuItem>
 							</DropdownMenuContent>
 						</DropdownMenu>
 					</div>
@@ -300,16 +291,14 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 		pageSize,
 		totalPages,
 		isLoading = false,
-		verifyInProgressId = null,
+		moveInProgressId = null,
 		onPageChange,
 		onPageSizeChange,
-		onInAlertsFilterChange,
 		onColumnFiltersChange,
 		filtersResetKey,
 		onView,
 		onEdit,
-		onVerify,
-		onForward,
+		onMove,
 	}) => {
 		const canForward = canForwardAlerts(useCurrentUser());
 		const columns = useMemo(
@@ -317,22 +306,19 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 				createColumns({
 					onView,
 					onEdit,
-					onVerify,
-					onForward,
-					verifyInProgressId,
+					onMove,
+					moveInProgressId,
 					canForward,
 				}),
-			[onView, onEdit, onVerify, onForward, verifyInProgressId, canForward]
+			[onView, onEdit, onMove, moveInProgressId, canForward]
 		);
 		// This table is server-paginated, so header filters run server-side
 		// (manualFiltering): onColumnFiltersChange routes them to the hook, which
 		// re-queries the WHOLE dataset, not just the loaded page. Only the columns
-		// the backend can filter expose a funnel (Status, Location, In-alerts,
-		// Received); the free-text columns opt out (enableColumnFilter: false) and
-		// stay searchable via the dedicated EidsrAlertsFilters bar. The legacy
-		// onInAlertsFilterChange prop is kept for API compatibility but unused —
-		// the In-alerts column header filter now covers it.
-		void onInAlertsFilterChange;
+		// the backend can filter expose a funnel (Status, Location, Signal
+		// register, Received); the free-text columns opt out
+		// (enableColumnFilter: false) and stay searchable via the dedicated
+		// EidsrAlertsFilters bar.
 
 		return (
 			<Card className={LAYOUT.card}>

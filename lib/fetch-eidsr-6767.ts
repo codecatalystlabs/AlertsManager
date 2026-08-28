@@ -75,12 +75,14 @@ export async function getEidsr6767ById(id: number): Promise<{
 	}
 }
 
-export interface ForwardEidsr6767Result {
+export interface MoveEidsr6767Result {
 	alertId: number;
+	/** The register row's ALT code, e.g. "ALT6316". */
+	alertCode: string;
 	district: string;
 }
 
-function forwardErrorMessage(body: string, status: number): string {
+function moveErrorMessage(body: string, status: number): string {
 	try {
 		const j = JSON.parse(body) as {
 			error?: string;
@@ -91,24 +93,30 @@ function forwardErrorMessage(body: string, status: number): string {
 			j.error ||
 			j.message ||
 			j.details ||
-			`Failed to forward alert (HTTP ${status})`
+			`Failed to move signal into the register (HTTP ${status})`
 		);
 	} catch {
-		return `Failed to forward alert (HTTP ${status})`;
+		return `Failed to move signal into the register (HTTP ${status})`;
 	}
 }
 
 /**
- * Forward a 6767 message to a district as a new call-log alert (it then appears
- * in that district's Signal Logs). POST /eidsr/local/events/:id/forward, falling
- * back to /eidsr/local/messages/:id/forward when the first path isn't registered.
+ * Move a 6767 signal into the Signal Register: creates a register row (an alert
+ * with its own ALT id) in the district the user chose, untriaged and ready to be
+ * triaged.
+ *
+ * POST /eidsr/local/events/:id/move, falling back to the /messages alias and
+ * then to the retired /forward paths, so a client running against an older
+ * backend still works.
  */
-export async function forwardEidsr6767(
+export async function moveEidsr6767ToRegister(
 	id: number,
 	payload: { district: string; note?: string }
-): Promise<ForwardEidsr6767Result> {
+): Promise<MoveEidsr6767Result> {
 	const base = getClientApiBaseUrl();
 	const paths = [
+		`/eidsr/local/events/${id}/move`,
+		`/eidsr/local/messages/${id}/move`,
 		`/eidsr/local/events/${id}/forward`,
 		`/eidsr/local/messages/${id}/forward`,
 	];
@@ -134,23 +142,28 @@ export async function forwardEidsr6767(
 		if (response.ok) {
 			const json = (await response.json().catch(() => ({}))) as {
 				alertId?: number;
+				alertCode?: string;
 				district?: string;
 			};
+			const alertId = Number(json.alertId ?? 0);
 			notifyAlertsChanged();
 			return {
-				alertId: Number(json.alertId ?? 0),
+				alertId,
+				alertCode: json.alertCode || (alertId ? `ALT${alertId}` : ""),
 				district: json.district ?? payload.district,
 			};
 		}
 
 		lastStatus = response.status;
 		lastBody = await response.text().catch(() => "");
-		// Try the next alias when this path isn't registered.
+		// Try the next alias only when the path itself is missing. Anything else
+		// (409 already-in-the-register, 400 no district) is the server's answer,
+		// not a routing miss, and must surface as-is.
 		if (response.status === 404 || response.status === 405) continue;
-		throw new Error(forwardErrorMessage(lastBody, response.status));
+		throw new Error(moveErrorMessage(lastBody, response.status));
 	}
 
-	throw new Error(forwardErrorMessage(lastBody, lastStatus));
+	throw new Error(moveErrorMessage(lastBody, lastStatus));
 }
 
 export async function getEidsr6767Stats(
