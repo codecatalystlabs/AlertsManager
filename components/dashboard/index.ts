@@ -23,3 +23,11 @@ export {
 	FeedbackKpiCards,
 } from "./pipeline-kpi-cards";
 export { KpiScorecard } from "./kpi-scorecard";
+export { DashboardScopeBar } from "./dashboard-scope-bar";
+export {
+	HeadlineStats,
+	WeeklySignalsCard,
+	IndicatorTrendCards,
+	SignalCascadeCard,
+	ReportingUnitsCard,
+} from "./ebs-indicator-board";

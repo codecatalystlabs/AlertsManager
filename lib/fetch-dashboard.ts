@@ -83,6 +83,57 @@ export interface RiskMatrix {
 	maxCellCount: number;
 }
 
+/**
+ * Raw numerator / denominator of every row of the EBS indicator table
+ * (Signals reported → Alerts), computed server-side over the scoped rows. The
+ * percentages are derived in lib/ebs-indicators.ts so the UI can always show
+ * the two counts a proportion is made of.
+ */
+export interface DashboardIndicators {
+	/** 1. Every signal in scope. */
+	signalsReported: number;
+	/** 2. Through the triage gate; and of those, within 24h of the signal timestamp. */
+	signalsTriaged: number;
+	triagedWithin24h: number;
+	/** 3. Triage decision "Discarded" — a duplicate of a signal already under investigation. */
+	duplicateSignals: number;
+	/** 4. Outcome recorded; and of the triaged ones, verified within a flat 24h. */
+	signalsVerified: number;
+	verifiedWithin24h: number;
+	/** 5. Verified signals whose outcome is Confirmed — events requiring risk assessment. */
+	events: number;
+	/** 6. Confirmed events carrying a risk level. */
+	eventsRiskAssessed: number;
+	/** 7 / 8. Of the assessed events: a response was initiated / the decision was Monitor. */
+	responseInitiated: number;
+	underMonitoring: number;
+	/** 9. Of the events with a response initiated, those whose sample was collected. */
+	sampleCollected: number;
+	/** 10. Events evacuated by EMS / events whose reporting channel is 912. */
+	evacuated: number;
+	emsChannelEvents: number;
+	/** 11. Events with an SDB recorded / events that are Dead with High or Very High risk. */
+	sdb: number;
+	sdbEligible: number;
+	/** 12. Verified, non-discarded signals (same figure as the Alerts KPI). */
+	alertsReported: number;
+}
+
+/**
+ * One epi week of the indicator trend. Epi weeks are ISO weeks (Monday–Sunday,
+ * the DHIS2 weekly period), keyed "2026-W35".
+ */
+export interface DashboardWeekPoint {
+	week: string;
+	year: number;
+	weekNo: number;
+	/** Monday (YYYY-MM-DD). */
+	start: string;
+	/** Sunday (YYYY-MM-DD). */
+	end: string;
+	counts: DashboardIndicators;
+}
+
 /** Full dashboard payload from GET /dashboard/summary. */
 export interface DashboardSummary {
 	total: number;
@@ -138,6 +189,12 @@ export interface DashboardSummary {
 	feedbackGiven?: number;
 	/** Confirmed events as a share of adjudicated signals, 0–100. KPI 5. */
 	signalToEventRate?: number;
+	/** The EBS indicator table's counts. Optional so an older API response doesn't crash the board. */
+	indicators?: DashboardIndicators;
+	/** The indicator counts per epi week, zero-filled, most recent 52 weeks in scope. */
+	indicatorSeries?: DashboardWeekPoint[];
+	/** Indicator 1's region axis — signals by the official region of their case district. */
+	reportedByRegion?: DashboardCountItem[];
 	/** Distinct response (disease/condition) values available in scope — populates the Response type filter. */
 	responseTypes: string[];
 }
@@ -197,6 +254,26 @@ const EMPTY_SUMMARY: DashboardSummary = {
 	feedbackDue: 0,
 	feedbackGiven: 0,
 	signalToEventRate: 0,
+	indicators: {
+		signalsReported: 0,
+		signalsTriaged: 0,
+		triagedWithin24h: 0,
+		duplicateSignals: 0,
+		signalsVerified: 0,
+		verifiedWithin24h: 0,
+		events: 0,
+		eventsRiskAssessed: 0,
+		responseInitiated: 0,
+		underMonitoring: 0,
+		sampleCollected: 0,
+		evacuated: 0,
+		emsChannelEvents: 0,
+		sdb: 0,
+		sdbEligible: 0,
+		alertsReported: 0,
+	},
+	indicatorSeries: [],
+	reportedByRegion: [],
 	riskMatrix: {
 		likelihoods: [],
 		impacts: [],

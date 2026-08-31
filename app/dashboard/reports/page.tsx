@@ -7,6 +7,7 @@ import {
 	ReportsChartFilters,
 	ReportsDateFilter,
 	ManagementReportPanel,
+	SignalOverviewPanel,
 } from "@/components/reports";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChartSkeleton } from "@/components/ui/skeletons";
@@ -54,18 +55,28 @@ export default function ReportsPage() {
 			<div className="min-w-0">
 				<h1 className={LAYOUT.pageTitle}>Summaries / Reports</h1>
 				<p className={LAYOUT.pageSubtitle}>
-					Each tab has its own filter — the chart uses a date range; the
-					cumulative and daily tables each use a single date.
+					Each tab has its own filter — the overview uses the dashboard scope
+					bar; the chart uses a date range; the cumulative and daily tables
+					each use a single date.
 				</p>
 			</div>
 
-			<Tabs defaultValue="chart" className="w-full">
+			<Tabs defaultValue="overview" className="w-full">
 				<TabsList>
+					<TabsTrigger value="overview">Overview</TabsTrigger>
 					<TabsTrigger value="chart">Chart</TabsTrigger>
 					<TabsTrigger value="cumulative">Cumulative</TabsTrigger>
 					<TabsTrigger value="daily">Daily</TabsTrigger>
 					<TabsTrigger value="presentation">Presentation</TabsTrigger>
 				</TabsList>
+
+				{/* Overview — the signal KPI cards, §11 scorecard, per-gate KPI rows,
+				    trend/breakdown charts, risk matrix and feed coverage. This was
+				    the dashboard page; the dashboard now reports the EBS indicator
+				    table, and its former contents live here. */}
+				<TabsContent value="overview" className="space-y-3">
+					<SignalOverviewPanel />
+				</TabsContent>
 
 				{/* Chart — date range + scope */}
 				<TabsContent value="chart" className="space-y-3">

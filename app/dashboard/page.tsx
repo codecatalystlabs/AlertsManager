@@ -1,88 +1,36 @@
 "use client";
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
-import dynamic from "next/dynamic";
-import { Download, MapPin, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
-import {
-	AuthService,
-	isDistrictScopedRole,
-	isRegionScopedRole,
-	type User,
-} from "@/lib/auth";
+import React, { useCallback, useRef, useState } from "react";
+
 import { downloadDashboardPdf, type DashboardPdfSection } from "@/lib/charts-pdf";
 import {
 	ErrorAlert,
-	StatsGrid,
-	TriageKpiCards,
-	VerificationKpiCards,
-	RiskKpiCards,
-	FeedbackKpiCards,
-	KpiScorecard,
-	RecentActivityCard,
-	DashboardRangePicker,
-	DashboardDistrictPicker,
-	DashboardRegionPicker,
-	resolveDashboardRange,
-	DEFAULT_RANGE_PRESET,
-	type DashboardRangeValue,
-	SignalCoverageCard,
-	RiskMatrixCard,
+	DashboardScopeBar,
+	HeadlineStats,
+	WeeklySignalsCard,
+	IndicatorTrendCards,
+	SignalCascadeCard,
+	ReportingUnitsCard,
 } from "@/components/dashboard";
+import { useDashboardScope } from "@/hooks/use-dashboard-scope";
 import { useDashboardSummary } from "@/hooks/use-dashboard-summary";
-import type { AlertCounts } from "@/app/dashboard/types";
 import { LAYOUT } from "@/constants/layout";
-import { alertResponse } from "@/constants";
-import { ChartSkeleton } from "@/components/ui/skeletons";
+import { EBS_DATA_SOURCE } from "@/lib/ebs-indicators";
 
-/** Loading placeholder mirroring the DashboardCharts grid. */
-function DashboardChartsSkeleton(): React.JSX.Element {
-	return (
-		<div className="space-y-3">
-			<ChartSkeleton height={90} bars={7} withLegend />
-			<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-				{[0, 1, 2, 3].map((i) => (
-					<ChartSkeleton key={i} height={220} />
-				))}
-			</div>
-		</div>
-	);
-}
-
-const DashboardCharts = dynamic(
-	() =>
-		import("@/components/dashboard/dashboard-charts").then((m) => ({
-			default: m.DashboardCharts,
-		})),
-	{
-		ssr: false,
-		loading: () => <DashboardChartsSkeleton />,
-	}
-);
-
-const EMPTY_COUNTS: AlertCounts = {
-	verified: 0,
-	notVerified: 0,
-	triaged: 0,
-	discarded: 0,
-	alerts: 0,
-	total: 0,
-};
-
+/**
+ * The dashboard: the published signal-to-alert indicators for the selected
+ * scope — headline counts, signals by epi week, one trend card per indicator
+ * (current value, the counts behind it, and its epi-week graph), then the
+ * cascade funnel and the reporting-unit breakdown. Each card's definition,
+ * numerator and denominator are its hover hint (lib/ebs-indicators.ts).
+ *
+ * The overview this page used to show — workflow KPI cards, the §11
+ * scorecard, per-gate KPI rows, every chart, the risk matrix and feed
+ * coverage — lives on the Overview tab of Summaries / Reports.
+ */
 export default function DashboardPage(): React.JSX.Element {
-	const [range, setRange] = useState<DashboardRangeValue>(() =>
-		resolveDashboardRange(DEFAULT_RANGE_PRESET)
-	);
-	const [region, setRegion] = useState<string>("all");
-	const [district, setDistrict] = useState<string>("all");
-	const [response, setResponse] = useState<string>("all");
+	const scope = useDashboardScope();
+	const { range, district, region, response, isUnbounded } = scope;
 	const { summary, loading, error, refetch } = useDashboardSummary(
 		range,
 		district,
@@ -91,23 +39,8 @@ export default function DashboardPage(): React.JSX.Element {
 	);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
-	// The overview KPI row and the charts grid are captured as separate PDF
-	// sections so the export includes both the cards and every chart.
-	const overviewRef = useRef<HTMLDivElement>(null);
+	const statsRef = useRef<HTMLDivElement>(null);
 	const chartsRef = useRef<HTMLDivElement>(null);
-
-	// Current user (resolved after mount — localStorage is client-only). A
-	// district-scoped user (e.g. District Biostat) only ever sees their district,
-	// and a region-scoped user (REOC) only ever sees their region, so we surface
-	// the assigned name and replace the (no-op) district picker with it.
-	const [user, setUser] = useState<User | null>(null);
-	useEffect(() => {
-		setUser(AuthService.getUser());
-	}, []);
-	const scopedToDistrict = isDistrictScopedRole(user);
-	const assignedDistrict = user?.district?.trim();
-	const scopedToRegion = isRegionScopedRole(user);
-	const assignedRegion = user?.region?.trim();
 
 	const handleRefresh = useCallback(async () => {
 		setIsRefreshing(true);
@@ -118,33 +51,20 @@ export default function DashboardPage(): React.JSX.Element {
 		}
 	}, [refetch]);
 
-	const isUnbounded =
-		!range.from && !range.to && district === "all" && region === "all";
-
 	const handleDownloadReport = useCallback(async () => {
-		if (!overviewRef.current && !chartsRef.current) return;
+		if (!statsRef.current && !chartsRef.current) return;
 		setIsDownloadingPdf(true);
 		try {
 			const sections: DashboardPdfSection[] = [];
-			if (overviewRef.current) {
-				sections.push({
-					container: overviewRef.current,
-					splitCards: true,
-					heading: "Overview & national KPIs",
-				});
+			if (statsRef.current) {
+				sections.push({ container: statsRef.current, splitCards: true, heading: "Key figures" });
 			}
 			if (chartsRef.current) {
-				sections.push({
-					container: chartsRef.current,
-					splitCards: true,
-					heading: "Trends & breakdowns",
-				});
+				sections.push({ container: chartsRef.current, splitCards: true, heading: "Indicators by epi week" });
 			}
 			await downloadDashboardPdf(sections, {
 				title: "Health Alert Dashboard",
-				subtitle: isUnbounded
-					? "All-time data"
-					: "Data for the selected date range",
+				subtitle: isUnbounded ? "All-time data" : "Data for the selected date range",
 			});
 		} catch (err) {
 			console.error("Failed to export dashboard to PDF:", err);
@@ -154,207 +74,43 @@ export default function DashboardPage(): React.JSX.Element {
 		}
 	}, [isUnbounded]);
 
-	// Every KPI card now comes from one server-side aggregate, scoped to the
-	// selected range + district.
-	const statCounts: AlertCounts = summary
-		? {
-				verified: summary.verified,
-				notVerified: summary.notVerified,
-				triaged: summary.triaged,
-				discarded: summary.discarded,
-				alerts: summary.alerts,
-				total: summary.total,
-			}
-		: EMPTY_COUNTS;
+	const isLoading = loading && !summary;
 
 	return (
 		<div className={LAYOUT.pageGap}>
-			{/* Page-level filters — scope both the KPI cards and the charts. */}
-			<div className="flex flex-wrap items-end justify-between gap-3">
-				<div className="min-w-0">
-					<h2 className="text-base font-semibold text-gray-900">
-						Overview
-					</h2>
-					<p className="text-xs text-muted-foreground">
-						{scopedToDistrict && assignedDistrict
-							? `Showing data for ${assignedDistrict} district only`
-							: scopedToRegion && assignedRegion
-								? district !== "all"
-									? `Showing data for ${district} district (${assignedRegion} region)`
-									: `Showing data for ${assignedRegion} region only`
-								: isUnbounded
-									? "Showing all-time data"
-									: "Showing data for the selected range"}
-					</p>
-				</div>
-				<div className="flex flex-wrap items-end gap-2">
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={handleRefresh}
-						disabled={isRefreshing || loading}
-						className="h-8 gap-2"
-						aria-label="Refresh dashboard"
-					>
-						<RefreshCw
-							className={`h-4 w-4 ${isRefreshing || loading ? "animate-spin" : ""}`}
-						/>
-						<span className="hidden sm:inline">Refresh</span>
-					</Button>
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={handleDownloadReport}
-						disabled={!summary || isDownloadingPdf}
-						className="h-8 gap-2"
-						aria-label="Download dashboard report as PDF"
-					>
-						<Download className="h-4 w-4" />
-						<span className="hidden sm:inline">
-							{isDownloadingPdf ? "Preparing…" : "Download (PDF)"}
-						</span>
-					</Button>
-					{scopedToDistrict ? (
-						// District-scoped users can't change scope (enforced
-						// server-side), so show their district instead of the picker.
-						<div
-							className="flex h-8 items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2.5 text-xs font-medium text-gray-700"
-							title="You can only see data for your assigned district"
-						>
-							<MapPin className="h-3.5 w-3.5 text-uganda-red" />
-							<span>{assignedDistrict || "No district assigned"}</span>
-						</div>
-					) : scopedToRegion ? (
-						// REOC users are locked to their region (enforced
-						// server-side), so show the region as a static chip — but
-						// still let them narrow to a district *within* that region.
-						<>
-							<div
-								className="flex h-8 items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2.5 text-xs font-medium text-gray-700"
-								title="You can only see data for your assigned region"
-							>
-								<MapPin className="h-3.5 w-3.5 text-uganda-red" />
-								<span>{assignedRegion || "No region assigned"}</span>
-							</div>
-							<DashboardDistrictPicker
-								value={district}
-								onChange={setDistrict}
-								disabled={loading}
-								region={assignedRegion || "all"}
-							/>
-						</>
-					) : (
-						<>
-							<DashboardRegionPicker
-								value={region}
-								onChange={(value) => {
-									// Region scopes the district list, so reset the
-									// district whenever the region changes.
-									setRegion(value);
-									setDistrict("all");
-								}}
-								disabled={loading}
-							/>
-							<DashboardDistrictPicker
-								value={district}
-								onChange={setDistrict}
-								disabled={loading}
-								region={region}
-							/>
-						</>
-					)}
-					<DashboardRangePicker onChange={setRange} disabled={loading} />
-					<Select
-						value={response}
-						onValueChange={setResponse}
-						disabled={loading}
-					>
-						<SelectTrigger
-							className="h-8 w-[160px] text-xs"
-							aria-label="Filter by response type"
-						>
-							<SelectValue placeholder="All response types" />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="all">All response types</SelectItem>
-							{/* Canonical response taxonomy (same list as the Add/Edit/Verify
-							    forms) — value is the disease code, which the backend matches
-							    by folding stored responses onto the same canonical bucket. */}
-							{alertResponse.map((r) => (
-								<SelectItem key={r.code} value={r.code}>
-									{r.name}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</div>
-			</div>
-
-			{error && (
-				<ErrorAlert
-					error={error}
-					onRetry={handleRefresh}
-					retrying={isRefreshing}
-				/>
-			)}
-
-			{/* Inside overviewRef so the PDF export carries the scorecard and the
-			    per-gate KPI rows: §11 sets a monthly reporting cadence, and a
-			    downloaded report that omits the indicators is not the report. */}
-			<div ref={overviewRef} className={LAYOUT.pageGap}>
-				<StatsGrid
-					alertCounts={statCounts}
-					kpiLoading={loading && !summary}
-				/>
-
-				{/* The ten §11 indicators on one card, including the three that
-				    are not measurable from what the system captures. Placed
-				    directly under the overview because it is the M&E answer to
-				    "how are we doing"; the rows beneath it are the drill-down. */}
-				<KpiScorecard summary={summary} isLoading={loading && !summary} />
-
-				{/* Each pipeline gate that carries a national KPI, in EBS step
-				    order: triage, verification, risk assessment, feedback. */}
-				<TriageKpiCards summary={summary} isLoading={loading && !summary} />
-				<VerificationKpiCards summary={summary} isLoading={loading && !summary} />
-				<RiskKpiCards summary={summary} isLoading={loading && !summary} />
-				<FeedbackKpiCards summary={summary} isLoading={loading && !summary} />
-			</div>
-
-			{/* Recent-activity triage snapshot — its own rolling/custom window,
-			    independent of the page date range but scoped by district. */}
-			<RecentActivityCard district={district} />
-
-			<h2 className="text-base font-semibold text-gray-900">
-				Trends &amp; breakdowns
-			</h2>
-
-			<div ref={chartsRef}>
-				{loading && !summary ? (
-					<DashboardChartsSkeleton />
-				) : summary ? (
-					<DashboardCharts summary={summary} />
-				) : null}
-			</div>
-
-			{/* EBS §6 risk matrix — confirmed events plotted by their recorded
-			    likelihood × impact, coloured by the algorithm level. Scoped like
-			    every chart above (range/district/region). */}
-			<RiskMatrixCard
-				matrix={summary?.riskMatrix}
-				isLoading={loading && !summary}
-				scope={{
-					fromDate: range.from || undefined,
-					toDate: range.to || undefined,
-					district,
-					region,
-				}}
+			<DashboardScopeBar
+				title="Dashboard"
+				scope={scope}
+				loading={loading}
+				onRefresh={handleRefresh}
+				isRefreshing={isRefreshing}
+				onDownload={handleDownloadReport}
+				isDownloading={isDownloadingPdf}
+				downloadDisabled={!summary}
 			/>
 
-			{/* What everything above does NOT count: signals still sitting in the
-			    6767 / eCHIS / POE feeds, which never entered triage or
-			    verification. Placed last so it reads as the caveat it is. */}
-			<SignalCoverageCard />
+			{error && (
+				<ErrorAlert error={error} onRetry={handleRefresh} retrying={isRefreshing} />
+			)}
+
+			<div ref={statsRef}>
+				<HeadlineStats summary={summary} isLoading={isLoading} />
+			</div>
+
+			{/* Every graph in one two-column grid: signals by epi week first, then
+			    the twelve indicator cards in table order, then the cascade and the
+			    reporting-unit breakdown. */}
+			<div ref={chartsRef} className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
+				<WeeklySignalsCard summary={summary} isLoading={isLoading} />
+				<IndicatorTrendCards summary={summary} isLoading={isLoading} />
+				<SignalCascadeCard summary={summary} isLoading={isLoading} />
+				<ReportingUnitsCard summary={summary} isLoading={isLoading} />
+			</div>
+
+			<p className="px-0.5 text-[11px] text-gray-400">
+				Source: {EBS_DATA_SOURCE}. Epi weeks run Monday–Sunday (ISO weeks). Hover a card
+				for its definition, numerator and denominator.
+			</p>
 		</div>
 	);
 }

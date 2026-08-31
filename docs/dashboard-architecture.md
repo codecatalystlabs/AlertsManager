@@ -1,5 +1,23 @@
 # Dashboard Architecture Refactoring
 
+> **Update (31 Aug 2026):** the dashboard page now reports the **EBS indicator
+> table** (Signals reported → Alerts, 12 rows) and everything it used to show —
+> the workflow KPI cards, the §11 scorecard, the per-gate KPI rows, the
+> recent-activity snapshot, every chart, the risk matrix and feed coverage —
+> moved to the **Overview** tab of *Summaries / Reports*.
+>
+> | Piece | Where |
+> |---|---|
+> | Indicator definitions + numerator/denominator → value | `lib/ebs-indicators.ts` |
+> | Headline tiles, signals-by-epi-week chart, one trend card per indicator, cascade, by-unit breakdown | `components/dashboard/ebs-indicator-board.tsx` |
+> | Shared scope state (range / region / district / response, role locks) | `hooks/use-dashboard-scope.ts` |
+> | Shared filter strip (refresh, PDF, pickers) | `components/dashboard/dashboard-scope-bar.tsx` |
+> | The former dashboard body | `components/reports/signal-overview-panel.tsx` |
+> | Server-side counts (`summary.indicators`), epi-week series (`summary.indicatorSeries`, ISO weeks, last 52 in scope, bounded to the selected range) and `summary.reportedByRegion` | `alertsMIS/backend/internal/services/dashboard_indicators.go` |
+>
+> Both pages read the same `GET /dashboard/summary` payload through
+> `useDashboardSummary`, so their figures reconcile by construction.
+
 ## Overview
 
 This document outlines the comprehensive refactoring of the dashboard page from a monolithic component to a modular, maintainable architecture following senior engineering best practices.
