@@ -10,6 +10,8 @@
  * Go twin: alertsMIS/backend/internal/services/reporter_feedback.go.
  */
 
+import { isRiskAssessed } from "@/lib/alert-risk";
+
 export const FEEDBACK_SMS = "SMS";
 export const FEEDBACK_CALL = "Phone call";
 export const FEEDBACK_MEETING = "Community meeting";
@@ -45,6 +47,50 @@ export function feedbackIsDue(verificationOutcome?: string | null): boolean {
 /** Whether feedback has already been given. */
 export function feedbackGiven(feedbackGivenAt?: string | null): boolean {
 	return Boolean((feedbackGivenAt ?? "").trim());
+}
+
+/** The subset of a signal the feedback gate depends on. */
+export interface FeedbackSignal {
+	verificationOutcome?: string | null;
+	riskLevel?: string | null;
+}
+
+/**
+ * Whether the signal has actually REACHED step 7, rather than merely owing
+ * feedback at the end of a pipeline it is still partway through.
+ *
+ * {@link feedbackIsDue} answers a narrower question — is there a conclusion? —
+ * and a confirmed event answers yes to it the moment verification ends, while
+ * step 4 is still outstanding. Offering feedback there puts two competing
+ * actions on one row and invites closing the loop on an event nobody has scored
+ * yet; the reporter is then told the outcome of an assessment that has not
+ * happened.
+ *
+ * This is the same narrowing the backend already made to
+ * `services.StagePredicate(StageFeedback)`, which excludes
+ * `verification_outcome='Confirmed' AND risk_level empty` so the Verified and
+ * Risk Assessed tabs cannot both claim the same row. The row menu carried the
+ * un-narrowed predicate and so kept offering the action the queues had stopped
+ * offering.
+ *
+ * Agrees with lib/next-action.ts by construction: a signal whose next step is
+ * "Assess risk" is never one this returns true for. Pinned by
+ * lib/next-action.test.ts.
+ */
+export function feedbackIsReached(signal: FeedbackSignal): boolean {
+	if (!feedbackIsDue(signal.verificationOutcome)) return false;
+	return !awaitingRiskAssessment(signal);
+}
+
+/**
+ * Standing at the step-4 gate: confirmed as a real event, and not yet scored.
+ * Discarded signals are NOT events, so they never wait here.
+ */
+export function awaitingRiskAssessment(signal: FeedbackSignal): boolean {
+	return (
+		(signal.verificationOutcome ?? "").trim() === "Confirmed" &&
+		!isRiskAssessed(signal.riskLevel)
+	);
 }
 
 /** Filter options for the reporter-feedback state. */

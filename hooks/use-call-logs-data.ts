@@ -26,7 +26,19 @@ export interface CallLogsSort {
     order: 'asc' | 'desc';
 }
 
-export const CALL_LOGS_DEFAULT_SORT: CallLogsSort = { by: '', order: 'desc' };
+/**
+ * The register opens with signals MOVED IN FROM A FEED on top, most recently
+ * moved first, then the usual newest-signal-first order.
+ *
+ * A forwarded signal keeps the feed's own event date, which is routinely months
+ * old, so plain `date DESC` buries a signal the moment somebody moves it — the
+ * one action whose entire purpose is to put it in front of a triage officer.
+ * Sorting any column from the table header replaces this, as it should.
+ */
+export const CALL_LOGS_DEFAULT_SORT: CallLogsSort = {
+    by: 'forwarded_first',
+    order: 'desc',
+};
 
 export interface AlertLog {
     id: number;
@@ -81,6 +93,10 @@ export interface AlertLog {
     riskContextNote?: string | null;
     riskTeamLead?: string | null;
     riskTeamMembers?: string | null;
+    /** "What action have you taken?" — the last question on the risk form. */
+    riskActionTaken?: string | null;
+    riskEvacuationFacility?: string | null;
+    riskEvacuationFacilityUid?: string | null;
     /** Reporter feedback (EBS step 7). */
     feedbackGivenAt?: string | null;
     feedbackBy?: string | null;

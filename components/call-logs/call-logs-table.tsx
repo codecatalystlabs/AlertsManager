@@ -96,7 +96,7 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 				onTriageAlert,
 				onAssessRisk,
 				onRecordFeedback,
-				onDeleteAlert,
+						onDeleteAlert,
 				canDelete,
 			}),
 			[onViewDetails, onEditAlert, onVerifyAlert, onTriageAlert, onAssessRisk, onRecordFeedback, onDeleteAlert, canDelete]

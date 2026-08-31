@@ -11,7 +11,9 @@ import {
     type AlertsListParams,
 } from '@/lib/fetch-alerts';
 import { columnFiltersToAlertParams } from '@/lib/alert-column-filters';
+import { STAGE_ALERT } from '@/lib/pipeline';
 import { useInvalidateAlerts } from '@/hooks/use-invalidate-alerts';
+import { shouldShowInAlertsManagement } from '@/lib/forwarded-signal';
 
 interface AlertsFilters {
     status: string;
@@ -85,13 +87,16 @@ function toApiParams(
     limit: number,
     options?: { sort?: AlertsSort }
 ): AlertsListParams {
-    // View Alerts shows VERIFIED SIGNALS ONLY, and is hard-locked to it: the scope
-    // is not a filter the user can widen. "Verified" = a recorded verification
-    // outcome (desk/field decision), the same definition the dashboard KPIs and the
-    // SLA clock use — not the is_verified flag, which is set on 99.5% of rows
-    // including ones nobody has decided on. Signals still awaiting a decision live
-    // in Signal Logs, which does not send this param.
-    const params: AlertsListParams = { page, limit, outcome_recorded: true };
+    // View Alerts is the pipeline's OUTPUT, and is hard-locked to it: the scope is
+    // not a filter the user can widen. It holds only signals that went ALL THE WAY
+    // through — confirmed by verification, risk-assessed, and fed back to the
+    // reporter — which is the set a spot report is issued from (user decision
+    // 2026-08-28). Everything still moving lives in the Signal Register, whose
+    // tabs are the queues; this page has no queue, because nothing on it is due.
+    //
+    // Enforced with ?stage=alert rather than three separate params, so this list
+    // and services.StagePredicate(StageAlert) cannot drift apart.
+    const params: AlertsListParams = { page, limit, stage: STAGE_ALERT };
 
     // Server-side sort so a header sort orders the WHOLE dataset, not just the
     // loaded page. The backend whitelists sort_by, so an empty `by` is ignored.
@@ -195,8 +200,13 @@ export const useAlertsData = (): UseAlertsDataReturn => {
         { keepPreviousData: true }
     );
 
-    const alerts = useMemo(() => (data?.data ?? []) as AlertType[], [data]);
-
+    const alerts = useMemo(
+        () =>
+            ((data?.data ?? []) as AlertType[]).filter(
+                shouldShowInAlertsManagement
+            ),
+        [data]
+    );
     const pagination: AlertsPagination = {
         page: data?.page ?? page,
         limit: data?.limit ?? limit,
@@ -226,7 +236,9 @@ export const useAlertsData = (): UseAlertsDataReturn => {
             });
 
         const first = await fetchExportPage(1);
-        const collected: AlertType[] = [...(first.data as AlertType[])];
+        const collected: AlertType[] = [
+            ...(first.data as AlertType[]).filter(shouldShowInAlertsManagement),
+        ];
 
         const lastPage = Math.min(Math.max(first.totalPages ?? 1, 1), MAX_EXPORT_PAGES);
         if (lastPage > 1) {
@@ -236,7 +248,11 @@ export const useAlertsData = (): UseAlertsDataReturn => {
                 )
             );
             for (const pageResult of rest) {
-                collected.push(...(pageResult.data as AlertType[]));
+                collected.push(
+                    ...(pageResult.data as AlertType[]).filter(
+                        shouldShowInAlertsManagement
+                    )
+                );
             }
         }
 

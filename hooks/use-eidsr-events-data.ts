@@ -25,6 +25,10 @@ import type {
 	EidsrSyncProgress,
 } from "@/lib/fetch-eidsr-events";
 import type { EidsrMessageOptions } from "@/lib/fetch-eidsr-messages";
+import {
+	DEFAULT_EIDSR_FORWARD_TAB,
+	type EidsrForwardTab,
+} from "@/components/eidsr-alerts/eidsr-forward-tabs";
 import { isEidsr6767Verified } from "@/lib/eidsr-verified-state";
 import { sourceFilterValues } from "@/lib/source-of-alert";
 import {
@@ -57,6 +61,9 @@ interface UseEidsrEventsDataReturn {
 	syncProgress: EidsrSyncProgress | null;
 	verificationFilter: EidsrLinkFilter;
 	setVerificationFilter: (f: EidsrLinkFilter) => void;
+	/** Which side of the register split the list is showing (server-side). */
+	forwardFilter: EidsrForwardTab;
+	setForwardFilter: (f: EidsrForwardTab) => void;
 	setFilters: (patch: Partial<EidsrAlertsFilterState>) => void;
 	/** Per-column header filters (Status, Location, In-alerts, Received) routed
 	 *  to the server so they scope the whole dataset, not just the loaded page. */
@@ -84,6 +91,7 @@ interface UseEidsrEventsDataReturn {
 function toEventsApiParams(
 	filters: EidsrAlertsFilterState,
 	verificationFilter: EidsrLinkFilter,
+	forwardFilter: EidsrForwardTab,
 	page: number,
 	limit: number
 ): EidsrEventsListParams {
@@ -106,6 +114,10 @@ function toEventsApiParams(
 	// Link status is filtered server-side (no more client-side page scanning).
 	if (verificationFilter === "linked") params.linked = true;
 	else if (verificationFilter === "unlinked") params.linked = false;
+	// Register split, also server-side, so "Not moved" is the whole remaining
+	// backlog and its count is the real one — not whatever the loaded page held.
+	if (forwardFilter === "moved") params.moved = true;
+	else if (forwardFilter === "not_moved") params.moved = false;
 	// Forward-verification traceability scope (also server-side).
 	if (filters.forwardVerification && filters.forwardVerification !== "all") {
 		params.forward_verification = filters.forwardVerification;
@@ -161,6 +173,7 @@ interface EidsrFetchResult {
 async function fetchEidsr6767(
 	filters: EidsrAlertsFilterState,
 	verificationFilter: EidsrLinkFilter,
+	forwardFilter: EidsrForwardTab,
 	page: number,
 	limit: number,
 	columnParams: Partial<EidsrEventsListParams> = {}
@@ -187,7 +200,7 @@ async function fetchEidsr6767(
 	const pageResult = await listEidsr6767({
 		// Column header filters win on overlap (e.g. a Status column filter
 		// overrides the filter-bar status), matching the Alerts/Call-Logs tables.
-		...toEventsApiParams(filters, verificationFilter, page, limit),
+		...toEventsApiParams(filters, verificationFilter, forwardFilter, page, limit),
 		...columnParams,
 	});
 	const loaded = pageResult.messages.map((m) => enrichEidsrMessage(m));
@@ -207,6 +220,11 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 	});
 	const [verificationFilter, setVerificationFilterState] =
 		useState<EidsrLinkFilter>("all");
+	// The page opens on the signals still waiting to be moved into the register:
+	// that is the work, and a moved signal has nothing left to decide here.
+	const [forwardFilter, setForwardFilterState] = useState<EidsrForwardTab>(
+		DEFAULT_EIDSR_FORWARD_TAB
+	);
 	const [columnFilters, setColumnFiltersState] = useState<ColumnFiltersState>(
 		[]
 	);
@@ -244,8 +262,16 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 	);
 
 	const { data, error: swrError, isLoading, isValidating, mutate } = useSWR(
-		["eidsr-6767", filters, verificationFilter, page, limit, columnParams] as const,
-		([, f, vf, p, l, cp]) => fetchEidsr6767(f, vf, p, l, cp),
+		[
+			"eidsr-6767",
+			filters,
+			verificationFilter,
+			forwardFilter,
+			page,
+			limit,
+			columnParams,
+		] as const,
+		([, f, vf, ff, p, l, cp]) => fetchEidsr6767(f, vf, ff, p, l, cp),
 		{
 			keepPreviousData: true,
 			// Poll while the page is visible instead of refreshing on every
@@ -309,6 +335,13 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 		setPageState(1);
 	}, []);
 
+	// Stable identity: the tab strip is memoised, and an inline callback here is
+	// what stranded the eCHIS/POE tables on page 1 once before.
+	const setForwardFilter = useCallback((filter: EidsrForwardTab) => {
+		setForwardFilterState(filter);
+		setPageState(1);
+	}, []);
+
 	const setColumnFilters = useCallback((next: ColumnFiltersState) => {
 		// Changing a column filter re-scopes the whole dataset, so jump back to
 		// the first page of the new result set.
@@ -319,6 +352,7 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 	const clearFilters = useCallback(() => {
 		setFiltersState({ ...EIDSR_INITIAL_FILTERS });
 		setVerificationFilterState("all");
+		setForwardFilterState(DEFAULT_EIDSR_FORWARD_TAB);
 		setColumnFiltersState([]);
 		setFiltersResetKey((k) => k + 1);
 		setPageState(1);
@@ -403,13 +437,14 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 			...toEventsApiParams(
 				filters,
 				verificationFilter,
+				forwardFilter,
 				1,
 				EIDSR_ALERTS_CONFIG.EXPORT_MAX_ROWS
 			),
 			...columnParams,
 		});
 		return pageResult.messages.map((m) => enrichEidsrMessage(m));
-	}, [filters, verificationFilter, columnParams]);
+	}, [filters, verificationFilter, forwardFilter, columnParams]);
 
 	const exportToCsv = useCallback(async () => {
 		setIsExporting(true);
@@ -545,6 +580,8 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 		syncProgress,
 		verificationFilter,
 		setVerificationFilter,
+		forwardFilter,
+		setForwardFilter,
 		setFilters,
 		setColumnFilters,
 		filtersResetKey,

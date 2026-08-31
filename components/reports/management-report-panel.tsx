@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Eye, EyeOff, FileDown, Loader2, Presentation } from "lucide-react";
+import {
+	Eye,
+	EyeOff,
+	FileDown,
+	FileText,
+	FileType,
+	Loader2,
+	Presentation,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -28,7 +36,14 @@ import { fetchGeoDistricts, type GeoFeatureCollection } from "@/lib/fetch-geo";
 import {
 	downloadManagementReportPptx,
 	formatReportRange,
+	renderDistrictChoropleth,
 } from "@/lib/management-report-pptx";
+import {
+	buildManagementReportDoc,
+	managementReportFileName,
+} from "@/lib/management-report-doc";
+import { downloadManagementReportPdf } from "@/lib/management-report-pdf";
+import { downloadManagementReportDocx } from "@/lib/management-report-docx";
 import {
 	defaultDeckConfig,
 	loadDeckConfig,
@@ -77,7 +92,9 @@ function defaultDeckRange(): { fromDate: string; toDate: string } {
 export function ManagementReportPanel() {
 	const [range, setRange] = useState(defaultDeckRange);
 	const [config, setConfig] = useState<DeckConfig>(defaultDeckConfig);
-	const [busy, setBusy] = useState<"view" | "download" | null>(null);
+	const [busy, setBusy] = useState<
+		"view" | "download" | "pdf" | "docx" | null
+	>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [lastFile, setLastFile] = useState<string | null>(null);
 	const [view, setView] = useState<DeckData | null>(null);
@@ -168,6 +185,54 @@ export function ManagementReportPanel() {
 		}
 	}
 
+	/**
+	 * PDF and DOCX share everything except the final renderer: the same fetch,
+	 * the same map PNG, and the same block list built from the same section
+	 * toggles — so the two files can only differ in appearance, never in what
+	 * they report.
+	 */
+	async function handleDocDownload(format: "pdf" | "docx") {
+		if (!valid || busy) return;
+		setBusy(format);
+		setError(null);
+		setLastFile(null);
+		try {
+			const data = await loadDeckData();
+			setView(data);
+			const map =
+				config.slides.map && data.districtGeo
+					? renderDistrictChoropleth(data.districtGeo)
+					: null;
+			const blocks = buildManagementReportDoc({
+				report: data.report,
+				config,
+				map,
+			});
+			const fileName = managementReportFileName(data.report, config, format);
+			const saved =
+				format === "pdf"
+					? await downloadManagementReportPdf({
+							blocks,
+							fileName,
+							accent: config.accent,
+						})
+					: await downloadManagementReportDocx({
+							blocks,
+							fileName,
+							accent: config.accent,
+						});
+			setLastFile(saved);
+		} catch (err) {
+			setError(
+				err instanceof Error
+					? err.message
+					: `Failed to generate the ${format.toUpperCase()}.`
+			);
+		} finally {
+			setBusy(null);
+		}
+	}
+
 	return (
 		<div className="space-y-4">
 			<Card>
@@ -182,7 +247,7 @@ export function ManagementReportPanel() {
 						signal sources, response cascades, alert narratives, the district
 						alert map with the top-10 chart, and the signals-vs-alerts trend.
 						Configure the disease focus, colours, sections and cover below, then
-						view it here or download it as PowerPoint.
+						view it here or download it as PowerPoint, PDF or Word.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-3">
@@ -206,13 +271,19 @@ export function ManagementReportPanel() {
 						focusPendingReload={
 							view !== null && view.focusKey !== wantFocusKey
 						}
-						disabled={busy === "download"}
+						disabled={Boolean(busy)}
 					/>
 
 					{error && (
 						<ErrorAlert
 							error={error}
-							onRetry={busy === "download" ? handleDownload : handleView}
+							onRetry={
+								busy === "download"
+									? handleDownload
+									: busy === "pdf" || busy === "docx"
+										? () => handleDocDownload(busy)
+										: handleView
+							}
 						/>
 					)}
 
@@ -248,6 +319,32 @@ export function ManagementReportPanel() {
 								<FileDown className="mr-2 h-4 w-4" />
 							)}
 							{busy === "download" ? "Generating…" : "Download PPT"}
+						</Button>
+						{/* Same report, same section toggles — PDF to circulate,
+						    Word to edit before circulating. */}
+						<Button
+							variant="outline"
+							onClick={() => handleDocDownload("pdf")}
+							disabled={!valid || Boolean(busy)}
+						>
+							{busy === "pdf" ? (
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+							) : (
+								<FileText className="mr-2 h-4 w-4" />
+							)}
+							{busy === "pdf" ? "Generating…" : "Download PDF"}
+						</Button>
+						<Button
+							variant="outline"
+							onClick={() => handleDocDownload("docx")}
+							disabled={!valid || Boolean(busy)}
+						>
+							{busy === "docx" ? (
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+							) : (
+								<FileType className="mr-2 h-4 w-4" />
+							)}
+							{busy === "docx" ? "Generating…" : "Download Word"}
 						</Button>
 						{valid && (
 							<span className="text-xs text-muted-foreground">

@@ -4,6 +4,7 @@ import type { ColumnFiltersState } from "@tanstack/react-table";
 import type { NdwAlertsFilterState } from "@/constants/echis-alerts";
 import type { NdwSource, NdwSyncProgress } from "@/lib/fetch-ndw-alerts";
 import { countActiveNdwFilters } from "@/constants/ndw-filter-fields";
+import { autoForwardEchisDistrictSignals } from "@/lib/echis-auto-forward";
 
 export type { NdwAlertsFilterState };
 
@@ -27,6 +28,8 @@ export interface NdwAlertsDataConfig<TRow> {
 	autoRefreshMs: number;
 	/** Maps the table's per-column header filters → backend local query params. */
 	columnParamsFn: (columnFilters: ColumnFiltersState) => Record<string, string>;
+	/** eCHIS only: auto-forward rows that have a district but are not yet forwarded. */
+	autoForwardWithDistrict?: boolean;
 }
 
 /**
@@ -42,6 +45,7 @@ export function useNdwAlertsData<TRow extends { id: number }>({
 	itemsPerPage,
 	autoRefreshMs,
 	columnParamsFn,
+	autoForwardWithDistrict = false,
 }: NdwAlertsDataConfig<TRow>) {
 	const [filters, setFilters] = useState<NdwAlertsFilterState>(initialFilters);
 	const [applied, setApplied] = useState<NdwAlertsFilterState>(initialFilters);
@@ -124,6 +128,24 @@ export function useNdwAlertsData<TRow extends { id: number }>({
 		note: data?.stats?.note as string | undefined,
 	};
 
+	const runEchisAutoForward = useCallback(async () => {
+		if (!autoForwardWithDistrict || key !== "echis-alerts") return 0;
+		try {
+			const count = await autoForwardEchisDistrictSignals();
+			if (count > 0) {
+				setSyncMessage((prev) =>
+					prev
+						? `${prev} Auto-forwarded ${count} eCHIS signal(s) with district.`
+						: `Auto-forwarded ${count} eCHIS signal(s) with district.`
+				);
+				await mutate();
+			}
+			return count;
+		} catch {
+			return 0;
+		}
+	}, [autoForwardWithDistrict, key, mutate]);
+
 	const pollSync = useCallback(async () => {
 		const progress = await source.syncStatus();
 		if (!mountedRef.current) return;
@@ -134,8 +156,9 @@ export function useNdwAlertsData<TRow extends { id: number }>({
 		}
 		setIsSyncing(false);
 		setSyncMessage(summarizeSync(progress));
+		await runEchisAutoForward();
 		await mutate();
-	}, [mutate, source]);
+	}, [mutate, runEchisAutoForward, source]);
 
 	const syncFromRemote = useCallback(
 		async (opts?: { fullSync?: boolean; refreshExisting?: boolean }) => {
@@ -155,6 +178,7 @@ export function useNdwAlertsData<TRow extends { id: number }>({
 				} else {
 					setIsSyncing(false);
 					setSyncMessage(summarizeSync(res.progress));
+					await runEchisAutoForward();
 					await mutate();
 				}
 			} catch (e) {
@@ -162,7 +186,7 @@ export function useNdwAlertsData<TRow extends { id: number }>({
 				setSyncMessage(e instanceof Error ? e.message : "Sync failed");
 			}
 		},
-		[mutate, pollSync, source]
+		[mutate, pollSync, runEchisAutoForward, source]
 	);
 
 	// Memoized so its identity is stable across renders. The DataTable reports its

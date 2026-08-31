@@ -23,6 +23,12 @@ export const AlertsHeader = memo<AlertsHeaderProps>(
 					<h1 className={LAYOUT.pageTitle}>
 						{ALERTS_CONFIG.PAGE_TITLE}
 					</h1>
+					{/* Rendered because this list is deliberately SHORT — it holds
+					    only finished work, so without a line saying so a count of
+					    six reads as a broken query rather than as the truth. */}
+					<p className="text-xs text-muted-foreground">
+						{ALERTS_CONFIG.PAGE_DESCRIPTION}
+					</p>
 				</div>
 				<div className="flex flex-wrap gap-1.5">
 					<Button

@@ -26,11 +26,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { forwardedFromSourceLabel } from "@/lib/signal-register-link";
 import { DiscardLevelBadge } from "@/components/triage";
 import { verificationBlockedReason } from "@/lib/alert-triage";
 import { nextAction, type NextActionKey } from "@/lib/next-action";
 import { RiskBadge } from "@/components/risk";
-import { feedbackIsDue } from "@/lib/alert-feedback";
+import { feedbackIsReached } from "@/lib/alert-feedback";
 import {
 	PENDING_BADGE_CLASS,
 	VerificationBadge,
@@ -215,6 +216,11 @@ export interface CallLogsTableCallbacks {
 	onAssessRisk: (alert: AlertLog) => void;
 	/** Open the reporter-feedback dialog (EBS step 7 — close the loop). */
 	onRecordFeedback: (alert: AlertLog) => void;
+	/**
+	 * Open the spot-report composer (EBS step 5 — the written alert). Offered
+	 * once a signal has been risk-assessed, because the level and the response
+	 * it mandates are half of what the report exists to communicate.
+	 */
 	onDeleteAlert: (alertId: number) => Promise<void>;
 	/** Whether the current user may delete alerts (admin/EOC only). */
 	canDelete?: boolean;
@@ -481,12 +487,10 @@ export const createCallLogsTableColumns = (
 			header: "Forwarded From",
 			enableColumnFilter: false,
 			cell: ({ row }) => {
-				// A 6767 alert forwarded into a district's signal log is stamped with
-				// alertFrom = "6767 Forward" by the backend.
-				const from = (row.original.alertFrom ?? "").toLowerCase();
-				return from.includes("6767") ? (
+				const label = forwardedFromSourceLabel(row.original.alertFrom);
+				return label ? (
 					<Badge variant="secondary" className="text-xs">
-						6767
+						{label}
 					</Badge>
 				) : (
 					<span className="text-sm text-muted-foreground">—</span>
@@ -625,7 +629,12 @@ export const createCallLogsTableColumns = (
 								<Edit className="h-4 w-4 mr-2" />
 								Edit signal
 							</DropdownMenuItem>
-							{feedbackIsDue(alertItem.verificationOutcome) && (
+							{/* Only once the signal has actually REACHED step 7. A confirmed
+						    event still waiting on its risk assessment owes feedback
+						    eventually, but offering it here puts two competing actions on
+						    one row and closes the loop on an event nobody has scored —
+						    see feedbackIsReached. */}
+							{feedbackIsReached(alertItem) && (
 								<DropdownMenuItem
 									onClick={() =>
 										callbacks.onRecordFeedback(alertItem)
@@ -652,6 +661,12 @@ export const createCallLogsTableColumns = (
 									{alertItem.riskLevel ? "Re-assess risk" : "Assess risk"}
 								</DropdownMenuItem>
 							)}
+							{/* NOTE: "Generate spot report" was moved off this menu
+						    (2026-08-28) to the Alerts list, which holds only signals
+						    that finished the pipeline. It was offered here on any
+						    scored signal, but a row on the register still has work
+						    due on it, and a report written mid-pipeline states a
+						    conclusion nobody has reached yet. */}
 							{!alertItem.isVerified && (
 								<DropdownMenuItem
 									onClick={() =>

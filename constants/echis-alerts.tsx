@@ -1,5 +1,5 @@
 export const ECHIS_ALERTS_CONFIG = {
-	PAGE_TITLE: "eCHIS Alerts",
+	PAGE_TITLE: "eCHIS Signals",
 	PAGE_DESCRIPTION:
 		"Community Health Toolkit (eCHIS) EBS signals — sync from NDW and review",
 	ITEMS_PER_PAGE: 10,
@@ -25,7 +25,6 @@ export const ECHIS_INITIAL_NDW_FILTERS: NdwAlertsFilterState = {
 export type EchisLocalFilters = {
 	district: string;
 	county: string;
-	verificationStatus: string;
 	fromDate: string;
 	toDate: string;
 };
@@ -33,7 +32,6 @@ export type EchisLocalFilters = {
 export const ECHIS_INITIAL_LOCAL_FILTERS: EchisLocalFilters = {
 	district: "",
 	county: "",
-	verificationStatus: "",
 	fromDate: "",
 	toDate: "",
 };
@@ -45,8 +43,6 @@ export function echisLocalFiltersToParams(
 	const p: Record<string, string> = {};
 	if (f.district.trim()) p.district = f.district.trim();
 	if (f.county.trim()) p.county = f.county.trim();
-	if (f.verificationStatus.trim())
-		p.verificationStatus = f.verificationStatus.trim();
 	if (f.fromDate.trim()) p.from_date = f.fromDate.trim();
 	if (f.toDate.trim()) p.to_date = f.toDate.trim();
 	return p;

@@ -33,6 +33,7 @@ registerHooks({
 });
 
 const { nextAction } = await import("./next-action.ts");
+const { feedbackIsDue, feedbackIsReached } = await import("./alert-feedback.ts");
 
 let passed = 0;
 function check(name: string, actual: unknown, expected: unknown): void {
@@ -129,6 +130,80 @@ check(
 	"triage's exit outranks a stale verification outcome",
 	nextAction({ triageDecision: "Discarded", verificationOutcome: "Confirmed" }).key,
 	"retriage"
+);
+
+// --- The row menu's feedback gate must agree with the pipeline order --------
+//
+// THE BUG THIS PINS: the overflow menu gated "Record feedback" on
+// feedbackIsDue(outcome) alone, which a confirmed event satisfies the moment
+// verification ends — while step 4 is still outstanding. So the risk queue
+// showed rows offering "Assess risk" and "Record feedback" side by side, and
+// taking the second one told a reporter the outcome of an assessment nobody had
+// made. The backend had already narrowed StagePredicate(StageFeedback) for
+// exactly this reason; the menu had not.
+//
+// Asserted as an INVARIANT over the whole state space rather than as examples:
+// feedback is never offered on a signal whose next step is Assess risk.
+const outcomes = ["", "Confirmed", "Discarded", "Escalated to Field"];
+const levels = ["", "Low", "Moderate", "High", "Very High"];
+const feedbackStates = [null, "2026-08-28T10:00:00Z"];
+
+for (const verificationOutcome of outcomes) {
+	for (const riskLevel of levels) {
+		for (const feedbackGivenAt of feedbackStates) {
+			const signal = {
+				verificationOutcome,
+				riskLevel,
+				feedbackGivenAt,
+				triageDecision: "Forwarded to Verification",
+			};
+			const step = nextAction(signal).key;
+			const offered = feedbackIsReached(signal);
+			if (step === "assess-risk" && offered) {
+				console.error(
+					`FAIL: feedback offered on a signal awaiting risk assessment ` +
+						`(outcome=${verificationOutcome || "none"}, risk=${riskLevel || "none"})`
+				);
+				process.exit(1);
+			}
+			// The converse: once the signal is genuinely past step 4, a conclusion
+			// must still reach the menu — narrowing the gate must not hide the
+			// action on the rows that DO owe feedback.
+			if (feedbackIsDue(verificationOutcome) && step !== "assess-risk" && !offered) {
+				console.error(
+					`FAIL: feedback withheld from a concluded signal ` +
+						`(outcome=${verificationOutcome}, risk=${riskLevel || "none"}, step=${step})`
+				);
+				process.exit(1);
+			}
+			passed += 1;
+		}
+	}
+}
+
+// The two rows that matter, spelled out so the intent survives a refactor of
+// the loop above.
+check(
+	"a confirmed event with no risk level is NOT offered feedback",
+	feedbackIsReached({ verificationOutcome: "Confirmed", riskLevel: "" }),
+	false
+);
+check(
+	"a confirmed event that has been scored IS offered feedback",
+	feedbackIsReached({ verificationOutcome: "Confirmed", riskLevel: "High" }),
+	true
+);
+// A discarded signal is not an event, so it never waits at the risk gate — and
+// "we checked, it was not an outbreak" is the feedback that matters most.
+check(
+	"a signal discarded at verification IS offered feedback",
+	feedbackIsReached({ verificationOutcome: "Discarded", riskLevel: "" }),
+	true
+);
+check(
+	"a signal still escalated to the field is not offered feedback",
+	feedbackIsReached({ verificationOutcome: "Escalated to Field", riskLevel: "" }),
+	false
 );
 
 console.log(`next-action: ${passed} assertions passed`);

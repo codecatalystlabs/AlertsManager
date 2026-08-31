@@ -42,6 +42,12 @@ export interface EidsrEventsListParams {
 	/** true = linked to an alert, false = not linked. Omit for no link filter. */
 	linked?: boolean;
 	/**
+	 * true = already in the Signal Register, false = still waiting to be moved.
+	 * Omit for both. Distinct from `forward_verification`, which asks what the
+	 * receiving district then did with it.
+	 */
+	moved?: boolean;
+	/**
 	 * Forward-verification traceability filter:
 	 * "forwarded" (forwarded at all) | "forwarded_verified" | "forwarded_pending".
 	 * Omit for no filter.
@@ -80,6 +86,8 @@ function buildEventsUrl(apiBase: string, params?: EidsrEventsListParams): string
 	if (params?.to_date) searchParams.set("to_date", params.to_date);
 	if (params?.updated_after) searchParams.set("updated_after", params.updated_after);
 	if (params?.linked !== undefined) searchParams.set("linked", String(params.linked));
+	if (params?.moved !== undefined)
+		searchParams.set("moved", String(params.moved));
 	if (params?.forward_verification)
 		searchParams.set("forward_verification", params.forward_verification);
 	if (params?.search) searchParams.set("search", params.search);

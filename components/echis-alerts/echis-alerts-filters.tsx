@@ -57,14 +57,6 @@ export const EchisAlertsFilters = memo<EchisAlertsFiltersProps>(
 					onKeyDown={onEnter}
 					className="h-8 w-[120px] text-xs"
 				/>
-				<Input
-					aria-label="Verification status"
-					placeholder="Verification"
-					value={fields.verificationStatus}
-					onChange={(e) => patch({ verificationStatus: e.target.value })}
-					onKeyDown={onEnter}
-					className="h-8 w-[130px] text-xs"
-				/>
 				<label className="flex items-center gap-1 text-[11px] text-muted-foreground">
 					From
 					<Input

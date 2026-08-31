@@ -26,7 +26,6 @@ import {
 	MessageCircleReply,
 	ShieldQuestion,
 	ShieldCheck,
-	Archive,
 } from "lucide-react";
 import { MohLogo } from "@/components/moh-logo";
 
@@ -97,18 +96,11 @@ const navigationGroups: NavigationGroup[] = [
 				icon: MessageCircleReply,
 			},
 			{ name: "Alerts", href: "/dashboard/alerts", icon: Siren },
-			// The pipeline's other exit, and the reason it needs a door: the
-			// guideline's rule is "discard AND record", so a signal triage took
-			// off the pipeline — already reported and under investigation, or
-			// logged as no public-health threat — is a decision that was taken,
-			// not a row that vanished. Until now nothing in the app linked to
-			// this queue, so the recorded discards were only reachable by
-			// building the filter by hand. Archive, not a bin: they are kept.
-			{
-				name: "Discarded Events",
-				href: "/dashboard/signal-logs?stage=offpipeline",
-				icon: Archive,
-			},
+			// NOTE: the "Discarded Events" link was removed from this nav on
+			// request (2026-08-28). The queue itself still exists and is still
+			// reachable at /dashboard/signal-logs?stage=offpipeline — the
+			// guideline's rule is "discard AND record", so those signals are an
+			// archive, not a bin, and nothing about them was deleted.
 		],
 	},
 	{
@@ -116,9 +108,9 @@ const navigationGroups: NavigationGroup[] = [
 		// or forwarded from here, which is why these stay reachable.
 		label: "Sources",
 		items: [
-			{ name: "6767 Alerts", href: "/dashboard/eidsr-alerts", icon: Headset },
-			{ name: "eCHIS Alerts", href: "/dashboard/echis-alerts", icon: Stethoscope },
-			{ name: "POE Alerts", href: "/dashboard/poe-alerts", icon: PlaneLanding },
+			{ name: "6767 Signals", href: "/dashboard/eidsr-alerts", icon: Headset },
+			{ name: "eCHIS Signals", href: "/dashboard/echis-alerts", icon: Stethoscope },
+			{ name: "POE Signals", href: "/dashboard/poe-alerts", icon: PlaneLanding },
 		],
 	},
 	{

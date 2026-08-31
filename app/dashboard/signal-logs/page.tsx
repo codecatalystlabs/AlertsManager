@@ -17,7 +17,7 @@ import { RiskAssessmentDialog } from "@/components/risk";
 import { FeedbackDialog } from "@/components/feedback";
 import { useCallLogsData, type AlertLog } from "@/hooks/use-call-logs-data";
 import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
-import { AuthService } from "@/lib/auth";
+import { AuthService, type Alert } from "@/lib/auth";
 import { PipelineStrip } from "@/components/pipeline";
 import {
 	STAGE_FEEDBACK,
@@ -159,6 +159,15 @@ export default function CallLogsPage(): React.JSX.Element {
 		// setFilters is stable; re-running on every render would reset paging.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [view, split, stageParam]);
+
+	// Deep-link from 6767 / eCHIS / POE forwarded badges: ?alert_id=123
+	const appliedAlertIdRef = useRef<string | null>(null);
+	useEffect(() => {
+		const alertId = searchParams?.get("alert_id")?.trim() ?? "";
+		if (!alertId || appliedAlertIdRef.current === alertId) return;
+		appliedAlertIdRef.current = alertId;
+		setColumnFilters([{ id: "id", value: alertId }]);
+	}, [searchParams, setColumnFilters]);
 
 	// The URL is the single source of truth for the view, so switching halves
 	// navigates rather than setting state the URL would then contradict.
