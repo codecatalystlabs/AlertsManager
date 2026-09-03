@@ -23,10 +23,20 @@ interface ForwardToDistrictDialogProps {
 	onClose: () => void;
 	/** What is being forwarded, e.g. "eCHIS signal", "POE alert", "6767 alert". */
 	sourceLabel: string;
+	/** Override dialog title (default: Forward to a district). */
+	title?: string;
+	/** Override dialog description. */
+	description?: string;
+	/** Override primary button label. */
+	submitLabel?: string;
+	/** Override success toast title. */
+	successTitle?: string;
 	/** Pre-selected district (eCHIS rows carry their own district; POE/6767 do not). */
 	defaultDistrict?: string;
 	/** District this row was last forwarded to, if any (shows a re-forward warning). */
 	alreadyForwarded?: string | null;
+	/** Optional reported location hint shown under the district field. */
+	reportedLocation?: string | null;
 	/** Performs the forward request; resolves with the destination district. */
 	onForward: (
 		district: string,
@@ -45,8 +55,13 @@ export function ForwardToDistrictDialog({
 	isOpen,
 	onClose,
 	sourceLabel,
+	title = "Forward to a district",
+	description,
+	submitLabel = "Forward to Signal Register",
+	successTitle = "Signal forwarded",
 	defaultDistrict,
 	alreadyForwarded,
+	reportedLocation,
 	onForward,
 	onForwarded,
 }: ForwardToDistrictDialogProps) {
@@ -66,6 +81,7 @@ export function ForwardToDistrictDialog({
 	}, [isOpen, defaultDistrict]);
 
 	const warnForwarded = alreadyForwarded?.trim() || "";
+	const locationHint = reportedLocation?.trim() || "";
 
 	const handleSubmit = async () => {
 		if (!district.trim()) return;
@@ -74,7 +90,7 @@ export function ForwardToDistrictDialog({
 		try {
 			const result = await onForward(district.trim(), note.trim() || undefined);
 			toast({
-				title: "Signal forwarded",
+				title: successTitle,
 				description: `Forwarded to ${result.district}. Open Signal Register to triage it.`,
 			});
 			notifyAlertsChanged();
@@ -101,11 +117,10 @@ export function ForwardToDistrictDialog({
 		>
 			<DialogContent className="sm:max-w-md">
 				<DialogHeader>
-					<DialogTitle>Forward to a district</DialogTitle>
+					<DialogTitle>{title}</DialogTitle>
 					<DialogDescription>
-						Send this {sourceLabel} to a district as a signal in the Signal
-						Register. It will not appear in Alerts Management until verified
-						there.
+						{description ??
+							`Send this ${sourceLabel} to a district as a signal in the Signal Register. It will not appear in Alerts Management until verified there.`}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -136,6 +151,11 @@ export function ForwardToDistrictDialog({
 							placeholder="Select the district to forward to"
 							disabled={submitting}
 						/>
+						{locationHint ? (
+							<p className="text-xs text-muted-foreground">
+								Reported location: {locationHint}
+							</p>
+						) : null}
 					</div>
 
 					<div className="space-y-1.5">
@@ -166,7 +186,7 @@ export function ForwardToDistrictDialog({
 						) : (
 							<Send className="h-4 w-4" />
 						)}
-						Forward to Signal Register
+						{submitLabel}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

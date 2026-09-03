@@ -155,6 +155,14 @@ export async function forwardEidsr6767(
 	throw new Error(forwardErrorMessage(lastBody, lastStatus));
 }
 
+/**
+ * Move a 6767 signal into the Signal Register (same API as forward). Prefer this
+ * name in UI flows that say "Move to register".
+ */
+export const moveEidsr6767ToRegister = forwardEidsr6767;
+
+export type MoveEidsr6767ToRegisterResult = ForwardEidsr6767Result;
+
 export async function getEidsr6767Stats(
 	messages: EidsrMessage[],
 	eventsTotal?: number
