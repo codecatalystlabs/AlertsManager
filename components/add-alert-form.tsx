@@ -170,7 +170,7 @@ export function createEmptyAlertFormValues(): AlertFormValues {
  * unanswered field never lands in the database as 0 — "I don't know" and "none"
  * are different answers, and only one of them means the event is over.
  */
-function parseNumberAffected(value: string): number | null {
+export function parseNumberAffected(value: string): number | null {
   const n = Number.parseInt(value.trim(), 10);
   return Number.isFinite(n) && n >= 0 ? n : null;
 }

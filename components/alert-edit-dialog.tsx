@@ -2,7 +2,6 @@
 
 import { altCode } from "@/lib/alt-code";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,8 +23,6 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
 	AlertTriangleIcon,
@@ -34,30 +31,18 @@ import {
 	Loader2,
 	UserIcon,
 	MapPinIcon,
-	HeartIcon,
 	CalendarIcon,
 } from "lucide-react";
 import { AuthService, type Alert as ApiAlert } from "@/lib/auth";
 import { getLocalDateString } from "@/lib/utils";
-import {
-	alertResponse,
-	alertStatus,
-	signsAndSymptoms,
-} from "@/constants";
+import { alertStatus } from "@/constants";
 import { CaseLocationSelect } from "@/components/case-location-select";
+import { parseNumberAffected } from "@/components/add-alert-form";
 import {
 	useChannelOfReportingOptions,
 	useSourceOfAlertOptions,
 } from "@/hooks/use-lookup-options";
 import { useToast } from "@/hooks/use-toast";
-
-import {
-	DESK_VERIFICATION_OPTIONS,
-	FIELD_VERIFICATION_OPTIONS,
-	FIELD_CASE_VERIFICATION,
-	hasDeskAction,
-	toggleDeskAction,
-} from "@/lib/verification-options";
 
 interface AlertEditDialogProps {
 	isOpen: boolean;
@@ -76,47 +61,41 @@ export function AlertEditDialog({
 	// Admin-managed lists (Administration -> Dropdown Options).
 	const sourceOptions = useSourceOfAlertOptions();
 	const channelOptions = useChannelOfReportingOptions();
+	// EXACTLY the fields the add-alert form collects, and nothing else.
+	//
+	// Editing a signal means correcting what was REPORTED — a misheard phone
+	// number, the wrong subcounty, a name spelt wrong. Everything a signal
+	// acquires afterwards (triage, verification, risk assessment, feedback) is
+	// the output of a stage, recorded by the person who did that stage on the
+	// form built for it, with its own audit entry and its own timestamps. This
+	// dialog used to carry all of it — CIF number, response type, lab samples,
+	// symptoms, and a whole Verification & Lab section — which meant anyone with
+	// edit rights could rewrite a verification decision without going through
+	// verification, and nothing recorded that they had.
+	//
+	// Keep this list in step with AlertFormValues in add-alert-form.tsx.
 	const [formData, setFormData] = useState({
 		date: "",
 		time: "",
-		cifNo: "",
+		callTaker: "",
 		alertReportedBefore: "",
 		personReporting: "",
 		contactNumber: "",
 		status: "",
-		response: "",
+		region: "",
 		alertCaseDistrict: "",
 		subCounty: "",
 		alertCaseVillage: "",
 		alertCaseParish: "",
 		sourceOfAlert: "",
 		channelOfReporting: "",
-		history: "",
 		alertCaseName: "",
 		alertCaseAge: "",
+		numberAffected: "",
 		alertCaseSex: "",
-		labSamplesCollected: "",
 		pointOfContactName: "",
 		pointOfContactPhone: "",
-		narrative: "",
-		symptoms: [] as string[],
-		// Verification / lab / assignment (not shown in the basic form before)
-		isVerified: false,
-		verifiedBy: "",
-		verificationDate: "",
-		verificationTime: "",
-		actions: "",
-		feedback: "",
-		caseVerificationDesk: "",
-		fieldVerification: "",
-		fieldVerificationDecision: "",
-		labResult: "",
-		labResultDate: "",
-		assignedTo: "",
-		comments: "",
-		facilityType: "",
-		facility: "",
-		region: "",
+		history: "",
 	});
 
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -134,97 +113,45 @@ export function AlertEditDialog({
 				? new Date(alert.time).toTimeString().slice(0, 5)
 				: "";
 
-			// Parse symptoms string to array
-			const symptomsArray = alert.symptoms
-				? alert.symptoms.split(", ").filter((s: any) => s.trim())
-				: [];
-
 			setFormData({
 				date: alertDate,
 				time: alertTime,
-				cifNo: alert.cifNo || "",
+				callTaker: alert.callTaker || "",
 				alertReportedBefore: alert.alertReportedBefore || "",
 				personReporting: alert.personReporting || "",
 				contactNumber: alert.contactNumber || "",
 				status: alert.status || "",
-				response: alert.response || "",
+				region: alert.region || "",
 				alertCaseDistrict: alert.alertCaseDistrict || "",
 				subCounty: alert.subCounty || "",
 				alertCaseVillage: alert.alertCaseVillage || "",
 				alertCaseParish: alert.alertCaseParish || "",
 				sourceOfAlert: alert.sourceOfAlert || "",
 				channelOfReporting: alert.channelOfReporting || "",
-				history: alert.history || "",
 				alertCaseName: alert.alertCaseName || "",
-				alertCaseAge: alert.alertCaseAge
-					? alert.alertCaseAge.toString()
-					: "",
+				alertCaseAge:
+					alert.alertCaseAge != null
+						? alert.alertCaseAge.toString()
+						: "",
+				// Blank stays blank: "nobody recorded a number" and "zero people
+				// are affected" are different answers, and only one means the
+				// event is over.
+				numberAffected:
+					alert.numberAffected != null
+						? String(alert.numberAffected)
+						: "",
 				alertCaseSex: alert.alertCaseSex || "",
-				labSamplesCollected: alert.labSamplesCollected || "",
 				pointOfContactName: alert.pointOfContactName || "",
 				pointOfContactPhone: alert.pointOfContactPhone || "",
-				narrative: alert.narrative || "",
-				symptoms: symptomsArray,
-				isVerified: Boolean(alert.isVerified),
-				verifiedBy: alert.verifiedBy || "",
-				verificationDate: alert.verificationDate
-					? new Date(alert.verificationDate).toISOString().split("T")[0]
-					: "",
-				verificationTime: alert.verificationTime
-					? new Date(alert.verificationTime).toTimeString().slice(0, 5)
-					: "",
-				actions: alert.actions || "",
-				feedback: alert.feedback || "",
-				caseVerificationDesk: alert.caseVerificationDesk || "",
-				fieldVerification: alert.fieldVerification || "",
-				fieldVerificationDecision: alert.fieldVerificationDecision || "",
-				labResult: alert.labResult || "",
-				labResultDate: alert.labResultDate
-					? new Date(alert.labResultDate).toISOString().split("T")[0]
-					: "",
-				assignedTo: alert.assignedTo || "",
-				comments: alert.comments || "",
-				facilityType: alert.facilityType || "",
-				facility: alert.facility || "",
-				region: alert.region || "",
+				history: alert.history || "",
 			});
 			setError(null);
 			setSuccess(null);
 		}
 	}, [isOpen, alert]);
 
-	useEffect(() => {
-		if (
-			!hasDeskAction(
-				formData.caseVerificationDesk,
-				FIELD_CASE_VERIFICATION
-			) &&
-			formData.fieldVerificationDecision
-		) {
-			setFormData((prev) => ({ ...prev, fieldVerificationDecision: "" }));
-		}
-	}, [formData.caseVerificationDesk, formData.fieldVerificationDecision]);
-
-	// NOTE: "Actions Taken" (free text) is intentionally INDEPENDENT of the desk
-	// verification selection. Previously an effect overwrote `actions` with
-	// `caseVerificationDesk` on every desk change, making the textarea useless;
-	// the desk selection is submitted separately as caseVerificationDesk.
-
 	const handleInputChange = (field: string, value: string) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
-	};
-
-	const handleBoolChange = (field: string, value: boolean) => {
-		setFormData((prev) => ({ ...prev, [field]: value }));
-	};
-
-	const handleSymptomsChange = (symptom: string, checked: boolean) => {
-		setFormData((prev) => ({
-			...prev,
-			symptoms: checked
-				? [...prev.symptoms, symptom]
-				: prev.symptoms.filter((s) => s !== symptom),
-		}));
 	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -234,11 +161,23 @@ export function AlertEditDialog({
 		setError(null);
 
 		try {
-			// Validate required fields
+			// The FIELDS match the add-alert form; the required set deliberately
+			// does NOT adopt its geography rules.
+			//
+			// The add form requires region, district and subcounty of a NEW
+			// signal, which is right at intake. Applying that to edits would
+			// strand the records already here: 3,030 of 6,039 live alerts carry
+			// no region and 3,928 no subcounty, so more than half the register
+			// would refuse to save a corrected phone number until somebody
+			// invented geography for a signal logged years ago. An edit is a
+			// correction of what exists, not a re-creation of it.
+			//
+			// Status is required because nothing is missing one, so it costs
+			// nothing and the label already says so.
 			if (
 				!formData.date ||
 				!formData.time ||
-				!formData.cifNo ||
+				!formData.status ||
 				!formData.personReporting ||
 				!formData.contactNumber ||
 				!formData.sourceOfAlert ||
@@ -271,58 +210,39 @@ export function AlertEditDialog({
 				return new Date().toISOString();
 			};
 
-			// Merge edited fields onto the full alert object so we don't drop fields
-			// that aren't shown in the form (verification info, lab results, etc).
-			const alertData: ApiAlert = {
-				...alert,
+			// ONLY the intake fields go up. Nothing is spread from `alert` first:
+			// PUT /alerts/:id loads the row and parses the body ON TOP of it, so
+			// a field the body omits keeps its stored value, while a field sent
+			// as null would overwrite it. Spreading the whole alert object would
+			// therefore push every stage's output back to the server on every
+			// edit — and any of them the list response had dropped would be
+			// written back as null.
+			const alertData: Partial<ApiAlert> = {
 				date: formData.date
 					? new Date(formData.date).toISOString()
 					: alert.date || new Date().toISOString(),
 				time: formatTime(formData.time),
-				cifNo: formData.cifNo,
+				callTaker: formData.callTaker,
 				alertReportedBefore:
 					formData.alertReportedBefore === "Yes" ? "Yes" : "No",
 				personReporting: formData.personReporting,
 				contactNumber: formData.contactNumber,
 				status: formData.status || "Pending",
-				response: formData.response || "Routine",
+				region: formData.region,
 				alertCaseDistrict: formData.alertCaseDistrict,
 				subCounty: formData.subCounty,
 				alertCaseVillage: formData.alertCaseVillage,
+				alertCaseSubCounty: formData.subCounty,
 				alertCaseParish: formData.alertCaseParish,
 				sourceOfAlert: formData.sourceOfAlert,
 				channelOfReporting: formData.channelOfReporting,
-				history: formData.history,
 				alertCaseName: formData.alertCaseName,
 				alertCaseAge: parseInt(formData.alertCaseAge) || 0,
+				numberAffected: parseNumberAffected(formData.numberAffected),
 				alertCaseSex: formData.alertCaseSex,
-				labSamplesCollected: formData.labSamplesCollected,
 				pointOfContactName: formData.pointOfContactName,
 				pointOfContactPhone: formData.pointOfContactPhone,
-				narrative: formData.narrative,
-				symptoms: formData.symptoms.join(", "),
-				isVerified: formData.isVerified,
-				verifiedBy: formData.verifiedBy,
-				verificationDate: formData.verificationDate
-					? new Date(formData.verificationDate).toISOString()
-					: alert.verificationDate ?? null,
-				verificationTime: formData.verificationTime
-					? formatTime(formData.verificationTime)
-					: alert.verificationTime ?? null,
-				actions: formData.actions,
-				feedback: formData.feedback,
-				caseVerificationDesk: formData.caseVerificationDesk,
-				fieldVerification: formData.fieldVerification,
-				fieldVerificationDecision: formData.fieldVerificationDecision,
-				labResult: formData.labResult,
-				labResultDate: formData.labResultDate
-					? new Date(formData.labResultDate).toISOString()
-					: alert.labResultDate ?? null,
-				assignedTo: formData.assignedTo,
-				comments: formData.comments,
-				facilityType: formData.facilityType,
-				facility: formData.facility,
-				region: formData.region,
+				history: formData.history,
 			};
 
 			await AuthService.updateAlert(alert.id as number, alertData);
@@ -373,7 +293,10 @@ export function AlertEditDialog({
 						{String(alert?.id).padStart(3, "0")}
 					</DialogTitle>
 					<DialogDescription>
-						Update the information for this health alert
+						Correct what was reported for this signal. Triage,
+						verification, risk assessment and feedback are recorded
+						on their own forms as the signal moves through the
+						pipeline — they are not edited here.
 					</DialogDescription>
 				</DialogHeader>
 
@@ -454,22 +377,21 @@ export function AlertEditDialog({
 							</div>
 							<div className="space-y-1">
 								<Label
-									htmlFor="cifNo"
+									htmlFor="callTaker"
 									className="text-sm font-medium"
 								>
-									CIF Number *
+									Call Taker Name
 								</Label>
 								<Input
-									id="cifNo"
-									value={formData.cifNo}
+									id="callTaker"
+									value={formData.callTaker}
 									onChange={(e) =>
 										handleInputChange(
-											"cifNo",
+											"callTaker",
 											e.target.value
 										)
 									}
-									required
-									placeholder="Enter CIF number"
+									placeholder="Enter call taker's name"
 								/>
 							</div>
 						</div>
@@ -527,7 +449,7 @@ export function AlertEditDialog({
 						<div className="flex items-center gap-2 mb-1">
 							<UserIcon className="h-4 w-4 text-uganda-red" />
 							<h3 className="text-sm font-semibold text-uganda-black">
-								Reporter Information
+								Person Reporting the Signal
 							</h3>
 						</div>
 
@@ -678,37 +600,6 @@ export function AlertEditDialog({
 							</div>
 						</div>
 
-						<div className="space-y-1">
-							<Label
-								htmlFor="response"
-								className="text-sm font-medium"
-							>
-								Response Type
-							</Label>
-							<Select
-								onValueChange={(value) =>
-									handleInputChange(
-										"response",
-										value
-									)
-								}
-								value={formData.response}
-							>
-								<SelectTrigger>
-									<SelectValue placeholder="Select response type" />
-								</SelectTrigger>
-								<SelectContent>
-									{alertResponse?.map((response) => (
-										<SelectItem
-											key={response.code}
-											value={response.code}
-										>
-											{response.name}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
 					</div>
 
 					<Separator />
@@ -718,7 +609,7 @@ export function AlertEditDialog({
 						<div className="flex items-center gap-2 mb-1">
 							<MapPinIcon className="h-4 w-4 text-uganda-red" />
 							<h3 className="text-sm font-semibold text-uganda-black">
-								Case Location
+								Signal Location
 							</h3>
 						</div>
 
@@ -787,7 +678,7 @@ export function AlertEditDialog({
 						<div className="flex items-center gap-2 mb-1">
 							<AlertTriangleIcon className="h-4 w-4 text-uganda-red" />
 							<h3 className="text-sm font-semibold text-uganda-black">
-								Case Information
+								Signal Information
 							</h3>
 						</div>
 
@@ -836,6 +727,28 @@ export function AlertEditDialog({
 								/>
 							</div>
 							<div className="space-y-1">
+								<Label
+									htmlFor="numberAffected"
+									className="text-sm font-medium"
+								>
+									Number Affected
+								</Label>
+								<Input
+									id="numberAffected"
+									type="number"
+									value={formData.numberAffected}
+									onChange={(e) =>
+										handleInputChange(
+											"numberAffected",
+											e.target.value
+										)
+									}
+									placeholder="e.g. 3"
+									min="0"
+									max="1000000"
+								/>
+							</div>
+							<div className="space-y-1">
 								<Label className="text-sm font-medium">
 									Patient Sex *
 								</Label>
@@ -875,47 +788,6 @@ export function AlertEditDialog({
 									</div>
 								</RadioGroup>
 							</div>
-						</div>
-
-						<div className="space-y-1">
-							<Label className="text-sm font-medium">
-								Were laboratory samples collected?
-							</Label>
-							<RadioGroup
-								value={formData.labSamplesCollected}
-								onValueChange={(value) =>
-									handleInputChange(
-										"labSamplesCollected",
-										value
-									)
-								}
-								className="flex gap-4 mt-1"
-							>
-								<div className="flex items-center space-x-2">
-									<RadioGroupItem
-										value="Yes"
-										id="editLabSamplesYes"
-									/>
-									<Label
-										htmlFor="editLabSamplesYes"
-										className="text-sm"
-									>
-										Yes
-									</Label>
-								</div>
-								<div className="flex items-center space-x-2">
-									<RadioGroupItem
-										value="No"
-										id="editLabSamplesNo"
-									/>
-									<Label
-										htmlFor="editLabSamplesNo"
-										className="text-sm"
-									>
-										No
-									</Label>
-								</div>
-							</RadioGroup>
 						</div>
 
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -983,384 +855,6 @@ export function AlertEditDialog({
 							/>
 						</div>
 
-						<div className="space-y-1">
-							<Label
-								htmlFor="narrative"
-								className="text-sm font-medium"
-							>
-								Additional Notes
-							</Label>
-							<Textarea
-								id="narrative"
-								placeholder="Any additional information that might be helpful"
-								value={formData.narrative}
-								onChange={(e) =>
-									handleInputChange(
-										"narrative",
-										e.target.value
-									)
-								}
-								maxLength={250}
-								rows={2}
-							/>
-							<div className="flex justify-between text-xs text-gray-500">
-								<span>Maximum 250 characters</span>
-								<span>
-									{formData.narrative.length}/250
-								</span>
-							</div>
-						</div>
-					</div>
-
-					<Separator />
-
-					{/* Signs and Symptoms */}
-					<div className="space-y-2.5">
-						<div className="flex items-center gap-2 mb-1">
-							<HeartIcon className="h-4 w-4 text-uganda-red" />
-							<h3 className="text-sm font-semibold text-uganda-black">
-								Signs and Symptoms
-							</h3>
-						</div>
-
-						<div className="bg-gray-50 p-3 rounded-lg">
-							<p className="text-xs text-gray-600 mb-2">
-								Select all symptoms that apply to this
-								case:
-							</p>
-							<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-								{signsAndSymptoms.map((symptom) => (
-									<div
-										key={symptom}
-										className="flex items-center space-x-2 px-2 py-1 bg-white rounded border hover:border-uganda-yellow/50 transition-colors"
-									>
-										<Checkbox
-											id={symptom}
-											checked={formData.symptoms.includes(
-												symptom
-											)}
-											onCheckedChange={(
-												checked
-											) =>
-												handleSymptomsChange(
-													symptom,
-													checked as boolean
-												)
-											}
-										/>
-										<Label
-											htmlFor={symptom}
-											className="text-sm font-medium cursor-pointer"
-										>
-											{symptom}
-										</Label>
-									</div>
-								))}
-							</div>
-							{formData.symptoms.length > 0 && (
-								<div className="mt-4">
-									<p className="text-sm font-medium text-gray-700 mb-2">
-										Selected symptoms:
-									</p>
-									<div className="flex flex-wrap gap-2">
-										{formData.symptoms.map(
-											(symptom) => (
-												<Badge
-													key={symptom}
-													variant="secondary"
-													className="bg-uganda-yellow/20 text-uganda-black"
-												>
-													{symptom}
-												</Badge>
-											)
-										)}
-									</div>
-								</div>
-							)}
-						</div>
-					</div>
-
-					<Separator />
-
-					{/* Verification / Lab / Assignment */}
-					<div className="space-y-2.5">
-						<div className="flex items-center gap-3 mb-1">
-							<CheckCircleIcon className="h-4 w-4 text-uganda-red" />
-							<h3 className="text-sm font-semibold text-uganda-black">
-								Verification & Lab
-							</h3>
-						</div>
-
-						<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-							<div className="flex items-center gap-3 rounded-lg border p-3 bg-gray-50">
-								<Checkbox
-									id="isVerified"
-									checked={formData.isVerified}
-									onCheckedChange={(checked) =>
-										handleBoolChange(
-											"isVerified",
-											Boolean(checked)
-										)
-									}
-								/>
-								<Label
-									htmlFor="isVerified"
-									className="text-sm font-medium cursor-pointer"
-								>
-									Verified
-								</Label>
-							</div>
-
-							<div className="space-y-1">
-								<Label htmlFor="verifiedBy" className="text-sm font-medium">
-									Verified By
-								</Label>
-								<Input
-									id="verifiedBy"
-									value={formData.verifiedBy}
-									onChange={(e) =>
-										handleInputChange("verifiedBy", e.target.value)
-									}
-									placeholder="Verifier name"
-								/>
-							</div>
-
-							<div className="space-y-1">
-								<Label htmlFor="assignedTo" className="text-sm font-medium">
-									Assigned To
-								</Label>
-								<Input
-									id="assignedTo"
-									value={formData.assignedTo}
-									onChange={(e) =>
-										handleInputChange("assignedTo", e.target.value)
-									}
-									placeholder="Team / person"
-								/>
-							</div>
-						</div>
-
-						<div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-							<div className="space-y-1">
-								<Label htmlFor="verificationDate" className="text-sm font-medium">
-									Verification Date
-								</Label>
-								<Input
-									id="verificationDate"
-									type="date"
-									value={formData.verificationDate}
-									onChange={(e) =>
-										handleInputChange("verificationDate", e.target.value)
-									}
-								/>
-							</div>
-							<div className="space-y-1">
-								<Label htmlFor="verificationTime" className="text-sm font-medium">
-									Verification Time
-								</Label>
-								<Input
-									id="verificationTime"
-									type="time"
-									value={formData.verificationTime}
-									onChange={(e) =>
-										handleInputChange("verificationTime", e.target.value)
-									}
-								/>
-							</div>
-							<div className="space-y-1">
-								<Label htmlFor="labResult" className="text-sm font-medium">
-									Lab Result
-								</Label>
-								<Input
-									id="labResult"
-									value={formData.labResult}
-									onChange={(e) =>
-										handleInputChange("labResult", e.target.value)
-									}
-									placeholder="e.g. Positive / Negative"
-								/>
-							</div>
-							<div className="space-y-1">
-								<Label htmlFor="labResultDate" className="text-sm font-medium">
-									Lab Result Date
-								</Label>
-								<Input
-									id="labResultDate"
-									type="date"
-									value={formData.labResultDate}
-									onChange={(e) =>
-										handleInputChange("labResultDate", e.target.value)
-									}
-								/>
-							</div>
-						</div>
-
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-							<div className="space-y-1">
-								<Label htmlFor="actions" className="text-sm font-medium">
-									Actions Taken
-								</Label>
-								<Textarea
-									id="actions"
-									rows={2}
-									value={formData.actions}
-									onChange={(e) => handleInputChange("actions", e.target.value)}
-									placeholder="Actions taken during verification / response"
-								/>
-							</div>
-							<div className="space-y-1">
-								<Label htmlFor="feedback" className="text-sm font-medium">
-									Feedback
-								</Label>
-								<Textarea
-									id="feedback"
-									rows={2}
-									value={formData.feedback}
-									onChange={(e) => handleInputChange("feedback", e.target.value)}
-									placeholder="Feedback notes"
-								/>
-							</div>
-						</div>
-
-						<div className="space-y-3 rounded-lg border bg-gray-50 p-3">
-							<Label className="text-sm font-medium">
-								Desk Verification Actions
-							</Label>
-							<p className="text-xs text-gray-500">
-								Select all actions that apply.
-							</p>
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-								{DESK_VERIFICATION_OPTIONS.map((option) => {
-									const id = `edit-desk-${option
-										.toLowerCase()
-										.replace(/[^a-z0-9]/g, "-")}`;
-									return (
-										<div
-											key={option}
-											className="flex items-center space-x-2"
-										>
-											<Checkbox
-												id={id}
-												checked={hasDeskAction(
-													formData.caseVerificationDesk,
-													option
-												)}
-												onCheckedChange={(checked) =>
-													handleInputChange(
-														"caseVerificationDesk",
-														toggleDeskAction(
-															formData.caseVerificationDesk,
-															option,
-															checked === true
-														)
-													)
-												}
-											/>
-											<Label htmlFor={id} className="text-sm">
-												{option}
-											</Label>
-										</div>
-									);
-								})}
-							</div>
-						</div>
-
-						{hasDeskAction(
-							formData.caseVerificationDesk,
-							FIELD_CASE_VERIFICATION
-						) && (
-							<div className="space-y-3 rounded-lg border bg-gray-50 p-3">
-								<Label className="text-sm font-medium">
-									Field Verification Feedback
-								</Label>
-								<RadioGroup
-									value={formData.fieldVerificationDecision}
-									onValueChange={(value) =>
-										handleInputChange("fieldVerificationDecision", value)
-									}
-									className="grid grid-cols-1 md:grid-cols-2 gap-2"
-								>
-									{FIELD_VERIFICATION_OPTIONS.map((option) => (
-										<div
-											key={option}
-											className="flex items-center space-x-2"
-										>
-											<RadioGroupItem
-												value={option}
-												id={`edit-feedback-${option
-													.toLowerCase()
-													.replace(/[^a-z0-9]/g, "-")}`}
-											/>
-											<Label
-												htmlFor={`edit-feedback-${option
-													.toLowerCase()
-													.replace(/[^a-z0-9]/g, "-")}`}
-												className="text-sm"
-											>
-												{option}
-											</Label>
-										</div>
-									))}
-								</RadioGroup>
-							</div>
-						)}
-
-						<div className="space-y-1">
-							<Label htmlFor="fieldVerification" className="text-sm font-medium">
-								Field Verification Notes
-							</Label>
-							<Textarea
-								id="fieldVerification"
-								rows={2}
-								value={formData.fieldVerification}
-								onChange={(e) =>
-									handleInputChange("fieldVerification", e.target.value)
-								}
-								placeholder="Field notes"
-							/>
-						</div>
-
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-							<div className="space-y-1">
-								<Label htmlFor="facilityType" className="text-sm font-medium">
-									Facility Type
-								</Label>
-								<Input
-									id="facilityType"
-									value={formData.facilityType}
-									onChange={(e) =>
-										handleInputChange("facilityType", e.target.value)
-									}
-									placeholder="Facility type"
-								/>
-							</div>
-							<div className="space-y-1">
-								<Label htmlFor="facility" className="text-sm font-medium">
-									Facility
-								</Label>
-								<Input
-									id="facility"
-									value={formData.facility}
-									onChange={(e) =>
-										handleInputChange("facility", e.target.value)
-									}
-									placeholder="Facility name"
-								/>
-							</div>
-						</div>
-
-						<div className="space-y-1">
-							<Label htmlFor="comments" className="text-sm font-medium">
-								Comments
-							</Label>
-							<Textarea
-								id="comments"
-								rows={2}
-								value={formData.comments}
-								onChange={(e) => handleInputChange("comments", e.target.value)}
-								placeholder="Additional comments"
-							/>
-						</div>
 					</div>
 
 					<DialogFooter>
