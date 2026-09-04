@@ -51,6 +51,8 @@ export const CALL_LOGS_CONFIG = {
 	PAGE_DESCRIPTION: "Every signal reported into the system, at every stage of the EBS steps",
 	ITEMS_PER_PAGE: 10,
 	EXPORT_FILENAME_PREFIX: "signal_logs_export",
+	/** The "Export All Signals" download — triaged, verified AND risk-assessed. */
+	PROCESSED_EXPORT_FILENAME_PREFIX: "processed_signals_export",
 } as const;
 
 export const STATUS_FILTER_OPTIONS = [

@@ -99,6 +99,7 @@ export default function CallLogsPage(): React.JSX.Element {
 		deleteAlert,
 		exportToExcel,
 		exportToCSV,
+		exportProcessedToExcel,
 		exporting,
 		clearFilters,
 		filtersResetKey,
@@ -297,6 +298,12 @@ export default function CallLogsPage(): React.JSX.Element {
 				onRefresh={handleRefresh}
 				onExportExcel={exportToExcel}
 				onExportCsv={exportToCSV}
+				// "Export All Signals" lives on the Risk Assessed list only: the list
+				// is the feedback queue (scored signals still owing feedback), the
+				// file is everything that has reached the same state, fed back or not.
+				onExportProcessed={
+					showingRiskAssessed ? exportProcessedToExcel : undefined
+				}
 				isRefreshing={isRefreshing || isValidating}
 				exporting={exporting}
 				queueLabel={stageLabel(viewStage)}

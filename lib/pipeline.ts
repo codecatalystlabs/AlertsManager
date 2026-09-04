@@ -36,6 +36,13 @@ export const STAGE_TRIAGED = "triaged";
 export const STAGE_VERIFIED = "verified";
 export const STAGE_ASSESSED = "assessed";
 
+/**
+ * Not a gate — the INTERSECTION of the three mandatory ones: triaged AND
+ * verified AND risk-assessed, whatever happened next. Backs the register's
+ * "Export All Signals" download. Twin of services.StageProcessed.
+ */
+export const STAGE_PROCESSED = "processed";
+
 export type StageKey =
 	| typeof STAGE_INTAKE
 	| typeof STAGE_TRIAGE
@@ -47,7 +54,8 @@ export type StageKey =
 	| typeof STAGE_DISCARDED
 	| typeof STAGE_TRIAGED
 	| typeof STAGE_VERIFIED
-	| typeof STAGE_ASSESSED;
+	| typeof STAGE_ASSESSED
+	| typeof STAGE_PROCESSED;
 
 /** One gate's live queue, as the backend reports it. */
 export interface PipelineStage {
@@ -103,6 +111,8 @@ export const STAGE_DESCRIPTION: Record<StageKey, string> = {
 		"Signals verification has adjudicated: an outcome someone recorded, confirmed or discarded.",
 	[STAGE_ASSESSED]:
 		"Confirmed events carrying a risk level — the level that selects the response the guideline mandates.",
+	[STAGE_PROCESSED]:
+		"Signals that have been through all three mandatory gates — triaged, verified and risk-assessed — whatever happened next.",
 };
 
 /**

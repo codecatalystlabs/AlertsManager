@@ -6,7 +6,12 @@ import {
 	deriveAlertOutcome,
 	deriveDeskVerificationOutcome,
 } from "./alert-outcome";
-import { formatDeadline, priorityLabel } from "@/lib/alert-triage";
+import {
+	isSignalTriaged,
+	normalizeTriageDecision,
+	TRIAGE_FORWARDED,
+} from "@/lib/alert-triage";
+import { signalSummary } from "@/lib/ebs-signals";
 import {
 	alertSignalTimestamp,
 	computeAlertSla,
@@ -40,11 +45,22 @@ export interface ExportableAlert {
 	fieldVerificationDecision?: string | null;
 	actions?: string | null;
 	// --- Triage (EBS step 2) -------------------------------------------------
+	/**
+	 * Legacy marker only. Triage no longer sets a priority, but a row carrying
+	 * one was triaged before the decision column existed, so it still answers
+	 * "Signal Triaged". It is never a column of its own.
+	 */
 	priority?: string | null;
+	triageDecision?: string | null;
+	triageReason?: string | null;
+	triageDuplicateOf?: number | null;
+	/** The Annex I / II signal named at triage (CH1, FH3…). */
+	signalCode?: string | null;
 	triagedAt?: string | null;
 	triagedBy?: string | null;
 	// --- Verification (EBS step 3) + response (step 6) -----------------------
 	verificationOutcome?: string | null;
+	verificationNote?: string | null;
 	responseActions?: string | null;
 	fieldVerification?: string | null;
 	verificationDate?: string | null;
@@ -67,6 +83,8 @@ export interface ExportableAlert {
 	riskContextNote?: string | null;
 	riskTeamLead?: string | null;
 	riskTeamMembers?: string | null;
+	riskActionTaken?: string | null;
+	riskEvacuationFacility?: string | null;
 	riskAssessedAt?: string | null;
 	riskAssessedBy?: string | null;
 	// --- Reporter feedback (EBS step 7) --------------------------------------
@@ -128,17 +146,28 @@ const TAIL_COLUMNS: ExportColumn[] = [
 ];
 
 /**
- * Triage (EBS step 2). "Untriaged" is spelled out rather than left blank
- * because an empty priority cell reads as missing data, when in fact it is the
- * finding: nobody has screened the signal. The deadline column is the one the
- * SLA was actually scored against, so an untriaged row shows the Medium
- * fallback (see verificationDeadlineMinutes).
+ * Triage (EBS step 2). The gate no longer sets a priority — it answers the two
+ * screening questions and names the Annex I/II signal — so the columns are
+ * the decision, the signal and who took it, when. "Signal Triaged" is a
+ * spelled-out Yes/No rather than an empty decision cell because a blank reads
+ * as missing data, when in fact it is the finding: nobody has screened the
+ * signal. Same test as the register's column (isSignalTriaged).
  */
 const TRIAGE_COLUMNS: ExportColumn[] = [
-	{ header: "Triage Priority", getValue: (a) => priorityLabel(a.priority) },
 	{
-		header: "Verification Deadline",
-		getValue: (a) => formatDeadline(a.priority),
+		header: "Signal Triaged",
+		getValue: (a) => (isSignalTriaged(a) ? "Yes" : "No"),
+	},
+	{ header: "Triage Decision", getValue: (a) => triageDecision(a) },
+	{
+		header: "EBS Signal",
+		getValue: (a) => signalSummary(a.signalCode) ?? a.signalCode ?? "",
+	},
+	{ header: "Triage Reason", getValue: (a) => a.triageReason ?? "" },
+	{
+		header: "Duplicate Of",
+		getValue: (a) =>
+			a.triageDuplicateOf != null ? `${altCode(a.triageDuplicateOf)}` : "",
 	},
 	{ header: "Triaged Date", getValue: (a) => formatExportDate(a.triagedAt) },
 	{ header: "Triaged Time", getValue: (a) => formatExportTime(a.triagedAt) },
@@ -157,6 +186,7 @@ const VERIFICATION_DETAIL_COLUMNS: ExportColumn[] = [
 		header: "Verification Decision",
 		getValue: (a) => a.verificationOutcome ?? "",
 	},
+	{ header: "Verification Note", getValue: (a) => a.verificationNote ?? "" },
 	{
 		header: "Desk Verification Actions",
 		getValue: (a) => a.caseVerificationDesk ?? "",
@@ -213,6 +243,11 @@ const RISK_COLUMNS: ExportColumn[] = [
 	{ header: "Risk Context Notes", getValue: (a) => a.riskContextNote ?? "" },
 	{ header: "RRT Lead", getValue: (a) => a.riskTeamLead ?? "" },
 	{ header: "RRT Members", getValue: (a) => a.riskTeamMembers ?? "" },
+	{ header: "Risk Action Taken", getValue: (a) => a.riskActionTaken ?? "" },
+	{
+		header: "Evacuation Facility",
+		getValue: (a) => a.riskEvacuationFacility ?? "",
+	},
 	{
 		header: "Risk Assessed Date",
 		getValue: (a) => formatExportDate(a.riskAssessedAt),
@@ -299,6 +334,18 @@ function formatSymptoms(value?: string | null): string {
 		.map((symptom) => symptom.trim())
 		.filter(Boolean)
 		.join(", ");
+}
+
+/**
+ * The exit the signal took at the gate, spelled canonically. A row carrying
+ * only a legacy priority went forward — a priority was only ever given to a
+ * signal that proceeded — and an untriaged row is blank here because the
+ * "Signal Triaged" column already says No.
+ */
+function triageDecision(alert: ExportableAlert): string {
+	const decision = normalizeTriageDecision(alert.triageDecision);
+	if (decision) return decision;
+	return isSignalTriaged(alert) ? TRIAGE_FORWARDED : "";
 }
 
 /** "Yes" / "No", or blank when the question was never answered. */
