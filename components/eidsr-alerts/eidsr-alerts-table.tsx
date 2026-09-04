@@ -32,11 +32,9 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { AlertVerifyChip } from "@/components/eidsr-alerts/alert-verify-chip";
 import {
 	Eye,
-	Loader2,
 	MoreHorizontal,
 	Pencil,
 	Send,
-	ShieldCheck,
 } from "lucide-react";
 
 interface EidsrAlertsTableProps {
@@ -46,7 +44,6 @@ interface EidsrAlertsTableProps {
 	pageSize: number;
 	totalPages: number;
 	isLoading?: boolean;
-	verifyInProgressId?: number | null;
 	onPageChange: (page: number) => void;
 	onPageSizeChange: (pageSize: number) => void;
 	onInAlertsFilterChange?: (filter: "all" | "linked" | "unlinked") => void;
@@ -56,16 +53,14 @@ interface EidsrAlertsTableProps {
 	filtersResetKey?: number;
 	onView: (message: EidsrMessage) => void;
 	onEdit: (message: EidsrMessage) => void;
-	onVerify: (message: EidsrMessage) => void;
-	onForward: (message: EidsrMessage) => void;
+	/** Opens the move-to-Signal-Register dialog. */
+	onMove: (message: EidsrMessage) => void;
 }
 
 function createColumns(handlers: {
 	onView: (m: EidsrMessage) => void;
 	onEdit: (m: EidsrMessage) => void;
-	onVerify: (m: EidsrMessage) => void;
-	onForward: (m: EidsrMessage) => void;
-	verifyInProgressId: number | null;
+	onMove: (m: EidsrMessage) => void;
 	canForward: boolean;
 }): ColumnDef<EidsrMessage>[] {
 	return [
@@ -221,7 +216,6 @@ function createColumns(handlers: {
 			enableColumnFilter: false,
 			cell: ({ row }) => {
 				const m = row.original;
-				const verifying = handlers.verifyInProgressId === m.id;
 
 				return (
 					<div className="text-right">
@@ -233,11 +227,7 @@ function createColumns(handlers: {
 									aria-label={`Actions for 6767 message ${m.id}`}
 								>
 									<span className="sr-only">Open menu</span>
-									{verifying ? (
-										<Loader2 className="h-4 w-4 animate-spin" />
-									) : (
-										<MoreHorizontal className="h-4 w-4" />
-									)}
+									<MoreHorizontal className="h-4 w-4" />
 								</Button>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end">
@@ -261,22 +251,13 @@ function createColumns(handlers: {
 										<DropdownMenuSeparator />
 										<DropdownMenuItem
 											className="flex items-center gap-2"
-											onClick={() => handlers.onForward(m)}
+											onClick={() => handlers.onMove(m)}
 										>
 											<Send className="h-4 w-4" />
-											Forward to district
+											Move to Signal Register
 										</DropdownMenuItem>
 									</>
 								)}
-								<DropdownMenuSeparator />
-								<DropdownMenuItem
-									className="flex items-center gap-2 text-uganda-red focus:text-uganda-red"
-									onClick={() => handlers.onVerify(m)}
-									disabled={verifying}
-								>
-									<ShieldCheck className="h-4 w-4" />
-									Verify into alerts
-								</DropdownMenuItem>
 							</DropdownMenuContent>
 						</DropdownMenu>
 					</div>
@@ -294,7 +275,6 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 		pageSize,
 		totalPages,
 		isLoading = false,
-		verifyInProgressId = null,
 		onPageChange,
 		onPageSizeChange,
 		onInAlertsFilterChange,
@@ -302,8 +282,7 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 		filtersResetKey,
 		onView,
 		onEdit,
-		onVerify,
-		onForward,
+		onMove,
 	}) => {
 		const canForward = canForwardAlerts(useCurrentUser());
 		const columns = useMemo(
@@ -311,12 +290,10 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 				createColumns({
 					onView,
 					onEdit,
-					onVerify,
-					onForward,
-					verifyInProgressId,
+					onMove,
 					canForward,
 				}),
-			[onView, onEdit, onVerify, onForward, verifyInProgressId, canForward]
+			[onView, onEdit, onMove, canForward]
 		);
 		// This table is server-paginated, so header filters run server-side
 		// (manualFiltering): onColumnFiltersChange routes them to the hook, which
