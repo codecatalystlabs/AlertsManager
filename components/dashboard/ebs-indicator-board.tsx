@@ -24,8 +24,6 @@ import {
 	BarChart,
 	CartesianGrid,
 	LabelList,
-	Line,
-	LineChart,
 	Tooltip,
 	XAxis,
 	YAxis,
@@ -69,13 +67,15 @@ import {
 
 /**
  * The dashboard board: headline figures, the weekly signal chart, one trend
- * card per indicator (value + numerator/denominator + epi-week graph), the
- * cascade funnel and the reporting-unit breakdown.
+ * card per indicator (count + epi-week bar graph), the cascade funnel and the
+ * reporting-unit breakdown.
  *
  * Every card is one row of the published indicator table
- * (lib/ebs-indicators.ts); the definition, numerator and denominator are the
- * card's hover hint, and every graph runs on epi weeks (ISO weeks, the DHIS2
- * weekly period) so it lines up with the weekly bulletin.
+ * (lib/ebs-indicators.ts), shown as a COUNT — the published denominators are
+ * not supersets of their numerators in the register, so the board does not
+ * divide them (see lib/ebs-indicators.ts). The definition, numerator and
+ * denominator are the card's hover hint, and every graph runs on epi weeks
+ * (ISO weeks, the DHIS2 weekly period) so it lines up with the weekly bulletin.
  */
 
 const STAGE_COLOR: Record<EbsStage, string> = {
@@ -319,30 +319,19 @@ WeeklySignalsCard.displayName = "WeeklySignalsCard";
 interface TrendTooltipProps {
 	active?: boolean;
 	payload?: { payload: IndicatorTrendPoint }[];
-	kind: "count" | "proportion";
+	unit: EbsIndicatorRow["unit"];
 }
 
-/** Week title, then the value with the counts it is made of. */
-function TrendTooltip({ active, payload, kind }: TrendTooltipProps) {
+/** Week title, then that week's count. */
+function TrendTooltip({ active, payload, unit }: TrendTooltipProps) {
 	const p = payload?.[0]?.payload;
 	if (!active || !p) return null;
 	return (
 		<div className="rounded-md border bg-background px-2.5 py-1.5 text-xs shadow-md">
 			<p className="font-medium text-gray-900">{epiWeekTitle(p)}</p>
-			{kind === "count" ? (
-				<p className="mt-0.5 tabular-nums text-gray-700">{p.numerator.toLocaleString()} signals</p>
-			) : p.denominator === null || p.denominator === 0 ? (
-				<p className="mt-0.5 text-gray-500">
-					{p.numerator > 0
-						? `${p.numerator.toLocaleString()} recorded · no denominator this week`
-						: "nothing in scope this week"}
-				</p>
-			) : (
-				<p className="mt-0.5 tabular-nums text-gray-700">
-					<span className="font-semibold text-gray-900">{p.value}%</span> ·{" "}
-					{p.numerator.toLocaleString()} of {p.denominator.toLocaleString()}
-				</p>
-			)}
+			<p className="mt-0.5 tabular-nums text-gray-700">
+				<span className="font-semibold text-gray-900">{p.value.toLocaleString()}</span> {unit}
+			</p>
 		</div>
 	);
 }
@@ -355,12 +344,12 @@ interface IndicatorTrendCardProps {
 
 const TREND_HEIGHT = 200;
 
-/** One indicator: its current value, the counts behind it, and its epi-week graph. */
+/** One indicator: its count in scope and its epi-week bar graph. */
 const IndicatorTrendCard = memo<IndicatorTrendCardProps>(({ row, points, isLoading }) => {
 	const Icon = INDICATOR_ICONS[row.id] ?? Files;
 	const color = STAGE_COLOR[row.stage];
 	const config: ChartConfig = { value: { label: row.label, color } };
-	const hasData = points.some((p) => p.value !== null && (row.kind === "count" ? p.value > 0 : true));
+	const hasData = points.some((p) => p.value > 0);
 
 	return (
 		<Card title={hintFor(row)}>
@@ -378,12 +367,12 @@ const IndicatorTrendCard = memo<IndicatorTrendCardProps>(({ row, points, isLoadi
 								{row.display}
 							</p>
 						)}
-						{!isLoading && row.detail && (
-							<p className="mt-0.5 text-[10px] leading-tight text-gray-500">{row.detail}</p>
+						{!isLoading && (
+							<p className="mt-0.5 text-[10px] leading-tight text-gray-500">{row.unit} in scope</p>
 						)}
 					</div>
 				</div>
-				<CardDescription className="truncate text-[11px]">{row.definition}</CardDescription>
+				<CardDescription className="truncate text-[11px]">{row.caption}</CardDescription>
 			</CardHeader>
 			<CardContent className="pt-0">
 				{isLoading ? (
@@ -395,55 +384,23 @@ const IndicatorTrendCard = memo<IndicatorTrendCardProps>(({ row, points, isLoadi
 					/>
 				) : (
 					<ChartContainer config={config} className="w-full" style={{ height: TREND_HEIGHT }}>
-						{row.kind === "count" ? (
-							<BarChart data={points} margin={{ left: -8, right: 4, top: 8, bottom: 0 }}>
-								<CartesianGrid strokeDasharray="3 3" vertical={false} />
-								<XAxis
-									dataKey="label"
-									tickLine={false}
-									axisLine={false}
-									tick={{ fontSize: 10 }}
-									interval={weekTickInterval(points.length, 9)}
-								/>
-								<YAxis tickLine={false} axisLine={false} width={36} tick={{ fontSize: 10 }} allowDecimals={false} />
-								<Tooltip content={<TrendTooltip kind="count" />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-								<Bar dataKey="value" fill="var(--color-value)" radius={[2, 2, 0, 0]}>
-									{points.length <= 16 && (
-										<LabelList dataKey="value" position="top" fontSize={10} className="fill-muted-foreground" />
-									)}
-								</Bar>
-							</BarChart>
-						) : (
-							<LineChart data={points} margin={{ left: -4, right: 8, top: 8, bottom: 0 }}>
-								<CartesianGrid strokeDasharray="3 3" vertical={false} />
-								<XAxis
-									dataKey="label"
-									tickLine={false}
-									axisLine={false}
-									tick={{ fontSize: 10 }}
-									interval={weekTickInterval(points.length, 9)}
-								/>
-								<YAxis
-									domain={[0, 100]}
-									ticks={[0, 25, 50, 75, 100]}
-									tickFormatter={(v: number) => `${v}%`}
-									tickLine={false}
-									axisLine={false}
-									width={40}
-									tick={{ fontSize: 10 }}
-								/>
-								<Tooltip content={<TrendTooltip kind="proportion" />} cursor={{ stroke: "#9ca3af", strokeDasharray: "3 3" }} />
-								<Line
-									type="monotone"
-									dataKey="value"
-									stroke="var(--color-value)"
-									strokeWidth={2}
-									dot={{ fill: "var(--color-value)", r: 2.5 }}
-									activeDot={{ r: 4, fill: "#FCDC04" }}
-									connectNulls={false}
-								/>
-							</LineChart>
-						)}
+						<BarChart data={points} margin={{ left: -8, right: 4, top: 8, bottom: 0 }}>
+							<CartesianGrid strokeDasharray="3 3" vertical={false} />
+							<XAxis
+								dataKey="label"
+								tickLine={false}
+								axisLine={false}
+								tick={{ fontSize: 10 }}
+								interval={weekTickInterval(points.length, 9)}
+							/>
+							<YAxis tickLine={false} axisLine={false} width={36} tick={{ fontSize: 10 }} allowDecimals={false} />
+							<Tooltip content={<TrendTooltip unit={row.unit} />} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
+							<Bar dataKey="value" fill="var(--color-value)" radius={[2, 2, 0, 0]}>
+								{points.length <= 16 && (
+									<LabelList dataKey="value" position="top" fontSize={10} className="fill-muted-foreground" />
+								)}
+							</Bar>
+						</BarChart>
 					</ChartContainer>
 				)}
 			</CardContent>
@@ -491,10 +448,7 @@ const cascadeConfig: ChartConfig = {
 export const SignalCascadeCard = memo<BoardProps>(({ summary, isLoading }) => {
 	const steps = useMemo(() => buildSignalCascade(summary), [summary]);
 	const reported = steps[0]?.count ?? 0;
-	const data = steps.map((s) => ({
-		...s,
-		share: reported > 0 ? Math.round((s.count / reported) * 100) : 0,
-	}));
+	const data = steps.map((s) => ({ ...s, share: percent(s.count, reported) }));
 
 	return (
 		<Card>
@@ -532,7 +486,7 @@ export const SignalCascadeCard = memo<BoardProps>(({ summary, isLoading }) => {
 								<LabelList
 									dataKey="share"
 									position="right"
-									formatter={(v: number) => `${v}%`}
+									formatter={(v: number | null) => (v === null ? "" : `${v}%`)}
 									className="fill-muted-foreground"
 									fontSize={11}
 								/>
@@ -594,7 +548,8 @@ export const ReportingUnitsCard = memo<BoardProps>(({ summary, isLoading }) => {
 	const districts = summary?.topDistricts ?? [];
 
 	return (
-		<Card>
+		// Last card on the board: spans both columns so it fills the row.
+		<Card className="lg:col-span-2">
 			<CardHeader>
 				<div className="flex items-center gap-2">
 					<Layers className="h-4 w-4 text-uganda-red" />
