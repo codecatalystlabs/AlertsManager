@@ -86,8 +86,9 @@ export interface RiskMatrix {
 /**
  * Raw numerator / denominator of every row of the EBS indicator table
  * (Signals reported → Alerts), computed server-side over the scoped rows. The
- * percentages are derived in lib/ebs-indicators.ts so the UI can always show
- * the two counts a proportion is made of.
+ * board shows the numerator COUNTS (lib/ebs-indicators.ts); the denominators
+ * are kept for reference but never divided into, because the published
+ * denominators of rows 10–12 are not supersets of their numerators.
  */
 export interface DashboardIndicators {
 	/** 1. Every signal in scope. */

@@ -20,8 +20,8 @@ import { EBS_DATA_SOURCE } from "@/lib/ebs-indicators";
 /**
  * The dashboard: the published signal-to-alert indicators for the selected
  * scope — headline counts, signals by epi week, one trend card per indicator
- * (current value, the counts behind it, and its epi-week graph), then the
- * cascade funnel and the reporting-unit breakdown. Each card's definition,
+ * (count in scope and its epi-week bar graph — counts, not percentages), then
+ * the cascade funnel and the reporting-unit breakdown. Each card's definition,
  * numerator and denominator are its hover hint (lib/ebs-indicators.ts).
  *
  * The overview this page used to show — workflow KPI cards, the §11

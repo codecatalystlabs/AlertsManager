@@ -4,68 +4,47 @@ import React, { useCallback, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 
 import { downloadDashboardPdf, type DashboardPdfSection } from "@/lib/charts-pdf";
-import {
-	ErrorAlert,
-	StatsGrid,
-	TriageKpiCards,
-	VerificationKpiCards,
-	RiskKpiCards,
-	FeedbackKpiCards,
-	KpiScorecard,
-	RecentActivityCard,
-	SignalCoverageCard,
-	RiskMatrixCard,
-	DashboardScopeBar,
-} from "@/components/dashboard";
+import { ErrorAlert, RiskMatrixCard, DashboardScopeBar } from "@/components/dashboard";
+import { AdminOverviewCards } from "@/components/reports/admin-overview-charts";
 import { useDashboardScope } from "@/hooks/use-dashboard-scope";
 import { useDashboardSummary } from "@/hooks/use-dashboard-summary";
-import type { AlertCounts } from "@/app/dashboard/types";
 import { LAYOUT } from "@/constants/layout";
 import { ChartSkeleton } from "@/components/ui/skeletons";
 
-/** Loading placeholder mirroring the DashboardCharts grid. */
-function DashboardChartsSkeleton(): React.JSX.Element {
+/** Loading placeholder mirroring the AdminOverviewCharts grid. */
+function OverviewChartsSkeleton(): React.JSX.Element {
 	return (
-		<div className="space-y-3">
-			<ChartSkeleton height={90} bars={7} withLegend />
-			<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-				{[0, 1, 2, 3].map((i) => (
-					<ChartSkeleton key={i} height={220} />
-				))}
+		<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+			<div className="lg:col-span-2">
+				<ChartSkeleton height={220} bars={12} withLegend />
 			</div>
+			{[0, 1, 2, 3].map((i) => (
+				<ChartSkeleton key={i} height={200} />
+			))}
 		</div>
 	);
 }
 
-const DashboardCharts = dynamic(
+// Recharts is client-only and heavy; load the grid on demand like the
+// dashboard does.
+const AdminOverviewCharts = dynamic(
 	() =>
-		import("@/components/dashboard/dashboard-charts").then((m) => ({
-			default: m.DashboardCharts,
+		import("@/components/reports/admin-overview-charts").then((m) => ({
+			default: m.AdminOverviewCharts,
 		})),
-	{
-		ssr: false,
-		loading: () => <DashboardChartsSkeleton />,
-	}
+	{ ssr: false, loading: () => <OverviewChartsSkeleton /> }
 );
 
-const EMPTY_COUNTS: AlertCounts = {
-	verified: 0,
-	notVerified: 0,
-	triaged: 0,
-	discarded: 0,
-	alerts: 0,
-	total: 0,
-};
-
 /**
- * The signal overview — the workflow KPI cards, the §11 national KPI
- * scorecard, the per-gate KPI rows, the recent-activity snapshot, every
- * trend/breakdown chart, the risk matrix and the feed-coverage caveat.
+ * The administrative overview on the Overview tab of Summaries / Reports:
+ * a KPI row of stat tiles, a grid of charts that each use a different form
+ * (area, composed bar+line, donuts, 100%-stacked bars, ranked bars, treemap,
+ * radial bars, status columns) and the §6 risk-matrix heatmap — all scoped by
+ * the dashboard scope bar and exportable to PDF.
  *
- * This used to BE the dashboard page. The dashboard now reports the EBS
- * indicator table (app/dashboard/page.tsx); everything it used to show lives
- * here, on the Overview tab of Summaries / Reports, unchanged and under the
- * same scope bar, so the two pages reconcile.
+ * The §11 KPI scorecard, the per-gate KPI rows, the recent-activity snapshot
+ * and the feed-coverage caveat used to live here; they were tables and text
+ * rows rather than graphs, and the overview is now charts and cards only.
  */
 export function SignalOverviewPanel(): React.JSX.Element {
 	const scope = useDashboardScope();
@@ -78,9 +57,9 @@ export function SignalOverviewPanel(): React.JSX.Element {
 	);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
-	// The overview KPI block and the charts grid are captured as separate PDF
-	// sections so the export includes both the cards and every chart.
-	const overviewRef = useRef<HTMLDivElement>(null);
+	// The KPI row and the charts grid are captured as separate PDF sections so
+	// the export carries both the tiles and every chart.
+	const cardsRef = useRef<HTMLDivElement>(null);
 	const chartsRef = useRef<HTMLDivElement>(null);
 
 	const handleRefresh = useCallback(async () => {
@@ -93,22 +72,22 @@ export function SignalOverviewPanel(): React.JSX.Element {
 	}, [refetch]);
 
 	const handleDownloadReport = useCallback(async () => {
-		if (!overviewRef.current && !chartsRef.current) return;
+		if (!cardsRef.current && !chartsRef.current) return;
 		setIsDownloadingPdf(true);
 		try {
 			const sections: DashboardPdfSection[] = [];
-			if (overviewRef.current) {
+			if (cardsRef.current) {
 				sections.push({
-					container: overviewRef.current,
+					container: cardsRef.current,
 					splitCards: true,
-					heading: "Overview & national KPIs",
+					heading: "Overview",
 				});
 			}
 			if (chartsRef.current) {
 				sections.push({
 					container: chartsRef.current,
 					splitCards: true,
-					heading: "Trends & breakdowns",
+					heading: "Charts",
 				});
 			}
 			await downloadDashboardPdf(sections, {
@@ -123,18 +102,7 @@ export function SignalOverviewPanel(): React.JSX.Element {
 		}
 	}, [isUnbounded]);
 
-	// Every KPI card comes from one server-side aggregate, scoped to the
-	// selected range + geography + response type.
-	const statCounts: AlertCounts = summary
-		? {
-				verified: summary.verified,
-				notVerified: summary.notVerified,
-				triaged: summary.triaged,
-				discarded: summary.discarded,
-				alerts: summary.alerts,
-				total: summary.total,
-			}
-		: EMPTY_COUNTS;
+	const isInitialLoading = loading && !summary;
 
 	return (
 		<div className={LAYOUT.pageGap}>
@@ -153,55 +121,26 @@ export function SignalOverviewPanel(): React.JSX.Element {
 				<ErrorAlert error={error} onRetry={handleRefresh} retrying={isRefreshing} />
 			)}
 
-			{/* Inside overviewRef so the PDF export carries the scorecard and the
-			    per-gate KPI rows: §11 sets a monthly reporting cadence, and a
-			    downloaded report that omits the indicators is not the report. */}
-			<div ref={overviewRef} className={LAYOUT.pageGap}>
-				<StatsGrid alertCounts={statCounts} kpiLoading={loading && !summary} />
-
-				{/* The ten §11 indicators on one card, including the three that
-				    are not measurable from what the system captures. */}
-				<KpiScorecard summary={summary} isLoading={loading && !summary} />
-
-				{/* Each pipeline gate that carries a national KPI, in EBS step
-				    order: triage, verification, risk assessment, feedback. */}
-				<TriageKpiCards summary={summary} isLoading={loading && !summary} />
-				<VerificationKpiCards summary={summary} isLoading={loading && !summary} />
-				<RiskKpiCards summary={summary} isLoading={loading && !summary} />
-				<FeedbackKpiCards summary={summary} isLoading={loading && !summary} />
+			<div ref={cardsRef}>
+				<AdminOverviewCards summary={summary} isLoading={isInitialLoading} />
 			</div>
 
-			{/* Recent-activity triage snapshot — its own rolling/custom window,
-			    independent of the page date range but scoped by district. */}
-			<RecentActivityCard district={district} />
+			<div ref={chartsRef} className={LAYOUT.pageGap}>
+				<AdminOverviewCharts summary={summary} isLoading={isInitialLoading} />
 
-			<h2 className="text-base font-semibold text-gray-900">Trends &amp; breakdowns</h2>
-
-			<div ref={chartsRef}>
-				{loading && !summary ? (
-					<DashboardChartsSkeleton />
-				) : summary ? (
-					<DashboardCharts summary={summary} />
-				) : null}
+				{/* EBS §6 risk matrix — the one heatmap: confirmed events plotted by
+				    their recorded likelihood × impact, coloured by algorithm level. */}
+				<RiskMatrixCard
+					matrix={summary?.riskMatrix}
+					isLoading={isInitialLoading}
+					scope={{
+						fromDate: range.from || undefined,
+						toDate: range.to || undefined,
+						district,
+						region,
+					}}
+				/>
 			</div>
-
-			{/* EBS §6 risk matrix — confirmed events plotted by their recorded
-			    likelihood × impact, coloured by the algorithm level. */}
-			<RiskMatrixCard
-				matrix={summary?.riskMatrix}
-				isLoading={loading && !summary}
-				scope={{
-					fromDate: range.from || undefined,
-					toDate: range.to || undefined,
-					district,
-					region,
-				}}
-			/>
-
-			{/* What everything above does NOT count: signals still sitting in the
-			    6767 / eCHIS / POE feeds, which never entered triage or
-			    verification. Placed last so it reads as the caveat it is. */}
-			<SignalCoverageCard />
 		</div>
 	);
 }

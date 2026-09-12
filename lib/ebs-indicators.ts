@@ -9,10 +9,13 @@ import type {
  * the definition, numerator and denominator exactly as published, and the
  * value derived from the counts the API returns.
  *
- * The API ships COUNTS (lib/fetch-dashboard.ts → DashboardIndicators); the
- * percentage is computed here, next to the two numbers it is made of, so every
- * proportion on the page can be shown as "12 of 40 (30%)" rather than a bare
- * 30% that nobody can check.
+ * The API ships COUNTS (lib/fetch-dashboard.ts → DashboardIndicators). The
+ * board shows each row as its COUNT — never as a percentage. The published
+ * denominators of rows 10–12 (events reported via 912, dead high-risk events,
+ * events risk-assessed) are not supersets of their numerators in the register
+ * (an evacuation is recorded whatever the reporting channel was), so a ratio
+ * of the two counts is meaningless and used to read as "7014%". The numerator
+ * and denominator definitions stay on the row for the hover hint.
  */
 
 /** Every row is sourced from the same register. */
@@ -43,20 +46,22 @@ export interface EbsIndicatorDefinition {
 	denominatorLabel: string;
 	kind: EbsIndicatorKind;
 	stage: EbsStage;
+	/** What one unit of the count is, for "12 events": "signals", "events" or "alerts". */
+	unit: "signals" | "events" | "alerts";
 	/** Where the counts come from, when the row's data has a caveat worth stating. */
 	note?: string;
 }
 
 export interface EbsIndicatorRow extends EbsIndicatorDefinition {
 	numerator: number;
-	/** null for a count. */
+	/** The published denominator's count, kept for reference; null for a count row. */
 	denominator: number | null;
-	/** Percentage 0–100 for a proportion (null when the denominator is 0); the count otherwise. */
-	value: number | null;
-	/** Rendered value: "42%", "1,234" or "n/a". */
+	/** The headline figure: the numerator count. */
+	value: number;
+	/** Rendered value: "1,234". */
 	display: string;
-	/** Supporting line: "12 of 40" for a proportion, "" for a count. */
-	detail: string;
+	/** What the headline counts, e.g. "Total number of events evacuated". */
+	caption: string;
 }
 
 export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
@@ -71,6 +76,7 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 		denominatorLabel: "N/A",
 		kind: "count",
 		stage: "detection",
+		unit: "signals",
 	},
 	{
 		n: 2,
@@ -82,6 +88,7 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 		denominatorLabel: "Total number of signals triaged",
 		kind: "proportion",
 		stage: "triage",
+		unit: "signals",
 	},
 	{
 		n: 3,
@@ -93,6 +100,7 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 		denominatorLabel: "Total number of reported signals",
 		kind: "proportion",
 		stage: "triage",
+		unit: "signals",
 		note: "A duplicate is a signal triage discarded as already reported and under investigation.",
 	},
 	{
@@ -105,11 +113,12 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 		denominatorLabel: "Total number of signals verified",
 		kind: "proportion",
 		stage: "verification",
+		unit: "signals",
 	},
 	{
 		n: 5,
 		id: "signal-to-event",
-		label: "Signal-to-event conversion",
+		label: "Events confirmed",
 		name: "Signal-to-event conversion rate",
 		definition:
 			"Proportion of verified signals classified as events requiring risk assessment.",
@@ -117,6 +126,7 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 		denominatorLabel: "Total number of verified signals",
 		kind: "proportion",
 		stage: "verification",
+		unit: "events",
 		note: "An event is a verified signal whose outcome is Confirmed.",
 	},
 	{
@@ -129,6 +139,7 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 		denominatorLabel: "Total number of signals verified",
 		kind: "proportion",
 		stage: "risk",
+		unit: "events",
 	},
 	{
 		n: 7,
@@ -140,6 +151,7 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 		denominatorLabel: "Total number of events risk assessed",
 		kind: "proportion",
 		stage: "response",
+		unit: "events",
 		note: "Response initiated = the risk-assessment action was Respond, or a sample, EMS evacuation, SDB or admission is on record.",
 	},
 	{
@@ -152,6 +164,7 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 		denominatorLabel: "Total number of events risk assessed",
 		kind: "proportion",
 		stage: "response",
+		unit: "events",
 	},
 	{
 		n: 9,
@@ -163,6 +176,7 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 		denominatorLabel: "Total number of events where response was initiated",
 		kind: "proportion",
 		stage: "response",
+		unit: "events",
 	},
 	{
 		n: 10,
@@ -174,6 +188,7 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 		denominatorLabel: "Total number of events where reporting channel is 912 (EMS)",
 		kind: "proportion",
 		stage: "response",
+		unit: "events",
 	},
 	{
 		n: 11,
@@ -186,6 +201,7 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 			"Total number of events whose status is Dead and has ≥ High risk at assessment",
 		kind: "proportion",
 		stage: "response",
+		unit: "events",
 	},
 	{
 		n: 12,
@@ -197,6 +213,7 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 		denominatorLabel: "Total number of events risk assessed",
 		kind: "proportion",
 		stage: "alert",
+		unit: "alerts",
 		note: "An alert is a verified signal that was not discarded.",
 	},
 ];
@@ -236,8 +253,14 @@ function countsFor(
 	}
 }
 
+/**
+ * A share of a whole, or null when there is no honest share to give: the whole
+ * is empty, or the part is not actually inside it (a count that exceeds its
+ * "denominator" is a definition mismatch, not a 700% rate).
+ */
 export function percent(part: number, whole: number): number | null {
-	return whole > 0 ? Math.round((part / whole) * 100) : null;
+	if (whole <= 0 || part < 0 || part > whole) return null;
+	return Math.round((part / whole) * 100);
 }
 
 const EMPTY_INDICATORS: DashboardIndicators = {
@@ -260,9 +283,9 @@ const EMPTY_INDICATORS: DashboardIndicators = {
 };
 
 /**
- * Every row of the table, valued. Tolerates a summary from an older API that
- * has no `indicators` block by rendering zeros — the board must never crash
- * because the backend is a version behind.
+ * Every row of the table, valued as a count. Tolerates a summary from an older
+ * API that has no `indicators` block by rendering zeros — the board must never
+ * crash because the backend is a version behind.
  */
 export function buildEbsIndicatorRows(
 	summary: DashboardSummary | undefined
@@ -270,29 +293,13 @@ export function buildEbsIndicatorRows(
 	const counts = summary?.indicators ?? EMPTY_INDICATORS;
 	return EBS_INDICATORS.map((def) => {
 		const { numerator, denominator } = countsFor(def.id, counts);
-		if (def.kind === "count") {
-			return {
-				...def,
-				numerator,
-				denominator: null,
-				value: numerator,
-				display: numerator.toLocaleString(),
-				detail: "",
-			};
-		}
-		const value = denominator === null ? null : percent(numerator, denominator);
 		return {
 			...def,
 			numerator,
-			denominator,
-			value,
-			display: value === null ? "n/a" : `${value}%`,
-			detail:
-				denominator === null || denominator === 0
-					? numerator > 0
-						? `${numerator.toLocaleString()} recorded · no denominator in scope`
-						: "nothing in scope"
-					: `${numerator.toLocaleString()} of ${denominator.toLocaleString()}`,
+			denominator: def.kind === "count" ? null : denominator,
+			value: numerator,
+			display: numerator.toLocaleString(),
+			caption: def.kind === "count" ? def.definition : `${def.numeratorLabel}.`,
 		};
 	});
 }
@@ -361,9 +368,10 @@ export interface IndicatorTrendPoint {
 	start: string;
 	end: string;
 	numerator: number;
+	/** The published denominator's count that week, for reference; null for a count row. */
 	denominator: number | null;
-	/** Percentage for a proportion (null when its denominator is 0); the count otherwise. */
-	value: number | null;
+	/** The week's count — what the graph plots. */
+	value: number;
 }
 
 function weekTick(p: DashboardWeekPoint, multiYear: boolean): string {
@@ -375,7 +383,7 @@ function spansYears(series: DashboardWeekPoint[]): boolean {
 	return series.length > 0 && series[0].year !== series[series.length - 1].year;
 }
 
-/** The trend of one indicator across the epi weeks in scope. */
+/** The trend of one indicator across the epi weeks in scope, as weekly counts. */
 export function buildIndicatorTrend(
 	summary: DashboardSummary | undefined,
 	id: string
@@ -385,12 +393,6 @@ export function buildIndicatorTrend(
 	const multiYear = spansYears(series);
 	return series.map((p) => {
 		const { numerator, denominator } = countsFor(id, p.counts);
-		const value =
-			def?.kind === "count"
-				? numerator
-				: denominator === null
-					? null
-					: percent(numerator, denominator);
 		return {
 			week: p.week,
 			label: weekTick(p, multiYear),
@@ -400,7 +402,7 @@ export function buildIndicatorTrend(
 			end: p.end,
 			numerator,
 			denominator: def?.kind === "count" ? null : denominator,
-			value,
+			value: numerator,
 		};
 	});
 }
