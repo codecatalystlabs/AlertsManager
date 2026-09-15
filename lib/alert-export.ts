@@ -6,12 +6,9 @@ import {
 	deriveAlertOutcome,
 	deriveDeskVerificationOutcome,
 } from "./alert-outcome";
-import {
-	isSignalTriaged,
-	normalizeTriageDecision,
-	TRIAGE_FORWARDED,
-} from "@/lib/alert-triage";
+import { isSignalTriaged } from "@/lib/alert-triage";
 import { signalSummary } from "@/lib/ebs-signals";
+import { isRiskAssessed } from "@/lib/alert-risk";
 import {
 	alertSignalTimestamp,
 	computeAlertSla,
@@ -147,23 +144,25 @@ const TAIL_COLUMNS: ExportColumn[] = [
 
 /**
  * Triage (EBS step 2). The gate no longer sets a priority — it answers the two
- * screening questions and names the Annex I/II signal — so the columns are
- * the decision, the signal and who took it, when. "Signal Triaged" is a
- * spelled-out Yes/No rather than an empty decision cell because a blank reads
- * as missing data, when in fact it is the finding: nobody has screened the
- * signal. Same test as the register's column (isSignalTriaged).
+ * screening questions and names the Annex I/II signal — so the columns are the
+ * signal and who took it, when. "Signal Triaged" is a spelled-out Yes/No
+ * rather than a blank, because a blank reads as missing data when in fact it
+ * is the finding: nobody has screened the signal. Same test as the register's
+ * column (isSignalTriaged).
+ *
+ * The decision and its free-text reason are deliberately NOT here: the sheet
+ * reports where a signal got to, and both live on the signal's own record for
+ * anyone who needs the detail.
  */
 const TRIAGE_COLUMNS: ExportColumn[] = [
 	{
 		header: "Signal Triaged",
 		getValue: (a) => (isSignalTriaged(a) ? "Yes" : "No"),
 	},
-	{ header: "Triage Decision", getValue: (a) => triageDecision(a) },
 	{
 		header: "EBS Signal",
 		getValue: (a) => signalSummary(a.signalCode) ?? a.signalCode ?? "",
 	},
-	{ header: "Triage Reason", getValue: (a) => a.triageReason ?? "" },
 	{
 		header: "Duplicate Of",
 		getValue: (a) =>
@@ -226,6 +225,10 @@ const VERIFICATION_DETAIL_COLUMNS: ExportColumn[] = [
 
 /** Risk assessment (step 4): the algorithm answers, the matrix axes and the RRT. */
 const RISK_COLUMNS: ExportColumn[] = [
+	{
+		header: "Risk Assessed",
+		getValue: (a) => (isRiskAssessed(a.riskLevel) ? "Yes" : "No"),
+	},
 	{ header: "Risk Level", getValue: (a) => a.riskLevel ?? "" },
 	{
 		header: "Risk: Severe Illness/Death",
@@ -287,6 +290,25 @@ const EXPORT_COLUMNS: ExportColumn[] = [
 ];
 
 /**
+ * How far down the pipeline the signal has actually got, as one word. The
+ * per-stage columns below say Yes/No for each gate; this says where the signal
+ * STOPPED, which is what a reader scanning a sheet of thousands wants first.
+ * Stages are tested furthest-first, because a risk-assessed signal is also
+ * verified and triaged.
+ */
+function stageReached(alert: ExportableAlert): string {
+	if (isRiskAssessed(alert.riskLevel)) return "Risk assessed";
+	if (alert.isVerified || deriveAlertOutcome(alert)) return "Verified";
+	if (isSignalTriaged(alert)) return "Triaged";
+	return "Reported";
+}
+
+/** Excel-only summary of the row's progress through the EBS steps. */
+const STAGE_COLUMNS: ExportColumn[] = [
+	{ header: "Stage Reached", getValue: (a) => stageReached(a) },
+];
+
+/**
  * Excel is the full case record: every stage of the EBS steps the row has
  * been through, with the date, the actor and the detail for each. Blocks run in
  * pipeline order (signal → triage → verification/response → risk → feedback) so
@@ -297,6 +319,7 @@ const EXCEL_COLUMNS: ExportColumn[] = [
 	...SIGNAL_COLUMNS.slice(0, 9),
 	{ header: "Subcounty", getValue: (a) => a.subCounty ?? "" },
 	...SIGNAL_COLUMNS.slice(9),
+	...STAGE_COLUMNS,
 	...TRIAGE_COLUMNS,
 	...OUTCOME_SUMMARY_COLUMNS,
 	...VERIFICATION_DETAIL_COLUMNS,
@@ -334,18 +357,6 @@ function formatSymptoms(value?: string | null): string {
 		.map((symptom) => symptom.trim())
 		.filter(Boolean)
 		.join(", ");
-}
-
-/**
- * The exit the signal took at the gate, spelled canonically. A row carrying
- * only a legacy priority went forward — a priority was only ever given to a
- * signal that proceeded — and an untriaged row is blank here because the
- * "Signal Triaged" column already says No.
- */
-function triageDecision(alert: ExportableAlert): string {
-	const decision = normalizeTriageDecision(alert.triageDecision);
-	if (decision) return decision;
-	return isSignalTriaged(alert) ? TRIAGE_FORWARDED : "";
 }
 
 /** "Yes" / "No", or blank when the question was never answered. */
