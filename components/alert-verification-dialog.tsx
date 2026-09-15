@@ -5,6 +5,13 @@ import { useCallback, useEffect, useState } from "react";
 import { altCode } from "@/lib/alt-code";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
 	Dialog,
@@ -37,6 +44,7 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { userFullName } from "@/lib/user-name";
 import { cn } from "@/lib/utils";
 import { SignalSummaryCard } from "@/components/signal-summary";
+import { alertEntryStatus } from "@/constants";
 
 /**
  * Verification — EBS step 3, asked as the two questions it actually is.
@@ -89,6 +97,17 @@ interface AlertVerificationDialogProps {
 
 type YesNo = "yes" | "no" | "";
 
+/**
+ * The signal's recorded status, matched to one of the options this dialog
+ * offers. The register also holds legacy values ("Pending", "COMPLETED", a
+ * blank), which the select cannot show — those prefill as empty, and leaving
+ * the field alone leaves the stored status untouched.
+ */
+function entryStatusOf(value: unknown): string {
+	const v = String(value ?? "").trim().toLowerCase();
+	return alertEntryStatus.find((s) => s.name.toLowerCase() === v)?.name ?? "";
+}
+
 /** Local date + time, for the "verifying as … at …" stamp. */
 function nowLabel(): string {
 	return new Date().toLocaleString(undefined, {
@@ -128,6 +147,10 @@ export function AlertVerificationDialog({
 	const [verified, setVerified] = useState<YesNo>("");
 	const [trueSignal, setTrueSignal] = useState<YesNo>("");
 	const [note, setNote] = useState("");
+	// Prefilled from the signal — verification is where a status recorded at
+	// intake gets corrected, not re-entered from scratch. Optional: left blank,
+	// no status is sent and the stored one stands.
+	const [status, setStatus] = useState("");
 	const [verificationToken, setVerificationToken] = useState("");
 	const [isGeneratingToken, setIsGeneratingToken] = useState(false);
 	const [isVerifying, setIsVerifying] = useState(false);
@@ -166,6 +189,7 @@ export function AlertVerificationDialog({
 		setVerified("");
 		setTrueSignal("");
 		setNote("");
+		setStatus(entryStatusOf(alert.status));
 		setError(null);
 		setSuccess(null);
 		if (isTokenlessMode) {
@@ -238,6 +262,7 @@ export function AlertVerificationDialog({
 			// ---- 6767 / eCHIS / POE: verify the signal into alerts --------
 			if (isTokenlessMode) {
 				const payload = buildEidsrVerifyPayload({
+					status,
 					verificationOutcome: outcome,
 					verificationNote: trimmedNote,
 					deskVerificationActions: legacyDeskValue(outcome, []),
@@ -290,6 +315,9 @@ export function AlertVerificationDialog({
 				verified: true,
 				verificationOutcome: outcome,
 				verificationNote: trimmedNote,
+				// Omitted when blank, so an untouched field never overwrites
+				// the status the signal already carries.
+				status: status || undefined,
 				verificationDate: now.toISOString(),
 				verificationTime: now.toISOString(),
 				verifiedBy,
@@ -437,6 +465,37 @@ export function AlertVerificationDialog({
 											: "POE"
 									} list and can be verified later.`}
 								/>
+							)}
+
+							{/* Status of the person, as it stands at verification.
+							    Offered only on the decision branch, which is the
+							    only path that writes to the signal. */}
+							{!!outcome && (
+								<div className="space-y-2">
+									<Label htmlFor="verification-status" className="text-sm font-medium">
+										Status
+										<span className="ml-1 font-normal text-muted-foreground">
+											(optional)
+										</span>
+									</Label>
+									<Select value={status} onValueChange={setStatus}>
+										<SelectTrigger id="verification-status" className="w-full sm:w-64">
+											<SelectValue placeholder="Alive, dead or unknown" />
+										</SelectTrigger>
+										<SelectContent>
+											{alertEntryStatus.map((s) => (
+												<SelectItem key={s.name} value={s.name}>
+													{s.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+									<p className="text-xs text-muted-foreground">
+										Prefilled from the signal. Change it if the person&apos;s
+										status has changed; leave it as it is and the recorded
+										status stands.
+									</p>
+								</div>
 							)}
 
 							{/* The note. Required only where it is the whole record. */}

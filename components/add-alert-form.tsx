@@ -62,7 +62,7 @@ const FIELD_HINTS = {
   date: "Date the unusual occurrence was detected, not the date you are entering it. Every signal must be reported within 24 hours of detection.",
   time: "Time of detection. With the date, this starts the 24-hour reporting clock and the triage deadline.",
   status:
-    "Where this report sits in the EBS cycle. It stays a signal until verification confirms it, at which point it becomes an event.",
+    "State of the person or case at the time of reporting — Alive, Dead, or Unknown when the reporter cannot say.",
   callTaker:
     "You — the officer at the desk taking this report. The caller's own name goes under Person Reporting the Signal, not here.",
   // Step 2, triage question 1.
@@ -181,9 +181,13 @@ export function buildAlertPayload(
   audience: AlertFormAudience = "public",
 ) {
   const isPublic = audience === "public";
-  // The public form hides these; a community reporter's own entry would be a
-  // guess at an EOC label, so the defaults stand in.
-  const status = isPublic ? PUBLIC_DEFAULTS.status : values.status || "Pending";
+  // The public form hides the EOC-facing fields; a community reporter's own
+  // entry would be a guess at an internal label, so the defaults stand in.
+  // Status is the exception — the reporter is asked, and a blank (nobody could
+  // say) still falls back to the default rather than posting an empty status.
+  const status = isPublic
+    ? values.status || PUBLIC_DEFAULTS.status
+    : values.status || "Pending";
   // The public form asks where the signal was seen but doesn't force an answer;
   // a blank falls back to "Community", which is what a self-report is.
   const sourceOfAlert = isPublic
@@ -725,6 +729,34 @@ export function AddAlertForm({
           ]}
         />
       </div>
+      {/* Staff intake asks for this up in Basic Information; on the public form
+          it belongs with the person it describes. Optional either way — a
+          reporter who cannot say leaves it blank or answers Unknown. */}
+      {isPublic && (
+        <div className="space-y-2">
+          <FieldLabel htmlFor="status" optional hint={FIELD_HINTS.status}>
+            Status
+          </FieldLabel>
+          <Select
+            value={values.status}
+            onValueChange={(v) => setField("status", v)}
+          >
+            <SelectTrigger
+              id="status"
+              className="border-gray-300 focus:ring-uganda-yellow/20"
+            >
+              <SelectValue placeholder="Alive, dead or unknown" />
+            </SelectTrigger>
+            <SelectContent>
+              {alertEntryStatus.map((status) => (
+                <SelectItem key={status.name} value={status.name}>
+                  {status.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <TextField
         id="nextOfKinName"
         hint={FIELD_HINTS.nextOfKinName}
