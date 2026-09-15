@@ -4,6 +4,7 @@ import { memo, useMemo } from "react";
 import {
 	Ambulance,
 	CalendarRange,
+	Clock,
 	Copy,
 	Cross,
 	Eye,
@@ -16,6 +17,7 @@ import {
 	ShieldCheck,
 	Siren,
 	Split,
+	Timer,
 	TrendingDown,
 	type LucideIcon,
 } from "lucide-react";
@@ -43,11 +45,13 @@ import {
 	type ChartConfig,
 } from "@/components/ui/chart";
 import {
+	AMBER_INK,
 	EMERALD_INK,
 	INDIGO_INK,
 	ROSE_INK,
 	SKY_INK,
 	StatCard,
+	VIOLET_INK,
 } from "@/components/ui/stat-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -131,14 +135,25 @@ function shareText(part: number, whole: number, of: string): string {
 }
 
 /**
- * The four numbers a reader wants first: what came in, what was verified,
- * what turned out to be an event, and what became an alert.
+ * The pipeline in eight numbers, in the order a signal travels: what came in,
+ * what was triaged and how much of that inside 24h, what was verified and how
+ * much of that inside 24h, what turned out to be an event, what was
+ * risk-assessed, and what became an alert.
+ *
+ * A timeliness tile carries its stage's colour — the same amber and emerald as
+ * the triage and verification tiles it sits beside — so each pair reads as one
+ * stage measured two ways. Eight tiles divide evenly at every breakpoint
+ * (2 / 4 per row), so the grid is always full rows of equal cards.
  */
 export const HeadlineStats = memo<BoardProps>(({ summary, isLoading }) => {
 	const i = summary?.indicators;
 	const reported = i?.signalsReported ?? 0;
+	const triaged = i?.signalsTriaged ?? 0;
+	const triagedWithin24h = i?.triagedWithin24h ?? 0;
 	const verified = i?.signalsVerified ?? 0;
+	const verifiedWithin24h = i?.verifiedWithin24h ?? 0;
 	const events = i?.events ?? 0;
+	const riskAssessed = i?.eventsRiskAssessed ?? 0;
 	const alerts = i?.alertsReported ?? 0;
 
 	const cards = [
@@ -151,11 +166,35 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading }) => {
 			ink: SKY_INK,
 		},
 		{
+			title: "Signals triaged",
+			value: triaged,
+			sub: shareText(triaged, reported, "signals reported"),
+			hint: "Signals through the triage gate — a triage decision is recorded.",
+			icon: ListChecks,
+			ink: AMBER_INK,
+		},
+		{
+			title: "Triaged within 24h",
+			value: triagedWithin24h,
+			sub: shareText(triagedWithin24h, triaged, "signals triaged"),
+			hint: "Signals triaged within 24 hours of the signal timestamp.",
+			icon: Timer,
+			ink: AMBER_INK,
+		},
+		{
 			title: "Signals verified",
 			value: verified,
 			sub: shareText(verified, reported, "signals reported"),
 			hint: "Signals with a recorded verification outcome.",
 			icon: ShieldCheck,
+			ink: EMERALD_INK,
+		},
+		{
+			title: "Verified within 24h",
+			value: verifiedWithin24h,
+			sub: shareText(verifiedWithin24h, verified, "signals verified"),
+			hint: "Triaged signals verified within 24 hours.",
+			icon: Clock,
 			ink: EMERALD_INK,
 		},
 		{
@@ -165,6 +204,14 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading }) => {
 			hint: "Verified signals whose outcome is Confirmed — events requiring risk assessment.",
 			icon: Split,
 			ink: INDIGO_INK,
+		},
+		{
+			title: "Signals risk-assessed",
+			value: riskAssessed,
+			sub: shareText(riskAssessed, events, "events"),
+			hint: "Confirmed events carrying a risk level.",
+			icon: Gauge,
+			ink: VIOLET_INK,
 		},
 		{
 			title: "Alerts",
@@ -177,7 +224,7 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading }) => {
 	];
 
 	return (
-		<div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+		<div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
 			{cards.map((c) => (
 				<StatCard
 					key={c.title}
