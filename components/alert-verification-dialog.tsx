@@ -44,7 +44,8 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { userFullName } from "@/lib/user-name";
 import { cn } from "@/lib/utils";
 import { SignalSummaryCard } from "@/components/signal-summary";
-import { alertEntryStatus } from "@/constants";
+import { alertEntryStatus, alertResponse } from "@/constants";
+import { resolveAlertResponseCode } from "@/lib/resolve-alert-response";
 
 /**
  * Verification — EBS step 3, asked as the two questions it actually is.
@@ -151,6 +152,9 @@ export function AlertVerificationDialog({
 	// intake gets corrected, not re-entered from scratch. Optional: left blank,
 	// no status is sent and the stored one stands.
 	const [status, setStatus] = useState("");
+	// Suspected etiology — what the verifier thinks this is. Also prefilled, and
+	// also optional: "we do not know yet" is a normal answer at verification.
+	const [etiology, setEtiology] = useState("");
 	const [verificationToken, setVerificationToken] = useState("");
 	const [isGeneratingToken, setIsGeneratingToken] = useState(false);
 	const [isVerifying, setIsVerifying] = useState(false);
@@ -190,6 +194,7 @@ export function AlertVerificationDialog({
 		setTrueSignal("");
 		setNote("");
 		setStatus(entryStatusOf(alert.status));
+		setEtiology(resolveAlertResponseCode(String(alert.response ?? "")));
 		setError(null);
 		setSuccess(null);
 		if (isTokenlessMode) {
@@ -263,6 +268,7 @@ export function AlertVerificationDialog({
 			if (isTokenlessMode) {
 				const payload = buildEidsrVerifyPayload({
 					status,
+					response: etiology,
 					verificationOutcome: outcome,
 					verificationNote: trimmedNote,
 					deskVerificationActions: legacyDeskValue(outcome, []),
@@ -316,8 +322,9 @@ export function AlertVerificationDialog({
 				verificationOutcome: outcome,
 				verificationNote: trimmedNote,
 				// Omitted when blank, so an untouched field never overwrites
-				// the status the signal already carries.
+				// the status or etiology the signal already carries.
 				status: status || undefined,
+				response: etiology || undefined,
 				verificationDate: now.toISOString(),
 				verificationTime: now.toISOString(),
 				verifiedBy,
@@ -494,6 +501,37 @@ export function AlertVerificationDialog({
 										Prefilled from the signal. Change it if the person&apos;s
 										status has changed; leave it as it is and the recorded
 										status stands.
+									</p>
+								</div>
+							)}
+
+							{/* Suspected etiology — the same disease taxonomy the
+							    register, the add/edit forms and the reports'
+							    response-type filter use, so a verifier's answer
+							    lands in the bucket those read. */}
+							{!!outcome && (
+								<div className="space-y-2">
+									<Label htmlFor="verification-etiology" className="text-sm font-medium">
+										Suspected Etiology
+										<span className="ml-1 font-normal text-muted-foreground">
+											(optional)
+										</span>
+									</Label>
+									<Select value={etiology} onValueChange={setEtiology}>
+										<SelectTrigger id="verification-etiology" className="w-full sm:w-96">
+											<SelectValue placeholder="Select the suspected disease" />
+										</SelectTrigger>
+										<SelectContent className="max-h-72">
+											{alertResponse.map((r) => (
+												<SelectItem key={r.code} value={r.code}>
+													{r.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+									<p className="text-xs text-muted-foreground">
+										What the signal is suspected to be. Leave it blank if it is
+										not yet known — it can be set later from the alert record.
 									</p>
 								</div>
 							)}
