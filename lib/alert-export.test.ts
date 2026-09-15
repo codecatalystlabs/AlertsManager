@@ -131,13 +131,11 @@ check(
 // --- Triage -----------------------------------------------------------------
 
 check("signal triaged", row["Signal Triaged"], "Yes");
-check("triage decision", row["Triage Decision"], "Forwarded to Verification");
 check(
 	"ebs signal is the code and its name",
 	String(row["EBS Signal"]).startsWith("CH1 — "),
 	true
 );
-check("triage reason", row["Triage Reason"], "Cluster of similar cases in one village.");
 check("not a duplicate", row["Duplicate Of"], "");
 check("triaged date", row["Triaged Date"], formatDate(TRIAGED_AT));
 check("triaged time", row["Triaged Time"], formatTime(TRIAGED_AT));
@@ -196,7 +194,6 @@ const untouched = buildExcelRow({
 
 check("no symptoms recorded is blank", untouched["Symptoms"], "");
 check("untriaged answers No, not blank", untouched["Signal Triaged"], "No");
-check("untriaged has no decision", untouched["Triage Decision"], "");
 check("untriaged names no signal", untouched["EBS Signal"], "");
 check("no triage date", untouched["Triaged Date"], "");
 check("no time to triage", untouched["Time to Triage"], "");
@@ -237,10 +234,10 @@ const legacy = buildExcelRow({
 	triagedAt: TRIAGED_AT,
 });
 check("legacy priority-only row reads as triaged", legacy["Signal Triaged"], "Yes");
-check("legacy priority-only row went forward", legacy["Triage Decision"], "Forwarded to Verification");
 
-// Discarded at triage as a duplicate: the decision, the reason and the earlier
-// signal it duplicates are the whole record of why nobody verified it.
+// Discarded at triage as a duplicate: the sheet no longer carries the decision
+// or its reason, but the earlier signal it duplicates still pins the row to
+// what it was discarded against.
 const duplicate = buildExcelRow({
 	id: 4215,
 	status: "Alive",
@@ -255,7 +252,6 @@ const duplicate = buildExcelRow({
 	triagedAt: TRIAGED_AT,
 });
 check("duplicate is triaged", duplicate["Signal Triaged"], "Yes");
-check("duplicate decision", duplicate["Triage Decision"], "Discarded");
 check("duplicate points at the earlier signal", duplicate["Duplicate Of"], `${altCode(4211)}`);
 
 // --- Header integrity -------------------------------------------------------
@@ -273,6 +269,10 @@ check(
 // Triage no longer sets a priority, so neither it nor the deadline it set may
 // come back as a column — the file must not carry fields the system no longer has.
 check("triage priority is gone", EXCEL_EXPORT_HEADERS.includes("Triage Priority"), false);
+// Dropped on request: the sheet reports where a signal got to, not the wording
+// of the gate decision — both live on the signal's own record.
+check("triage decision is gone", EXCEL_EXPORT_HEADERS.includes("Triage Decision"), false);
+check("triage reason is gone", EXCEL_EXPORT_HEADERS.includes("Triage Reason"), false);
 check("verification deadline is gone", EXCEL_EXPORT_HEADERS.includes("Verification Deadline"), false);
 
 console.log(`ok — ${passed} assertions passed`);
