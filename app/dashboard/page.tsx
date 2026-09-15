@@ -97,12 +97,14 @@ export default function DashboardPage(): React.JSX.Element {
 				<HeadlineStats summary={summary} isLoading={isLoading} />
 			</div>
 
-			{/* Every graph in one two-column grid: signals by epi week first, then
-			    the twelve indicator cards in table order, then the cascade and the
-			    reporting-unit breakdown. */}
+			{/* Every graph in one two-column grid: the two timeliness indicators
+			    (triaged and verified within 24h) lead, then signals by epi week,
+			    then the remaining indicator cards in table order, then the cascade
+			    and the reporting-unit breakdown. */}
 			<div ref={chartsRef} className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
+				<IndicatorTrendCards summary={summary} isLoading={isLoading} select="lead" />
 				<WeeklySignalsCard summary={summary} isLoading={isLoading} />
-				<IndicatorTrendCards summary={summary} isLoading={isLoading} />
+				<IndicatorTrendCards summary={summary} isLoading={isLoading} select="rest" />
 				<SignalCascadeCard summary={summary} isLoading={isLoading} />
 				<ReportingUnitsCard summary={summary} isLoading={isLoading} />
 			</div>
