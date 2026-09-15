@@ -140,8 +140,6 @@ function featuresBounds(
 	];
 }
 
-const CARTO_ATTR =
-	'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
 const OSM_ATTR =
 	'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 const ESRI_IMAGERY_ATTR =
@@ -150,8 +148,10 @@ const ESRI_TOPO_ATTR = "Tiles &copy; Esri — Esri, DeLorme, NAVTEQ";
 
 /**
  * Adds a base-map switcher + overlay toggles (Leaflet's native layers control).
- * The default base (Light) is added on mount; the boundary/label groups are
- * shared with AdminLayers so the user can show/hide them.
+ * The default base (Streets) is added on mount; the boundary/label groups are
+ * shared with AdminLayers so the user can show/hide them. Only key-free tile
+ * providers are offered — the CARTO light/dark skins now watermark every tile
+ * with "API KEY REQUIRED".
  */
 function LayersControl({
 	boundary,
@@ -163,10 +163,6 @@ function LayersControl({
 	const map = useMap();
 	useEffect(() => {
 		const bases: Record<string, L.TileLayer> = {
-			Light: L.tileLayer(
-				"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-				{ subdomains: "abcd", maxZoom: 19, attribution: CARTO_ATTR }
-			),
 			Streets: L.tileLayer(
 				"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
 				{ maxZoom: 19, attribution: OSM_ATTR }
@@ -179,13 +175,9 @@ function LayersControl({
 				"https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
 				{ maxZoom: 19, attribution: ESRI_TOPO_ATTR }
 			),
-			Dark: L.tileLayer(
-				"https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-				{ subdomains: "abcd", maxZoom: 19, attribution: CARTO_ATTR }
-			),
 		};
 
-		bases.Light.addTo(map); // default base
+		bases.Streets.addTo(map); // default base
 		boundary.addTo(map); // overlays start visible
 		pills.addTo(map);
 
@@ -261,7 +253,7 @@ function AdminLayers({
 		for (const f of features) {
 			const count = f.properties.count;
 			// Zero-alert areas stay near-transparent so the chosen base skin
-			// (satellite/dark/etc.) shows through instead of a flat grey wash;
+			// (satellite/terrain/etc.) shows through instead of a flat grey wash;
 			// areas with alerts keep a translucent shade you can still see the map under.
 			const base: L.PathOptions = {
 				fillColor: count > 0 ? scale.colorFor(count) : ZERO_COLOR,
