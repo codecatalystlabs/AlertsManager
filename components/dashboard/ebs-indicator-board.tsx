@@ -409,13 +409,31 @@ const IndicatorTrendCard = memo<IndicatorTrendCardProps>(({ row, points, isLoadi
 });
 IndicatorTrendCard.displayName = "IndicatorTrendCard";
 
+/** The two indicators the page leads with, ahead of every other graph. */
+const LEAD_INDICATOR_IDS: readonly string[] = ["signals-triaged", "signals-verified"];
+
 /**
- * All twelve indicators as trend cards, in table order. Renders the cards
+ * The twelve indicators as trend cards, in table order. Renders the cards
  * only (no grid of its own) so the page can lay them out in the same
  * two-column grid as the other charts.
+ *
+ * `select` splits the set so the page can put the lead indicators first and
+ * the remaining ten back in their usual place: "lead" renders the timeliness
+ * pair, "rest" everything else, "all" (the default) the full table.
  */
-export const IndicatorTrendCards = memo<BoardProps>(({ summary, isLoading }) => {
-	const rows = useMemo(() => buildEbsIndicatorRows(summary), [summary]);
+export const IndicatorTrendCards = memo<
+	BoardProps & { select?: "all" | "lead" | "rest" }
+>(({ summary, isLoading, select = "all" }) => {
+	const rows = useMemo(() => {
+		const all = buildEbsIndicatorRows(summary);
+		if (select === "lead") {
+			return LEAD_INDICATOR_IDS.map((id) => all.find((r) => r.id === id)).filter(
+				(r): r is (typeof all)[number] => r !== undefined
+			);
+		}
+		if (select === "rest") return all.filter((r) => !LEAD_INDICATOR_IDS.includes(r.id));
+		return all;
+	}, [summary, select]);
 	const trends = useMemo(
 		() => new Map(rows.map((r) => [r.id, buildIndicatorTrend(summary, r.id)])),
 		[rows, summary]
