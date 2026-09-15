@@ -852,6 +852,8 @@ export class AuthService {
         /** The verifier's description of the decision. Required on a conclusion. */
         verificationNote?: string
         status?: string
+        /** Suspected etiology — an alertResponse code. */
+        response?: string
         verificationDate?: string
         verificationTime?: string
         verifiedBy?: string
