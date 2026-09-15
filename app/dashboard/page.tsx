@@ -3,6 +3,8 @@
 import React, { useCallback, useRef, useState } from "react";
 
 import { downloadDashboardPdf, type DashboardPdfSection } from "@/lib/charts-pdf";
+import { exportAlertsToExcel } from "@/lib/alert-export";
+import { fetchAlertsPage, type AlertsListParams } from "@/lib/fetch-alerts";
 import {
 	ErrorAlert,
 	DashboardScopeBar,
@@ -39,6 +41,7 @@ export default function DashboardPage(): React.JSX.Element {
 	);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+	const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
 	const statsRef = useRef<HTMLDivElement>(null);
 	const chartsRef = useRef<HTMLDivElement>(null);
 
@@ -74,6 +77,70 @@ export default function DashboardPage(): React.JSX.Element {
 		}
 	}, [isUnbounded]);
 
+	/**
+	 * The signals behind the figures, as a sheet: one row per signal with the
+	 * stage it reached (triaged / verified / risk assessed) and every column of
+	 * the case record. Scoped exactly like the charts above it — same dates,
+	 * region, district and response type — so the sheet and the page agree.
+	 *
+	 * Paged rather than fetched in one request: the API caps page size, and a
+	 * single large `limit` silently truncates the export.
+	 */
+	const handleDownloadExcel = useCallback(async () => {
+		setIsDownloadingExcel(true);
+		try {
+			const EXPORT_PAGE_LIMIT = 500;
+			const MAX_EXPORT_PAGES = 200; // safety cap → up to 100k rows
+			const scopeParams: AlertsListParams = {
+				...(range.from ? { from_date: range.from } : {}),
+				...(range.to ? { to_date: range.to } : {}),
+				...(region !== "all" ? { region } : {}),
+				...(district !== "all" ? { district } : {}),
+				...(response !== "all" ? { response } : {}),
+			};
+
+			const first = await fetchAlertsPage({
+				...scopeParams,
+				page: 1,
+				limit: EXPORT_PAGE_LIMIT,
+			});
+			const rows = [...first.data];
+			const lastPage = Math.min(
+				Math.max(first.totalPages ?? 1, 1),
+				MAX_EXPORT_PAGES
+			);
+			if (lastPage > 1) {
+				const rest = await Promise.all(
+					Array.from({ length: lastPage - 1 }, (_, index) =>
+						fetchAlertsPage({
+							...scopeParams,
+							page: index + 2,
+							limit: EXPORT_PAGE_LIMIT,
+						})
+					)
+				);
+				for (const page of rest) rows.push(...page.data);
+			}
+
+			const exported = await exportAlertsToExcel(rows, "signals", "Signals", {
+				range: { from: range.from, to: range.to },
+				tokens: [
+					region !== "all" ? region : "",
+					district !== "all" ? district : "",
+					response !== "all" ? response : "",
+				].filter(Boolean),
+			});
+			if (!exported) {
+				window.alert("No signals in the current scope to export.");
+			}
+		} catch (err) {
+			console.error("Failed to export signals to Excel:", err);
+			window.alert("Could not generate the Excel sheet. Please try again.");
+		} finally {
+			setIsDownloadingExcel(false);
+		}
+	}, [range.from, range.to, region, district, response]);
+
 	const isLoading = loading && !summary;
 
 	return (
@@ -87,6 +154,8 @@ export default function DashboardPage(): React.JSX.Element {
 				onDownload={handleDownloadReport}
 				isDownloading={isDownloadingPdf}
 				downloadDisabled={!summary}
+				onDownloadExcel={handleDownloadExcel}
+				isDownloadingExcel={isDownloadingExcel}
 			/>
 
 			{error && (
