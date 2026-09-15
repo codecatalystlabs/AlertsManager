@@ -1,7 +1,7 @@
 "use client";
 
 import React, { memo } from "react";
-import { Download, MapPin, RefreshCw } from "lucide-react";
+import { Download, MapPin, RefreshCw, Sheet } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +27,9 @@ interface DashboardScopeBarProps {
 	onDownload?: () => void;
 	isDownloading?: boolean;
 	downloadDisabled?: boolean;
+	/** Omit to hide the Excel button. */
+	onDownloadExcel?: () => void;
+	isDownloadingExcel?: boolean;
 }
 
 /**
@@ -48,6 +51,8 @@ export const DashboardScopeBar = memo<DashboardScopeBarProps>(
 		onDownload,
 		isDownloading,
 		downloadDisabled,
+		onDownloadExcel,
+		isDownloadingExcel,
 	}) => {
 		const {
 			region,
@@ -96,6 +101,21 @@ export const DashboardScopeBar = memo<DashboardScopeBarProps>(
 							<Download className="h-4 w-4" />
 							<span className="hidden sm:inline">
 								{isDownloading ? "Preparing…" : "Download (PDF)"}
+							</span>
+						</Button>
+					)}
+					{onDownloadExcel && (
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={onDownloadExcel}
+							disabled={isDownloadingExcel || loading}
+							className="h-8 gap-2"
+							aria-label="Download signals as Excel"
+						>
+							<Sheet className="h-4 w-4" />
+							<span className="hidden sm:inline">
+								{isDownloadingExcel ? "Preparing…" : "Download (Excel)"}
 							</span>
 						</Button>
 					)}
