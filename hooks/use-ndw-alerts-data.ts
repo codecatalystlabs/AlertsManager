@@ -4,32 +4,53 @@ import type { ColumnFiltersState } from "@tanstack/react-table";
 import type { NdwAlertsFilterState } from "@/constants/echis-alerts";
 import type { NdwSource, NdwSyncProgress } from "@/lib/fetch-ndw-alerts";
 import { countActiveNdwFilters } from "@/constants/ndw-filter-fields";
-import { autoForwardEchisDistrictSignals } from "@/lib/echis-auto-forward";
+import { altCode } from "@/lib/alt-code";
+import { notifyAlertsChanged } from "@/lib/alerts-events";
 
 export type { NdwAlertsFilterState };
 
+/**
+ * Human summary of a finished sync. Leads with what the user will act on: how
+ * many new records arrived and that they are already in Raw Information.
+ */
 function summarizeSync(p: NdwSyncProgress): string {
-	const mode = p.incremental ? "Incremental sync" : "Full sync";
 	if (p.error) return p.error;
+	const mode = p.incremental ? "Incremental sync" : "Full sync";
 	const changes: string[] = [];
 	if (p.imported > 0) changes.push(`${p.imported} new`);
 	if (p.updated > 0) changes.push(`${p.updated} updated`);
 	const what = changes.length ? changes.join(", ") : "no new records";
-	return `${mode} complete — ${what} (scanned ${p.scanned}).`;
+	let summary = `${mode} complete — ${what} (scanned ${p.scanned}).`;
+	const log = p.autoLog;
+	if (log?.enabled && log.logged > 0) {
+		const range =
+			log.firstAlertId && log.lastAlertId
+				? log.firstAlertId === log.lastAlertId
+					? ` as ${altCode(log.firstAlertId)}`
+					: ` as ${altCode(log.firstAlertId)}–${altCode(log.lastAlertId)}`
+				: "";
+		summary += ` ${log.logged} logged into Raw Information${range}, untriaged.`;
+	}
+	return summary;
 }
 
-export interface NdwAlertsDataConfig<TRow> {
+export interface NdwAlertsDataConfig<TRow, TFacets> {
 	/** SWR key namespace, e.g. "echis-alerts" / "poe-alerts". */
 	key: string;
 	/** Per-source client from createNdwSource(). */
-	source: NdwSource<TRow>;
+	source: NdwSource<TRow, TFacets>;
+	/**
+	 * Local query param the segment tiles drive ("segment" for POE, "signal"
+	 * for eCHIS). Sent with both the list and the facets request; the server
+	 * leaves it out of the tile counts themselves, so every tile keeps showing
+	 * its own number while one is selected.
+	 */
+	segmentParam: string;
 	initialFilters: NdwAlertsFilterState;
 	itemsPerPage: number;
 	autoRefreshMs: number;
 	/** Maps the table's per-column header filters → backend local query params. */
 	columnParamsFn: (columnFilters: ColumnFiltersState) => Record<string, string>;
-	/** eCHIS only: auto-forward rows that have a district but are not yet forwarded. */
-	autoForwardWithDistrict?: boolean;
 }
 
 /**
@@ -38,17 +59,20 @@ export interface NdwAlertsDataConfig<TRow> {
  * mapper; this is the single implementation, and useEchisAlertsData /
  * usePoeAlertsData are thin config wrappers over it.
  */
-export function useNdwAlertsData<TRow extends { id: number }>({
+export function useNdwAlertsData<TRow extends { id: number }, TFacets>({
 	key,
 	source,
+	segmentParam,
 	initialFilters,
 	itemsPerPage,
 	autoRefreshMs,
 	columnParamsFn,
-	autoForwardWithDistrict = false,
-}: NdwAlertsDataConfig<TRow>) {
-	const [filters, setFilters] = useState<NdwAlertsFilterState>(initialFilters);
+}: NdwAlertsDataConfig<TRow, TFacets>) {
+	// What the list is filtered by right now. The quick-filter bar and the live
+	// NDW sheet each stage their own edits and commit here in one step.
 	const [applied, setApplied] = useState<NdwAlertsFilterState>(initialFilters);
+	// The selected segment tile ("" = all); applies immediately, like a tab.
+	const [segment, setSegmentState] = useState("");
 	// Per-column header filters (server-side): they scope the whole synced
 	// dataset, not just the loaded page.
 	const [columnFilters, setColumnFiltersState] = useState<ColumnFiltersState>([]);
@@ -81,18 +105,22 @@ export function useNdwAlertsData<TRow extends { id: number }>({
 	);
 
 	const swrKey = useMemo(
-		() => [key, applied, page, limit, columnParams] as const,
-		[key, applied, page, limit, columnParams]
+		() => [key, applied, segment, page, limit, columnParams] as const,
+		[key, applied, segment, page, limit, columnParams]
 	);
 
 	const { data, error, isLoading, isValidating, mutate } = useSWR(
 		swrKey,
 		async () => {
 			const hasNdwFilters = countActiveNdwFilters(applied.ndwFilters) > 0;
-			// The inline "filter synced records" card and the per-column header
-			// filters both produce local query params; merge them, with the column
+			// The quick-filter bar, the per-column header filters and the segment
+			// tile all produce local query params; merge them, with the column
 			// filters winning on overlap (mirrors the Alerts/6767 convention).
-			const mergedLocal = { ...applied.local, ...columnParams };
+			const mergedLocal: Record<string, string> = {
+				...applied.local,
+				...columnParams,
+				...(segment ? { [segmentParam]: segment } : {}),
+			};
 			const hasLocalFilters = Object.keys(mergedLocal).length > 0;
 			const [list, stats] = await Promise.all([
 				source.list({
@@ -114,6 +142,34 @@ export function useNdwAlertsData<TRow extends { id: number }>({
 		{ refreshInterval: autoRefreshMs }
 	);
 
+	// Tile counts + chip options for the synced mirror under the applied
+	// filters. The segment is sent too: the server leaves it out of the tile
+	// counts (every tile keeps its number) but applies it to the chip options,
+	// so "Kasese 12" inside "Needs follow-up" means 12 follow-ups. Not keyed on
+	// page: paging never changes a count. keepPreviousData holds the old numbers
+	// while new ones load, so the tiles do not blink on every change.
+	const facetsKey = useMemo(
+		() => [`${key}-facets`, applied.search, applied.local, columnParams, segment] as const,
+		[key, applied.search, applied.local, columnParams, segment]
+	);
+	const {
+		data: facets,
+		isLoading: facetsLoading,
+		mutate: mutateFacets,
+	} = useSWR(
+		facetsKey,
+		() =>
+			source.facets({
+				search: applied.search || undefined,
+				localFilters: {
+					...applied.local,
+					...columnParams,
+					...(segment ? { [segmentParam]: segment } : {}),
+				},
+			}),
+		{ refreshInterval: autoRefreshMs, keepPreviousData: true }
+	);
+
 	const alerts: TRow[] = data?.alerts ?? [];
 	const pagination = data?.pagination ?? {
 		page: 1,
@@ -128,23 +184,17 @@ export function useNdwAlertsData<TRow extends { id: number }>({
 		note: data?.stats?.note as string | undefined,
 	};
 
-	const runEchisAutoForward = useCallback(async () => {
-		if (!autoForwardWithDistrict || key !== "echis-alerts") return 0;
-		try {
-			const count = await autoForwardEchisDistrictSignals();
-			if (count > 0) {
-				setSyncMessage((prev) =>
-					prev
-						? `${prev} Auto-forwarded ${count} eCHIS signal(s) with district.`
-						: `Auto-forwarded ${count} eCHIS signal(s) with district.`
-				);
-				await mutate();
-			}
-			return count;
-		} catch {
-			return 0;
-		}
-	}, [autoForwardWithDistrict, key, mutate]);
+	// The server logs a sync's new records into Raw Information itself; tell
+	// the register's views so they do not show a stale list.
+	const finishSync = useCallback(
+		async (progress: NdwSyncProgress) => {
+			setIsSyncing(false);
+			setSyncMessage(summarizeSync(progress));
+			if ((progress.autoLog?.logged ?? 0) > 0) notifyAlertsChanged();
+			await Promise.all([mutate(), mutateFacets()]);
+		},
+		[mutate, mutateFacets]
+	);
 
 	const pollSync = useCallback(async () => {
 		const progress = await source.syncStatus();
@@ -154,11 +204,8 @@ export function useNdwAlertsData<TRow extends { id: number }>({
 			pollTimerRef.current = setTimeout(() => void pollSync(), 2000);
 			return;
 		}
-		setIsSyncing(false);
-		setSyncMessage(summarizeSync(progress));
-		await runEchisAutoForward();
-		await mutate();
-	}, [mutate, runEchisAutoForward, source]);
+		await finishSync(progress);
+	}, [finishSync, source]);
 
 	const syncFromRemote = useCallback(
 		async (opts?: { fullSync?: boolean; refreshExisting?: boolean }) => {
@@ -176,17 +223,14 @@ export function useNdwAlertsData<TRow extends { id: number }>({
 				if (res.progress.running) {
 					pollTimerRef.current = setTimeout(() => void pollSync(), 1500);
 				} else {
-					setIsSyncing(false);
-					setSyncMessage(summarizeSync(res.progress));
-					await runEchisAutoForward();
-					await mutate();
+					await finishSync(res.progress);
 				}
 			} catch (e) {
 				setIsSyncing(false);
 				setSyncMessage(e instanceof Error ? e.message : "Sync failed");
 			}
 		},
-		[mutate, pollSync, runEchisAutoForward, source]
+		[finishSync, pollSync, source]
 	);
 
 	// Memoized so its identity is stable across renders. The DataTable reports its
@@ -198,10 +242,20 @@ export function useNdwAlertsData<TRow extends { id: number }>({
 		setPage(1);
 	}, []);
 
+	const setSegment = useCallback((next: string) => {
+		setSegmentState(next);
+		setPage(1);
+	}, []);
+
 	return {
 		alerts,
 		stats,
-		filters,
+		/** The filters the list is showing (search, quick/local, live NDW). */
+		applied,
+		facets,
+		facetsLoading,
+		segment,
+		setSegment,
 		pagination,
 		loading: isLoading,
 		isValidating,
@@ -212,40 +266,34 @@ export function useNdwAlertsData<TRow extends { id: number }>({
 		filtersResetKey,
 		// Header column filters re-scope the whole dataset, so reset to page 1.
 		setColumnFilters,
-		setSearch: (search: string) => setFilters((f) => ({ ...f, search })),
-		// Building an NDW (live) filter set drops any inline local filters, since
-		// the two modes are mutually exclusive (see the fetcher).
-		setNdwFilters: (ndwFilters: Record<string, string>) =>
-			setFilters((f) => ({ ...f, ndwFilters, local: {} })),
-		setOperators: (operators: Record<string, string>) =>
-			setFilters((f) => ({ ...f, operators })),
-		// Inline local filters apply immediately by updating `applied`, which
-		// changes the SWR key and refetches against the local DB list endpoint.
-		// They also clear NDW (live) filters so the local filter actually takes
-		// effect rather than being ignored by a live request.
-		applyLocalFilters: (local: Record<string, string>) => {
-			setFilters((f) => ({ ...f, local, ndwFilters: {} }));
-			setApplied((a) => ({ ...a, local, ndwFilters: {} }));
+		/**
+		 * Commit the quick-filter bar: search + local (synced-mirror) params.
+		 * Clears any live NDW filters — the two modes are mutually exclusive (a
+		 * live request ignores local params; see the fetcher). Changing
+		 * `applied` changes the SWR key, which is what refetches.
+		 */
+		applyQuickFilters: (search: string, local: Record<string, string>) => {
+			setApplied((a) => ({ ...a, search, local, ndwFilters: {}, operators: {} }));
 			setPage(1);
 		},
-		clearLocalFilters: () => {
-			setFilters((f) => ({ ...f, local: {} }));
-			setApplied((a) => ({ ...a, local: {} }));
+		/** Commit the live NDW sheet; drops the local filters for the same reason. */
+		applyLiveFilters: (
+			ndwFilters: Record<string, string>,
+			operators: Record<string, string>
+		) => {
+			setApplied((a) => ({ ...a, ndwFilters, operators, local: {} }));
+			setPage(1);
+		},
+		/** Leave live NDW mode and go back to the synced records. */
+		clearLiveFilters: () => {
+			setApplied((a) => ({ ...a, ndwFilters: {}, operators: {} }));
 			setPage(1);
 		},
 		clearFilters: () => {
-			setFilters(initialFilters);
 			setApplied(initialFilters);
 			// Also drop any per-column header filters and reset the table's funnel UI.
 			setColumnFiltersState([]);
 			setFiltersResetKey((k) => k + 1);
-			setPage(1);
-		},
-		applyFilters: async () => {
-			// Committing filters changes the SWR key (applied/page), which itself
-			// triggers the refetch — an explicit mutate() here would only revalidate
-			// the STALE key (old filters), wasting a request.
-			setApplied(filters);
 			setPage(1);
 		},
 		setPage,
@@ -254,7 +302,7 @@ export function useNdwAlertsData<TRow extends { id: number }>({
 			setPage(1);
 		},
 		refetch: async () => {
-			await mutate();
+			await Promise.all([mutate(), mutateFacets()]);
 		},
 		syncFromRemote,
 		updateLocalAlert: (alert: TRow) => {

@@ -71,6 +71,14 @@ export function buildEidsrVerifyPayload(
 		verificationOutcome:
 			String(formData.verificationOutcome || "") || undefined,
 		verificationNote: String(formData.verificationNote || "") || undefined,
+		// Verification LEVELS. A feed signal is verified from the same dialog
+		// as a register one, so it can be escalated to the field too — and
+		// then the alert this creates lands in the field queue unverified,
+		// carrying the handover rather than a verification nobody made.
+		verificationLevel: String(formData.verificationLevel || "") || undefined,
+		discardReason: String(formData.discardReason || "") || undefined,
+		fieldVerificationRequest:
+			String(formData.fieldVerificationRequest || "") || undefined,
 		fieldVerificationFeedback: fieldFeedback || undefined,
 		fieldVerification: fieldFeedback || undefined,
 		fieldVerificationDecision: fieldFeedback || undefined,

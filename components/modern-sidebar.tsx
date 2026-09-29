@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AuthService, canManageUsers } from "@/lib/auth";
+import { accessKnown, canOpen } from "@/lib/access";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { cn } from "@/lib/utils";
 import {
 	LayoutDashboard,
@@ -34,12 +35,6 @@ interface NavigationItem {
 	href: string;
 	icon: React.ComponentType<{ className?: string }>;
 	badge?: string | null;
-	/**
-	 * Only shown to users who can manage other users (Admin). EOC is excluded —
-	 * it has admin-like alert rights but no user management. The backend also
-	 * enforces these routes (403), so this is UX, not the security boundary.
-	 */
-	adminOnly?: boolean;
 }
 
 interface NavigationGroup {
@@ -71,17 +66,17 @@ const navigationGroups: NavigationGroup[] = [
 		// as locked rather than the nav offering a page that does not exist.
 		label: "Signal Pipeline",
 		items: [
-			{ name: "Signal Register", href: "/dashboard/signal-logs", icon: RadioTower },
+			{ name: "Raw Information", href: "/dashboard/signal-logs", icon: RadioTower },
 			// The pipeline's queues as destinations, each named for the state a
-			// signal has REACHED and holding the work due NEXT: "Triaged" is the
-			// forwarded-but-unverified queue (?stage=verification is the gate they
-			// are waiting AT), "Verified" is the confirmed events waiting to be
+			// signal has REACHED and holding the work due NEXT: "Signal Register
+			// (Triage)" is the forwarded-but-unverified queue (?stage=verification
+			// is the gate they are waiting AT), "Verified" is the confirmed events waiting to be
 			// scored, and "Risk Assessed" is the concluded signals whose reporter
 			// has not been told. Steps 4 and 6 have no entries of their own for
 			// that reason — you cannot score an unverified signal or close a loop
 			// on an unconcluded one, so those queues ARE these entries.
 			{
-				name: "Triaged",
+				name: "Signal Register (Triage)",
 				href: "/dashboard/signal-logs?stage=verification",
 				icon: ShieldQuestion,
 			},
@@ -127,17 +122,15 @@ const navigationGroups: NavigationGroup[] = [
 	{
 		label: "Administration",
 		items: [
-			{ name: "Manage Users", href: "/dashboard/users", icon: UsersRound, adminOnly: true },
+			{ name: "Users & Access", href: "/dashboard/users", icon: UsersRound },
 			{
 				name: "Dropdown Options",
 				href: "/dashboard/dropdown-options",
 				icon: ListTree,
-				adminOnly: true,
 			},
-			// Not adminOnly: everyone signed in may LOOK UP a facility (a
-			// district biostat needs the list for their district). The page hides
-			// its add/edit/delete controls for non-admins, and the API enforces
-			// that independently.
+			// Everyone signed in may LOOK UP a facility (a district biostat needs
+			// the list for their district); the page hides its add/edit/delete
+			// controls without facilities.manage, and the API enforces that.
 			{
 				name: "Health Facilities",
 				href: "/dashboard/facilities",
@@ -162,7 +155,7 @@ export function ModernSidebar({
 	const pathname = usePathname();
 	// The pipeline queues are the same page under different ?stage= values, so
 	// the active item cannot be decided on pathname alone — without the search
-	// string every queue would highlight "Signal Register".
+	// string every queue would highlight "Raw Information".
 	const searchParams = useSearchParams();
 	const currentUrl = useMemo(() => {
 		const query = searchParams?.toString();
@@ -348,25 +341,27 @@ function SidebarContent({
 	collapsed: boolean;
 	onNavigate?: () => void;
 }) {
-	// Role-gated nav: resolved after mount to avoid a hydration mismatch
-	// (localStorage is client-only). The backend independently enforces these
-	// admin-only routes (403), so this is UX, not the security boundary.
-	const [canManage, setCanManage] = useState(false);
-	useEffect(() => {
-		setCanManage(canManageUsers(AuthService.getUser()));
-	}, []);
-
+	// Each entry shows only if the account may open its page — the same
+	// PAGE_ACCESS table the page guard uses (lib/access.ts), so the rail never
+	// offers a page that would answer "no access". Resolved after mount
+	// (localStorage is client-only) and again whenever the session refreshes;
+	// a session stored by an older release shows the full rail until its
+	// permissions arrive, like the page guard. The API enforces every
+	// permission independently; this is UX.
+	const user = useCurrentUser();
 	const visibleGroups = useMemo(
 		() =>
 			navigationGroups
 				.map((group) => ({
 					...group,
-					items: group.items.filter(
-						(item) => !item.adminOnly || canManage
-					),
+					items: !user
+						? []
+						: accessKnown(user)
+							? group.items.filter((item) => canOpen(user, item.href))
+							: group.items,
 				}))
 				.filter((group) => group.items.length > 0),
-		[canManage]
+		[user]
 	);
 
 	return (

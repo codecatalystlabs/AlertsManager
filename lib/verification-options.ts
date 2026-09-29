@@ -221,3 +221,55 @@ export function toggleDeskAction(
 	if (checked) selected.push(option);
 	return joinDeskActions(selected);
 }
+
+/* -------------------------------------------------------------------------
+ * The two LEVELS verification happens at.
+ *
+ * TS twin of alertsMIS/backend/internal/services/verification_level.go.
+ *
+ * One question — "is this a true signal?" — asked by two people with two
+ * different amounts of evidence. The DESK asks it by phone, from the records,
+ * and may decline to answer ("I cannot tell from here" = Escalated to Field).
+ * The FIELD asks it on site, days later if that is what it takes, and always
+ * concludes: there is no level beyond it to escalate to.
+ * ---------------------------------------------------------------------- */
+
+export const VERIFICATION_LEVEL_DESK = "Desk";
+export const VERIFICATION_LEVEL_FIELD = "Field";
+
+export type VerificationLevel =
+	| typeof VERIFICATION_LEVEL_DESK
+	| typeof VERIFICATION_LEVEL_FIELD;
+
+/**
+ * Why a signal was discarded, picked from a list rather than typed.
+ *
+ * The note still carries the detail. This exists so discards can be COUNTED by
+ * reason: a register full of duplicates is a reporting-quality problem and one
+ * full of hoaxes is a community-trust problem, and free text cannot tell the
+ * two apart. Must stay in step with services.DiscardReasons (Go).
+ */
+export const DISCARD_REASONS = [
+	"Not a public-health event",
+	"Duplicate of an existing signal",
+	"False or hoax report",
+	"Known cause, already explained",
+	"Insufficient information to pursue",
+	"Other",
+] as const;
+
+export type DiscardReason = (typeof DISCARD_REASONS)[number];
+
+/** Shown under each reason so two verifiers pick the same one for the same case. */
+export const DISCARD_REASON_GUIDANCE: Record<string, string> = {
+	"Not a public-health event":
+		"Checked and real, but not a threat — an ordinary illness or an unrelated event.",
+	"Duplicate of an existing signal":
+		"The same event is already in the register under another signal.",
+	"False or hoax report": "The reported event did not happen.",
+	"Known cause, already explained":
+		"A real event with a cause already established, needing no new response.",
+	"Insufficient information to pursue":
+		"Too little to act on, and no way left to get more — the reporter cannot be reached.",
+	Other: "Anything the list does not cover. Say what happened in the note.",
+};

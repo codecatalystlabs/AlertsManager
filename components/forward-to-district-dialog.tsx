@@ -128,8 +128,9 @@ export function ForwardToDistrictDialog({
 					{warnForwarded && (
 						<Alert className="surface-warning">
 							<AlertDescription className="text-warning">
-								Already forwarded to {warnForwarded}. Forwarding
-								again will create another signal log.
+								Already forwarded to {warnForwarded}. A signal has
+								one row in the Signal Register: to move it, change
+								the district on that row instead.
 							</AlertDescription>
 						</Alert>
 					)}

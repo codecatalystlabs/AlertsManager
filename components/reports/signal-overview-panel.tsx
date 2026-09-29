@@ -4,8 +4,9 @@ import React, { useCallback, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 
 import { downloadDashboardPdf, type DashboardPdfSection } from "@/lib/charts-pdf";
+import { toLocalISODate } from "@/lib/date-range-presets";
 import { ErrorAlert, RiskMatrixCard, DashboardScopeBar } from "@/components/dashboard";
-import { AdminOverviewCards } from "@/components/reports/admin-overview-charts";
+import { DataCompletenessPanel } from "@/components/reports/admin-overview-charts";
 import { useDashboardScope } from "@/hooks/use-dashboard-scope";
 import { useDashboardSummary } from "@/hooks/use-dashboard-summary";
 import { LAYOUT } from "@/constants/layout";
@@ -36,15 +37,13 @@ const AdminOverviewCharts = dynamic(
 );
 
 /**
- * The administrative overview on the Overview tab of Summaries / Reports:
- * a KPI row of stat tiles, a grid of charts that each use a different form
- * (area, composed bar+line, donuts, 100%-stacked bars, ranked bars, treemap,
- * radial bars, status columns) and the §6 risk-matrix heatmap — all scoped by
- * the dashboard scope bar and exportable to PDF.
+ * The Overview tab of Summaries / Reports: how complete the record is, then
+ * the breakdowns — when, what, where, who reported, how each gate closed, the
+ * case profile — and the §6 risk-matrix heatmap, all scoped by the dashboard
+ * scope bar and exportable to PDF.
  *
- * The §11 KPI scorecard, the per-gate KPI rows, the recent-activity snapshot
- * and the feed-coverage caveat used to live here; they were tables and text
- * rows rather than graphs, and the overview is now charts and cards only.
+ * The pipeline figures (headline tiles, weekly volume, where every signal is
+ * now) live on the dashboard only; this tab used to repeat them.
  */
 export function SignalOverviewPanel(): React.JSX.Element {
 	const scope = useDashboardScope();
@@ -80,7 +79,7 @@ export function SignalOverviewPanel(): React.JSX.Element {
 				sections.push({
 					container: cardsRef.current,
 					splitCards: true,
-					heading: "Overview",
+					heading: "Data completeness",
 				});
 			}
 			if (chartsRef.current) {
@@ -93,6 +92,8 @@ export function SignalOverviewPanel(): React.JSX.Element {
 			await downloadDashboardPdf(sections, {
 				title: "Health Alert Overview",
 				subtitle: isUnbounded ? "All-time data" : "Data for the selected date range",
+				// Not dashboard-<date>.pdf: the two exports would overwrite each other.
+				filename: `overview-${toLocalISODate(new Date())}.pdf`,
 			});
 		} catch (err) {
 			console.error("Failed to export overview to PDF:", err);
@@ -122,7 +123,7 @@ export function SignalOverviewPanel(): React.JSX.Element {
 			)}
 
 			<div ref={cardsRef}>
-				<AdminOverviewCards summary={summary} isLoading={isInitialLoading} />
+				<DataCompletenessPanel summary={summary} isLoading={isInitialLoading} />
 			</div>
 
 			<div ref={chartsRef} className={LAYOUT.pageGap}>

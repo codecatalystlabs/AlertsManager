@@ -45,6 +45,14 @@ interface UseReportsDataReturn {
 	dailyError: string | null;
 	setDailyDate: (date: string) => void;
 	refetchDaily: () => Promise<void>;
+
+	/**
+	 * Whether signals with NO disease recorded are counted as EVD in the chart
+	 * and both tables. Off by default; one switch for all three so the chart
+	 * and the tables never disagree about what they count.
+	 */
+	includeUnrecorded: boolean;
+	setIncludeUnrecorded: (include: boolean) => void;
 }
 
 const DEFAULT_CHART_SCOPE: ReportScope = "cumulative";
@@ -93,6 +101,8 @@ export function useReportsData(): UseReportsDataReturn {
 	// Daily tab.
 	const [dailyDate, setDailyDate] = useState<string>(() => todayIsoDate());
 
+	const [includeUnrecorded, setIncludeUnrecorded] = useState(false);
+
 	const optionsQuery = useSWR("report-options", fetchReportOptions, {
 		fallbackData: DEFAULT_OPTIONS,
 	});
@@ -100,22 +110,25 @@ export function useReportsData(): UseReportsDataReturn {
 	const range = clampRange(chartRange);
 	const timeseriesQuery = useSWR(
 		range.fromDate && range.toDate
-			? ["report-timeseries", range.fromDate, range.toDate, chartScope]
+			? ["report-timeseries", range.fromDate, range.toDate, chartScope, includeUnrecorded]
 			: null,
-		([, fromDate, toDate, scope]) =>
-			fetchReportTimeseries(
-				buildReportsQuery({ fromDate, toDate }, scope as ReportScope)
-			)
+		([, fromDate, toDate, scope, include]) =>
+			fetchReportTimeseries({
+				...buildReportsQuery({ fromDate, toDate }, scope as ReportScope),
+				include_unrecorded: include as boolean,
+			})
 	);
 
 	const cumulativeQuery = useSWR(
-		cumulativeDate ? ["report-cumulative", cumulativeDate] : null,
-		([, date]) => fetchReportMatrix(buildCumulativeQuery(date))
+		cumulativeDate ? ["report-cumulative", cumulativeDate, includeUnrecorded] : null,
+		([, date, include]) =>
+			fetchReportMatrix({ ...buildCumulativeQuery(date), include_unrecorded: include as boolean })
 	);
 
 	const dailyQuery = useSWR(
-		dailyDate ? ["report-daily", dailyDate] : null,
-		([, date]) => fetchReportMatrix(buildDailyQuery(date))
+		dailyDate ? ["report-daily", dailyDate, includeUnrecorded] : null,
+		([, date, include]) =>
+			fetchReportMatrix({ ...buildDailyQuery(date), include_unrecorded: include as boolean })
 	);
 
 	const setChartRange = useCallback((patch: Partial<ReportsDateRange>) => {
@@ -157,5 +170,8 @@ export function useReportsData(): UseReportsDataReturn {
 		refetchDaily: async () => {
 			await dailyQuery.mutate();
 		},
+
+		includeUnrecorded,
+		setIncludeUnrecorded,
 	};
 }

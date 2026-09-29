@@ -51,7 +51,16 @@ export async function fetchAlertHistory(
 
 /** Parsed detail bag (all optional — depends on the action). */
 export interface AlertHistoryDetail {
+	/** data_cleanup: the rule a data migration applied, and each field it
+	 *  changed with its old and new value. */
+	rule?: string;
+	changes?: Record<string, { from?: unknown; to?: unknown }>;
 	origin?: string;
+	/** forwarded: logged by a feed's sync (6767, eCHIS, PoE) rather than moved by a person. */
+	auto?: boolean;
+	/** forwarded: how the district was decided — "chosen" | "org unit" |
+	 *  "eCHIS record" | "traveller address" | "". */
+	districtSource?: string;
 	/** created: where the signal came from. risk_assessed: which instrument
 	 *  produced the level ("matrix" | "algorithm"). */
 	source?: string;
@@ -93,6 +102,10 @@ export interface AlertHistoryDetail {
 	worksheet?: string;
 	/** desk_verified: response actions, now recorded separately from the outcome. */
 	actions?: string;
+	/** desk_verified / field_verified: which level answered — "Desk" | "Field". */
+	verificationLevel?: string;
+	/** escalated_to_field: what the desk asked the field team to check. */
+	request?: string;
 	/** ems_notified: the dispatched event type. */
 	event?: string;
 }

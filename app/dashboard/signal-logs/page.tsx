@@ -9,14 +9,23 @@ import {
 	CallLogsHeader,
 	CallLogsFilters,
 	CallLogsTable,
+	SignalOriginChips,
 	TriagedSplitTabs,
 } from "@/components/call-logs";
+import {
+	parseSignalOriginFilter,
+	type SignalOriginFilter,
+} from "@/lib/signal-origin";
 import { ErrorAlert } from "@/components/dashboard";
 import { TriageDialog } from "@/components/triage";
 import { RiskAssessmentDialog } from "@/components/risk";
 import { FeedbackDialog } from "@/components/feedback";
 import { useCallLogsData, type AlertLog } from "@/hooks/use-call-logs-data";
 import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
+import {
+	VERIFICATION_LEVEL_DESK,
+	type VerificationLevel,
+} from "@/lib/verification-options";
 import { AuthService, type Alert } from "@/lib/auth";
 import { PipelineStrip } from "@/components/pipeline";
 import {
@@ -82,6 +91,7 @@ import { LAYOUT } from "@/constants/layout";
 export default function CallLogsPage(): React.JSX.Element {
 	const {
 		filteredAlerts,
+		originCounts,
 		filters,
 		sort,
 		pagination,
@@ -161,6 +171,28 @@ export default function CallLogsPage(): React.JSX.Element {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [view, split, stageParam]);
 
+	// ?origin=6767 — e.g. the 6767 page's "Triage them in Raw Information"
+	// after a sync. Applied once per value, as a filter rather than a view: it
+	// narrows whichever tab is open and survives switching tabs, like the chips
+	// that set it by hand.
+	const appliedOriginRef = useRef<string | null>(null);
+	useEffect(() => {
+		const origin = searchParams?.get("origin")?.trim() ?? "";
+		if (!origin) {
+			// Forget the last one, so following the same link again re-applies it.
+			appliedOriginRef.current = null;
+			return;
+		}
+		if (appliedOriginRef.current === origin) return;
+		appliedOriginRef.current = origin;
+		setFilters({ origin: parseSignalOriginFilter(origin) });
+	}, [searchParams, setFilters]);
+
+	const handleOriginChange = useCallback(
+		(origin: SignalOriginFilter) => setFilters({ origin }),
+		[setFilters]
+	);
+
 	// Deep-link from 6767 / eCHIS / POE forwarded badges: ?alert_id=123
 	const appliedAlertIdRef = useRef<string | null>(null);
 	useEffect(() => {
@@ -187,6 +219,12 @@ export default function CallLogsPage(): React.JSX.Element {
 	const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
 	const [isVerificationDialogOpen, setIsVerificationDialogOpen] =
 		useState(false);
+	// Which LEVEL the open verification dialog is asking at. The row decides
+	// it: "Desk verify" and "Field verify" are two doors into the same
+	// question, and an escalated signal only has the second one left.
+	const [verificationLevel, setVerificationLevel] = useState<VerificationLevel>(
+		VERIFICATION_LEVEL_DESK
+	);
 	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const tableSectionRef = useRef<HTMLDivElement>(null);
@@ -215,7 +253,8 @@ export default function CallLogsPage(): React.JSX.Element {
 	);
 
 	const handleVerifyAlert = useCallback(
-		async (alert: AlertLog) => {
+		async (alert: AlertLog, level: VerificationLevel = VERIFICATION_LEVEL_DESK) => {
+			setVerificationLevel(level);
 			try {
 				const fullAlert = await AuthService.fetchAlert(alert.id);
 				setSelectedAlert(fullAlert as AlertLog);
@@ -339,6 +378,12 @@ export default function CallLogsPage(): React.JSX.Element {
 				onClearFilters={clearFilters}
 			/>
 
+			<SignalOriginChips
+				value={parseSignalOriginFilter(filters.origin)}
+				onChange={handleOriginChange}
+				counts={originCounts}
+			/>
+
 			{/* The triage gate has two endings, and they are opposite kinds of
 			    list — a queue with work due on every row, and an archive with
 			    none — so the two halves stay separately addressable. */}
@@ -419,6 +464,7 @@ export default function CallLogsPage(): React.JSX.Element {
 						isOpen={isVerificationDialogOpen}
 						onClose={closeDialogs}
 						alert={selectedAlert}
+						level={verificationLevel}
 						onVerificationComplete={
 							handleVerificationComplete
 						}

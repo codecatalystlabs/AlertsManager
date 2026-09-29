@@ -162,6 +162,26 @@ interface DataTableProps<TData, TValue> {
   isLoading?: boolean
   /** e.g. green background for verified rows */
   getRowClassName?: (row: Row<TData>) => string | undefined
+  /**
+   * Makes each row open something (e.g. its details) on click / Enter. Clicks
+   * that land on a control inside the row (buttons, links, menus, inputs) are
+   * left to that control.
+   */
+  onRowClick?: (row: TData) => void
+  /** Replaces the bare "No results." line when there are no rows. */
+  emptyState?: React.ReactNode
+}
+
+/** True when a row click actually hit an interactive control inside the row. */
+function fromInteractive(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    Boolean(
+      target.closest(
+        'button, a, input, select, textarea, label, [role="menuitem"], [role="checkbox"], [data-row-click-ignore]'
+      )
+    )
+  )
 }
 
 function isDateRangeFilterValue(value: unknown): value is DateRangeFilterValue {
@@ -415,7 +435,26 @@ export function DataTable<TData, TValue>({
   filtersResetKey,
   isLoading = false,
   getRowClassName,
+  onRowClick,
+  emptyState,
 }: DataTableProps<TData, TValue>) {
+  // A click inside a portalled menu (a row's ⋯ actions) still bubbles through
+  // the React tree to the row, so the interactive check also covers menu items.
+  const rowClickProps = (row: Row<TData>) =>
+    onRowClick
+      ? {
+          tabIndex: 0,
+          onClick: (e: React.MouseEvent) => {
+            if (fromInteractive(e.target)) return
+            onRowClick(row.original)
+          },
+          onKeyDown: (e: React.KeyboardEvent) => {
+            if (e.key !== "Enter" || e.target !== e.currentTarget) return
+            e.preventDefault()
+            onRowClick(row.original)
+          },
+        }
+      : {}
   const [internalSorting, setInternalSorting] = React.useState<SortingState>([])
   const sorting = controlledSorting ?? internalSorting
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -566,7 +605,26 @@ export function DataTable<TData, TValue>({
     manualPagination &&
     controlledPageIndex !== undefined &&
     currentPage !== controlledPageIndex
-  const showBodyLoader = isLoading || isPageTransition
+  // The skeleton stands in for rows that have not arrived yet. Once rows are on
+  // screen, a refetch (next page, new filter, revalidation) keeps them — dimmed
+  // under the spinner — instead of collapsing the body to eight placeholder
+  // rows: that collapse shrank the page, the browser clamped the scroll to the
+  // very top, and the new page then popped in somewhere nobody was looking.
+  const showSkeleton = isLoading && data.length === 0
+  const showBodyLoader = isPageTransition || (isLoading && !showSkeleton)
+
+  // A page change from the footer leaves the viewport where the footer was —
+  // below the new page's first row on any page taller than the screen. Bring
+  // the table's top back into view, but only when it has scrolled out above;
+  // a table whose top is already visible stays put. `scroll-mt-14` on the root
+  // clears the dashboard's sticky header.
+  const rootRef = React.useRef<HTMLDivElement>(null)
+  const revealTableTop = () => {
+    const root = rootRef.current
+    if (root && root.getBoundingClientRect().top < 0) {
+      root.scrollIntoView({ block: "start" })
+    }
+  }
 
   // The row-actions column is pinned to the right edge so its menu stays reachable
   // when a wide table scrolls horizontally. All tables key it as id "actions".
@@ -587,7 +645,7 @@ export function DataTable<TData, TValue>({
   const headerByColumnId = new Map(leafHeaders.map((h) => [h.column.id, h]))
 
   return (
-    <div className="w-full">
+    <div ref={rootRef} className="w-full scroll-mt-14">
       {!hideToolbar && (
       <div className="mb-2 flex items-center gap-2">
         {searchKey && (
@@ -632,7 +690,7 @@ export function DataTable<TData, TValue>({
           the page is the only thing that scrolls vertically; the wrapper keeps
           overflow only for the horizontal axis, which wide tables still need. */}
       <div className="relative hidden rounded-md border md:block">
-        {isPageTransition && (
+        {showBodyLoader && (
           <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-background/45 backdrop-blur-[1px]">
             <Loader2 className="h-5 w-5 animate-spin text-uganda-red" />
           </div>
@@ -673,7 +731,7 @@ export function DataTable<TData, TValue>({
             ))}
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {showSkeleton ? (
               Array.from({ length: Math.min(pageSize || 8, 8) }).map((_, r) => (
                 <TableRow key={`skeleton-${r}`} className="hover:bg-transparent">
                   {columns.map((_, c) => (
@@ -690,7 +748,12 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className={getRowClassName?.(row)}
+                  className={cn(
+                    onRowClick &&
+                      "cursor-pointer focus-visible:bg-muted/60 focus-visible:outline-none",
+                    getRowClassName?.(row)
+                  )}
+                  {...rowClickProps(row)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
@@ -709,7 +772,7 @@ export function DataTable<TData, TValue>({
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-16 text-center text-xs text-muted-foreground">
-                  No results.
+                  {emptyState ?? "No results."}
                 </TableCell>
               </TableRow>
             )}
@@ -718,8 +781,13 @@ export function DataTable<TData, TValue>({
       </div>
 
       {/* Mobile: each row becomes a stacked label/value card */}
-      <div className="space-y-2 md:hidden">
-        {isLoading ? (
+      <div
+        className={cn(
+          "space-y-2 transition-opacity md:hidden",
+          showBodyLoader && "opacity-50"
+        )}
+      >
+        {showSkeleton ? (
           Array.from({ length: Math.min(pageSize || 4, 4) }).map((_, r) => (
             <div
               key={`skeleton-card-${r}`}
@@ -736,8 +804,10 @@ export function DataTable<TData, TValue>({
               key={row.id}
               className={cn(
                 "overflow-hidden rounded-none border bg-card p-3 shadow-sm",
+                onRowClick && "cursor-pointer",
                 getRowClassName?.(row)
               )}
+              {...rowClickProps(row)}
             >
               {row.getVisibleCells().map((cell) => {
                 const header = headerByColumnId.get(cell.column.id)
@@ -763,7 +833,7 @@ export function DataTable<TData, TValue>({
           ))
         ) : (
           <div className="rounded-md border p-4 text-center text-xs text-muted-foreground">
-            No results.
+            {emptyState ?? "No results."}
           </div>
         )}
       </div>
@@ -794,6 +864,7 @@ export function DataTable<TData, TValue>({
               onValueChange={(value) => {
                 table.setPageSize(Number(value))
                 table.setPageIndex(0)
+                revealTableTop()
               }}
             >
               <SelectTrigger className="h-7 w-[68px] text-xs">
@@ -813,7 +884,10 @@ export function DataTable<TData, TValue>({
               variant="outline"
               size="icon"
               className="h-8 w-8"
-              onClick={() => table.previousPage()}
+              onClick={() => {
+                table.previousPage()
+                revealTableTop()
+              }}
               disabled={!table.getCanPreviousPage()}
               aria-label="Previous page"
             >
@@ -838,7 +912,10 @@ export function DataTable<TData, TValue>({
                       "h-8 w-8",
                       page === currentPage && "bg-uganda-red hover:bg-uganda-red/90"
                     )}
-                    onClick={() => table.setPageIndex(page)}
+                    onClick={() => {
+                      table.setPageIndex(page)
+                      revealTableTop()
+                    }}
                     aria-label={`Go to page ${page + 1}`}
                     aria-current={page === currentPage ? "page" : undefined}
                   >
@@ -851,7 +928,10 @@ export function DataTable<TData, TValue>({
               variant="outline"
               size="icon"
               className="h-8 w-8"
-              onClick={() => table.nextPage()}
+              onClick={() => {
+                table.nextPage()
+                revealTableTop()
+              }}
               disabled={!table.getCanNextPage()}
               aria-label="Next page"
             >

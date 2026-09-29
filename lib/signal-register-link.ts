@@ -10,7 +10,9 @@ export function signalRegisterHref(alertId?: number | null): string {
 	if (alertId == null || !Number.isFinite(alertId) || alertId <= 0) {
 		return SIGNAL_REGISTER_PATH;
 	}
-	const params = new URLSearchParams({ alert_id: String(alertId) });
+	// view=all: the register opens on Untriaged, so a bare ?alert_id= deep link
+	// to a signal that has since been triaged landed on an empty list.
+	const params = new URLSearchParams({ view: "all", alert_id: String(alertId) });
 	return `${SIGNAL_REGISTER_PATH}?${params.toString()}`;
 }
 
@@ -24,7 +26,9 @@ export function alertsManagementHref(alertId?: number | null): string {
 
 export function forwardedToLabel(district: string): string {
 	const name = district.trim();
-	return name ? `Forwarded to ${name}` : "Forwarded";
+	// Logged by a sync from a record that named no district: it is in Raw
+	// Information, waiting for one to be set at triage.
+	return name ? `Forwarded to ${name}` : "In Raw Information · no district";
 }
 
 export function forwardedFromSourceLabel(alertFrom: string | undefined): string | null {

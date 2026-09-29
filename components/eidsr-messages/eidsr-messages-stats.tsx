@@ -1,6 +1,6 @@
 import React, { memo, useMemo } from "react";
 import { StatCard, accentInk, type StatCardInk } from "@/components/ui/stat-card";
-import { MessageSquare, CheckCircle2, Clock, Cloud, Link2, Unlink, type LucideIcon } from "lucide-react";
+import { MessageSquare, CheckCircle2, Clock, Cloud, Link2, Sparkles, Unlink, type LucideIcon } from "lucide-react";
 import {
 	EIDSR_MESSAGE_STAT_LABELS,
 } from "@/constants/eidsr-messages";
@@ -24,6 +24,7 @@ interface EidsrMessagesStatsProps {
 const STAT_ICONS: Record<string, LucideIcon> = {
 	total: MessageSquare,
 	totalMessages: MessageSquare,
+	syncedLast24h: Sparkles,
 	inRegister: Link2,
 	notInRegister: Unlink,
 	linked: Link2,
@@ -40,8 +41,11 @@ const STAT_ICONS: Record<string, LucideIcon> = {
 const STAT_INK: Record<string, StatCardInk> = {
 	total: accentInk("primary"),
 	totalMessages: accentInk("primary"),
+	syncedLast24h: accentInk("primary"),
 	inRegister: accentInk("success"),
-	notInRegister: accentInk("warning"),
+	// Muted, not warning: since new signals are logged on sync, what is left
+	// here is history older than the auto-log window, not a backlog of work.
+	notInRegister: accentInk("muted"),
 	linked: accentInk("success"),
 	unlinked: accentInk("warning"),
 	verified: accentInk("success"),

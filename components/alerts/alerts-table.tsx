@@ -11,8 +11,6 @@ import {
 } from "@/constants/alerts";
 import { LAYOUT } from "@/constants/layout";
 import { alertSlaRowClass } from "@/lib/alert-sla";
-import { canDeleteAlerts } from "@/lib/auth";
-import { useCurrentUser } from "@/hooks/use-current-user";
 import { useTickingNow } from "@/hooks/use-ticking-now";
 import type { AlertsSort } from "@/hooks/use-alerts-data";
 

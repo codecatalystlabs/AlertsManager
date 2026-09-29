@@ -18,8 +18,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AuthLoading } from "@/components/auth-loading";
 import { useAuthStatus } from "@/hooks/use-auth-status";
 import { AuthService } from "@/lib/auth";
+import { firstOpenPath } from "@/lib/access";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import Image from "next/image";
+
+/** Why the last session ended, when the API ended it (?reason=). */
+const SIGNED_OUT_BECAUSE: Record<string, string> = {
+	inactive: "Your account has been deactivated. Ask an administrator to reactivate it.",
+	no_role: "Your account has no access role assigned. Ask an administrator to assign one.",
+};
 
 export default function LoginPage() {
 	const router = useRouter();
@@ -30,9 +37,15 @@ export default function LoginPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [success, setSuccess] = useState<string | null>(null);
 
+	// Read after mount: the page is prerendered without the query string.
+	useEffect(() => {
+		const reason = new URLSearchParams(window.location.search).get("reason") ?? "";
+		if (SIGNED_OUT_BECAUSE[reason]) setError(SIGNED_OUT_BECAUSE[reason]);
+	}, []);
+
 	useEffect(() => {
 		if (isReady && isAuthenticated) {
-			router.replace("/dashboard");
+			router.replace(firstOpenPath(AuthService.getUser()));
 		}
 	}, [isReady, isAuthenticated, router]);
 
@@ -46,8 +59,9 @@ export default function LoginPage() {
 			const response = await AuthService.login({ username, password });
 
 			if (response.token) {
-				setSuccess("Login successful! Redirecting to dashboard...");
-				router.replace("/dashboard");
+				setSuccess("Login successful! Redirecting...");
+				// Land on the first page this account may open.
+				router.replace(firstOpenPath(response.user ?? null));
 			} else {
 				setError("Login failed. No token received.");
 			}

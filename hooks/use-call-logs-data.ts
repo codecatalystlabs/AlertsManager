@@ -10,13 +10,16 @@ import {
     type CallLogsFilterState,
 } from '@/constants/call-logs';
 import {
+    fetchAlertOrigins,
     fetchAlertsPage,
     fetchAlertsStats,
+    type AlertOriginCounts,
     type AlertsListParams,
 } from '@/lib/fetch-alerts';
 import { columnFiltersToAlertParams } from '@/lib/alert-column-filters';
 import { STAGE_PROCESSED, stageLabel } from '@/lib/pipeline';
 import { sourceFilterValues } from '@/lib/source-of-alert';
+import { isSignalOrigin, signalOriginLabel } from '@/lib/signal-origin';
 import { useInvalidateAlerts } from '@/hooks/use-invalidate-alerts';
 
 /** Server-side sort selection for the call-logs list. */
@@ -80,6 +83,18 @@ export interface AlertLog {
     verificationNote?: string | null;
     /** Comma-joined response actions taken. */
     responseActions?: string | null;
+    /** Which level reached the outcome: "Desk" | "Field". */
+    verificationLevel?: string | null;
+    /** Why it was discarded, from DISCARD_REASONS. */
+    discardReason?: string | null;
+    /** The desk → field handover: when, by whom, and what was asked for. */
+    escalatedToFieldAt?: string | null;
+    escalatedToFieldBy?: string | null;
+    fieldVerificationRequest?: string | null;
+    /** The field team's own conclusion, kept apart from the desk's. */
+    fieldVerifiedAt?: string | null;
+    fieldVerifiedBy?: string | null;
+    fieldVerificationNote?: string | null;
     /** Risk assessment (EBS step 4). */
     riskLevel?: string | null;
     riskSevere?: boolean | null;
@@ -142,6 +157,8 @@ export interface AlertLog {
     isVerified: boolean;
     verifiedBy: string;
     region: string;
+    /** When it was moved or logged in from a feed; null if logged directly. */
+    forwardedAt?: string | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -164,6 +181,8 @@ interface CallLogsPagination {
 
 interface UseCallLogsDataReturn {
     alerts: AlertLog[];
+    /** Signals per origin in the current view, for the "Came in via" chips. */
+    originCounts: AlertOriginCounts | null;
     filteredAlerts: AlertLog[];
     stats: CallLogsStats;
     filters: CallLogsFilters;
@@ -252,6 +271,11 @@ function toApiParams(
     // Member" for "Community"). Mirrors normalizeSourceOfAlert on the client.
     if (filters.source && filters.source !== 'all') {
         params.source = sourceFilterValues(filters.source).join(',');
+    }
+
+    // Which door the signal came in through (the "Came in via" chips).
+    if (filters.origin && filters.origin !== 'all') {
+        params.origin = filters.origin;
     }
 
     // Free-text search now runs server-side (scans the whole dataset, not just
@@ -403,6 +427,7 @@ function buildExportFilterTokens(filters: CallLogsFilters): string[] {
         tokens.push(filters.verification);
     }
     if (filters.source && filters.source !== 'all') tokens.push(filters.source);
+    if (isSignalOrigin(filters.origin)) tokens.push(signalOriginLabel(filters.origin));
     if (filters.sex && filters.sex !== 'all') tokens.push(filters.sex);
     if (filters.ageMin || filters.ageMax) {
         tokens.push(`age${filters.ageMin || '0'}-${filters.ageMax || 'max'}`);
@@ -504,6 +529,24 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         ['alerts', 'call-logs-stats', filters, columnFilters] as const,
         ([, , currentFilters, currentColumnFilters]) =>
             fetchAlertsStats({
+                ...toApiParams(currentFilters, 1, 1),
+                ...columnFiltersToAlertParams(currentColumnFilters),
+            }),
+        { keepPreviousData: true }
+    );
+
+    // Counts for the "Came in via" chips: the current view with every filter
+    // EXCEPT origin (the server ignores it), so each chip keeps its number
+    // while another is selected. Keyed without origin for the same reason —
+    // switching chips must not refetch the counts.
+    const originScope = useMemo(
+        () => ({ ...filters, origin: 'all' }),
+        [filters]
+    );
+    const { data: originCounts } = useSWR(
+        ['alerts', 'call-logs-origins', originScope, columnFilters] as const,
+        ([, , currentFilters, currentColumnFilters]) =>
+            fetchAlertOrigins({
                 ...toApiParams(currentFilters, 1, 1),
                 ...columnFiltersToAlertParams(currentColumnFilters),
             }),
@@ -727,6 +770,7 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
 
     return {
         alerts,
+        originCounts: originCounts ?? null,
         filteredAlerts,
         stats,
         filters,

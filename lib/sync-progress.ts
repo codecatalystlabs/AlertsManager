@@ -5,8 +5,40 @@
  * counters — so a single normalizer feeds one animated progress panel.
  */
 
-/** Lifecycle phase as reported by the Go backend sync runners. */
-export type SyncPhase = "idle" | "starting" | "fetching" | "done" | "error";
+/**
+ * Lifecycle phase as reported by the Go backend sync runners. "logging" is the
+ * 6767 sync's extra step: offering the events it imported to Raw Information.
+ */
+export type SyncPhase =
+	| "idle"
+	| "starting"
+	| "fetching"
+	| "logging"
+	| "done"
+	| "error";
+
+/**
+ * What a sync did with the events it imported, once each was offered to Raw
+ * Information (mirrors Go services.AutoLogReport). Every imported event lands
+ * in exactly one bucket: logged, alreadyInRegister, tooOld, notASignal, failed.
+ */
+export interface AutoLogReport {
+	/** False when auto-logging is switched off on the server. */
+	enabled: boolean;
+	/** Events reported longer ago than this are not logged. */
+	maxAgeDays: number;
+	considered: number;
+	logged: number;
+	/** Logged, but the org unit named no district — set one before triage. */
+	noDistrict: number;
+	alreadyInRegister: number;
+	tooOld: number;
+	notASignal: number;
+	failed: number;
+	/** The ALT ids this run created, first and last. */
+	firstAlertId?: number;
+	lastAlertId?: number;
+}
 
 /**
  * Loose shape covering both NdwSyncProgress and EidsrSyncProgress. Every field
@@ -25,6 +57,8 @@ export interface RawSyncProgress {
 	updated?: number;
 	skipped?: number;
 	excluded?: number;
+	/** Present only on a sync that logs into Raw Information (6767). */
+	autoLog?: AutoLogReport | null;
 	error?: string;
 	message?: string;
 }
@@ -34,7 +68,7 @@ export type SyncStatus = "idle" | "connecting" | "running" | "success" | "error"
 
 /** A single step of the visualised process. */
 export interface SyncStepState {
-	key: "connect" | "download" | "import" | "finish";
+	key: "connect" | "download" | "import" | "log" | "finish";
 	label: string;
 	detail: string;
 	/** pending → not reached, active → currently running, done/error → resolved. */
@@ -55,6 +89,8 @@ export interface SyncView {
 	updated: number;
 	skipped: number;
 	excluded: number;
+	/** The Raw Information step's outcome, when the sync has one. */
+	autoLog: AutoLogReport | null;
 	error?: string;
 	message?: string;
 	steps: SyncStepState[];
@@ -87,10 +123,16 @@ export function deriveSyncView(
 	const excluded = num(progress?.excluded);
 	const saved = imported + updated + skipped;
 
+	// A sync that logs into Raw Information has a fourth step. Shown from the
+	// start (not only once it is reached) so the panel does not grow a row
+	// halfway through, and only when the server reported the step is on.
+	const autoLog = progress?.autoLog ?? null;
+	const logsIntoRegister = autoLog != null;
+
 	let status: SyncStatus;
 	if (phase === "error") status = "error";
 	else if (phase === "done") status = "success";
-	else if (phase === "fetching") status = "running";
+	else if (phase === "fetching" || phase === "logging") status = "running";
 	else if (phase === "starting") status = "connecting";
 	else if (isSyncing) status = "connecting";
 	else status = "idle";
@@ -111,8 +153,9 @@ export function deriveSyncView(
 	// -1 keeps every step pending (idle: nothing is actually running).
 	let current: number;
 	if (status === "connecting") current = 0;
+	else if (phase === "logging") current = 3;
 	else if (status === "running") current = saved > 0 ? 2 : 1;
-	else if (status === "success") current = 3;
+	else if (status === "success") current = logsIntoRegister ? 4 : 3;
 	else if (status === "error")
 		current = page > 0 || scanned > 0 ? (saved > 0 ? 2 : 1) : 0;
 	else current = -1;
@@ -149,6 +192,8 @@ export function deriveSyncView(
 		return "pending";
 	};
 
+	const logDetail = describeAutoLog(autoLog);
+
 	const steps: SyncStepState[] = [
 		{
 			key: "connect",
@@ -174,6 +219,14 @@ export function deriveSyncView(
 			state: stepState(2),
 		},
 	];
+	if (logsIntoRegister) {
+		steps.push({
+			key: "log",
+			label: "Log into Raw Information",
+			detail: stepState(3) === "pending" ? "Waiting…" : logDetail,
+			state: stepState(3),
+		});
+	}
 
 	return {
 		status,
@@ -188,8 +241,41 @@ export function deriveSyncView(
 		updated,
 		skipped,
 		excluded,
+		autoLog,
 		error: progress?.error,
 		message: progress?.message,
 		steps,
 	};
+}
+
+/**
+ * One line for the Raw Information step: how many were logged, and why any
+ * were not. The reasons matter more than the count — "3 older than 30 days"
+ * tells the user where those three still are.
+ */
+export function describeAutoLog(report: AutoLogReport | null): string {
+	if (!report) return "";
+	if (!report.enabled) return "Automatic logging is off — move signals in by hand";
+	if (report.considered === 0) return "Nothing new to log";
+	const parts: string[] = [];
+	parts.push(
+		report.logged === 0
+			? "None logged"
+			: `${report.logged.toLocaleString()} logged as untriaged signals`
+	);
+	if (report.noDistrict > 0) {
+		parts.push(`${report.noDistrict.toLocaleString()} need a district`);
+	}
+	if (report.alreadyInRegister > 0) {
+		parts.push(`${report.alreadyInRegister.toLocaleString()} already moved in`);
+	}
+	if (report.tooOld > 0) {
+		parts.push(
+			`${report.tooOld.toLocaleString()} older than ${report.maxAgeDays} days left to move by hand`
+		);
+	}
+	if (report.failed > 0) {
+		parts.push(`${report.failed.toLocaleString()} failed — move by hand`);
+	}
+	return parts.join(" · ");
 }

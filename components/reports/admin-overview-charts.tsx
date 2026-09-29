@@ -4,40 +4,28 @@ import { memo, useMemo, type ReactNode } from "react";
 import {
 	Activity,
 	BarChart3,
-	CalendarRange,
+	ClipboardCheck,
 	Cross,
 	Gauge,
 	Layers,
 	ListChecks,
 	Map,
-	PieChart as PieChartIcon,
-	Play,
-	ShieldCheck,
+	MessageSquareReply,
 	Siren,
-	Split,
 	Stethoscope,
 	Timer,
-	Trash2,
 	Users,
-	Files,
 	type LucideIcon,
 } from "lucide-react";
 import {
-	Area,
-	AreaChart,
 	Bar,
 	BarChart,
 	CartesianGrid,
 	Cell,
-	ComposedChart,
 	LabelList,
-	Line,
 	Pie,
 	PieChart,
-	RadialBar,
-	RadialBarChart,
 	Tooltip,
-	Treemap,
 	XAxis,
 	YAxis,
 } from "recharts";
@@ -51,35 +39,28 @@ import {
 } from "@/components/ui/card";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 import { ChartSkeleton } from "@/components/ui/skeletons";
-import {
-	AMBER_INK,
-	EMERALD_INK,
-	INDIGO_INK,
-	ROSE_INK,
-	SKY_INK,
-	SLATE_INK,
-	StatCard,
-	TEAL_INK,
-	VIOLET_INK,
-} from "@/components/ui/stat-card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { DashboardCountItem, DashboardSummary } from "@/lib/fetch-dashboard";
-import { epiWeekTitle } from "@/lib/ebs-indicators";
+import { buildCompleteness, isMissingLabel, splitMissing } from "@/lib/data-completeness";
 
 /**
- * The administrative overview: a KPI row of stat tiles, then one grid of
- * charts that each use a DIFFERENT form for a different job — area for the
- * trend, a composed bar+line for the weekly volume, donuts for part-to-whole,
- * 100%-stacked bars for the gate outcomes, horizontal bars for ranked places,
- * a treemap for district share, a radial bar for the detection levels and a
- * status-coloured column chart for risk levels. Every number comes from the
- * one scoped GET /dashboard/summary payload, so the tiles and the charts
- * reconcile with each other and with the dashboard.
+ * The Reports → Overview tab: how complete the record is, then the
+ * breakdowns the dashboard does not carry — when, what, where, who reported,
+ * how each gate closed, risk levels and the case profile. The dashboard owns
+ * the pipeline figures (headline tiles, weekly volume, where signals are
+ * now); repeating them here only gave the reader two places to compare.
  *
- * Colour rules (dataviz skill): one hue, light→dark, for magnitude; the fixed
- * six-hue categorical order below for identity, never cycled past six (the
- * tail folds into "Other"); status colours only for state, always with a
- * label beside them.
+ * Every number comes from the one scoped GET /dashboard/summary payload, so
+ * the charts reconcile with each other and with the dashboard.
+ *
+ * Ranked bars, not donuts, radial rings or treemaps: a length is read more
+ * accurately than an angle or an area, and a ranking is the question each
+ * of these answers. Buckets that record a MISSING value ("Unknown", "Not
+ * recorded", "Unspecified") are never ranked among real values — a bar
+ * reading "Unspecified" at the top of "Conditions reported" says nothing
+ * about conditions. They are counted in a footnote under each chart and in
+ * the completeness panel at the top of the tab.
  */
 
 /* ------------------------------------------------------------------------ */
@@ -127,27 +108,7 @@ function pct(part: number, whole: number): string {
 }
 
 function isNeutralLabel(label: string): boolean {
-	return /unknown|not recorded|not assessed|other|unspecified|n\/a|untriaged|awaiting/i.test(label);
-}
-
-/** Fixed-order categorical colouring; neutral-looking labels get the grey. */
-function colourItems(items: DashboardCountItem[]): (DashboardCountItem & { fill: string })[] {
-	let slot = 0;
-	return items.map((it) => {
-		if (isNeutralLabel(it.label)) return { ...it, fill: NEUTRAL };
-		const fill = CAT[Math.min(slot, CAT.length - 1)];
-		slot++;
-		return { ...it, fill };
-	});
-}
-
-/** Keep at most `max` named slices; fold the rest into "Other". */
-function foldTail(items: DashboardCountItem[], max: number): DashboardCountItem[] {
-	const sorted = [...items].filter((i) => i.count > 0).sort((a, b) => b.count - a.count);
-	if (sorted.length <= max) return sorted;
-	const head = sorted.slice(0, max - 1);
-	const rest = sorted.slice(max - 1).reduce((s, i) => s + i.count, 0);
-	return [...head, { key: "other", label: "Other", count: rest }];
+	return isMissingLabel(label) || /not assessed|other|n\/a|untriaged|awaiting/i.test(label);
 }
 
 function truncate(value: string, max = 20): string {
@@ -273,110 +234,104 @@ interface PanelProps {
 	isLoading?: boolean;
 }
 
-/** Eight administrative headline figures, in pipeline order. */
-export const AdminOverviewCards = memo<PanelProps>(({ summary, isLoading }) => {
-	const s = summary;
-	const ind = s?.indicators;
-	const total = s?.total ?? 0;
-	const tiles = [
-		{
-			title: "Signals reported",
-			value: total,
-			sub: "all signals in scope",
-			icon: Files,
-			ink: SKY_INK,
-			hint: "Every signal in the selected scope.",
-		},
-		{
-			title: "Triaged",
-			value: s?.triaged ?? 0,
-			sub: `${pct(s?.triaged ?? 0, total) || "—"} of signals`,
-			icon: ListChecks,
-			ink: AMBER_INK,
-			hint: "Signals that went through the EBS step-2 triage gate.",
-		},
-		{
-			title: "Verified",
-			value: s?.verified ?? 0,
-			sub: `${pct(s?.verified ?? 0, total) || "—"} of signals`,
-			icon: ShieldCheck,
-			ink: EMERALD_INK,
-			hint: "Signals with a recorded verification outcome.",
-		},
-		{
-			title: "Confirmed events",
-			value: ind?.events ?? 0,
-			sub: `${pct(ind?.events ?? 0, s?.verified ?? 0) || "—"} of verified`,
-			icon: Split,
-			ink: INDIGO_INK,
-			hint: "Verified signals whose outcome is Confirmed.",
-		},
-		{
-			title: "Risk assessed",
-			value: ind?.eventsRiskAssessed ?? 0,
-			sub: `${pct(ind?.eventsRiskAssessed ?? 0, ind?.events ?? 0) || "—"} of events`,
-			icon: Gauge,
-			ink: VIOLET_INK,
-			hint: "Confirmed events carrying a risk level.",
-		},
-		{
-			title: "Response initiated",
-			value: ind?.responseInitiated ?? 0,
-			sub: `${pct(ind?.responseInitiated ?? 0, ind?.eventsRiskAssessed ?? 0) || "—"} of assessed`,
-			icon: Play,
-			ink: TEAL_INK,
-			hint: "Assessed events where a response was initiated.",
-		},
-		{
-			title: "Alerts",
-			value: s?.alerts ?? 0,
-			sub: `${pct(s?.alerts ?? 0, total) || "—"} of signals`,
-			icon: Siren,
-			ink: ROSE_INK,
-			hint: "Verified signals that were not discarded.",
-		},
-		{
-			title: "Discarded",
-			value: s?.discarded ?? 0,
-			sub: `${pct(s?.discarded ?? 0, s?.verified ?? 0) || "—"} of verified`,
-			icon: Trash2,
-			ink: SLATE_INK,
-			hint: "Verified signals whose outcome was Discarded.",
-		},
-	];
+/**
+ * How complete the record is, field by field — the question to ask before
+ * reading any breakdown below. Each meter is the share of signals in scope
+ * carrying a usable value; the missing remainder is what every chart on this
+ * tab leaves out of its ranking. Green from 90%, amber from 70%, red below.
+ */
+export const DataCompletenessPanel = memo<PanelProps>(({ summary, isLoading }) => {
+	const fields = useMemo(() => buildCompleteness(summary), [summary]);
 	return (
-		<div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-			{tiles.map((t) => (
-				<StatCard
-					key={t.title}
-					title={t.title}
-					value={t.value.toLocaleString()}
-					subText={t.sub}
-					hint={t.hint}
-					icon={t.icon}
-					ink={t.ink}
-					isLoading={isLoading}
-				/>
-			))}
-		</div>
+		<Card>
+			<CardHeader className="pb-2">
+				<div className="flex items-center gap-2">
+					<ClipboardCheck className="h-4 w-4 text-uganda-red" />
+					<CardTitle className="text-base">How complete is the record?</CardTitle>
+				</div>
+				<CardDescription className="text-[11px]">
+					Share of the {(summary?.total ?? 0).toLocaleString()} signals in scope with a usable value in
+					each field. What is missing here is left out of the rankings below, not guessed.
+				</CardDescription>
+			</CardHeader>
+			<CardContent>
+				{isLoading ? (
+					<Skeleton className="h-[88px] w-full" />
+				) : (
+					<ul className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
+						{fields.map((f) => {
+							const tone =
+								f.percent === null ? null : f.percent >= 90 ? "good" : f.percent >= 70 ? "watch" : "bad";
+							return (
+								<li key={f.key} title={f.hint} className="min-w-0">
+									<div className="flex items-baseline justify-between gap-2 text-xs">
+										<span className="truncate text-gray-700">{f.label}</span>
+										<span
+											className={cn(
+												"shrink-0 font-semibold tabular-nums",
+												tone === null && "text-gray-400",
+												tone === "good" && "text-emerald-700",
+												tone === "watch" && "text-amber-700",
+												tone === "bad" && "text-red-700"
+											)}
+										>
+											{f.percent === null ? "—" : `${f.percent}%`}
+										</span>
+									</div>
+									<div className="mt-0.5 h-1.5 rounded-full bg-muted">
+										<div
+											className={cn(
+												"h-1.5 rounded-full",
+												tone === "good" && "bg-emerald-500",
+												tone === "watch" && "bg-amber-500",
+												tone === "bad" && "bg-red-500"
+											)}
+											style={{ width: `${f.percent ?? 0}%` }}
+										/>
+									</div>
+									<p className="mt-0.5 truncate text-[10px] text-gray-500">
+										{f.missing > 0 ? `${f.missing.toLocaleString()} ${f.missingLabel}` : "none missing"}
+									</p>
+								</li>
+							);
+						})}
+					</ul>
+				)}
+			</CardContent>
+		</Card>
 	);
 });
-AdminOverviewCards.displayName = "AdminOverviewCards";
+DataCompletenessPanel.displayName = "DataCompletenessPanel";
 
 /* ------------------------------------------------------------------------ */
 /* Charts                                                                    */
 /* ------------------------------------------------------------------------ */
 
-/** Signals over time — a single-series area (trend). */
+/** Whether a timeline period ("2026-09" or "2026-09-29") is still under way. */
+function isCurrentPeriod(period: string): boolean {
+	const d = new Date();
+	const pad = (n: number) => String(n).padStart(2, "0");
+	const month = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+	return period === month || period === `${month}-${pad(d.getDate())}`;
+}
+
+/**
+ * Signals over time — one bar per month (or day, for short ranges). The
+ * period still under way is faded and labelled: a half-finished month drawn
+ * at full strength always reads as a collapse.
+ */
 function SignalsTrendCard({ summary, isLoading }: PanelProps) {
-	const data = summary?.timeline ?? [];
+	const data = useMemo(
+		() => (summary?.timeline ?? []).map((p) => ({ ...p, partial: isCurrentPeriod(p.period) })),
+		[summary?.timeline]
+	);
 	const unit = summary?.granularity === "monthly" ? "month" : "day";
 	const n = data.length;
 	return (
 		<ChartCard
 			icon={Activity}
 			title="Signals over time"
-			description={`Signals reported per ${unit} across the selected scope.`}
+			description={`Signals reported per ${unit}. The ${unit} in progress is faded.`}
 			className="lg:col-span-2"
 			isLoading={isLoading}
 			empty={n === 0}
@@ -384,13 +339,7 @@ function SignalsTrendCard({ summary, isLoading }: PanelProps) {
 			height={220}
 		>
 			<ChartContainer config={EMPTY_CONFIG} className="w-full" style={{ height: 220 }}>
-				<AreaChart data={data} margin={{ left: -8, right: 8, top: 8, bottom: 0 }}>
-					<defs>
-						<linearGradient id="adminTrendFill" x1="0" y1="0" x2="0" y2="1">
-							<stop offset="0%" stopColor={BLUE} stopOpacity={0.35} />
-							<stop offset="100%" stopColor={BLUE} stopOpacity={0.02} />
-						</linearGradient>
-					</defs>
+				<BarChart data={data} margin={{ left: -8, right: 8, top: 16, bottom: 0 }} barCategoryGap="18%">
 					<CartesianGrid strokeDasharray="3 3" vertical={false} />
 					<XAxis
 						dataKey="label"
@@ -399,76 +348,7 @@ function SignalsTrendCard({ summary, isLoading }: PanelProps) {
 						tick={{ fontSize: 10 }}
 						interval={n <= 14 ? 0 : Math.ceil(n / 14) - 1}
 					/>
-					<YAxis tickLine={false} axisLine={false} width={40} tick={{ fontSize: 10 }} allowDecimals={false} />
-					<Tooltip
-						cursor={{ stroke: "#9ca3af", strokeDasharray: "3 3" }}
-						content={({ active, payload }) => {
-							const p = payload?.[0]?.payload as { label: string; count: number } | undefined;
-							if (!active || !p) return null;
-							return <HoverCard title={p.label} rows={[{ label: "Signals", value: p.count.toLocaleString(), fill: BLUE }]} />;
-						}}
-					/>
-					<Area
-						type="monotone"
-						dataKey="count"
-						stroke={BLUE}
-						strokeWidth={2}
-						fill="url(#adminTrendFill)"
-						dot={false}
-						activeDot={{ r: 4, fill: "#FCDC04", stroke: BLUE }}
-					/>
-				</AreaChart>
-			</ChartContainer>
-		</ChartCard>
-	);
-}
-
-/** Weekly volume — reported as bars, alerts as a line, one count axis. */
-function WeeklyVolumeCard({ summary, isLoading }: PanelProps) {
-	const series = summary?.indicatorSeries ?? [];
-	const multiYear = series.length > 1 && series[0].year !== series[series.length - 1].year;
-	const data = useMemo(
-		() =>
-			series.map((p) => ({
-				...p,
-				label: multiYear
-					? `W${String(p.weekNo).padStart(2, "0")} '${String(p.year).slice(2)}`
-					: `W${String(p.weekNo).padStart(2, "0")}`,
-				reported: p.counts.signalsReported,
-				verified: p.counts.signalsVerified,
-				alerts: p.counts.alertsReported,
-			})),
-		[series, multiYear]
-	);
-	const n = data.length;
-	const legend = [
-		{ label: "Reported", count: data.reduce((s, d) => s + d.reported, 0), fill: mix("#ffffff", BLUE, 0.55) },
-		{ label: "Verified", count: data.reduce((s, d) => s + d.verified, 0), fill: BLUE },
-		{ label: "Alerts", count: data.reduce((s, d) => s + d.alerts, 0), fill: RED },
-	];
-	return (
-		<ChartCard
-			icon={CalendarRange}
-			title="Weekly volume"
-			description="Signals reported and verified (bars) and alerts issued (line), per epi week."
-			className="lg:col-span-2"
-			isLoading={isLoading}
-			empty={n === 0}
-			emptyMessage="No dated signals in scope."
-			height={220}
-			aside={<LegendList items={legend} total={0} columns={2} />}
-		>
-			<ChartContainer config={EMPTY_CONFIG} className="w-full" style={{ height: 220 }}>
-				<ComposedChart data={data} margin={{ left: -8, right: 8, top: 8, bottom: 0 }} barGap={2}>
-					<CartesianGrid strokeDasharray="3 3" vertical={false} />
-					<XAxis
-						dataKey="label"
-						tickLine={false}
-						axisLine={false}
-						tick={{ fontSize: 10 }}
-						interval={n <= 13 ? 0 : Math.ceil(n / 13) - 1}
-					/>
-					<YAxis tickLine={false} axisLine={false} width={40} tick={{ fontSize: 10 }} allowDecimals={false} />
+					<YAxis tickLine={false} axisLine={false} width={44} tick={{ fontSize: 10 }} allowDecimals={false} />
 					<Tooltip
 						cursor={{ fill: "rgba(0,0,0,0.04)" }}
 						content={({ active, payload }) => {
@@ -476,71 +356,21 @@ function WeeklyVolumeCard({ summary, isLoading }: PanelProps) {
 							if (!active || !p) return null;
 							return (
 								<HoverCard
-									title={epiWeekTitle(p)}
-									rows={[
-										{ label: "Reported", value: p.reported.toLocaleString(), fill: legend[0].fill },
-										{ label: "Verified", value: p.verified.toLocaleString(), fill: legend[1].fill },
-										{ label: "Alerts", value: p.alerts.toLocaleString(), fill: legend[2].fill },
-									]}
+									title={p.partial ? `${p.label} (in progress)` : p.label}
+									rows={[{ label: "Signals", value: p.count.toLocaleString(), fill: BLUE }]}
 								/>
 							);
 						}}
 					/>
-					<Bar dataKey="reported" fill={legend[0].fill} radius={[3, 3, 0, 0]} />
-					<Bar dataKey="verified" fill={legend[1].fill} radius={[3, 3, 0, 0]} />
-					<Line type="monotone" dataKey="alerts" stroke={RED} strokeWidth={2} dot={{ r: 2.5, fill: RED }} />
-				</ComposedChart>
-			</ChartContainer>
-		</ChartCard>
-	);
-}
-
-/** Donut of what happened to the signals — a part-to-whole of the pipeline exits. */
-function OutcomeDonutCard({ summary, isLoading }: PanelProps) {
-	const total = summary?.total ?? 0;
-	const verified = summary?.verified ?? 0;
-	const discarded = summary?.discarded ?? 0;
-	const events = summary?.indicators?.events ?? 0;
-	const otherVerified = Math.max(0, verified - discarded - events);
-	const unverified = summary?.notVerified ?? Math.max(0, total - verified);
-	const slices = [
-		{ key: "events", label: "Confirmed events", count: events, fill: CAT[3] },
-		{ key: "verifiedOther", label: "Verified, other outcome", count: otherVerified, fill: CAT[0] },
-		{ key: "discarded", label: "Discarded", count: discarded, fill: CAT[1] },
-		{ key: "unverified", label: "Awaiting verification", count: unverified, fill: NEUTRAL },
-	].filter((s) => s.count > 0);
-	const sum = slices.reduce((s, x) => s + x.count, 0);
-	return (
-		<ChartCard
-			icon={PieChartIcon}
-			title="Signal outcomes"
-			description="How the signals in scope have been resolved so far."
-			isLoading={isLoading}
-			empty={sum === 0}
-			height={220}
-			aside={<LegendList items={slices} total={sum} columns={1} />}
-		>
-			<ChartContainer config={EMPTY_CONFIG} className="mx-auto w-full" style={{ height: 200 }}>
-				<PieChart>
-					<Tooltip
-						content={({ active, payload }) => {
-							const p = payload?.[0]?.payload as (typeof slices)[number] | undefined;
-							if (!active || !p) return null;
-							return <HoverCard title={p.label} rows={[{ label: "Signals", value: `${p.count.toLocaleString()} · ${pct(p.count, sum)}`, fill: p.fill }]} />;
-						}}
-					/>
-					<Pie data={slices} dataKey="count" nameKey="label" innerRadius={55} outerRadius={85} paddingAngle={2} strokeWidth={2} stroke="#fff">
-						{slices.map((s) => (
-							<Cell key={s.key} fill={s.fill} />
+					<Bar dataKey="count" fill={BLUE} radius={[3, 3, 0, 0]} isAnimationActive={false}>
+						{data.map((p) => (
+							<Cell key={p.period} fillOpacity={p.partial ? 0.35 : 1} />
 						))}
-					</Pie>
-					<text x="50%" y="47%" textAnchor="middle" className="fill-gray-900 text-xl font-bold tabular-nums">
-						{sum.toLocaleString()}
-					</text>
-					<text x="50%" y="58%" textAnchor="middle" className="fill-gray-500 text-[10px]">
-						signals
-					</text>
-				</PieChart>
+						{n <= 16 && (
+							<LabelList dataKey="count" position="top" fontSize={10} className="fill-gray-700" formatter={(v: number) => v.toLocaleString()} />
+						)}
+					</Bar>
+				</BarChart>
 			</ChartContainer>
 		</ChartCard>
 	);
@@ -632,6 +462,8 @@ function TriageOutcomesCard({ summary, isLoading }: PanelProps) {
 
 function VerificationTimelinessCard({ summary, isLoading }: PanelProps) {
 	const sla = summary?.verificationSla;
+	const verifiedAll = (sla?.verifiedWithinDeadline ?? 0) + (sla?.verifiedLate ?? 0);
+	const kpi4 = share(sla?.verifiedWithinDeadline ?? 0, verifiedAll);
 	const items = [
 		{ key: "onTime", label: "Verified within deadline", count: sla?.verifiedWithinDeadline ?? 0, fill: STATUS.good },
 		{ key: "late", label: "Verified late", count: sla?.verifiedLate ?? 0, fill: STATUS.warning },
@@ -642,8 +474,10 @@ function VerificationTimelinessCard({ summary, isLoading }: PanelProps) {
 	return (
 		<ChartCard
 			icon={Timer}
-			title="Verification timeliness"
-			description="Against each signal's priority deadline: 12h High, 24h Medium, 48h Low."
+			title="Verification timeliness (KPI 4)"
+			description={`Against each signal's priority deadline (12h High, 24h Medium, 48h Low). ${
+				kpi4 === null ? "Nothing verified in scope." : `${kpi4}% of verified signals met it — target 80%.`
+			}`}
 			isLoading={isLoading}
 			empty={total === 0}
 			height={56}
@@ -654,7 +488,11 @@ function VerificationTimelinessCard({ summary, isLoading }: PanelProps) {
 	);
 }
 
-/** Ranked horizontal bars, one hue shaded by magnitude. */
+/**
+ * Ranked horizontal bars, one hue shaded by magnitude. Buckets recording a
+ * missing value are pulled out of the ranking into a footnote with their
+ * share, so the longest bar is always a real place, source or condition.
+ */
 function RankedBarsCard({
 	icon,
 	title,
@@ -664,6 +502,8 @@ function RankedBarsCard({
 	isLoading,
 	unit = "Signals",
 	max = 10,
+	className,
+	missingNoun = "not recorded",
 }: {
 	icon: LucideIcon;
 	title: string;
@@ -673,15 +513,37 @@ function RankedBarsCard({
 	isLoading?: boolean;
 	unit?: string;
 	max?: number;
+	className?: string;
+	/** How the footnote names the missing remainder. */
+	missingNoun?: string;
 }) {
+	const { named, missing } = useMemo(() => splitMissing(items), [items]);
 	const data = useMemo(
-		() => [...items].filter((i) => i.count > 0).sort((a, b) => b.count - a.count).slice(0, max),
-		[items, max]
+		() => named.filter((i) => i.count > 0).sort((a, b) => b.count - a.count).slice(0, max),
+		[named, max]
 	);
+	const all = items.reduce((s, i) => s + i.count, 0);
 	const top = data[0]?.count ?? 0;
-	const height = Math.max(200, data.length * 28 + 24);
+	const height = Math.max(160, data.length * 26 + 16);
 	return (
-		<ChartCard icon={icon} title={title} description={description} isLoading={isLoading} empty={data.length === 0} height={height}>
+		<ChartCard
+			icon={icon}
+			title={title}
+			description={description}
+			className={className}
+			isLoading={isLoading}
+			empty={data.length === 0}
+			emptyMessage={missing > 0 ? `All ${missing.toLocaleString()} signals in scope are ${missingNoun}.` : undefined}
+			height={height}
+			aside={
+				missing > 0 ? (
+					<p className="mt-1 text-[11px] text-gray-500">
+						+ {missing.toLocaleString()} {missingNoun}
+						{all > 0 && ` (${pct(missing, all)} of signals)`} — not ranked.
+					</p>
+				) : undefined
+			}
+		>
 			<ChartContainer config={EMPTY_CONFIG} className="w-full" style={{ height }}>
 				<BarChart data={data} layout="vertical" margin={{ left: 4, right: 40, top: 0, bottom: 0 }} barCategoryGap={6}>
 					<CartesianGrid horizontal={false} strokeDasharray="3 3" />
@@ -716,140 +578,35 @@ function RankedBarsCard({
 	);
 }
 
-/** Treemap cell: area = signals, shade = magnitude, label when it fits. */
-function TreemapCell(props: {
-	x?: number;
-	y?: number;
-	width?: number;
-	height?: number;
-	name?: string;
-	size?: number;
-	max?: number;
-}) {
-	const { x = 0, y = 0, width = 0, height = 0, name = "", size = 0, max = 1 } = props;
-	if (width <= 0 || height <= 0) return null;
-	const fill = shade(BLUE, size, max);
-	const dark = size / max > 0.45;
-	const showLabel = width > 56 && height > 30;
-	return (
-		<g>
-			<rect x={x + 1} y={y + 1} width={Math.max(0, width - 2)} height={Math.max(0, height - 2)} rx={4} fill={fill} />
-			{showLabel && (
-				<>
-					<text x={x + 8} y={y + 16} fontSize={11} fill={dark ? "#fff" : "#111827"} fontWeight={600}>
-						{truncate(name, Math.max(4, Math.floor(width / 7)))}
-					</text>
-					<text x={x + 8} y={y + 30} fontSize={10} fill={dark ? "rgba(255,255,255,0.85)" : "#374151"}>
-						{size.toLocaleString()}
-					</text>
-				</>
-			)}
-		</g>
-	);
-}
-
-function DistrictTreemapCard({ summary, isLoading }: PanelProps) {
-	const data = useMemo(
-		() =>
-			(summary?.topDistricts ?? [])
-				.filter((d) => d.count > 0)
-				.map((d) => ({ name: d.label, size: d.count })),
-		[summary?.topDistricts]
-	);
-	const max = data.reduce((m, d) => Math.max(m, d.size), 0);
+/**
+ * KPI 10 — were reporters told what happened to their signal? Over the
+ * signals that reached a conclusion (confirmed or discarded); a signal still
+ * open owes nothing yet. Target: more than 80%.
+ */
+function FeedbackCard({ summary, isLoading }: PanelProps) {
+	const due = summary?.feedbackDue ?? 0;
+	const given = summary?.feedbackGiven ?? 0;
+	const rate = share(given, due);
+	const items = [
+		{ key: "given", label: "Reporter told", count: given, fill: STATUS.good },
+		{ key: "pending", label: "Not yet told", count: Math.max(0, due - given), fill: STATUS.warning },
+	].filter((i) => i.count > 0);
 	return (
 		<ChartCard
-			icon={Map}
-			title="District share"
-			description="The leading districts by signals reported — area and shade both scale with the count."
+			icon={MessageSquareReply}
+			title="Feedback to reporters (KPI 10)"
+			description={
+				rate === null
+					? "No signal in scope has reached a conclusion yet."
+					: `${rate}% of the ${due.toLocaleString()} concluded signals (confirmed or discarded) had their reporter told — target 80%.`
+			}
 			isLoading={isLoading}
-			empty={data.length === 0}
-			height={240}
+			empty={due === 0}
+			emptyMessage="No concluded signals in scope."
+			height={56}
+			aside={<LegendList items={items} total={due} columns={2} />}
 		>
-			<ChartContainer config={EMPTY_CONFIG} className="w-full" style={{ height: 240 }}>
-				<Treemap data={data} dataKey="size" nameKey="name" aspectRatio={4 / 3} isAnimationActive={false} content={<TreemapCell max={max} />}>
-					<Tooltip
-						content={({ active, payload }) => {
-							const p = payload?.[0]?.payload as { name: string; size: number } | undefined;
-							if (!active || !p) return null;
-							return <HoverCard title={p.name} rows={[{ label: "Signals", value: p.size.toLocaleString(), fill: BLUE }]} />;
-						}}
-					/>
-				</Treemap>
-			</ChartContainer>
-		</ChartCard>
-	);
-}
-
-/** Donut with a folded tail: sources of signals. */
-function SourcesDonutCard({ summary, isLoading }: PanelProps) {
-	const slices = useMemo(() => colourItems(foldTail(summary?.sources ?? [], 6)), [summary?.sources]);
-	const total = slices.reduce((s, i) => s + i.count, 0);
-	return (
-		<ChartCard
-			icon={Layers}
-			title="Signals by source"
-			description="Who reported the signals — the six largest sources, the rest folded into Other."
-			isLoading={isLoading}
-			empty={total === 0}
-			height={200}
-			aside={<LegendList items={slices} total={total} columns={2} />}
-		>
-			<ChartContainer config={EMPTY_CONFIG} className="mx-auto w-full" style={{ height: 180 }}>
-				<PieChart>
-					<Tooltip
-						content={({ active, payload }) => {
-							const p = payload?.[0]?.payload as (typeof slices)[number] | undefined;
-							if (!active || !p) return null;
-							return <HoverCard title={p.label} rows={[{ label: "Signals", value: `${p.count.toLocaleString()} · ${pct(p.count, total)}`, fill: p.fill }]} />;
-						}}
-					/>
-					<Pie data={slices} dataKey="count" nameKey="label" innerRadius={48} outerRadius={78} paddingAngle={2} strokeWidth={2} stroke="#fff">
-						{slices.map((s) => (
-							<Cell key={s.key} fill={s.fill} />
-						))}
-					</Pie>
-				</PieChart>
-			</ChartContainer>
-		</ChartCard>
-	);
-}
-
-/** Radial bars: signals by the level they were detected at. */
-function DetectionLevelRadialCard({ summary, isLoading }: PanelProps) {
-	const items = useMemo(
-		() =>
-			colourItems(
-				[...(summary?.signalLevels ?? [])].filter((i) => i.count > 0).sort((a, b) => b.count - a.count).slice(0, 6)
-			),
-		[summary?.signalLevels]
-	);
-	const total = items.reduce((s, i) => s + i.count, 0);
-	// Outer ring = largest, so the rings read as a ranking from the outside in.
-	const data = items.map((i) => ({ ...i, name: i.label }));
-	return (
-		<ChartCard
-			icon={Users}
-			title="Detection level"
-			description="Where the signals were first picked up: community, facility, district and above."
-			isLoading={isLoading}
-			empty={total === 0}
-			height={200}
-			aside={<LegendList items={items} total={total} columns={2} />}
-		>
-			<ChartContainer config={EMPTY_CONFIG} className="mx-auto w-full" style={{ height: 180 }}>
-				<RadialBarChart data={data} innerRadius="22%" outerRadius="100%" startAngle={90} endAngle={-270} barSize={12}>
-					<Tooltip
-						content={({ active, payload }) => {
-							const p = payload?.[0]?.payload as (typeof data)[number] | undefined;
-							if (!active || !p) return null;
-							return <HoverCard title={p.label} rows={[{ label: "Signals", value: `${p.count.toLocaleString()} · ${pct(p.count, total)}`, fill: p.fill }]} />;
-						}}
-					/>
-					{/* Each row carries its own `fill`; RadialBar reads it per ring. */}
-					<RadialBar dataKey="count" background={{ fill: "#f3f4f6" }} cornerRadius={6} isAnimationActive={false} />
-				</RadialBarChart>
-			</ChartContainer>
+			<StackedShareBar items={items} total={due} />
 		</ChartCard>
 	);
 }
@@ -888,10 +645,10 @@ function RiskLevelColumnsCard({ summary, isLoading }: PanelProps) {
 			aside={<LegendList items={data} total={total} columns={2} />}
 		>
 			<ChartContainer config={EMPTY_CONFIG} className="w-full" style={{ height: 180 }}>
-				<BarChart data={data} margin={{ left: -16, right: 8, top: 16, bottom: 0 }} barCategoryGap={12}>
+				<BarChart data={data} margin={{ left: -4, right: 8, top: 16, bottom: 0 }} barCategoryGap={12}>
 					<CartesianGrid strokeDasharray="3 3" vertical={false} />
 					<XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} interval={0} tickFormatter={(v: string) => truncate(v, 12)} />
-					<YAxis tickLine={false} axisLine={false} width={40} tick={{ fontSize: 10 }} allowDecimals={false} />
+					<YAxis tickLine={false} axisLine={false} width={44} tick={{ fontSize: 10 }} allowDecimals={false} />
 					<Tooltip
 						cursor={{ fill: "rgba(0,0,0,0.04)" }}
 						content={({ active, payload }) => {
@@ -914,7 +671,8 @@ function RiskLevelColumnsCard({ summary, isLoading }: PanelProps) {
 
 /** Age bands as columns with a sex donut beside them — the case profile. */
 function CaseProfileCard({ summary, isLoading }: PanelProps) {
-	const age = (summary?.age ?? []).filter((i) => i.count > 0);
+	const ageSplit = splitMissing(summary?.age ?? []);
+	const age = ageSplit.named.filter((i) => i.count > 0);
 	const sex = useMemo(() => {
 		return (summary?.sex ?? [])
 			.filter((i) => i.count > 0)
@@ -931,7 +689,9 @@ function CaseProfileCard({ summary, isLoading }: PanelProps) {
 		<ChartCard
 			icon={Stethoscope}
 			title="Case profile"
-			description="Age bands of the reported cases, with the sex split beside them."
+			description={`Age bands of the reported cases, with the sex split beside them.${
+				ageSplit.missing > 0 ? ` ${ageSplit.missing.toLocaleString()} cases with no age recorded are not drawn.` : ""
+			}`}
 			className="lg:col-span-2"
 			isLoading={isLoading}
 			empty={ageTotal === 0 && sexTotal === 0}
@@ -941,10 +701,10 @@ function CaseProfileCard({ summary, isLoading }: PanelProps) {
 			<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 				<div className="md:col-span-2">
 					<ChartContainer config={EMPTY_CONFIG} className="w-full" style={{ height: 190 }}>
-						<BarChart data={age} margin={{ left: -16, right: 8, top: 16, bottom: 0 }} barCategoryGap={8}>
+						<BarChart data={age} margin={{ left: -4, right: 8, top: 16, bottom: 0 }} barCategoryGap={8}>
 							<CartesianGrid strokeDasharray="3 3" vertical={false} />
 							<XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fontSize: 10 }} interval={0} />
-							<YAxis tickLine={false} axisLine={false} width={40} tick={{ fontSize: 10 }} allowDecimals={false} />
+							<YAxis tickLine={false} axisLine={false} width={44} tick={{ fontSize: 10 }} allowDecimals={false} />
 							<Tooltip
 								cursor={{ fill: "rgba(0,0,0,0.04)" }}
 								content={({ active, payload }) => {
@@ -1019,31 +779,55 @@ function CaseStatusCard({ summary, isLoading }: PanelProps) {
 export const AdminOverviewCharts = memo<PanelProps>(({ summary, isLoading }) => (
 	<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
 		<SignalsTrendCard summary={summary} isLoading={isLoading} />
-		<WeeklyVolumeCard summary={summary} isLoading={isLoading} />
-		<OutcomeDonutCard summary={summary} isLoading={isLoading} />
-		<SourcesDonutCard summary={summary} isLoading={isLoading} />
-		<TriageOutcomesCard summary={summary} isLoading={isLoading} />
-		<VerificationTimelinessCard summary={summary} isLoading={isLoading} />
-		<RankedBarsCard
-			icon={BarChart3}
-			title="Signals by region"
-			description="Signals reported, by the official region of the case district."
-			items={summary?.reportedByRegion ?? []}
-			hue={BLUE}
-			isLoading={isLoading}
-		/>
-		<DistrictTreemapCard summary={summary} isLoading={isLoading} />
-		<DetectionLevelRadialCard summary={summary} isLoading={isLoading} />
-		<RiskLevelColumnsCard summary={summary} isLoading={isLoading} />
 		<RankedBarsCard
 			icon={Siren}
 			title="Conditions reported"
-			description="The diseases and conditions the signals were raised for."
+			description="The suspected disease or condition each signal was raised for."
 			items={summary?.diseases ?? []}
 			hue={RED}
 			isLoading={isLoading}
-			unit="Alerts"
+			missingNoun="with no disease recorded"
 		/>
+		<RankedBarsCard
+			icon={BarChart3}
+			title="Signals by region"
+			description="By the official region of the case district."
+			items={summary?.reportedByRegion ?? []}
+			hue={BLUE}
+			isLoading={isLoading}
+			max={16}
+			missingNoun="with a district that maps to no region"
+		/>
+		<RankedBarsCard
+			icon={Map}
+			title="Leading districts"
+			description="The districts reporting the most signals."
+			items={summary?.topDistricts ?? []}
+			hue={BLUE}
+			isLoading={isLoading}
+			missingNoun="with no district recorded"
+		/>
+		<RankedBarsCard
+			icon={Layers}
+			title="Signals by source"
+			description="Who reported the signal, as recorded at intake."
+			items={summary?.sources ?? []}
+			hue={CAT[4]}
+			isLoading={isLoading}
+		/>
+		<RankedBarsCard
+			icon={Users}
+			title="Detection level (KPI 1)"
+			description="The level the signal was detected at. A transport (SMS 6767, a call, eCHIS) says how it travelled, not where it was found, so it is not guessed into a level."
+			items={summary?.signalLevels ?? []}
+			hue={CAT[3]}
+			isLoading={isLoading}
+			missingNoun="with only a transport or nothing recorded"
+		/>
+		<TriageOutcomesCard summary={summary} isLoading={isLoading} />
+		<VerificationTimelinessCard summary={summary} isLoading={isLoading} />
+		<RiskLevelColumnsCard summary={summary} isLoading={isLoading} />
+		<FeedbackCard summary={summary} isLoading={isLoading} />
 		<CaseStatusCard summary={summary} isLoading={isLoading} />
 		<CaseProfileCard summary={summary} isLoading={isLoading} />
 	</div>

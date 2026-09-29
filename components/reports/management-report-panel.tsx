@@ -52,17 +52,12 @@ import {
 } from "@/lib/management-report-config";
 
 /**
- * Outcome buckets that make a signal an "alert" (recorded, non-discarded) —
- * the map slide shows the distribution of ALERTS, so the district counts are
- * scoped to these buckets. Values must match the backend's OutcomeFilterBucket.
+ * The map slide shows the distribution of ISSUED alerts, so its district
+ * counts are scoped by the same stage key the Alerts page lists
+ * (services.StagePredicate "alert") — the N in the map title and the
+ * shading then count the same signals.
  */
-const ALERT_OUTCOME_BUCKETS = [
-	"Field Case Verification",
-	"Sample Collected",
-	"Validated for EMS Evacuation",
-	"Mortality Surveillance/Supervised Burial",
-	"Others",
-];
+const ALERT_STAGE = "alert";
 
 interface DeckData {
 	report: ManagementReport;
@@ -140,7 +135,7 @@ export function ManagementReportPanel() {
 			fetchGeoDistricts("", {
 				fromDate: range.fromDate,
 				toDate: range.toDate,
-				outcomes: ALERT_OUTCOME_BUCKETS,
+				stage: ALERT_STAGE,
 			}).catch(() => null), // report still renders if boundaries are unavailable
 		]);
 		return { report, districtGeo, focusKey: wantFocusKey };

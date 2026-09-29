@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo, type ReactNode } from "react";
 import { ExcelIcon, CsvIcon } from "@/components/ui/file-type-icons";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,17 +35,19 @@ const DISCARDED_COLOR = "#dc2626";
 
 const chartConfig: ChartConfig = {
 	signals: { label: "Signals", color: SIGNALS_COLOR },
-	alerts: { label: "Alerts", color: ALERTS_COLOR },
+	alerts: { label: "Verified, not discarded", color: ALERTS_COLOR },
 	discarded: { label: "Discarded", color: DISCARDED_COLOR },
 };
 
 interface ReportsTimeseriesChartProps {
 	timeseries: ReportTimeseries | null;
 	isLoading?: boolean;
+	/** Rendered under the title — e.g. what the disease filter left out. */
+	note?: ReactNode;
 }
 
 export const ReportsTimeseriesChart = memo<ReportsTimeseriesChartProps>(
-	({ timeseries, isLoading }) => {
+	({ timeseries, isLoading, note }) => {
 		const data = useMemo(
 			() =>
 				(timeseries?.points ?? []).map((p) => ({
@@ -85,9 +87,12 @@ export const ReportsTimeseriesChart = memo<ReportsTimeseriesChartProps>(
 		return (
 			<Card className={LAYOUT.card}>
 				<CardHeader className={cn(LAYOUT.cardHeader, "flex-row items-start justify-between gap-2 space-y-0")}>
-					<CardTitle className={LAYOUT.cardTitle}>
-						{timeseries?.title || "Signals & Alerts"}
-					</CardTitle>
+					<div className="min-w-0 flex-1">
+						<CardTitle className={LAYOUT.cardTitle}>
+							{timeseries?.title || "Signals & Alerts"}
+						</CardTitle>
+						{note}
+					</div>
 					<div className="flex shrink-0 gap-1">
 						<Button
 							type="button"
@@ -179,7 +184,7 @@ export const ReportsTimeseriesChart = memo<ReportsTimeseriesChartProps>(
 								<Line
 									type="monotone"
 									dataKey="alerts"
-									name="Alerts"
+									name="Verified, not discarded"
 									stroke={ALERTS_COLOR}
 									strokeWidth={2}
 									dot={{ r: 4, fill: ALERTS_COLOR, strokeWidth: 0 }}

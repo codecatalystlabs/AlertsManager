@@ -1,16 +1,18 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
-import {
-	AuthService,
-	isDistrictScopedRole,
-	isRegionScopedRole,
-	type User,
-} from "@/lib/auth";
+import { isDistrictScoped, isRegionScoped } from "@/lib/access";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import type { User } from "@/lib/auth";
 import {
 	resolveDashboardRange,
 	DEFAULT_RANGE_PRESET,
 	type DashboardRangeValue,
 } from "@/components/dashboard/dashboard-range-picker";
+
+/** "Gulu" → "Gulu district"; an official name ("Kampala District", "Masaka City") as is. */
+function withDistrictWord(name: string): string {
+	return /\s(district|city)$/i.test(name.trim()) ? name.trim() : `${name.trim()} district`;
+}
 
 /**
  * The page-level scope every dashboard figure is computed under: date range,
@@ -53,13 +55,10 @@ export function useDashboardScope(): DashboardScope {
 	const [response, setResponse] = useState<string>("all");
 
 	// Current user (resolved after mount — localStorage is client-only).
-	const [user, setUser] = useState<User | null>(null);
-	useEffect(() => {
-		setUser(AuthService.getUser());
-	}, []);
-	const scopedToDistrict = isDistrictScopedRole(user);
+	const user = useCurrentUser();
+	const scopedToDistrict = isDistrictScoped(user);
 	const assignedDistrict = user?.district?.trim();
-	const scopedToRegion = isRegionScopedRole(user);
+	const scopedToRegion = isRegionScoped(user);
 	const assignedRegion = user?.region?.trim();
 
 	const setRegion = useCallback((value: string) => {
@@ -72,10 +71,10 @@ export function useDashboardScope(): DashboardScope {
 
 	const scopeLabel =
 		scopedToDistrict && assignedDistrict
-			? `Showing data for ${assignedDistrict} district only`
+			? `Showing data for ${withDistrictWord(assignedDistrict)} only`
 			: scopedToRegion && assignedRegion
 				? district !== "all"
-					? `Showing data for ${district} district (${assignedRegion} region)`
+					? `Showing data for ${withDistrictWord(district)} (${assignedRegion} region)`
 					: `Showing data for ${assignedRegion} region only`
 				: isUnbounded
 					? "Showing all-time data"

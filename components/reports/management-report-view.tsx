@@ -32,6 +32,7 @@ import type {
 import type { GeoFeatureCollection } from "@/lib/fetch-geo";
 import {
 	formatReportRange,
+	MANAGEMENT_CASCADE_STAGES,
 	renderDistrictChoropleth,
 	scopeColumns,
 } from "@/lib/management-report-pptx";
@@ -79,16 +80,7 @@ const ALERTS_COLOR = "#ca8a04";
 const VHF_STACK_COLOR = "#2a78d6";
 const OTHER_STACK_COLOR = "#eb6834";
 
-const CASCADE_STAGES: { key: keyof ManagementScope["cascade"][string]; label: string }[] = [
-	{ key: "signals", label: "Signals" },
-	{ key: "signalsVerified", label: "Signals verified" },
-	{ key: "alerts", label: "Alerts" },
-	{ key: "sampleCollected", label: "Sample Collected" },
-	{ key: "fieldCaseVerification", label: "Field Case Verification" },
-	{ key: "sdb", label: "SDB" },
-	{ key: "rrtDeployment", label: "RRT deployment" },
-	{ key: "ems", label: "EMS" },
-];
+const CASCADE_STAGES = MANAGEMENT_CASCADE_STAGES;
 
 interface ManagementReportViewProps {
 	report: ManagementReport;
@@ -175,7 +167,7 @@ export function ManagementReportView({
 					title="Other PHEs reported: Alerts"
 					counts={report.otherPhes}
 					color={theme.accent}
-					seriesLabel="Alerts"
+					seriesLabel="Alerts issued"
 				/>
 			)}
 
@@ -796,7 +788,7 @@ function MapCard({
 
 const trendConfig: ChartConfig = {
 	signals: { label: "Signals", color: SIGNALS_COLOR },
-	alerts: { label: "Alerts", color: ALERTS_COLOR },
+	alerts: { label: "Alerts issued", color: ALERTS_COLOR },
 };
 
 function TrendCard({ report }: { report: ManagementReport }) {

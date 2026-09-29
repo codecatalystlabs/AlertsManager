@@ -206,4 +206,39 @@ check(
 	false
 );
 
+// The SECOND verification level. An escalated signal is adjudicated (the desk
+// answered "I cannot tell"), so it must not fall back to the desk queue — and
+// it is not concluded either, so nothing downstream may claim it.
+check(
+	"an escalated signal's next step is field verification",
+	nextAction({
+		triageDecision: "Forwarded to Verification",
+		verificationOutcome: "Escalated to Field",
+		riskLevel: "",
+		feedbackGivenAt: null,
+	}).key,
+	"field-verify"
+);
+check(
+	"an escalated signal is never sent back to the desk queue",
+	nextAction({
+		triageDecision: "Forwarded to Verification",
+		verificationOutcome: "Escalated to Field",
+		riskLevel: "",
+		feedbackGivenAt: null,
+	}).key === "verify",
+	false
+);
+check(
+	"a field-verified confirmation carries on to risk assessment",
+	nextAction({
+		triageDecision: "Forwarded to Verification",
+		verificationOutcome: "Confirmed",
+		verificationLevel: "Field",
+		riskLevel: "",
+		feedbackGivenAt: null,
+	}).key,
+	"assess-risk"
+);
+
 console.log(`next-action: ${passed} assertions passed`);

@@ -1,3 +1,4 @@
+import { canTakeStep, type SignalActions } from "@/lib/access";
 import { altCode } from "@/lib/alt-code";
 import { type ColumnDef } from "@tanstack/react-table";
 import { AlertLog } from "@/hooks/use-call-logs-data";
@@ -17,6 +18,7 @@ import {
 	ShieldAlert,
 	MessageCircleReply,
 	FileDown,
+	Check,
 } from "lucide-react";
 import { alertResponse } from "@/constants";
 import {
@@ -26,10 +28,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { forwardedFromSourceLabel } from "@/lib/signal-register-link";
+import { SignalOriginBadge } from "@/components/signal-origin-badge";
 import { DiscardLevelBadge } from "@/components/triage";
 import { verificationBlockedReason } from "@/lib/alert-triage";
 import { nextAction, type NextActionKey } from "@/lib/next-action";
+import {
+	VERIFICATION_ESCALATED_FIELD,
+	VERIFICATION_LEVEL_DESK,
+	VERIFICATION_LEVEL_FIELD,
+	type VerificationLevel,
+} from "@/lib/verification-options";
 import { RiskBadge } from "@/components/risk";
 import { feedbackIsReached } from "@/lib/alert-feedback";
 import {
@@ -80,6 +88,12 @@ export type CallLogsStatFilter = "alive" | "other" | "verified" | "pending";
 export interface CallLogsFilterState {
 	status: string;
 	source: string;
+	/**
+	 * Which door the signal came in through: "all" | "6767" | "echis" | "poe" |
+	 * "direct" (lib/signal-origin.ts). Set by the "Came in via" chips above the
+	 * table, or by an ?origin= link such as the 6767 page's post-sync button.
+	 */
+	origin: string;
 	search: string;
 	verification: string;
 	/** Selected region name, or "all" for no region filter. */
@@ -123,6 +137,7 @@ export interface CallLogsFilterState {
 export const CALL_LOGS_INITIAL_FILTERS: CallLogsFilterState = {
 	status: "all",
 	source: "all",
+	origin: "all",
 	priority: "all",
 	triageDecision: "all",
 	stage: "",
@@ -209,7 +224,12 @@ export function sourceFilterOptions(): { value: string; label: string }[] {
 export interface CallLogsTableCallbacks {
 	onViewDetails: (alert: AlertLog) => void;
 	onEditAlert: (alert: AlertLog) => void;
-	onVerifyAlert: (alert: AlertLog) => void;
+	/**
+	 * Open verification at a LEVEL: the desk (by phone, the default) or the
+	 * field (a site visit). Same question, same dialog — see
+	 * components/alert-verification-dialog.tsx.
+	 */
+	onVerifyAlert: (alert: AlertLog, level?: VerificationLevel) => void;
 	/** Open the triage dialog (EBS step 2 — assign the priority that sets the
 	 *  verification deadline). */
 	onTriageAlert: (alert: AlertLog) => void;
@@ -224,8 +244,8 @@ export interface CallLogsTableCallbacks {
 	 * it mandates are half of what the report exists to communicate.
 	 */
 	onDeleteAlert: (alertId: number) => Promise<void>;
-	/** Whether the current user may delete alerts (admin/EOC only). */
-	canDelete?: boolean;
+	/** What the signed-in account's role allows; actions it lacks are not offered. */
+	can: SignalActions;
 }
 
 /** Resolve a response code (e.g. "ViralHemorrhagicFever") to its display name. */
@@ -485,19 +505,21 @@ export const createCallLogsTableColumns = (
 			},
 		},
 		{
-			id: "forwardedFrom",
-			header: "Forwarded From",
+			// Which door the signal came in through. The 6767 flag is the one
+			// people scan for: those signals now arrive by themselves, logged on
+			// sync, so the list has to say which rows nobody typed in. Filtered
+			// by the "Came in via" chips above the table, not a header funnel —
+			// one control per filter.
+			id: "origin",
+			header: "Came in via",
+			enableSorting: false,
 			enableColumnFilter: false,
-			cell: ({ row }) => {
-				const label = forwardedFromSourceLabel(row.original.alertFrom);
-				return label ? (
-					<Badge variant="secondary" className="text-xs">
-						{label}
-					</Badge>
-				) : (
-					<span className="text-sm text-muted-foreground">—</span>
-				);
-			},
+			cell: ({ row }) => (
+				<SignalOriginBadge
+					alertFrom={row.original.alertFrom}
+					arrivedAt={row.original.forwardedAt || row.original.createdAt}
+				/>
+			),
 		},
 		{
 			accessorKey: "alertCaseDistrict",
@@ -623,20 +645,22 @@ export const createCallLogsTableColumns = (
 								<Eye className="h-4 w-4 mr-2" />
 								View details
 							</DropdownMenuItem>
-							<DropdownMenuItem
-								onClick={() =>
-									callbacks.onEditAlert(alertItem)
-								}
-							>
-								<Edit className="h-4 w-4 mr-2" />
-								Edit signal
-							</DropdownMenuItem>
+							{callbacks.can.edit && (
+								<DropdownMenuItem
+									onClick={() =>
+										callbacks.onEditAlert(alertItem)
+									}
+								>
+									<Edit className="h-4 w-4 mr-2" />
+									Edit signal
+								</DropdownMenuItem>
+							)}
 							{/* Only once the signal has actually REACHED step 7. A confirmed
 						    event still waiting on its risk assessment owes feedback
 						    eventually, but offering it here puts two competing actions on
 						    one row and closes the loop on an event nobody has scored —
 						    see feedbackIsReached. */}
-							{feedbackIsReached(alertItem) && (
+							{callbacks.can.feedback && feedbackIsReached(alertItem) && (
 								<DropdownMenuItem
 									onClick={() =>
 										callbacks.onRecordFeedback(alertItem)
@@ -653,7 +677,7 @@ export const createCallLogsTableColumns = (
 										: "Record feedback"}
 								</DropdownMenuItem>
 							)}
-							{alertItem.verificationOutcome === "Confirmed" && (
+							{callbacks.can.riskAssess && alertItem.verificationOutcome === "Confirmed" && (
 								<DropdownMenuItem
 									onClick={() =>
 										callbacks.onAssessRisk(alertItem)
@@ -669,7 +693,7 @@ export const createCallLogsTableColumns = (
 						    scored signal, but a row on the register still has work
 						    due on it, and a report written mid-pipeline states a
 						    conclusion nobody has reached yet. */}
-							{!alertItem.isVerified && (
+							{callbacks.can.triage && !alertItem.isVerified && (
 								<DropdownMenuItem
 									onClick={() =>
 										callbacks.onTriageAlert(alertItem)
@@ -683,18 +707,29 @@ export const createCallLogsTableColumns = (
 						    of a signal that has not been forwarded. Disabling the
 						    action here says so before the click rather than after,
 						    with the reason in the tooltip. */}
-							{!alertItem.isVerified &&
+							{callbacks.can.verify && !alertItem.isVerified &&
 								(() => {
 									const blocked = verificationBlockedReason(
 										alertItem.triageDecision,
 										alertItem.priority
 									);
+									// Once the desk has escalated, the desk is finished
+									// with this signal — the only verification left to
+									// record is the visit's.
+									const escalated =
+										(alertItem.verificationOutcome ?? "").trim() ===
+										VERIFICATION_ESCALATED_FIELD;
 									return (
 										<DropdownMenuItem
 											disabled={Boolean(blocked)}
 											title={blocked || undefined}
 											onClick={() =>
-												callbacks.onVerifyAlert(alertItem)
+												callbacks.onVerifyAlert(
+													alertItem,
+													escalated
+														? VERIFICATION_LEVEL_FIELD
+														: VERIFICATION_LEVEL_DESK
+												)
 											}
 											className={
 												blocked
@@ -703,11 +738,15 @@ export const createCallLogsTableColumns = (
 											}
 										>
 											<Shield className="h-4 w-4 mr-2" />
-											{blocked ? "Verify — triage first" : "Verify signal"}
+											{blocked
+												? "Verify — triage first"
+												: escalated
+												? "Record field verification"
+												: "Verify signal"}
 										</DropdownMenuItem>
 									);
 								})()}
-							{callbacks.canDelete && (
+							{callbacks.can.delete && (
 								<>
 									<DropdownMenuSeparator />
 									<DropdownMenuItem
@@ -743,6 +782,36 @@ export const createCallLogsTableColumns = (
 		},
 	];
 
+/** How long a signal has been with the field team, as "3d" / "2h". */
+function daysSince(value?: string | null): string {
+	if (!value) return "";
+	const then = new Date(value).getTime();
+	if (Number.isNaN(then)) return "";
+	const hours = Math.floor((Date.now() - then) / 3_600_000);
+	if (hours < 1) return "just now";
+	if (hours < 24) return `${hours}h`;
+	return `${Math.floor(hours / 24)}d`;
+}
+
+/** Who escalated it, when, and what they asked for — the row's tooltip. */
+function escalationTitle(alert: AlertLog): string {
+	const parts = ["The desk could not conclude and sent this for field verification."];
+	if (alert.escalatedToFieldBy) parts.push(`Escalated by ${alert.escalatedToFieldBy}.`);
+	if (alert.fieldVerificationRequest)
+		parts.push(`Asked to check: ${alert.fieldVerificationRequest}`);
+	return parts.join(" ");
+}
+
+/** What a row says when its next step is one the account cannot take. */
+const WAITING_ON: Partial<Record<NextActionKey, string>> = {
+	triage: "Awaiting triage",
+	retriage: "Triaged",
+	verify: "Awaiting verification",
+	"field-verify": "With the field team",
+	"assess-risk": "Awaiting risk assessment",
+	feedback: "Awaiting feedback",
+};
+
 /**
  * The single action this signal is actually waiting on.
  *
@@ -769,14 +838,102 @@ function NextStepButton({
 		);
 	}
 
+	// The step is due but this account's role cannot take it: say what the
+	// signal is waiting on rather than offer a button the API would refuse.
+	if (!canTakeStep(callbacks.can, action.key)) {
+		return (
+			<span
+				className="whitespace-nowrap text-xs text-muted-foreground"
+				title={`${action.hint} Your role does not include this step.`}
+			>
+				{WAITING_ON[action.key] ?? "—"}
+			</span>
+		);
+	}
+
 	const run: Record<NextActionKey, () => void> = {
 		triage: () => callbacks.onTriageAlert(alert),
 		retriage: () => callbacks.onTriageAlert(alert),
-		verify: () => callbacks.onVerifyAlert(alert),
+		verify: () => callbacks.onVerifyAlert(alert, VERIFICATION_LEVEL_DESK),
+		"field-verify": () =>
+			callbacks.onVerifyAlert(alert, VERIFICATION_LEVEL_FIELD),
 		"assess-risk": () => callbacks.onAssessRisk(alert),
 		feedback: () => callbacks.onRecordFeedback(alert),
 		none: () => { },
 	};
+
+	// VERIFICATION IS THE ONE STEP WITH TWO DOORS. The desk is the usual one —
+	// a phone call, minutes of work — but a team already travelling to the
+	// village verifies better than any call, and forcing them through a desk
+	// decision first would have them record an escalation to themselves.
+	//
+	// So a signal awaiting verification offers both, the desk emphasised and
+	// the field beside it. Once the desk HAS escalated, only the field door is
+	// left: nextAction returns "field-verify" and there is nothing to choose.
+	// Escalated: the desk answered "I cannot tell from here", so the same
+	// question is now with a field team. It stays in THIS queue — verification
+	// is one gate, whoever is standing at it — and says so on the row, with how
+	// long it has been waiting, because that wait is the thing worth seeing.
+	if (action.key === "field-verify") {
+		const waiting = daysSince(alert.escalatedToFieldAt);
+		return (
+			<div className="flex items-center gap-1">
+				{/* The desk is DONE with this one — it answered the only way it
+				    could, by saying it could not answer. Shown as a finished
+				    step rather than as a button, so the row offers exactly one
+				    move: the visit that is actually owed. */}
+				<span
+					title={escalationTitle(alert)}
+					className="flex h-6 items-center gap-0.5 whitespace-nowrap rounded-md border border-success/30 bg-success/10 px-1.5 text-[11px] font-medium text-success"
+				>
+					<Check className="h-3 w-3" />
+					Desk done
+				</span>
+				<Button
+					size="sm"
+					variant="default"
+					title={escalationTitle(alert)}
+					onClick={() => run["field-verify"]()}
+					className="h-6 px-2 text-[11px] font-semibold shadow-sm shadow-primary/20 hover:shadow focus-visible:ring-primary"
+				>
+					Field verify
+				</Button>
+				{waiting && (
+					<span
+						className="whitespace-nowrap text-[10px] font-medium text-amber-700"
+						title={`With the field team for ${waiting}.`}
+					>
+						{waiting}
+					</span>
+				)}
+			</div>
+		);
+	}
+
+	if (action.key === "verify") {
+		return (
+			<div className="flex items-center gap-1">
+				<Button
+					size="sm"
+					variant="default"
+					title="Verify from the desk — by phone, or from the records."
+					onClick={() => run.verify()}
+					className="h-6 px-2 text-[11px] font-semibold shadow-sm shadow-primary/20 hover:shadow focus-visible:ring-primary"
+				>
+					Desk verify
+				</Button>
+				<Button
+					size="sm"
+					variant="outline"
+					title="Record a field verification — a visit that answers the same question on site."
+					onClick={() => run["field-verify"]()}
+					className="h-6 border-input px-2 text-[11px] font-medium text-foreground shadow-sm"
+				>
+					Field verify
+				</Button>
+			</div>
+		);
+	}
 
 	// Solid and filled when there is work due. The muted fill this used to carry
 	// sat within a couple of percent of the row behind it, so the one control

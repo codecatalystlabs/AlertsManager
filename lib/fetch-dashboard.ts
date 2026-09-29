@@ -85,10 +85,10 @@ export interface RiskMatrix {
 
 /**
  * Raw numerator / denominator of every row of the EBS indicator table
- * (Signals reported → Alerts), computed server-side over the scoped rows. The
- * board shows the numerator COUNTS (lib/ebs-indicators.ts); the denominators
- * are kept for reference but never divided into, because the published
- * denominators of rows 10–12 are not supersets of their numerators.
+ * (Signals reported → Alerts), computed server-side over the scoped rows.
+ * lib/ebs-indicators.ts decides, row by row, whether the published
+ * denominator really contains its numerator; only those rows are shown as a
+ * rate (rows 10 and 11 are not, and stay counts).
  */
 export interface DashboardIndicators {
 	/** 1. Every signal in scope. */
@@ -96,11 +96,21 @@ export interface DashboardIndicators {
 	/** 2. Through the triage gate; and of those, within 24h of the signal timestamp. */
 	signalsTriaged: number;
 	triagedWithin24h: number;
+	/**
+	 * Triaged signals with a triage time AND a signal time on record — the
+	 * only ones a 24h clock can judge (the rate's honest denominator).
+	 * Optional: an older API does not send it.
+	 */
+	triageTimed?: number;
 	/** 3. Triage decision "Discarded" — a duplicate of a signal already under investigation. */
 	duplicateSignals: number;
 	/** 4. Outcome recorded; and of the triaged ones, verified within a flat 24h. */
 	signalsVerified: number;
 	verifiedWithin24h: number;
+	/** Triaged AND verified — the row's published denominator. */
+	triagedVerified?: number;
+	/** Of those, the ones with a real verification time the clock can judge. */
+	verificationTimed?: number;
 	/** 5. Verified signals whose outcome is Confirmed — events requiring risk assessment. */
 	events: number;
 	/** 6. Confirmed events carrying a risk level. */
@@ -116,7 +126,10 @@ export interface DashboardIndicators {
 	/** 11. Events with an SDB recorded / events that are Dead with High or Very High risk. */
 	sdb: number;
 	sdbEligible: number;
-	/** 12. Verified, non-discarded signals (same figure as the Alerts KPI). */
+	/**
+	 * 12. Issued alerts — confirmed, risk-assessed and fed back: the same rows
+	 * as /dashboard/alerts and the regional report's Alerts column.
+	 */
 	alertsReported: number;
 }
 
@@ -196,6 +209,12 @@ export interface DashboardSummary {
 	indicatorSeries?: DashboardWeekPoint[];
 	/** Indicator 1's region axis — signals by the official region of their case district. */
 	reportedByRegion?: DashboardCountItem[];
+	/**
+	 * Where every signal in scope is NOW — one state each, so the states sum
+	 * to `total`. Keys are the SIGNAL_FLOW_STATES in lib/signal-flow.ts.
+	 * Optional: an older API does not send it.
+	 */
+	signalFlow?: DashboardCountItem[];
 	/** Distinct response (disease/condition) values available in scope — populates the Response type filter. */
 	responseTypes: string[];
 }
@@ -259,9 +278,12 @@ const EMPTY_SUMMARY: DashboardSummary = {
 		signalsReported: 0,
 		signalsTriaged: 0,
 		triagedWithin24h: 0,
+		triageTimed: 0,
 		duplicateSignals: 0,
 		signalsVerified: 0,
 		verifiedWithin24h: 0,
+		triagedVerified: 0,
+		verificationTimed: 0,
 		events: 0,
 		eventsRiskAssessed: 0,
 		responseInitiated: 0,
@@ -275,6 +297,7 @@ const EMPTY_SUMMARY: DashboardSummary = {
 	},
 	indicatorSeries: [],
 	reportedByRegion: [],
+	signalFlow: [],
 	riskMatrix: {
 		likelihoods: [],
 		impacts: [],

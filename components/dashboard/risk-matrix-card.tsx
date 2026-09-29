@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LAYOUT } from "@/constants/layout";
 import { cn } from "@/lib/utils";
+import { can, PERM } from "@/lib/access";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { RISK_LIKELIHOODS, RISK_IMPACTS, RISK_LEVELS } from "@/lib/alert-risk";
 import type { RiskMatrix } from "@/lib/fetch-dashboard";
 import {
@@ -48,6 +50,9 @@ const CELL_TINT: Record<string, string> = {
  */
 export function RiskMatrixCard({ matrix, scope, isLoading }: Props) {
 	const [target, setTarget] = useState<RiskMatrixCellTarget | null>(null);
+	// A cell opens the signals behind it, which needs signals.view; without it
+	// the matrix still reads, it just does not drill.
+	const canDrill = can(useCurrentUser(), PERM.signalsView);
 
 	// Columns increase in likelihood left→right (canonical list is most-likely
 	// first), rows descend in severity top→bottom — so the worst corner is
@@ -167,6 +172,7 @@ export function RiskMatrixCard({ matrix, scope, isLoading }: Props) {
 														<td key={col.value} className="p-0">
 															<button
 																type="button"
+																disabled={!canDrill}
 																onClick={() =>
 																	setTarget({
 																		likelihood: col.value,

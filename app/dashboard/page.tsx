@@ -9,22 +9,25 @@ import {
 	ErrorAlert,
 	DashboardScopeBar,
 	HeadlineStats,
+	WeeklyBriefCard,
 	WeeklySignalsCard,
 	IndicatorTrendCards,
-	SignalCascadeCard,
+	SignalFlowCard,
 	ReportingUnitsCard,
 } from "@/components/dashboard";
 import { useDashboardScope } from "@/hooks/use-dashboard-scope";
+import { can, PERM } from "@/lib/access";
 import { useDashboardSummary } from "@/hooks/use-dashboard-summary";
 import { LAYOUT } from "@/constants/layout";
 import { EBS_DATA_SOURCE } from "@/lib/ebs-indicators";
 
 /**
  * The dashboard: the published signal-to-alert indicators for the selected
- * scope — headline counts, signals by epi week, one trend card per indicator
- * (count in scope and its epi-week bar graph — counts, not percentages), then
- * the cascade funnel and the reporting-unit breakdown. Each card's definition,
- * numerator and denominator are its hover hint (lib/ebs-indicators.ts).
+ * scope — the weekly brief, headline figures, where every signal is now, then
+ * one card per indicator (a rate against its §11 target where the published
+ * denominator really contains the numerator, a count otherwise) and the
+ * reporting-unit breakdown. Each card's definition, numerator and
+ * denominator are its hover hint (lib/ebs-indicators.ts).
  *
  * The overview this page used to show — workflow KPI cards, the §11
  * scorecard, per-gate KPI rows, every chart, the risk matrix and feed
@@ -154,7 +157,8 @@ export default function DashboardPage(): React.JSX.Element {
 				onDownload={handleDownloadReport}
 				isDownloading={isDownloadingPdf}
 				downloadDisabled={!summary}
-				onDownloadExcel={handleDownloadExcel}
+				// The workbook is built from the signal list, which needs signals.view.
+				onDownloadExcel={can(scope.user, PERM.signalsView) ? handleDownloadExcel : undefined}
 				isDownloadingExcel={isDownloadingExcel}
 			/>
 
@@ -162,25 +166,27 @@ export default function DashboardPage(): React.JSX.Element {
 				<ErrorAlert error={error} onRetry={handleRefresh} retrying={isRefreshing} />
 			)}
 
-			<div ref={statsRef}>
+			<div ref={statsRef} className={LAYOUT.pageGap}>
+				<WeeklyBriefCard summary={summary} isLoading={isLoading} rangeFrom={range.from || undefined} />
 				<HeadlineStats summary={summary} isLoading={isLoading} />
+				<SignalFlowCard summary={summary} isLoading={isLoading} />
 			</div>
 
 			{/* Every graph in one two-column grid: the two timeliness indicators
 			    (triaged and verified within 24h) lead, then signals by epi week,
-			    then the remaining indicator cards in table order, then the cascade
-			    and the reporting-unit breakdown. */}
+			    then the remaining indicator cards in table order, then the
+			    reporting-unit breakdown. */}
 			<div ref={chartsRef} className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
 				<IndicatorTrendCards summary={summary} isLoading={isLoading} select="lead" />
 				<WeeklySignalsCard summary={summary} isLoading={isLoading} />
 				<IndicatorTrendCards summary={summary} isLoading={isLoading} select="rest" />
-				<SignalCascadeCard summary={summary} isLoading={isLoading} />
 				<ReportingUnitsCard summary={summary} isLoading={isLoading} />
 			</div>
 
 			<p className="px-0.5 text-[11px] text-gray-400">
-				Source: {EBS_DATA_SOURCE}. Epi weeks run Monday–Sunday (ISO weeks). Hover a card
-				for its definition, numerator and denominator.
+				Source: {EBS_DATA_SOURCE}. Epi weeks run Monday–Sunday (ISO weeks); the week in
+				progress is drawn faded. Rates divide only by signals that could be timed or that
+				contain the numerator — hover a card for its definition, numerator and denominator.
 			</p>
 		</div>
 	);

@@ -3,6 +3,7 @@ import { getClientApiBaseUrl } from "@/lib/api-config";
 import { notifyAlertsChanged } from "@/lib/alerts-events";
 import { buildForwardToSignalPayload } from "@/lib/forward-to-signal-payload";
 import type { EidsrMessageVerifyPayload } from "@/lib/fetch-eidsr-messages";
+import type { AutoLogReport } from "@/lib/sync-progress";
 
 export class NdwFetchError extends Error {
 	constructor(
@@ -26,6 +27,10 @@ export interface NdwSyncProgress {
 	imported: number;
 	updated: number;
 	skipped: number;
+	/** Username whose sync this is. */
+	triggeredBy?: string;
+	/** Logging the imported records into Raw Information (Go AutoLogReport). */
+	autoLog?: AutoLogReport | null;
 	startedAt?: string;
 	endedAt?: string;
 	error?: string;
@@ -108,6 +113,8 @@ export interface PoeAlertRow {
 	email: string;
 	symptomsText: string;
 	symptomCount: number;
+	/** Exposure questions answered yes (funeral, bushmeat, sick contact, healthcare). */
+	exposureCount?: number;
 	isVerified: boolean;
 	createdAtRemote?: string;
 	updatedAtRemote?: string;
@@ -199,13 +206,60 @@ export interface VerifyNdwResult {
 	alertId: number;
 }
 
-export interface NdwSource<TRow> {
+// ── Facets: segment tiles, quick-filter options, last sync ──────────────────
+
+/**
+ * Filter value that picks rows where a facet column is empty or NULL (the
+ * backend's blankFacet), so "Not recorded" can be chosen like any value.
+ */
+export const NDW_BLANK_FACET = "__blank__";
+
+export interface NdwFacetCount {
+	/** "" means the column is empty on those rows (send NDW_BLANK_FACET to pick them). */
+	value: string;
+	count: number;
+	/** Parent value, for a cascading chip (a district's region). */
+	group?: string;
+}
+
+export interface NdwSyncSummary {
+	lastSyncStartedAt?: string | null;
+	lastSyncEndedAt?: string | null;
+	lastError?: string;
+	/** Rows in the caller's area first stored by the most recent sync. */
+	addedInLastSync: number;
+}
+
+export type PoeSegmentKey = "follow_up" | "symptomatic" | "exposed" | "actioned";
+
+export interface PoeFacets {
+	total: number;
+	segments: Record<PoeSegmentKey, number>;
+	ports: NdwFacetCount[];
+	nationalities: NdwFacetCount[];
+	sync: NdwSyncSummary | null;
+}
+
+export interface EchisFacets {
+	total: number;
+	signals: NdwFacetCount[];
+	regions: NdwFacetCount[];
+	districts: NdwFacetCount[];
+	sync: NdwSyncSummary | null;
+}
+
+export interface NdwSource<TRow, TFacets = unknown> {
 	list(params?: NdwListParams): Promise<{
 		alerts: TRow[];
 		pagination: NdwPagination;
 		live?: boolean;
 	}>;
 	stats(): Promise<{ totalAlerts: number; note?: string }>;
+	/**
+	 * Counts for the segment tiles and quick-filter chips under the given local
+	 * filters (each dimension ignores its own filter), plus the last sync.
+	 */
+	facets(params?: Pick<NdwListParams, "search" | "localFilters">): Promise<TFacets>;
 	sync(
 		fullSync?: boolean,
 		refreshExisting?: boolean
@@ -226,7 +280,9 @@ export interface NdwSource<TRow> {
 	): Promise<VerifyNdwResult>;
 }
 
-export function createNdwSource<TRow>(base: "echis" | "poe"): NdwSource<TRow> {
+export function createNdwSource<TRow, TFacets = unknown>(
+	base: "echis" | "poe"
+): NdwSource<TRow, TFacets> {
 	const root = `/ndw/${base}`;
 	const jsonHeaders = { "Content-Type": "application/json" };
 	return {
@@ -242,6 +298,9 @@ export function createNdwSource<TRow>(base: "echis" | "poe"): NdwSource<TRow> {
 					json.pagination ?? { page: 1, limit: 50, total: 0, totalPages: 0 },
 				live: json.live,
 			};
+		},
+		facets(params) {
+			return ndwRequest<TFacets>(`${root}/facets${buildQuery(params)}`);
 		},
 		stats() {
 			return ndwRequest<{ totalAlerts: number; note?: string }>(`${root}/stats`);
@@ -292,8 +351,8 @@ export function createNdwSource<TRow>(base: "echis" | "poe"): NdwSource<TRow> {
 	};
 }
 
-export const echisSource = createNdwSource<EchisAlertRow>("echis");
-export const poeSource = createNdwSource<PoeAlertRow>("poe");
+export const echisSource = createNdwSource<EchisAlertRow, EchisFacets>("echis");
+export const poeSource = createNdwSource<PoeAlertRow, PoeFacets>("poe");
 
 // Back-compat named exports (imported across hooks/pages). Both feeds now share
 // the single implementation produced by the factory above.

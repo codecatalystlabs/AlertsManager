@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { ApiBackendStatus } from "@/components/api-backend-status";
 import { UserMenu } from "@/components/user-menu";
 import { NotificationBell } from "@/components/notification-bell";
+import { PageAccessGate } from "@/components/page-access-gate";
 
 export default function DashboardLayout({
 	children,
@@ -103,7 +104,7 @@ export default function DashboardLayout({
 
 					<main className="py-3">
 						<div className="mx-auto max-w-[1600px] px-3 sm:px-4 lg:px-5 2xl:max-w-none">
-							{children}
+							<PageAccessGate>{children}</PageAccessGate>
 						</div>
 					</main>
 				</div>

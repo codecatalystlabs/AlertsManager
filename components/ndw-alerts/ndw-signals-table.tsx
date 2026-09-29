@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
+import Link from "next/link";
 import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, exactStringFilter } from "@/components/ui/data-table";
 import { Eye, MoreHorizontal, Send, ShieldCheck } from "lucide-react";
@@ -13,18 +13,19 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AlertVerifyChip } from "@/components/eidsr-alerts/alert-verify-chip";
-import { ForwardedDistrictBadge } from "@/components/forwarded-district-badge";
-import { canForwardAlerts } from "@/lib/auth";
+import { feedActions, type Feed } from "@/lib/access";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { LAYOUT } from "@/constants/layout";
+import { forwardedToLabel, signalRegisterHref } from "@/lib/signal-register-link";
 import type { ForwardedAlertRef } from "@/lib/fetch-ndw-alerts";
 
-/** The fields the shared NDW columns (In alerts / Forwarded / actions) read. */
+/** The fields the shared NDW columns (Status / actions) read. */
 export interface NdwSignalRow {
 	id: number;
 	live?: boolean;
 	linkedAlertId?: number;
 	linkedAlert?: ForwardedAlertRef;
+	forwardedAlertId?: number;
 	forwardedToDistrict?: string;
 	forwardedAlert?: ForwardedAlertRef;
 }
@@ -33,55 +34,74 @@ interface NdwRowHandlers<TRow> {
 	onView: (row: TRow) => void;
 	onForward?: (row: TRow) => void;
 	onVerify?: (row: TRow) => void;
+	/** What the account's role allows on this feed (lib/access feedActions). */
 	canForward: boolean;
+	canVerify: boolean;
 }
 
 /**
- * The In-alerts / Forwarded / row-actions columns — byte-identical across the
- * eCHIS and POE tables — appended after each feed's domain columns.
+ * Where a record went, on one line: the district it was forwarded to (a link
+ * to that alert in the register) and/or the alert it was verified into, each
+ * with that alert's live Verified/Pending chip. "—" when nothing was done.
+ */
+export function NdwStatusCell({ row }: { row: NdwSignalRow }) {
+	// A sync logs a record even when it names no district, so the register
+	// link alone means "in Raw Information".
+	const forwarded = Boolean(row.forwardedToDistrict || row.forwardedAlertId);
+	const linked = Boolean(row.linkedAlert);
+	if (!forwarded && !linked) return <span className="text-muted-foreground">—</span>;
+
+	const district = (row.forwardedToDistrict ?? "").replace(/\s+District$/i, "").trim();
+	return (
+		<div className="flex items-center gap-1.5">
+			{forwarded && (
+				<Link
+					href={signalRegisterHref(row.forwardedAlertId)}
+					title={forwardedToLabel(row.forwardedToDistrict ?? "")}
+					className="inline-flex max-w-[11rem] items-center gap-1 rounded border bg-background px-1.5 py-0.5 text-[11px] hover:bg-muted"
+				>
+					<Send className="h-3 w-3 shrink-0 text-muted-foreground" />
+					<span className="truncate">{district || "Raw Information"}</span>
+				</Link>
+			)}
+			{forwarded && <AlertVerifyChip alert={row.forwardedAlert} />}
+			{linked && (
+				<>
+					<span className="text-[11px] text-muted-foreground">In alerts</span>
+					<AlertVerifyChip alert={row.linkedAlert} />
+				</>
+			)}
+		</div>
+	);
+}
+
+/**
+ * The Status / row-actions columns — identical across the eCHIS and POE
+ * tables — appended after each feed's domain columns.
  */
 export function buildNdwSharedColumns<TRow extends NdwSignalRow>({
 	onView,
 	onForward,
 	onVerify,
 	canForward,
+	canVerify,
 }: NdwRowHandlers<TRow>): ColumnDef<TRow>[] {
 	return [
 		{
+			// id stays "inAlerts": the header filter maps it to ?linked= (see
+			// columnFiltersToEchisLocalParams / columnFiltersToPoeLocalParams).
 			id: "inAlerts",
 			accessorFn: (row) => (row.linkedAlertId ? "linked" : "unlinked"),
-			header: "In alerts",
+			header: "Status",
 			filterFn: exactStringFilter,
 			meta: {
 				filterVariant: "select",
 				filterOptions: [
-					{ value: "linked", label: "Linked" },
-					{ value: "unlinked", label: "Not linked" },
+					{ value: "linked", label: "Verified into alerts" },
+					{ value: "unlinked", label: "Not verified into alerts" },
 				],
 			},
-			cell: ({ row }) =>
-				row.original.linkedAlert ? (
-					<AlertVerifyChip alert={row.original.linkedAlert} />
-				) : (
-					<span className="text-muted-foreground">—</span>
-				),
-		},
-		{
-			id: "forwarded",
-			header: "Forwarded",
-			enableColumnFilter: false,
-			cell: ({ row }) => {
-				const a = row.original;
-				if (!a.forwardedToDistrict)
-					return <span className="text-muted-foreground">—</span>;
-				return (
-					<ForwardedDistrictBadge
-						district={a.forwardedToDistrict}
-						forwardedAlertId={a.forwardedAlertId}
-						forwardedAlert={a.forwardedAlert}
-					/>
-				);
-			},
+			cell: ({ row }) => <NdwStatusCell row={row.original} />,
 		},
 		{
 			id: "actions",
@@ -90,14 +110,19 @@ export function buildNdwSharedColumns<TRow extends NdwSignalRow>({
 			cell: ({ row }) => (
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
-						<Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+						<Button
+							variant="ghost"
+							size="sm"
+							className="h-6 w-6 p-0"
+							aria-label="Row actions"
+						>
 							<MoreHorizontal className="h-4 w-4" />
 						</Button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end">
 						<DropdownMenuItem onClick={() => onView(row.original)}>
 							<Eye className="h-4 w-4 mr-2" />
-							View
+							View details
 						</DropdownMenuItem>
 						{canForward && onForward && !row.original.live && (
 							<DropdownMenuItem onClick={() => onForward(row.original)}>
@@ -105,7 +130,7 @@ export function buildNdwSharedColumns<TRow extends NdwSignalRow>({
 								Forward to district
 							</DropdownMenuItem>
 						)}
-						{onVerify && !row.original.live && (
+						{canVerify && onVerify && !row.original.live && (
 							<>
 								<DropdownMenuSeparator />
 								<DropdownMenuItem
@@ -125,10 +150,19 @@ export function buildNdwSharedColumns<TRow extends NdwSignalRow>({
 }
 
 export interface NdwSignalsTableProps<TRow> {
-	/** CardTitle label, e.g. "eCHIS signals" / "POE alerts". */
+	/** Which feed the rows come from; decides which permissions apply. */
+	feed: Feed;
+	/** Card heading — the selected segment, e.g. "Needs follow-up". */
 	title: string;
+	/** What one row is, plural, for the count ("travellers", "signals"). */
+	noun: string;
 	/** The feed-specific leading columns; the shared columns are appended. */
 	domainColumns: ColumnDef<TRow>[];
+	/**
+	 * Feed columns to put after Status (before the row menu) — long free text
+	 * that is fine to scroll to, so Status stays on screen on a laptop.
+	 */
+	trailingColumns?: ColumnDef<TRow>[];
 	alerts: TRow[];
 	totalCount: number;
 	page: number;
@@ -141,6 +175,8 @@ export interface NdwSignalsTableProps<TRow> {
 	onColumnFiltersChange?: (filters: ColumnFiltersState) => void;
 	/** Bumped when the filter bar is cleared, to also clear the header funnels. */
 	filtersResetKey?: number;
+	/** Shown instead of "No results." — say why, and how to get rows back. */
+	emptyState?: ReactNode;
 	onView: (row: TRow) => void;
 	onForward?: (row: TRow) => void;
 	onVerify?: (row: TRow) => void;
@@ -148,13 +184,15 @@ export interface NdwSignalsTableProps<TRow> {
 
 /**
  * Shared table shell for an NDW signal feed (eCHIS / POE). Owns everything but
- * the domain columns: the Card wrapper, the shared In-alerts/Forwarded/actions
- * columns, and the server-side DataTable wiring. The two feed tables collapse to
- * a domain-column list + this component.
+ * the domain columns: the Card wrapper, the shared Status/actions columns, and
+ * the server-side DataTable wiring. A click anywhere on a row opens it.
  */
 export function NdwSignalsTable<TRow extends NdwSignalRow>({
+	feed,
 	title,
+	noun,
 	domainColumns,
+	trailingColumns,
 	alerts,
 	totalCount,
 	page,
@@ -165,25 +203,31 @@ export function NdwSignalsTable<TRow extends NdwSignalRow>({
 	onPageSizeChange,
 	onColumnFiltersChange,
 	filtersResetKey,
+	emptyState,
 	onView,
 	onForward,
 	onVerify,
 }: NdwSignalsTableProps<TRow>) {
-	const canForward = canForwardAlerts(useCurrentUser());
-	const columns = useMemo<ColumnDef<TRow>[]>(
-		() => [
-			...domainColumns,
-			...buildNdwSharedColumns<TRow>({ onView, onForward, onVerify, canForward }),
-		],
-		[domainColumns, onView, onForward, onVerify, canForward]
-	);
+	const user = useCurrentUser();
+	const { forward: canForward, verify: canVerify } = feedActions(user, feed);
+	const columns = useMemo<ColumnDef<TRow>[]>(() => {
+		const [status, actions] = buildNdwSharedColumns<TRow>({
+			onView,
+			onForward,
+			onVerify,
+			canForward,
+			canVerify,
+		});
+		return [...domainColumns, status, ...(trailingColumns ?? []), actions];
+	}, [domainColumns, trailingColumns, onView, onForward, onVerify, canForward, canVerify]);
 
 	return (
 		<Card className={LAYOUT.card}>
-			<CardHeader>
-				<CardTitle className="text-sm font-medium">
-					{title} ({totalCount.toLocaleString()})
-				</CardTitle>
+			<CardHeader className="flex-row items-baseline justify-between space-y-0">
+				<CardTitle className="text-sm font-semibold">{title}</CardTitle>
+				<span className="text-xs tabular-nums text-muted-foreground">
+					{totalCount.toLocaleString()} {noun}
+				</span>
 			</CardHeader>
 			<CardContent className="p-0">
 				<DataTable
@@ -202,6 +246,8 @@ export function NdwSignalsTable<TRow extends NdwSignalRow>({
 					onPageChange={(pageIndex) => onPageChange(pageIndex + 1)}
 					onPageSizeChange={onPageSizeChange}
 					isLoading={isLoading}
+					onRowClick={onView}
+					emptyState={emptyState}
 				/>
 			</CardContent>
 		</Card>

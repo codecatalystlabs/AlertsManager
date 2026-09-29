@@ -6,16 +6,20 @@ import type {
 
 /**
  * The EBS indicator table — the twelve rows the dashboard reports, each with
- * the definition, numerator and denominator exactly as published, and the
- * value derived from the counts the API returns.
+ * the definition, numerator and denominator as published, and the value
+ * derived from the counts the API returns.
  *
- * The API ships COUNTS (lib/fetch-dashboard.ts → DashboardIndicators). The
- * board shows each row as its COUNT — never as a percentage. The published
- * denominators of rows 10–12 (events reported via 912, dead high-risk events,
- * events risk-assessed) are not supersets of their numerators in the register
- * (an evacuation is recorded whatever the reporting channel was), so a ratio
- * of the two counts is meaningless and used to read as "7014%". The numerator
- * and denominator definitions stay on the row for the hover hint.
+ * A proportion row is shown as a RATE only when its denominator really
+ * contains its numerator in the register — `rateBase` below decides that row
+ * by row. Rows 10 and 11 do not qualify (an evacuation is recorded whatever
+ * the reporting channel was, so "evacuated ÷ reported via 912" read as
+ * 7014%); they stay counts. Every other proportion is a subset by
+ * construction (services.buildIndicators), so its rate is safe to show.
+ *
+ * Timeliness rows divide by the signals a clock can actually judge — triaged
+ * with a triage time, verified with a verification time — and report the
+ * rest as a gap. Dividing by every triaged signal scored the 3,549 legacy
+ * records closed in bulk (no triage time, by design) as missed deadlines.
  */
 
 /** Every row is sourced from the same register. */
@@ -50,17 +54,30 @@ export interface EbsIndicatorDefinition {
 	unit: "signals" | "events" | "alerts";
 	/** Where the counts come from, when the row's data has a caveat worth stating. */
 	note?: string;
+	/** The §11 KPI target this row is held to, when the guideline sets one. */
+	target?: { percent: number; kpi: string };
 }
 
 export interface EbsIndicatorRow extends EbsIndicatorDefinition {
 	numerator: number;
 	/** The published denominator's count, kept for reference; null for a count row. */
 	denominator: number | null;
-	/** The headline figure: the numerator count. */
+	/**
+	 * What the rate divides by — a real superset of the numerator — or null
+	 * when the row is a count (no honest rate exists).
+	 */
+	rateBase: number | null;
+	/** numerator ÷ rateBase, 0–100 (rounded); null when there is no rate. */
+	rate: number | null;
+	/** Signals the rate cannot see (e.g. triaged without a triage time). */
+	gap: { count: number; label: string } | null;
+	/** Where the rate sits against `target`; null without a target or a rate. */
+	status: "met" | "below" | null;
+	/** The headline: the rate for a rate row, the count otherwise. */
 	value: number;
-	/** Rendered value: "1,234". */
+	/** Rendered headline: "29%" or "1,234". */
 	display: string;
-	/** What the headline counts, e.g. "Total number of events evacuated". */
+	/** One line under the headline: "453 of 1,589 timed triages", or the definition. */
 	caption: string;
 }
 
@@ -89,6 +106,8 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 		kind: "proportion",
 		stage: "triage",
 		unit: "signals",
+		note: "Only triages with a recorded triage time are timed; legacy records closed in bulk carry none and are listed as untimed, not as late.",
+		target: { percent: 90, kpi: "KPI 3" },
 	},
 	{
 		n: 3,
@@ -114,6 +133,7 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 		kind: "proportion",
 		stage: "verification",
 		unit: "signals",
+		note: "Timed from the signal to its recorded verification time, over triaged signals verified with a time on record. §11 KPI 4 (target 80%) uses priority deadlines instead — see Reports → Overview.",
 	},
 	{
 		n: 5,
@@ -136,10 +156,12 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 		name: "Events assessed for risk",
 		definition: "Proportion of events assessed for risk.",
 		numeratorLabel: "Total number of signals risk assessed",
-		denominatorLabel: "Total number of signals verified",
+		denominatorLabel: "Total number of events",
 		kind: "proportion",
 		stage: "risk",
 		unit: "events",
+		note: "Divided by confirmed events, not all verified signals: only a confirmed event can be risk-assessed (the server refuses the rest), so a discarded signal is not a missed assessment.",
+		target: { percent: 90, kpi: "KPI 6" },
 	},
 	{
 		n: 7,
@@ -189,6 +211,7 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 		kind: "proportion",
 		stage: "response",
 		unit: "events",
+		note: "Shown as a count: evacuations are recorded whatever the reporting channel, so the published denominator does not contain them.",
 	},
 	{
 		n: 11,
@@ -202,6 +225,7 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 		kind: "proportion",
 		stage: "response",
 		unit: "events",
+		note: "Shown as a count: SDBs are recorded on events never assessed High, so the published denominator does not contain them.",
 	},
 	{
 		n: 12,
@@ -214,42 +238,66 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 		kind: "proportion",
 		stage: "alert",
 		unit: "alerts",
-		note: "An alert is a verified signal that was not discarded.",
+		note: "An alert is a confirmed, risk-assessed event whose reporter has been told — the same signals the Alerts page and the regional report count.",
 	},
 ];
 
-/** Numerator / denominator picked out of the API counts, per row. */
-function countsFor(
-	id: string,
-	i: DashboardIndicators
-): { numerator: number; denominator: number | null } {
+interface RowCounts {
+	numerator: number;
+	/** The published denominator's count, for reference. */
+	denominator: number | null;
+	/** A true superset of the numerator to divide by, or null. */
+	rateBase: number | null;
+	gap?: { count: number; label: string };
+}
+
+/**
+ * Numerator, published denominator and honest rate base, per row. An older
+ * API without the timed counts falls back to the published denominator.
+ */
+function countsFor(id: string, i: DashboardIndicators): RowCounts {
 	switch (id) {
 		case "signals-reported":
-			return { numerator: i.signalsReported, denominator: null };
-		case "signals-triaged":
-			return { numerator: i.triagedWithin24h, denominator: i.signalsTriaged };
+			return { numerator: i.signalsReported, denominator: null, rateBase: null };
+		case "signals-triaged": {
+			const timed = i.triageTimed ?? i.signalsTriaged;
+			return {
+				numerator: i.triagedWithin24h,
+				denominator: i.signalsTriaged,
+				rateBase: timed,
+				gap: { count: i.signalsTriaged - timed, label: "triaged with no triage time" },
+			};
+		}
 		case "duplicated-signals":
-			return { numerator: i.duplicateSignals, denominator: i.signalsReported };
-		case "signals-verified":
-			return { numerator: i.verifiedWithin24h, denominator: i.signalsVerified };
+			return { numerator: i.duplicateSignals, denominator: i.signalsReported, rateBase: i.signalsReported };
+		case "signals-verified": {
+			const eligible = i.triagedVerified ?? i.signalsVerified;
+			const timed = i.verificationTimed ?? eligible;
+			return {
+				numerator: i.verifiedWithin24h,
+				denominator: i.signalsVerified,
+				rateBase: timed,
+				gap: { count: eligible - timed, label: "verified with no verification time" },
+			};
+		}
 		case "signal-to-event":
-			return { numerator: i.events, denominator: i.signalsVerified };
+			return { numerator: i.events, denominator: i.signalsVerified, rateBase: i.signalsVerified };
 		case "events-risk-assessed":
-			return { numerator: i.eventsRiskAssessed, denominator: i.signalsVerified };
+			return { numerator: i.eventsRiskAssessed, denominator: i.events, rateBase: i.events };
 		case "response-initiated":
-			return { numerator: i.responseInitiated, denominator: i.eventsRiskAssessed };
+			return { numerator: i.responseInitiated, denominator: i.eventsRiskAssessed, rateBase: i.eventsRiskAssessed };
 		case "under-monitoring":
-			return { numerator: i.underMonitoring, denominator: i.eventsRiskAssessed };
+			return { numerator: i.underMonitoring, denominator: i.eventsRiskAssessed, rateBase: i.eventsRiskAssessed };
 		case "events-responded":
-			return { numerator: i.sampleCollected, denominator: i.responseInitiated };
+			return { numerator: i.sampleCollected, denominator: i.responseInitiated, rateBase: i.responseInitiated };
 		case "events-evacuated":
-			return { numerator: i.evacuated, denominator: i.emsChannelEvents };
+			return { numerator: i.evacuated, denominator: i.emsChannelEvents, rateBase: null };
 		case "sdb":
-			return { numerator: i.sdb, denominator: i.sdbEligible };
+			return { numerator: i.sdb, denominator: i.sdbEligible, rateBase: null };
 		case "alerts":
-			return { numerator: i.alertsReported, denominator: i.eventsRiskAssessed };
+			return { numerator: i.alertsReported, denominator: i.eventsRiskAssessed, rateBase: i.eventsRiskAssessed };
 		default:
-			return { numerator: 0, denominator: null };
+			return { numerator: 0, denominator: null, rateBase: null };
 	}
 }
 
@@ -267,6 +315,9 @@ const EMPTY_INDICATORS: DashboardIndicators = {
 	signalsReported: 0,
 	signalsTriaged: 0,
 	triagedWithin24h: 0,
+	triageTimed: 0,
+	triagedVerified: 0,
+	verificationTimed: 0,
 	duplicateSignals: 0,
 	signalsVerified: 0,
 	verifiedWithin24h: 0,
@@ -283,50 +334,63 @@ const EMPTY_INDICATORS: DashboardIndicators = {
 };
 
 /**
- * Every row of the table, valued as a count. Tolerates a summary from an older
- * API that has no `indicators` block by rendering zeros — the board must never
- * crash because the backend is a version behind.
+ * Every row of the table, valued: a rate where the row has an honest one, a
+ * count otherwise. Tolerates a summary from an older API that has no
+ * `indicators` block by rendering zeros — the board must never crash because
+ * the backend is a version behind.
  */
 export function buildEbsIndicatorRows(
 	summary: DashboardSummary | undefined
 ): EbsIndicatorRow[] {
 	const counts = summary?.indicators ?? EMPTY_INDICATORS;
 	return EBS_INDICATORS.map((def) => {
-		const { numerator, denominator } = countsFor(def.id, counts);
+		const { numerator, denominator, rateBase, gap } = countsFor(def.id, counts);
+		const rate = rateBase === null ? null : percent(numerator, rateBase);
+		const status =
+			def.target && rate !== null ? (rate >= def.target.percent ? "met" : "below") : null;
+		const caption =
+			rate !== null && rateBase !== null
+				? `${numerator.toLocaleString()} of ${rateBase.toLocaleString()} ${rateBaseNoun(def.id)}`
+				: def.kind === "count"
+					? def.definition
+					: `${def.numeratorLabel}.`;
 		return {
 			...def,
 			numerator,
 			denominator: def.kind === "count" ? null : denominator,
-			value: numerator,
-			display: numerator.toLocaleString(),
-			caption: def.kind === "count" ? def.definition : `${def.numeratorLabel}.`,
+			rateBase,
+			rate,
+			gap: gap && gap.count > 0 ? gap : null,
+			status,
+			value: rate ?? numerator,
+			display: rate !== null ? `${rate}%` : numerator.toLocaleString(),
+			caption,
 		};
 	});
 }
 
-export interface CascadeStep {
-	key: string;
-	label: string;
-	count: number;
-}
-
-/**
- * The signal funnel behind the table — each stage a signal passes through, as
- * a count, in pipeline order. Alerts are appended last: they are verified
- * non-discarded signals, so they sit beside the event count rather than under
- * the response rows.
- */
-export function buildSignalCascade(summary: DashboardSummary | undefined): CascadeStep[] {
-	const i = summary?.indicators ?? EMPTY_INDICATORS;
-	return [
-		{ key: "reported", label: "Signals reported", count: i.signalsReported },
-		{ key: "triaged", label: "Signals triaged", count: i.signalsTriaged },
-		{ key: "verified", label: "Signals verified", count: i.signalsVerified },
-		{ key: "events", label: "Events", count: i.events },
-		{ key: "assessed", label: "Risk assessed", count: i.eventsRiskAssessed },
-		{ key: "responded", label: "Response initiated", count: i.responseInitiated },
-		{ key: "alerts", label: "Alerts", count: i.alertsReported },
-	];
+/** What the rate base counts, for "453 of 1,589 timed triages". */
+function rateBaseNoun(id: string): string {
+	switch (id) {
+		case "signals-triaged":
+			return "timed triages";
+		case "duplicated-signals":
+			return "signals reported";
+		case "signals-verified":
+			return "timed verifications";
+		case "signal-to-event":
+			return "verified signals";
+		case "events-risk-assessed":
+			return "events";
+		case "response-initiated":
+		case "under-monitoring":
+		case "alerts":
+			return "risk-assessed events";
+		case "events-responded":
+			return "responses initiated";
+		default:
+			return "";
+	}
 }
 
 /** How the board groups the proportion tiles, in pipeline order. */
@@ -370,8 +434,26 @@ export interface IndicatorTrendPoint {
 	numerator: number;
 	/** The published denominator's count that week, for reference; null for a count row. */
 	denominator: number | null;
+	/** The week's rate base (see EbsIndicatorRow.rateBase); null for a count row. */
+	rateBase: number | null;
+	/** numerator ÷ rateBase that week; null when there is none. */
+	rate: number | null;
 	/** The week's count — what the graph plots. */
 	value: number;
+	/** The week has not ended yet: its bars are still filling. */
+	partial: boolean;
+}
+
+/** Today as YYYY-MM-DD in local time (the epi-week bounds are local dates). */
+export function todayIso(): string {
+	const d = new Date();
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Whether an epi week ending on `end` (YYYY-MM-DD) is still under way. */
+export function isPartialWeek(end: string, today: string = todayIso()): boolean {
+	return end >= today;
 }
 
 function weekTick(p: DashboardWeekPoint, multiYear: boolean): string {
@@ -391,8 +473,9 @@ export function buildIndicatorTrend(
 	const series = summary?.indicatorSeries ?? [];
 	const def = EBS_INDICATORS.find((d) => d.id === id);
 	const multiYear = spansYears(series);
+	const today = todayIso();
 	return series.map((p) => {
-		const { numerator, denominator } = countsFor(id, p.counts);
+		const { numerator, denominator, rateBase } = countsFor(id, p.counts);
 		return {
 			week: p.week,
 			label: weekTick(p, multiYear),
@@ -402,12 +485,19 @@ export function buildIndicatorTrend(
 			end: p.end,
 			numerator,
 			denominator: def?.kind === "count" ? null : denominator,
+			rateBase,
+			rate: rateBase === null ? null : percent(numerator, rateBase),
 			value: numerator,
+			partial: isPartialWeek(p.end, today),
 		};
 	});
 }
 
-/** One epi week of the signal funnel: the four headline counts side by side. */
+/**
+ * One epi week of the signal funnel. The counts NEST — every alert is an
+ * event, every event verified, every verified signal reported — which is what
+ * lets the chart draw them inside one another.
+ */
 export interface WeeklyCascadePoint {
 	week: string;
 	label: string;
@@ -418,11 +508,13 @@ export interface WeeklyCascadePoint {
 	verified: number;
 	events: number;
 	alerts: number;
+	partial: boolean;
 }
 
 export function buildWeeklyCascade(summary: DashboardSummary | undefined): WeeklyCascadePoint[] {
 	const series = summary?.indicatorSeries ?? [];
 	const multiYear = spansYears(series);
+	const today = todayIso();
 	return series.map((p) => ({
 		week: p.week,
 		label: weekTick(p, multiYear),
@@ -433,6 +525,7 @@ export function buildWeeklyCascade(summary: DashboardSummary | undefined): Weekl
 		verified: p.counts.signalsVerified,
 		events: p.counts.events,
 		alerts: p.counts.alertsReported,
+		partial: isPartialWeek(p.end, today),
 	}));
 }
 

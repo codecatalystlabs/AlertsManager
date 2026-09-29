@@ -2,6 +2,7 @@ import { AuthService } from "@/lib/auth";
 import { getClientApiBaseUrl } from "@/lib/api-config";
 import { formatEidsrFetchError } from "@/lib/api-errors";
 import { EIDSR_API_PATHS } from "@/constants/eidsr-alerts";
+import type { AutoLogReport } from "@/lib/sync-progress";
 
 class EidsrFetchError extends Error {
 	constructor(
@@ -190,7 +191,7 @@ export async function fetchEidsrEventById(localId: number): Promise<EidsrEvent> 
 /** Live progress of an EIDSR sync (mirrors the Go services.SyncProgress). */
 export interface EidsrSyncProgress {
 	running: boolean;
-	/** idle | starting | fetching | done | error */
+	/** idle | starting | fetching | logging | done | error */
 	phase: string;
 	incremental: boolean;
 	page: number;
@@ -203,6 +204,15 @@ export interface EidsrSyncProgress {
 	updated: number;
 	skipped: number;
 	excluded: number;
+	/** Username whose sync this is. */
+	triggeredBy?: string;
+	/**
+	 * What happened when the new events were offered to Raw Information.
+	 * Absent on a backend without auto-logging.
+	 */
+	autoLog?: AutoLogReport | null;
+	/** When the last SUCCESSFUL sync finished — survives an API restart. */
+	lastSyncedAt?: string | null;
 	startedAt: string | null;
 	endedAt: string | null;
 	error: string;

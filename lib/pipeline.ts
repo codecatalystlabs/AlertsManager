@@ -94,7 +94,7 @@ export const STAGE_DESCRIPTION: Record<StageKey, string> = {
 	[STAGE_TRIAGE]:
 		"New signals only — not triaged, not verified, not risk-assessed. Triage is due within 24 hours of receipt.",
 	[STAGE_VERIFICATION]:
-		"Confirming a forwarded signal represents a real event. Due within the deadline its priority sets — 12h High, 24h Medium, 48h Low.",
+		"Confirming a forwarded signal represents a real event — at the desk, or in the field for the signals the desk could not settle. Due within the deadline its priority sets — 12h High, 24h Medium, 48h Low.",
 	[STAGE_RISK]:
 		"Scoring a confirmed event to select the response. Due within 24h of verification.",
 	[STAGE_ALERT]:

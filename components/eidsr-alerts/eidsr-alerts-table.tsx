@@ -1,8 +1,6 @@
-import { altCode } from "@/lib/alt-code";
 import React, { memo, useMemo } from "react";
 import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -19,17 +17,15 @@ import {
 	textIncludesFilter,
 } from "@/components/ui/data-table";
 import {
-	resolveInAlertsRef,
+	resolveRegisterRef,
 	type EidsrMessage,
 } from "@/lib/eidsr-message-normalize";
-import { EIDSR_STATUS_FILTER_OPTIONS } from "@/constants/eidsr-alerts";
 import { LAYOUT } from "@/constants/layout";
-import { ForwardedDistrictBadge } from "@/components/forwarded-district-badge";
-import { verifiedTableRowClass } from "@/lib/verified-row-style";
-import { isEidsr6767Verified } from "@/lib/eidsr-verified-state";
-import { canForwardAlerts } from "@/lib/auth";
+import { can, PERM } from "@/lib/access";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { AlertVerifyChip } from "@/components/eidsr-alerts/alert-verify-chip";
+import { RawInformationCell } from "@/components/eidsr-alerts/raw-information-cell";
+import { formatDateTime, formatTimeAgo } from "@/lib/format-date";
+import { arrivedRecently } from "@/lib/signal-origin";
 import {
 	Eye,
 	MoreHorizontal,
@@ -53,15 +49,30 @@ interface EidsrAlertsTableProps {
 	filtersResetKey?: number;
 	onView: (message: EidsrMessage) => void;
 	onEdit: (message: EidsrMessage) => void;
-	/** Opens the move-to-Signal-Register dialog. */
+	/** Opens the log-into-Raw-Information dialog (for signals not yet in it). */
 	onMove: (message: EidsrMessage) => void;
+	/**
+	 * Start of the sync that just finished on this page (ISO). Rows the mirror
+	 * first saw at or after it arrived in that sync and are highlighted.
+	 */
+	highlightSince?: string | null;
+}
+
+/** Arrived in the sync that started at `since` (both ISO timestamps). */
+function arrivedInSync(message: EidsrMessage, since: string | null | undefined): boolean {
+	if (!since || !message.createdAt) return false;
+	const at = new Date(message.createdAt).getTime();
+	const start = new Date(since).getTime();
+	return Number.isFinite(at) && Number.isFinite(start) && at >= start;
 }
 
 function createColumns(handlers: {
 	onView: (m: EidsrMessage) => void;
 	onEdit: (m: EidsrMessage) => void;
 	onMove: (m: EidsrMessage) => void;
-	canForward: boolean;
+	/** What the account's role allows (lib/access). */
+	canMove: boolean;
+	canEdit: boolean;
 }): ColumnDef<EidsrMessage>[] {
 	return [
 		{
@@ -73,10 +84,45 @@ function createColumns(handlers: {
 			),
 		},
 		{
-			accessorKey: "messageId",
-			header: "Message ID",
+			// When the mirror first saw it — the order the list is in, so the
+			// newest sync's arrivals read as the top block of the table.
+			id: "synced",
+			header: "Synced",
 			enableColumnFilter: false,
-			cell: ({ row }) => row.original.messageId || "—",
+			cell: ({ row }) => {
+				const at = row.original.createdAt;
+				return (
+					<span
+						className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-muted-foreground"
+						title={at ? `Synced ${formatDateTime(at)}` : undefined}
+					>
+						{formatTimeAgo(at, "—")}
+						{arrivedRecently(at) && (
+							<span className="rounded-full bg-primary/10 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-primary">
+								New
+							</span>
+						)}
+					</span>
+				);
+			},
+		},
+		{
+			// Next to Synced, not at the far edge: "where did it go?" is the
+			// question right after "when did it arrive?", and at the end of a
+			// wide table it scrolled out of view.
+			id: "inRegister",
+			accessorFn: (row) =>
+				resolveRegisterRef(row) != null ? "moved" : "not_moved",
+			header: "Raw Information",
+			filterFn: exactStringFilter,
+			meta: {
+				filterVariant: "select",
+				filterOptions: [
+					{ value: "moved", label: "In Raw Information" },
+					{ value: "not_moved", label: "Not logged" },
+				],
+			},
+			cell: ({ row }) => <RawInformationCell message={row.original} />,
 		},
 		{
 			accessorKey: "personReporting",
@@ -133,58 +179,11 @@ function createColumns(handlers: {
 			},
 		},
 		{
-			accessorKey: "status",
-			header: "Status",
-			filterFn: exactStringFilter,
-			meta: {
-				filterVariant: "select",
-				filterOptions: EIDSR_STATUS_FILTER_OPTIONS.filter(
-					(option) => option.value !== "all"
-				),
-			},
-			cell: ({ row }) =>
-				row.original.status ? (
-					<Badge variant="outline">{row.original.status}</Badge>
-				) : (
-					"—"
-				),
-		},
-		{
-			id: "inAlerts",
-			accessorFn: (row) =>
-				resolveInAlertsRef(row) != null ? "linked" : "unlinked",
-			header: "In alerts",
-			filterFn: exactStringFilter,
-			meta: {
-				filterVariant: "select",
-				filterOptions: [
-					{ value: "linked", label: "Linked" },
-					{ value: "unlinked", label: "Not linked" },
-				],
-			},
-			cell: ({ row }) => {
-				// The verify-into-alerts linked alert, or — failing that — a
-				// forwarded alert the district has since verified. Both surface
-				// here as a green ALT id so a forwarded alert lights up "In
-				// alerts" once verified, the same way verify-into-alerts does.
-				const ref = resolveInAlertsRef(row.original);
-				return ref ? (
-					<div className="flex flex-col items-start gap-1">
-						<Badge className="bg-success hover:bg-success">
-							{altCode(ref.id)}
-						</Badge>
-						{/* Surface the alert's live verification state too. */}
-						<AlertVerifyChip alert={ref.alert} />
-					</div>
-				) : (
-					<Badge variant="secondary">Not linked</Badge>
-				);
-			},
-		},
-		{
 			id: "date",
 			accessorFn: (row) => row.receivedAt || row.createdAt || "",
-			header: "Received",
+			// The reporter's own event date, as eIDSR has it. Distinct from
+			// "Synced", which is when it reached this system.
+			header: "Reported",
 			filterFn: dateRangeFilter,
 			meta: {
 				filterVariant: "dateRange",
@@ -193,29 +192,15 @@ function createColumns(handlers: {
 				row.original.receivedAt || row.original.createdAt || "—",
 		},
 		{
-			id: "forwarded",
-			header: "Forwarded",
-			enableColumnFilter: false,
-			cell: ({ row }) => {
-				const m = row.original;
-				if (!m.forwardedToDistrict) {
-					return <span className="text-muted-foreground">—</span>;
-				}
-				return (
-					<ForwardedDistrictBadge
-						district={m.forwardedToDistrict}
-						forwardedAlertId={m.forwardedAlertId}
-						forwardedAlert={m.forwardedAlert}
-					/>
-				);
-			},
-		},
-		{
 			id: "actions",
 			header: () => <span className="sr-only">Actions</span>,
 			enableColumnFilter: false,
 			cell: ({ row }) => {
 				const m = row.original;
+				// Once a signal has its Raw Information row there is nothing left
+				// to move: the server would refuse a second one (409). The row's
+				// column links to where it is.
+				const canMove = handlers.canMove && resolveRegisterRef(m) == null;
 
 				return (
 					<div className="text-right">
@@ -239,14 +224,16 @@ function createColumns(handlers: {
 									<Eye className="h-4 w-4" />
 									View details
 								</DropdownMenuItem>
-								<DropdownMenuItem
-									className="flex items-center gap-2"
-									onClick={() => handlers.onEdit(m)}
-								>
-									<Pencil className="h-4 w-4" />
-									Edit
-								</DropdownMenuItem>
-								{handlers.canForward && (
+								{handlers.canEdit && (
+									<DropdownMenuItem
+										className="flex items-center gap-2"
+										onClick={() => handlers.onEdit(m)}
+									>
+										<Pencil className="h-4 w-4" />
+										Edit
+									</DropdownMenuItem>
+								)}
+								{canMove && (
 									<>
 										<DropdownMenuSeparator />
 										<DropdownMenuItem
@@ -254,7 +241,7 @@ function createColumns(handlers: {
 											onClick={() => handlers.onMove(m)}
 										>
 											<Send className="h-4 w-4" />
-											Move to Signal Register
+											Log into Raw Information
 										</DropdownMenuItem>
 									</>
 								)}
@@ -283,26 +270,31 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 		onView,
 		onEdit,
 		onMove,
+		highlightSince,
 	}) => {
-		const canForward = canForwardAlerts(useCurrentUser());
+		const user = useCurrentUser();
+		const canMove = can(user, PERM.eidsrMove);
+		const canEdit = can(user, PERM.eidsrEdit);
 		const columns = useMemo(
 			() =>
 				createColumns({
 					onView,
 					onEdit,
 					onMove,
-					canForward,
+					canMove,
+					canEdit,
 				}),
-			[onView, onEdit, onMove, canForward]
+			[onView, onEdit, onMove, canMove, canEdit]
 		);
 		// This table is server-paginated, so header filters run server-side
 		// (manualFiltering): onColumnFiltersChange routes them to the hook, which
 		// re-queries the WHOLE dataset, not just the loaded page. Only the columns
-		// the backend can filter expose a funnel (Status, Location, In-alerts,
-		// Received); the free-text columns opt out (enableColumnFilter: false) and
-		// stay searchable via the dedicated EidsrAlertsFilters bar. The legacy
-		// onInAlertsFilterChange prop is kept for API compatibility but unused —
-		// the In-alerts column header filter now covers it.
+		// the backend can filter expose a funnel (Raw Information, Location,
+		// Reported); the free-text columns opt out (enableColumnFilter: false) and
+		// stay searchable via the dedicated EidsrAlertsFilters bar, which also
+		// still filters by eIDSR status. The legacy onInAlertsFilterChange prop is
+		// kept for API compatibility but unused — the Raw Information column
+		// header filter covers it.
 		void onInAlertsFilterChange;
 
 		return (
@@ -328,8 +320,14 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 						onPageChange={(pageIndex) => onPageChange(pageIndex + 1)}
 						onPageSizeChange={onPageSizeChange}
 						isLoading={isLoading}
+						// This sync's arrivals get a left accent, so "what just came
+						// in" stays findable after paging or re-sorting.
 						getRowClassName={(row) =>
-							verifiedTableRowClass(isEidsr6767Verified(row.original))
+							arrivedInSync(row.original, highlightSince)
+								? // On the first cell: a box-shadow on the <tr> itself is not
+									// painted under border-collapse.
+									"bg-primary/[0.04] [&>td:first-child]:shadow-[inset_3px_0_0_hsl(var(--primary))]"
+								: undefined
 						}
 					/>
 				</CardContent>

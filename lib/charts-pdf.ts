@@ -41,7 +41,7 @@ function dateStamp(): string {
  * grid structure isn't found.
  */
 function collectChartNodes(container: HTMLElement): HTMLElement[] {
-	// The container wraps the DashboardCharts grid; the grid's children are the
+	// The container wraps a charts grid; the grid's children are the
 	// chart cards. Walk one or two levels to find a multi-child grid.
 	const candidates = [container, container.firstElementChild];
 	for (const node of candidates) {
@@ -143,7 +143,10 @@ export async function downloadDashboardPdf(
 				continue; // skip the problem node rather than failing the whole export
 			}
 
-			doc.addImage(dataUrl, "PNG", margin, cursorY, usableWidth, drawHeight);
+			// "FAST" Flate-compresses the PNG. Embedded raw, the dashboard's
+			// seventeen 2x captures made a 38.7 MB file nobody could email;
+			// the management deck's map had the same problem (6.0 → 0.48 MB).
+			doc.addImage(dataUrl, "PNG", margin, cursorY, usableWidth, drawHeight, undefined, "FAST");
 			cursorY += drawHeight + 6;
 		}
 	}

@@ -38,7 +38,6 @@ export const STATUS_OPTIONS = [
 	{ value: "Alive", label: "Alive" },
 	{ value: "Dead", label: "Dead" },
 	{ value: "Unknown", label: "Unknown" },
-	{ value: "Pending", label: "Pending" },
 ] as const;
 
 export const VERIFICATION_FILTER_OPTIONS = [

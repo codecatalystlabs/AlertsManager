@@ -57,6 +57,14 @@ export interface ExportableAlert {
 	triagedBy?: string | null;
 	// --- Verification (EBS step 3) + response (step 6) -----------------------
 	verificationOutcome?: string | null;
+	verificationLevel?: string | null;
+	discardReason?: string | null;
+	escalatedToFieldAt?: string | null;
+	escalatedToFieldBy?: string | null;
+	fieldVerificationRequest?: string | null;
+	fieldVerifiedAt?: string | null;
+	fieldVerifiedBy?: string | null;
+	fieldVerificationNote?: string | null;
 	verificationNote?: string | null;
 	responseActions?: string | null;
 	fieldVerification?: string | null;
@@ -186,6 +194,14 @@ const VERIFICATION_DETAIL_COLUMNS: ExportColumn[] = [
 		getValue: (a) => a.verificationOutcome ?? "",
 	},
 	{ header: "Verification Note", getValue: (a) => a.verificationNote ?? "" },
+	// WHICH LEVEL answered, and why a discard was a discard. A discard from a
+	// site visit and one from a phone call are not the same evidence, and
+	// discards only become analysable when they carry a reason.
+	{
+		header: "Verification Level",
+		getValue: (a) => a.verificationLevel ?? "",
+	},
+	{ header: "Discard Reason", getValue: (a) => a.discardReason ?? "" },
 	{
 		header: "Desk Verification Actions",
 		getValue: (a) => a.caseVerificationDesk ?? "",
@@ -199,6 +215,27 @@ const VERIFICATION_DETAIL_COLUMNS: ExportColumn[] = [
 		header: "Field Verification Notes",
 		getValue: (a) => a.fieldVerification ?? "",
 	},
+	{
+		header: "Field Verification Findings",
+		getValue: (a) => a.fieldVerificationNote ?? "",
+	},
+	{
+		header: "Escalated To Field On",
+		getValue: (a) => formatExportDate(a.escalatedToFieldAt),
+	},
+	{
+		header: "Escalated To Field By",
+		getValue: (a) => a.escalatedToFieldBy ?? "",
+	},
+	{
+		header: "Field Verification Requested",
+		getValue: (a) => a.fieldVerificationRequest ?? "",
+	},
+	{
+		header: "Field Verified On",
+		getValue: (a) => formatExportDate(a.fieldVerifiedAt),
+	},
+	{ header: "Field Verified By", getValue: (a) => a.fieldVerifiedBy ?? "" },
 	{
 		header: "Verification Date",
 		getValue: (a) => formatExportDate(a.verificationTime ?? a.verificationDate),

@@ -9,8 +9,8 @@ import { AUTH_STATUS_CHANGE_EVENT } from "@/lib/auth-events";
  *
  * Subscribes to auth-change + storage events so the value updates within the
  * session when the profile is refreshed or the user logs out — otherwise every
- * gate derived from this (canDeleteAlerts, canManageUsers, district/region
- * scoping) kept showing the stale role until a full reload.
+ * gate derived from this (lib/access.ts can(), district/region scope) kept
+ * showing the stale role until a full reload.
  *
  * Use for UI-level permission gating (hiding buttons a role can't use). The
  * backend still enforces every restriction, so this is UX-only.

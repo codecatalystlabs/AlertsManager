@@ -39,3 +39,27 @@ export function formatDateTime(
 	const d = toValidDate(value);
 	return d ? d.toLocaleString(undefined, options) : String(value);
 }
+
+/**
+ * "just now" / "12 min ago" / "3 h ago" / "2 d ago", then the plain date once it
+ * is more than a week old — for "when did this arrive", where recency is the
+ * point and a full timestamp belongs in the tooltip. Same null/unparseable
+ * contract as the formatters above.
+ */
+export function formatTimeAgo(
+	value?: string | null,
+	fallback = "",
+	now: number = Date.now(),
+): string {
+	if (!value) return fallback;
+	const d = toValidDate(value);
+	if (!d) return String(value);
+	const minutes = Math.floor((now - d.getTime()) / 60000);
+	if (minutes < 1) return "just now";
+	if (minutes < 60) return `${minutes} min ago`;
+	const hours = Math.floor(minutes / 60);
+	if (hours < 24) return `${hours} h ago`;
+	const days = Math.floor(hours / 24);
+	if (days <= 7) return `${days} d ago`;
+	return d.toLocaleDateString();
+}
