@@ -16,6 +16,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Send } from "lucide-react";
 import { DistrictSelect } from "@/components/district-select";
 import { useToast } from "@/hooks/use-toast";
+import { notifyAlertsChanged } from "@/lib/alerts-events";
 
 interface ForwardToDistrictDialogProps {
 	isOpen: boolean;
@@ -73,9 +74,10 @@ export function ForwardToDistrictDialog({
 		try {
 			const result = await onForward(district.trim(), note.trim() || undefined);
 			toast({
-				title: "Alert forwarded",
-				description: `Sent to ${result.district} as a signal log.`,
+				title: "Signal forwarded",
+				description: `Forwarded to ${result.district}. Open Signal Register to triage it.`,
 			});
+			notifyAlertsChanged();
 			onForwarded(result.district);
 			onClose();
 		} catch (err) {
@@ -99,10 +101,10 @@ export function ForwardToDistrictDialog({
 		>
 			<DialogContent className="sm:max-w-md">
 				<DialogHeader>
-					<DialogTitle>Forward alert to a district</DialogTitle>
+					<DialogTitle>Forward to a district</DialogTitle>
 					<DialogDescription>
-						Send this {sourceLabel} to a district as a signal log. It will
-						appear in that district&apos;s Signal Logs and can be verified
+						Send this {sourceLabel} to a district as a signal in the Signal
+						Register. It will not appear in Alerts Management until verified
 						there.
 					</DialogDescription>
 				</DialogHeader>
@@ -164,7 +166,7 @@ export function ForwardToDistrictDialog({
 						) : (
 							<Send className="h-4 w-4" />
 						)}
-						Forward alert
+						Forward to Signal Register
 					</Button>
 				</DialogFooter>
 			</DialogContent>

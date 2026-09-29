@@ -1,5 +1,10 @@
 import { formatDateTime } from "@/lib/format-date";
 import { altCode } from "@/lib/alt-code";
+import {
+	alertsManagementHref,
+	forwardedToLabel,
+	signalRegisterHref,
+} from "@/lib/signal-register-link";
 import React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -44,7 +49,7 @@ export function EidsrLifecycleTimeline({ message }: { message: EidsrMessage }) {
 						<Send className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
 						<div className="space-y-1">
 							<p className="text-sm font-medium">
-								Forwarded to {message.forwardedToDistrict}
+								{forwardedToLabel(message.forwardedToDistrict ?? "")}
 							</p>
 							{message.forwardedAt && (
 								<p className="text-xs text-muted-foreground">
@@ -60,7 +65,7 @@ export function EidsrLifecycleTimeline({ message }: { message: EidsrMessage }) {
 										className="h-7 gap-1"
 										asChild
 									>
-										<Link href="/dashboard/signal-logs">
+										<Link href={signalRegisterHref(message.forwardedAlertId)}>
 											<ExternalLink className="h-3.5 w-3.5" />
 											{altCode(message.forwardedAlertId)}
 										</Link>
@@ -86,7 +91,7 @@ export function EidsrLifecycleTimeline({ message }: { message: EidsrMessage }) {
 									className="h-7 gap-1"
 									asChild
 								>
-									<Link href="/dashboard/alerts">
+									<Link href={alertsManagementHref(message.linkedAlertId as number)}>
 										<ExternalLink className="h-3.5 w-3.5" />
 										{altCode(message.linkedAlertId as number)}
 									</Link>

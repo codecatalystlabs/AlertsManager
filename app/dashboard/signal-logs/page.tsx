@@ -44,16 +44,6 @@ const AlertVerificationDialog = dynamic(
   { ssr: false },
 );
 
-// The composer pulls in `docx` and jsPDF on demand; keeping the whole dialog out
-// of the initial bundle keeps the register's first paint where it was.
-const SpotRepDialog = dynamic(
-  () =>
-    import('@/components/spotrep').then((m) => ({
-      default: m.SpotRepDialog,
-    })),
-  { ssr: false },
-);
-
 const AlertEditDialog = dynamic(
   () =>
     import('@/components/alert-edit-dialog').then((m) => ({
@@ -147,17 +137,37 @@ export default function CallLogsPage(): React.JSX.Element {
   // tab would snap straight back).
   const appliedViewRef = useRef<string | null>(null);
   useEffect(() => {
-    const wanted = view ? `view:${view}` : `stage:${stageParam ?? ''}`;
+    // Keyed on the SPLIT too, or switching halves of the Triaged tab would be
+    // the one navigation that leaves the previous half's stage filter behind.
+    const wanted = view ? `${view}:${split}` : `stage:${stageParam ?? ''}`;
     if (appliedViewRef.current === wanted) return;
     appliedViewRef.current = wanted;
     setFilters(
       view
-        ? registerViewFilters(view)
+        ? registerViewFilters(view, split)
         : { stage: stageParam ?? '', verification: 'all' },
     );
     // setFilters is stable; re-running on every render would reset paging.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, stageParam]);
+  }, [view, split, stageParam]);
+
+  // Deep-link from 6767 / eCHIS / POE forwarded badges: ?alert_id=123
+  const appliedAlertIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const alertId = searchParams?.get('alert_id')?.trim() ?? '';
+    if (!alertId || appliedAlertIdRef.current === alertId) return;
+    appliedAlertIdRef.current = alertId;
+    setColumnFilters([{ id: 'id', value: alertId }]);
+  }, [searchParams, setColumnFilters]);
+
+  // The URL is the single source of truth for the view, so switching halves
+  // navigates rather than setting state the URL would then contradict.
+  const handleSplitChange = useCallback(
+    (next: TriagedSplit) => {
+      router.replace(registerViewHref(VIEW_TRIAGED, next), { scroll: false });
+    },
+    [router],
+  );
 
   // Revalidates every alerts-derived SWR key (this list + its stats, the Alerts
   // Management table, dashboard cards/charts) — not just this page's list.
@@ -226,30 +236,6 @@ export default function CallLogsPage(): React.JSX.Element {
   const [feedbackAlert, setFeedbackAlert] = useState<AlertLog | null>(null);
   const handleRecordFeedback = useCallback((alert: AlertLog) => {
     setFeedbackAlert(alert);
-  }, []);
-
-  // Spot report (EBS step 5). Unlike triage and risk assessment this one reads
-  // the WHOLE record — the verifier's note, the lab result, the risk worksheet
-  // all end up in the narrative — and the list endpoint does not carry every
-  // one of those columns. So the full alert is fetched, and the composer opens
-  // immediately with a loading state rather than after the round trip.
-  const [spotRepOpen, setSpotRepOpen] = useState(false);
-  const [spotRepAlert, setSpotRepAlert] = useState<Alert | null>(null);
-  const [spotRepLoading, setSpotRepLoading] = useState(false);
-  const handleGenerateSpotRep = useCallback(async (alert: AlertLog) => {
-    setSpotRepAlert(null);
-    setSpotRepLoading(true);
-    setSpotRepOpen(true);
-    try {
-      setSpotRepAlert(await AuthService.fetchAlert(alert.id));
-    } catch (error) {
-      console.error('Failed to load full alert for the spot report:', error);
-      // The row itself still carries most of the report; drafting from it is
-      // better than an empty dialog.
-      setSpotRepAlert(alert as unknown as Alert);
-    } finally {
-      setSpotRepLoading(false);
-    }
   }, []);
 
   const handleEditAlert = useCallback(
@@ -371,7 +357,6 @@ export default function CallLogsPage(): React.JSX.Element {
           onVerifyAlert={handleVerifyAlert}
           onTriageAlert={handleTriageAlert}
           onAssessRisk={handleAssessRisk}
-          onGenerateSpotRep={handleGenerateSpotRep}
           onRecordFeedback={handleRecordFeedback}
           onDeleteAlert={handleDeleteAlert}
         />
@@ -394,16 +379,6 @@ export default function CallLogsPage(): React.JSX.Element {
         alertId={riskAlert?.id ?? null}
         current={riskAlert ?? undefined}
         onAssessed={handleVerificationComplete}
-      />
-
-      <SpotRepDialog
-        open={spotRepOpen}
-        onOpenChange={(open) => {
-          setSpotRepOpen(open);
-          if (!open) setSpotRepAlert(null);
-        }}
-        alert={spotRepAlert}
-        loading={spotRepLoading}
       />
 
       <FeedbackDialog

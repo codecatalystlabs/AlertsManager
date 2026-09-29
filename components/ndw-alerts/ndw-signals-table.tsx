@@ -13,9 +13,10 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AlertVerifyChip } from "@/components/eidsr-alerts/alert-verify-chip";
-import { LAYOUT } from "@/constants/layout";
+import { ForwardedDistrictBadge } from "@/components/forwarded-district-badge";
 import { canForwardAlerts } from "@/lib/auth";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { LAYOUT } from "@/constants/layout";
 import type { ForwardedAlertRef } from "@/lib/fetch-ndw-alerts";
 
 /** The fields the shared NDW columns (In alerts / Forwarded / actions) read. */
@@ -74,16 +75,11 @@ export function buildNdwSharedColumns<TRow extends NdwSignalRow>({
 				if (!a.forwardedToDistrict)
 					return <span className="text-muted-foreground">—</span>;
 				return (
-					<div className="flex flex-col items-start gap-1">
-						<Badge
-							variant="outline"
-							className="gap-1 whitespace-nowrap text-[10px] font-normal"
-						>
-							<Send className="h-3 w-3" />
-							{a.forwardedToDistrict}
-						</Badge>
-						<AlertVerifyChip alert={a.forwardedAlert} />
-					</div>
+					<ForwardedDistrictBadge
+						district={a.forwardedToDistrict}
+						forwardedAlertId={a.forwardedAlertId}
+						forwardedAlert={a.forwardedAlert}
+					/>
 				);
 			},
 		},

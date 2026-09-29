@@ -10,7 +10,7 @@ type DateRange = { from?: string; to?: string };
  * Mirrors columnFiltersToAlertParams (Alerts/Call-Logs).
  *
  * Only columns the backend can filter are mapped: Status, Location (district),
- * In-alerts (linked) and Received (date range). The free-text columns (reporter,
+ * Signal register (moved) and Received (date range). The free-text columns (reporter,
  * phone, message) have no dedicated server filter, so they don't expose a header
  * funnel — they stay searchable via the dedicated filter bar's global search.
  * Column ids are the TanStack accessorKey/id values from createColumns().
@@ -32,9 +32,9 @@ export function columnFiltersToEidsrParams(
 				// the EIDSR location data value (district).
 				params.district = String(value).trim();
 				break;
-			case "inAlerts":
-				if (value === "linked") params.linked = true;
-				else if (value === "unlinked") params.linked = false;
+			case "inRegister":
+				if (value === "moved") params.moved = true;
+				else if (value === "not_moved") params.moved = false;
 				break;
 			case "date": {
 				const range = value as DateRange;

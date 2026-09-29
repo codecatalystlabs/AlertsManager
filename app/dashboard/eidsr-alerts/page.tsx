@@ -1,13 +1,12 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useCallback, useState } from "react";
 import { ErrorAlert } from "@/components/dashboard";
 import { SyncProgressPanel } from "@/components/sync";
 import {
 	EidsrAlertsFilters,
 	EidsrAlertsHeader,
-	EidsrLinkedTabs,
+	EidsrForwardTabs,
 	EidsrAlertsTable,
 } from "@/components/eidsr-alerts";
 import { ForwardToDistrictDialog } from "@/components/forward-to-district-dialog";
@@ -18,20 +17,10 @@ import {
 import { EidsrMessagesStats } from "@/components/eidsr-messages/eidsr-messages-stats";
 import { useEidsrEventsData } from "@/hooks/use-eidsr-events-data";
 import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
-import { eidsrMessageToAlertShape } from "@/lib/eidsr-message-to-alert";
-import { getEidsr6767ById, forwardEidsr6767 } from "@/lib/fetch-eidsr-6767";
-import { resolveEidsrVerifyId } from "@/lib/eidsr-message-normalize";
+import { getEidsr6767ById, moveEidsr6767ToRegister } from "@/lib/fetch-eidsr-6767";
 import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
 import { LAYOUT } from "@/constants/layout";
 import { useToast } from "@/hooks/use-toast";
-
-const AlertVerificationDialog = dynamic(
-	() =>
-		import("@/components/alert-verification-dialog").then(
-			(m) => m.AlertVerificationDialog
-		),
-	{ ssr: false }
-);
 
 export default function EidsrAlertsPage() {
 	const { toast } = useToast();
@@ -45,8 +34,8 @@ export default function EidsrAlertsPage() {
 		error,
 		syncMessage,
 		syncProgress,
-		verificationFilter,
-		setVerificationFilter,
+		forwardFilter,
+		setForwardFilter,
 		setFilters,
 		setColumnFilters,
 		filtersResetKey,
@@ -60,7 +49,6 @@ export default function EidsrAlertsPage() {
 		exportToExcel,
 		isExporting,
 		updateLocalMessage,
-		markMessageLinked,
 		markMessageForwarded,
 	} = useEidsrEventsData();
 
@@ -69,15 +57,7 @@ export default function EidsrAlertsPage() {
 	const [selected, setSelected] = useState<EidsrMessage | null>(null);
 	const [detailsOpen, setDetailsOpen] = useState(false);
 	const [editOpen, setEditOpen] = useState(false);
-	const [verifyOpen, setVerifyOpen] = useState(false);
-	const [verifyAlertShape, setVerifyAlertShape] = useState<Record<
-		string,
-		unknown
-	> | null>(null);
-	const [verifyInProgressId, setVerifyInProgressId] = useState<number | null>(
-		null
-	);
-	const [forwardOpen, setForwardOpen] = useState(false);
+	const [moveOpen, setMoveOpen] = useState(false);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 
 	const handleRefresh = useCallback(async () => {
@@ -136,38 +116,23 @@ export default function EidsrAlertsPage() {
 		setEditOpen(true);
 	}, []);
 
-	const handleVerify = useCallback((message: EidsrMessage) => {
+	const handleMove = useCallback((message: EidsrMessage) => {
 		setSelected(message);
-		setVerifyAlertShape(eidsrMessageToAlertShape(message));
-		setVerifyOpen(true);
+		setMoveOpen(true);
 	}, []);
 
-	const handleForward = useCallback((message: EidsrMessage) => {
-		setSelected(message);
-		setForwardOpen(true);
-	}, []);
-
-	const handleForwarded = useCallback(
+	const handleMoved = useCallback(
 		(district: string) => {
 			if (selected) {
+				// Stamp the district AND the link so the row shows its new ALT id
+				// straight away; the revalidate then drops it off the "Not moved"
+				// tab, which is where the user is standing.
 				markMessageForwarded(selected.id, district);
 			}
 			void invalidateAlerts();
 			void refetch();
 		},
 		[selected, markMessageForwarded, invalidateAlerts, refetch]
-	);
-
-	const handleVerificationComplete = useCallback(
-		(linkedAlertId?: number | null) => {
-			if (selected) {
-				markMessageLinked(selected.id, linkedAlertId ?? null, true);
-			}
-			void invalidateAlerts();
-			void refetch();
-			setVerifyInProgressId(null);
-		},
-		[selected, markMessageLinked, refetch, invalidateAlerts]
 	);
 
 	return (
@@ -184,8 +149,8 @@ export default function EidsrAlertsPage() {
 
 			<EidsrMessagesStats
 				stats={stats}
-				activeFilter={verificationFilter}
-				onFilterChange={setVerificationFilter}
+				activeFilter={forwardFilter}
+				onFilterChange={setForwardFilter}
 			/>
 
 			<SyncProgressPanel
@@ -213,9 +178,13 @@ export default function EidsrAlertsPage() {
 				isLoading={loading || isSyncing}
 			/>
 
-			<EidsrLinkedTabs
-				value={verificationFilter}
-				onChange={setVerificationFilter}
+			{/* One split, because there is now one way in. The old linked/unlinked
+			    strip asked the same question a second time, from back when
+			    "verify into alerts" was a separate route into the register. */}
+			<EidsrForwardTabs
+				value={forwardFilter}
+				onChange={setForwardFilter}
+				count={pagination.total}
 			/>
 
 			<EidsrAlertsTable
@@ -225,16 +194,13 @@ export default function EidsrAlertsPage() {
 				pageSize={pagination.limit}
 				totalPages={pagination.totalPages}
 				isLoading={loading}
-				verifyInProgressId={verifyInProgressId}
 				onPageChange={setPage}
 				onPageSizeChange={setPageSize}
-				onInAlertsFilterChange={setVerificationFilter}
 				onColumnFiltersChange={setColumnFilters}
 				filtersResetKey={filtersResetKey}
 				onView={handleView}
 				onEdit={handleEdit}
-				onVerify={handleVerify}
-				onForward={handleForward}
+				onMove={handleMove}
 			/>
 
 			<EidsrMessageDetailsDialog
@@ -261,38 +227,26 @@ export default function EidsrAlertsPage() {
 			/>
 
 			<ForwardToDistrictDialog
-				isOpen={forwardOpen}
-				onClose={() => setForwardOpen(false)}
-				sourceLabel="6767 alert"
+				isOpen={moveOpen}
+				onClose={() => setMoveOpen(false)}
+				sourceLabel="6767 signal"
+				title="Move to Signal Register"
+				description="Creates a Signal Register entry for this 6767 signal, with its own alert id, in the district you choose. It lands untriaged, ready to be triaged and verified there."
+				submitLabel="Move to register"
+				successTitle="Signal moved to the register"
 				alreadyForwarded={selected?.forwardedToDistrict ?? null}
-				onForward={(district, note) =>
-					forwardEidsr6767(selected!.id, { district, note })
+				reportedLocation={
+					[selected?.village, selected?.alertCaseDistrict]
+						.map((part) => part?.trim())
+						.filter(Boolean)
+						.join(", ") || null
 				}
-				onForwarded={handleForwarded}
+				onForward={(district, note) =>
+					moveEidsr6767ToRegister(selected!.id, { district, note })
+				}
+				onForwarded={handleMoved}
 			/>
 
-			{verifyOpen && verifyAlertShape && selected && (
-				<AlertVerificationDialog
-					isOpen={verifyOpen}
-					onClose={() => {
-						setVerifyOpen(false);
-						setVerifyAlertShape(null);
-					}}
-					alert={verifyAlertShape}
-					verificationMode="eidsr"
-					eidsrMessageId={resolveEidsrVerifyId(selected)}
-					eidsrEventLocalId={selected.id}
-					onVerificationComplete={() => {}}
-					onEidsrVerified={(alertId) => {
-						handleVerificationComplete(alertId);
-						setVerifyOpen(false);
-						setVerifyAlertShape(null);
-					}}
-					onVerifyingChange={(verifying) =>
-						setVerifyInProgressId(verifying ? selected.id : null)
-					}
-				/>
-			)}
 		</div>
 	);
 }

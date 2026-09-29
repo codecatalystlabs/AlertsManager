@@ -12,6 +12,16 @@ import { ErrorAlert } from "@/components/dashboard";
 import { StatsGridSkeleton } from "@/components/ui/skeletons";
 import { useAlertsData } from "@/hooks/use-alerts-data";
 
+// The composer pulls in `docx` and jsPDF on demand; keeping the whole dialog out
+// of the initial bundle keeps this page's first paint where it was.
+const SpotRepDialog = dynamic(
+	() =>
+		import("@/components/spotrep").then((m) => ({
+			default: m.SpotRepDialog,
+		})),
+	{ ssr: false }
+);
+
 const AlertDetailsDialog = dynamic(
 	() =>
 		import("@/components/alert-details-dialog").then((m) => ({
@@ -84,6 +94,31 @@ export default function AlertsPage(): React.JSX.Element {
 		setIsDetailsDialogOpen(true);
 	}, []);
 
+	// Spot report (EBS step 5), issued from this list because this list IS the
+	// pipeline's output. Unlike the row menus upstream it reads the WHOLE record
+	// — the verifier's note, the lab result, the risk worksheet all end up in the
+	// narrative — and the list endpoint does not carry every one of those
+	// columns. So the full alert is fetched, and the composer opens immediately
+	// with a loading state rather than after the round trip.
+	const [spotRepOpen, setSpotRepOpen] = useState(false);
+	const [spotRepAlert, setSpotRepAlert] = useState<AlertType | null>(null);
+	const [spotRepLoading, setSpotRepLoading] = useState(false);
+	const handleGenerateSpotRep = useCallback(async (alert: AlertType) => {
+		setSpotRepAlert(null);
+		setSpotRepLoading(true);
+		setSpotRepOpen(true);
+		try {
+			setSpotRepAlert(await AuthService.fetchAlert(alert.id as number));
+		} catch (error) {
+			console.error("Failed to load full alert for the spot report:", error);
+			// The row itself still carries most of the report; drafting from it is
+			// better than an empty dialog.
+			setSpotRepAlert(alert);
+		} finally {
+			setSpotRepLoading(false);
+		}
+	}, []);
+
 	const closeDialogs = useCallback(() => {
 		setIsDetailsDialogOpen(false);
 		setSelectedAlert(null);
@@ -136,6 +171,17 @@ export default function AlertsPage(): React.JSX.Element {
 				sort={sort}
 				onSortChange={setSort}
 				onViewAlert={handleViewAlert}
+				onGenerateSpotRep={handleGenerateSpotRep}
+			/>
+
+			<SpotRepDialog
+				open={spotRepOpen}
+				onOpenChange={(open) => {
+					setSpotRepOpen(open);
+					if (!open) setSpotRepAlert(null);
+				}}
+				alert={spotRepAlert}
+				loading={spotRepLoading}
 			/>
 
 			{selectedAlert && (

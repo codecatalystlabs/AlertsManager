@@ -22,6 +22,7 @@ import { getClientApiBaseUrl } from "@/lib/api-config";
 import { AuthService } from "@/lib/auth";
 import { notifyAlertsChanged } from "@/lib/alerts-events";
 import { EIDSR_MESSAGES_API_PATHS } from "@/constants/eidsr-messages";
+import { buildForwardToSignalPayload } from "@/lib/forward-to-signal-payload";
 
 export type EidsrDataSource = "messages" | "events";
 
@@ -107,6 +108,7 @@ export async function forwardEidsr6767(
 	id: number,
 	payload: { district: string; note?: string }
 ): Promise<ForwardEidsr6767Result> {
+	const body = buildForwardToSignalPayload(payload.district, payload.note);
 	const base = getClientApiBaseUrl();
 	const paths = [
 		`/eidsr/local/events/${id}/forward`,
@@ -120,7 +122,7 @@ export async function forwardEidsr6767(
 		try {
 			response = await AuthService.makeAuthenticatedRequest(
 				`${base}${path}`,
-				{ method: "POST", body: JSON.stringify(payload) }
+				{ method: "POST", body: JSON.stringify(body) }
 			);
 		} catch (error) {
 			if (error instanceof TypeError) {

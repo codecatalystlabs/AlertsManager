@@ -8,15 +8,24 @@ import { formatEidsrMessageStatLabel } from "@/lib/eidsr-message-normalize";
 import { cn } from "@/lib/utils";
 import { LAYOUT } from "@/constants/layout";
 
+type EidsrStatFilter = "all" | "moved" | "not_moved";
+
 interface EidsrMessagesStatsProps {
 	stats: Record<string, number>;
-	activeFilter: "all" | "linked" | "unlinked";
-	onFilterChange: (filter: "all" | "linked" | "unlinked") => void;
+	/**
+	 * The cards drive the SAME split as the tab strip below them — a card is the
+	 * tab's headline number, so clicking one has to land on that tab rather than
+	 * setting a second, competing filter.
+	 */
+	activeFilter: EidsrStatFilter;
+	onFilterChange: (filter: EidsrStatFilter) => void;
 }
 
 const STAT_ICONS: Record<string, LucideIcon> = {
 	total: MessageSquare,
 	totalMessages: MessageSquare,
+	inRegister: Link2,
+	notInRegister: Unlink,
 	linked: Link2,
 	unlinked: Unlink,
 	verified: CheckCircle2,
@@ -31,6 +40,8 @@ const STAT_ICONS: Record<string, LucideIcon> = {
 const STAT_INK: Record<string, StatCardInk> = {
 	total: accentInk("primary"),
 	totalMessages: accentInk("primary"),
+	inRegister: accentInk("success"),
+	notInRegister: accentInk("warning"),
 	linked: accentInk("success"),
 	unlinked: accentInk("warning"),
 	verified: accentInk("success"),
@@ -42,15 +53,21 @@ const STAT_INK: Record<string, StatCardInk> = {
 	pending: accentInk("warning"),
 };
 
-function statFilterForKey(
-	key: string
-): "all" | "linked" | "unlinked" | null {
+function statFilterForKey(key: string): EidsrStatFilter | null {
 	const k = key.toLowerCase();
-	// Check "unlinked"/"unverified" first — they contain "linked"/"verified".
-	if (k.includes("unlinked") || k.includes("unverified") || k === "pending") {
-		return "unlinked";
+	// Check the negatives first — "notinregister" contains "inregister", and
+	// "unlinked"/"unverified" contain "linked"/"verified".
+	if (
+		k.includes("notinregister") ||
+		k.includes("unlinked") ||
+		k.includes("unverified") ||
+		k === "pending"
+	) {
+		return "not_moved";
 	}
-	if (k.includes("linked") || k.includes("verified")) return "linked";
+	if (k.includes("inregister") || k.includes("linked") || k.includes("verified")) {
+		return "moved";
+	}
 	return null;
 }
 

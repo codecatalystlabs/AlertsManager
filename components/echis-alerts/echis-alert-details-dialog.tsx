@@ -5,6 +5,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { DetailGrid, type DetailGridRow } from "@/components/ui/detail-fields";
+import { ForwardedDistrictBadge } from "@/components/forwarded-district-badge";
 import type { EchisAlertRow } from "@/lib/fetch-ndw-alerts";
 
 interface EchisAlertDetailsDialogProps {
@@ -52,6 +53,13 @@ export function EchisAlertDetailsDialog({
 				<DialogHeader>
 					<DialogTitle>eCHIS alert #{alert.id}</DialogTitle>
 				</DialogHeader>
+				{alert.forwardedToDistrict ? (
+					<ForwardedDistrictBadge
+						district={alert.forwardedToDistrict}
+						forwardedAlertId={alert.forwardedAlertId}
+						forwardedAlert={alert.forwardedAlert}
+					/>
+				) : null}
 				{/* Compact two-column grid; long free-text/hash fields span both. */}
 				<DetailGrid rows={rows} />
 			</DialogContent>
