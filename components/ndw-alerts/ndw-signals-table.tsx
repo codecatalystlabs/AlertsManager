@@ -30,6 +30,20 @@ export interface NdwSignalRow {
 	forwardedAlert?: ForwardedAlertRef;
 }
 
+/**
+ * The live Signal Register row this record already has (forwarded, else
+ * verified into), or null. The snapshots are only attached for rows that
+ * still exist, so a record whose row was deleted reads as not in the register.
+ */
+export function ndwRegisterAlertId(row: NdwSignalRow | null | undefined): number | null {
+	return row?.forwardedAlert?.id ?? row?.linkedAlert?.id ?? null;
+}
+
+/** "Forward again" once the record is in the register, else the first-time label. */
+export function ndwForwardLabel(row: NdwSignalRow): string {
+	return ndwRegisterAlertId(row) != null ? "Forward again" : "Forward to district";
+}
+
 interface NdwRowHandlers<TRow> {
 	onView: (row: TRow) => void;
 	onForward?: (row: TRow) => void;
@@ -127,7 +141,7 @@ export function buildNdwSharedColumns<TRow extends NdwSignalRow>({
 						{canForward && onForward && !row.original.live && (
 							<DropdownMenuItem onClick={() => onForward(row.original)}>
 								<Send className="h-4 w-4 mr-2" />
-								Forward to district
+								{ndwForwardLabel(row.original)}
 							</DropdownMenuItem>
 						)}
 						{canVerify && onVerify && !row.original.live && (

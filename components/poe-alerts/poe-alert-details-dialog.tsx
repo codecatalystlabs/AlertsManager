@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { DetailGrid, type DetailGridRow } from "@/components/ui/detail-fields";
-import { NdwStatusCell } from "@/components/ndw-alerts/ndw-signals-table";
+import { NdwStatusCell, ndwForwardLabel } from "@/components/ndw-alerts/ndw-signals-table";
 import type { PoeAlertRow } from "@/lib/fetch-ndw-alerts";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { EXPOSURE_QUESTIONS, poeRiskPill, poeScreening } from "@/lib/poe-screening";
@@ -142,7 +142,7 @@ export function PoeAlertDetailsDialog({
 						{onForward && (
 							<Button variant="outline" size="sm" className="gap-1.5" onClick={() => onForward(alert)}>
 								<Send className="h-4 w-4" />
-								Forward to district
+								{ndwForwardLabel(alert)}
 							</Button>
 						)}
 						{onVerify && (

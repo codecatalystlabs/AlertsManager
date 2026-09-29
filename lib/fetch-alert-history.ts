@@ -58,6 +58,9 @@ export interface AlertHistoryDetail {
 	origin?: string;
 	/** forwarded: logged by a feed's sync (6767, eCHIS, PoE) rather than moved by a person. */
 	auto?: boolean;
+	/** forwarded: the register row the same feed record already had, when a
+	 *  person forwarded it again — the row this one duplicates. */
+	repeatOf?: number;
 	/** forwarded: how the district was decided — "chosen" | "org unit" |
 	 *  "eCHIS record" | "traveller address" | "". */
 	districtSource?: string;

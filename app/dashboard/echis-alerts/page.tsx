@@ -10,6 +10,7 @@ import { NdwQuickFilterBar } from "@/components/ndw-alerts/ndw-quick-filter-bar"
 import { NdwLiveFilterSheet } from "@/components/ndw-alerts/ndw-live-filter-sheet";
 import { NdwEmptyState, NdwLiveBanner } from "@/components/ndw-alerts/ndw-feed-notices";
 import { ForwardToDistrictDialog } from "@/components/forward-to-district-dialog";
+import { ndwRegisterAlertId } from "@/components/ndw-alerts/ndw-signals-table";
 import { RawInformationSyncFooter, SyncProgressPanel } from "@/components/sync";
 import { ECHIS_NDW_FILTER_FIELDS } from "@/constants/ndw-filter-fields";
 import {
@@ -219,8 +220,10 @@ export default function EchisAlertsPage() {
 				sourceLabel="eCHIS signal"
 				defaultDistrict={forwardTarget?.district || ""}
 				alreadyForwarded={forwardTarget?.forwardedToDistrict ?? null}
-				onForward={(district, note) =>
-					forwardEchisAlert(forwardTarget!.id, { district, note })
+				allowRepeat
+				registerAlertId={ndwRegisterAlertId(forwardTarget)}
+				onForward={(district, note, again) =>
+					forwardEchisAlert(forwardTarget!.id, { district, note, again })
 				}
 				onForwarded={() => void refetch()}
 			/>

@@ -12,6 +12,7 @@ import { EchisSignalPill } from "@/components/echis-alerts/echis-alerts-table";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { DetailGrid, type DetailGridRow } from "@/components/ui/detail-fields";
 import { ForwardedDistrictBadge } from "@/components/forwarded-district-badge";
+import { ndwForwardLabel } from "@/components/ndw-alerts/ndw-signals-table";
 import type { EchisAlertRow } from "@/lib/fetch-ndw-alerts";
 
 interface EchisAlertDetailsDialogProps {
@@ -90,7 +91,7 @@ export function EchisAlertDetailsDialog({
 						{onForward && (
 							<Button variant="outline" size="sm" className="gap-1.5" onClick={() => onForward(alert)}>
 								<Send className="h-4 w-4" />
-								Forward to district
+								{ndwForwardLabel(alert)}
 							</Button>
 						)}
 						{onVerify && (

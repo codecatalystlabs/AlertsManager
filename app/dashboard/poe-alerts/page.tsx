@@ -10,6 +10,7 @@ import { NdwQuickFilterBar } from "@/components/ndw-alerts/ndw-quick-filter-bar"
 import { NdwLiveFilterSheet } from "@/components/ndw-alerts/ndw-live-filter-sheet";
 import { NdwEmptyState, NdwLiveBanner } from "@/components/ndw-alerts/ndw-feed-notices";
 import { ForwardToDistrictDialog } from "@/components/forward-to-district-dialog";
+import { ndwRegisterAlertId } from "@/components/ndw-alerts/ndw-signals-table";
 import { RawInformationSyncFooter, SyncProgressPanel } from "@/components/sync";
 import { POE_NDW_FILTER_FIELDS } from "@/constants/ndw-filter-fields";
 import {
@@ -218,8 +219,10 @@ export default function PoeAlertsPage() {
 				onClose={() => setForwardOpen(false)}
 				sourceLabel="POE alert"
 				alreadyForwarded={forwardTarget?.forwardedToDistrict ?? null}
-				onForward={(district, note) =>
-					forwardPoeAlert(forwardTarget!.id, { district, note })
+				allowRepeat
+				registerAlertId={ndwRegisterAlertId(forwardTarget)}
+				onForward={(district, note, again) =>
+					forwardPoeAlert(forwardTarget!.id, { district, note, again })
 				}
 				onForwarded={() => void refetch()}
 			/>

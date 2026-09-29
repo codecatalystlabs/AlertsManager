@@ -382,13 +382,19 @@ function SectionRows({
 /* Signal sources pie (slide 3)                                        */
 /* ------------------------------------------------------------------ */
 
-/** Fold everything beyond the 8 fixed hues into one grey "Other" slice. */
+/**
+ * Fold everything beyond the 8 fixed hues into one grey "Other" slice. A real
+ * "Other" category joins that slice rather than sitting beside it — two
+ * slices both labelled Other read as a bug (and were one, week of 23 Sep).
+ */
 function foldCounts(counts: ManagementCount[], max = 8): ManagementCount[] {
-	if (counts.length <= max) return counts;
-	const kept = counts.slice(0, max - 1);
-	const other = counts
-		.slice(max - 1)
-		.reduce((s, c) => s + c.count, 0);
+	const named = counts.filter((c) => c.label !== "Other");
+	const realOther = counts.filter((c) => c.label === "Other").reduce((s, c) => s + c.count, 0);
+	if (named.length + (realOther > 0 ? 1 : 0) <= max) {
+		return realOther > 0 ? [...named, { label: "Other", count: realOther }] : named;
+	}
+	const kept = named.slice(0, max - 1);
+	const other = named.slice(max - 1).reduce((s, c) => s + c.count, 0) + realOther;
 	return [...kept, { label: "Other", count: other }];
 }
 

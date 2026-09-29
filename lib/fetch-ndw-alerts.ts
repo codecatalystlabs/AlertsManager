@@ -270,9 +270,14 @@ export interface NdwSource<TRow, TFacets = unknown> {
 		message: string;
 	}>;
 	syncStatus(): Promise<NdwSyncProgress>;
+	/**
+	 * `again` forwards a signal that is already in the Signal Register: a
+	 * second row is added naming the first. Without it the server answers
+	 * 409 (NdwFetchError.status) for such a signal.
+	 */
 	forward(
 		id: number,
-		payload: { district: string; note?: string }
+		payload: { district: string; note?: string; again?: boolean }
 	): Promise<ForwardNdwResult>;
 	verify(
 		id: number,
@@ -321,7 +326,10 @@ export function createNdwSource<TRow, TFacets = unknown>(
 			return ndwRequest<NdwSyncProgress>(`${root}/sync/status`);
 		},
 		async forward(id, payload) {
-			const body = buildForwardToSignalPayload(payload.district, payload.note);
+			const body = {
+				...buildForwardToSignalPayload(payload.district, payload.note),
+				...(payload.again ? { again: true } : {}),
+			};
 			const json = await ndwRequest<{ alertId?: number; district?: string }>(
 				`${root}/${id}/forward`,
 				{

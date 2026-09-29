@@ -1,6 +1,7 @@
 "use client";
 
 import { formatDateTime } from "@/lib/format-date";
+import { altCode } from "@/lib/alt-code";
 import useSWR from "swr";
 import {
 	Siren,
@@ -68,6 +69,9 @@ function styleFor(action: string, detail?: AlertHistoryDetail): ActionStyle {
 						return { label: "Logged automatically from 6767", icon: MessageSquareText, tone: "text-sky-700 border-sky-500 bg-sky-50" };
 				}
 			}
+			if (detail?.repeatOf) {
+				return { label: "Forwarded again", icon: Send, tone: "text-amber-600 border-amber-500 bg-amber-50" };
+			}
 			return { label: "Forwarded to district", icon: Send, tone: "text-blue-600 border-blue-500 bg-blue-50" };
 		case "verification_pending":
 			// An attempt that did not conclude. Amber, not green: nothing was
@@ -120,6 +124,7 @@ function summarise(event: AlertHistoryEvent): string {
 					parts.push(`district ${d.district} (from the traveller's address)`);
 				} else parts.push(`to ${d.district}`);
 			} else if (d.district) parts.push(`to ${d.district}`);
+			if (d.repeatOf) parts.push(`already in the register as ${altCode(d.repeatOf)}`);
 			if (d.note) parts.push(`“${d.note}”`);
 			break;
 		case "triaged":
