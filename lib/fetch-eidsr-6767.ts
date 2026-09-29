@@ -81,7 +81,11 @@ export interface ForwardEidsr6767Result {
 	district: string;
 }
 
-function forwardErrorMessage(body: string, status: number): string {
+function forwardErrorMessage(
+	body: string,
+	status: number,
+	action = "forward alert"
+): string {
 	try {
 		const j = JSON.parse(body) as {
 			error?: string;
@@ -92,28 +96,24 @@ function forwardErrorMessage(body: string, status: number): string {
 			j.error ||
 			j.message ||
 			j.details ||
-			`Failed to forward alert (HTTP ${status})`
+			`Failed to ${action} (HTTP ${status})`
 		);
 	} catch {
-		return `Failed to forward alert (HTTP ${status})`;
+		return `Failed to ${action} (HTTP ${status})`;
 	}
 }
 
 /**
- * Forward a 6767 message to a district as a new call-log alert (it then appears
- * in that district's Signal Logs). POST /eidsr/local/events/:id/forward, falling
- * back to /eidsr/local/messages/:id/forward when the first path isn't registered.
+ * POST the district payload to the first of `paths` the API registers (a 404 or
+ * 405 moves on to the next alias) and read back the created alert.
  */
-export async function forwardEidsr6767(
-	id: number,
-	payload: { district: string; note?: string }
+async function postDistrictAction(
+	paths: string[],
+	payload: { district: string; note?: string },
+	action: string
 ): Promise<ForwardEidsr6767Result> {
 	const body = buildForwardToSignalPayload(payload.district, payload.note);
 	const base = getClientApiBaseUrl();
-	const paths = [
-		`/eidsr/local/events/${id}/forward`,
-		`/eidsr/local/messages/${id}/forward`,
-	];
 
 	let lastStatus = 404;
 	let lastBody = "";
@@ -149,10 +149,48 @@ export async function forwardEidsr6767(
 		lastBody = await response.text().catch(() => "");
 		// Try the next alias when this path isn't registered.
 		if (response.status === 404 || response.status === 405) continue;
-		throw new Error(forwardErrorMessage(lastBody, response.status));
+		throw new Error(forwardErrorMessage(lastBody, response.status, action));
 	}
 
-	throw new Error(forwardErrorMessage(lastBody, lastStatus));
+	throw new Error(forwardErrorMessage(lastBody, lastStatus, action));
+}
+
+/**
+ * Forward a 6767 message to a district as a new call-log alert (it then appears
+ * in that district's Signal Logs). POST /eidsr/local/events/:id/forward, falling
+ * back to /eidsr/local/messages/:id/forward when the first path isn't registered.
+ */
+export async function forwardEidsr6767(
+	id: number,
+	payload: { district: string; note?: string }
+): Promise<ForwardEidsr6767Result> {
+	return postDistrictAction(
+		[`/eidsr/local/events/${id}/forward`, `/eidsr/local/messages/${id}/forward`],
+		payload,
+		"forward alert"
+	);
+}
+
+/**
+ * Move a 6767 signal into the Signal Register, untriaged, in the chosen
+ * district: POST /eidsr/local/messages/:id/move. An API that predates the move
+ * route answers on the forward aliases instead. A signal already in the
+ * register is refused (409) with the ALT id to correct instead.
+ */
+export async function moveEidsr6767ToRegister(
+	id: number,
+	payload: { district: string; note?: string }
+): Promise<ForwardEidsr6767Result> {
+	return postDistrictAction(
+		[
+			`/eidsr/local/messages/${id}/move`,
+			`/eidsr/local/events/${id}/move`,
+			`/eidsr/local/events/${id}/forward`,
+			`/eidsr/local/messages/${id}/forward`,
+		],
+		payload,
+		"move signal"
+	);
 }
 
 export async function getEidsr6767Stats(

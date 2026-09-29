@@ -34,6 +34,13 @@ interface ForwardToDistrictDialogProps {
 	) => Promise<{ district: string }>;
 	/** Called after a successful forward, with the destination district. */
 	onForwarded: (district: string) => void;
+	/** Wording overrides, for callers whose action is not a "forward". */
+	title?: string;
+	description?: string;
+	submitLabel?: string;
+	successTitle?: string;
+	/** Where the source says the signal happened, shown to guide the choice. */
+	reportedLocation?: string | null;
 }
 
 /**
@@ -49,6 +56,11 @@ export function ForwardToDistrictDialog({
 	alreadyForwarded,
 	onForward,
 	onForwarded,
+	title = "Forward to a district",
+	description,
+	submitLabel = "Forward to Signal Register",
+	successTitle = "Signal forwarded",
+	reportedLocation,
 }: ForwardToDistrictDialogProps) {
 	const { toast } = useToast();
 	const [district, setDistrict] = useState("");
@@ -74,8 +86,8 @@ export function ForwardToDistrictDialog({
 		try {
 			const result = await onForward(district.trim(), note.trim() || undefined);
 			toast({
-				title: "Signal forwarded",
-				description: `Forwarded to ${result.district}. Open Signal Register to triage it.`,
+				title: successTitle,
+				description: `Sent to ${result.district}. Open Signal Register to triage it.`,
 			});
 			notifyAlertsChanged();
 			onForwarded(result.district);
@@ -101,11 +113,15 @@ export function ForwardToDistrictDialog({
 		>
 			<DialogContent className="sm:max-w-md">
 				<DialogHeader>
-					<DialogTitle>Forward to a district</DialogTitle>
+					<DialogTitle>{title}</DialogTitle>
 					<DialogDescription>
-						Send this {sourceLabel} to a district as a signal in the Signal
-						Register. It will not appear in Alerts Management until verified
-						there.
+						{description ?? (
+							<>
+								Send this {sourceLabel} to a district as a signal in the
+								Signal Register. It will not appear in Alerts Management
+								until verified there.
+							</>
+						)}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -117,6 +133,12 @@ export function ForwardToDistrictDialog({
 								again will create another signal log.
 							</AlertDescription>
 						</Alert>
+					)}
+
+					{reportedLocation?.trim() && (
+						<p className="text-sm text-muted-foreground">
+							Reported location: {reportedLocation.trim()}
+						</p>
 					)}
 
 					{error && (
@@ -166,7 +188,7 @@ export function ForwardToDistrictDialog({
 						) : (
 							<Send className="h-4 w-4" />
 						)}
-						Forward to Signal Register
+						{submitLabel}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

@@ -32,11 +32,9 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { AlertVerifyChip } from "@/components/eidsr-alerts/alert-verify-chip";
 import {
 	Eye,
-	Loader2,
 	MoreHorizontal,
 	Pencil,
 	Send,
-	ShieldCheck,
 } from "lucide-react";
 
 interface EidsrAlertsTableProps {
@@ -46,7 +44,6 @@ interface EidsrAlertsTableProps {
 	pageSize: number;
 	totalPages: number;
 	isLoading?: boolean;
-	verifyInProgressId?: number | null;
 	onPageChange: (page: number) => void;
 	onPageSizeChange: (pageSize: number) => void;
 	onInAlertsFilterChange?: (filter: "all" | "linked" | "unlinked") => void;
@@ -56,17 +53,15 @@ interface EidsrAlertsTableProps {
 	filtersResetKey?: number;
 	onView: (message: EidsrMessage) => void;
 	onEdit: (message: EidsrMessage) => void;
-	onVerify: (message: EidsrMessage) => void;
-	onForward: (message: EidsrMessage) => void;
+	/** Move the signal into the Signal Register — the one way in. */
+	onMove: (message: EidsrMessage) => void;
 }
 
 function createColumns(handlers: {
 	onView: (m: EidsrMessage) => void;
 	onEdit: (m: EidsrMessage) => void;
-	onVerify: (m: EidsrMessage) => void;
-	onForward: (m: EidsrMessage) => void;
-	verifyInProgressId: number | null;
-	canForward: boolean;
+	onMove: (m: EidsrMessage) => void;
+	canMove: boolean;
 }): ColumnDef<EidsrMessage>[] {
 	return [
 		{
@@ -221,7 +216,6 @@ function createColumns(handlers: {
 			enableColumnFilter: false,
 			cell: ({ row }) => {
 				const m = row.original;
-				const verifying = handlers.verifyInProgressId === m.id;
 
 				return (
 					<div className="text-right">
@@ -233,11 +227,7 @@ function createColumns(handlers: {
 									aria-label={`Actions for 6767 message ${m.id}`}
 								>
 									<span className="sr-only">Open menu</span>
-									{verifying ? (
-										<Loader2 className="h-4 w-4 animate-spin" />
-									) : (
-										<MoreHorizontal className="h-4 w-4" />
-									)}
+									<MoreHorizontal className="h-4 w-4" />
 								</Button>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end">
@@ -256,27 +246,18 @@ function createColumns(handlers: {
 									<Pencil className="h-4 w-4" />
 									Edit
 								</DropdownMenuItem>
-								{handlers.canForward && (
+								{handlers.canMove && (
 									<>
 										<DropdownMenuSeparator />
 										<DropdownMenuItem
 											className="flex items-center gap-2"
-											onClick={() => handlers.onForward(m)}
+											onClick={() => handlers.onMove(m)}
 										>
 											<Send className="h-4 w-4" />
-											Forward to district
+											Move to register
 										</DropdownMenuItem>
 									</>
 								)}
-								<DropdownMenuSeparator />
-								<DropdownMenuItem
-									className="flex items-center gap-2 text-uganda-red focus:text-uganda-red"
-									onClick={() => handlers.onVerify(m)}
-									disabled={verifying}
-								>
-									<ShieldCheck className="h-4 w-4" />
-									Verify into alerts
-								</DropdownMenuItem>
 							</DropdownMenuContent>
 						</DropdownMenu>
 					</div>
@@ -294,7 +275,6 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 		pageSize,
 		totalPages,
 		isLoading = false,
-		verifyInProgressId = null,
 		onPageChange,
 		onPageSizeChange,
 		onInAlertsFilterChange,
@@ -302,21 +282,12 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 		filtersResetKey,
 		onView,
 		onEdit,
-		onVerify,
-		onForward,
+		onMove,
 	}) => {
-		const canForward = canForwardAlerts(useCurrentUser());
+		const canMove = canForwardAlerts(useCurrentUser());
 		const columns = useMemo(
-			() =>
-				createColumns({
-					onView,
-					onEdit,
-					onVerify,
-					onForward,
-					verifyInProgressId,
-					canForward,
-				}),
-			[onView, onEdit, onVerify, onForward, verifyInProgressId, canForward]
+			() => createColumns({ onView, onEdit, onMove, canMove }),
+			[onView, onEdit, onMove, canMove]
 		);
 		// This table is server-paginated, so header filters run server-side
 		// (manualFiltering): onColumnFiltersChange routes them to the hook, which
@@ -332,7 +303,7 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 			<Card className={LAYOUT.card}>
 				<CardHeader className={LAYOUT.cardHeader}>
 					<CardTitle className={LAYOUT.cardTitle}>
-						6767 events ({totalCount.toLocaleString()})
+						6767 messages ({totalCount.toLocaleString()})
 					</CardTitle>
 				</CardHeader>
 				<CardContent className={LAYOUT.cardContent}>
