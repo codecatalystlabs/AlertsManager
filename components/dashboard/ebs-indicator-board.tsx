@@ -712,6 +712,16 @@ IndicatorTrendCard.displayName = "IndicatorTrendCard";
 const LEAD_INDICATOR_IDS: readonly string[] = ["signals-triaged", "signals-verified"];
 
 /**
+ * Indicators whose trend chart is switched off on the dashboard. The rows stay
+ * defined (and computed) in lib/ebs-indicators.ts; delete a line here to bring
+ * its chart back.
+ */
+const HIDDEN_INDICATOR_IDS: readonly string[] = [
+	"response-initiated", // Response initiated
+	"under-monitoring", // Under monitoring
+];
+
+/**
  * The twelve indicators as trend cards, in table order. Renders the cards
  * only (no grid of its own) so the page can lay them out in the same
  * two-column grid as the other charts.
@@ -723,7 +733,9 @@ const LEAD_INDICATOR_IDS: readonly string[] = ["signals-triaged", "signals-verif
 export const IndicatorTrendCards = memo<BoardProps & { select?: "all" | "lead" | "rest" }>(
 	({ summary, isLoading, select = "all" }) => {
 		const rows = useMemo(() => {
-			const all = buildEbsIndicatorRows(summary);
+			const all = buildEbsIndicatorRows(summary).filter(
+				(r) => !HIDDEN_INDICATOR_IDS.includes(r.id)
+			);
 			if (select === "lead") {
 				return LEAD_INDICATOR_IDS.map((id) => all.find((r) => r.id === id)).filter(
 					(r): r is (typeof all)[number] => r !== undefined
