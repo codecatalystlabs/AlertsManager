@@ -129,14 +129,14 @@ export default function PublicAddAlertPage() {
 			{/* Header */}
 			<div className="bg-gradient-to-r from-uganda-red to-uganda-yellow text-white shadow-lg">
 				<div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-					<div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+					<div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:justify-between">
 						<div className="flex min-w-0 items-center space-x-3">
-							<MohLogo />
+							<MohLogo className="h-9 w-9" />
 							<div className="min-w-0">
-								<h1 className="text-xl font-bold">
+								<h1 className="text-base font-bold leading-tight">
 									Uganda Health Alert System
 								</h1>
-								<p className="text-sm text-white/90">
+								<p className="text-xs text-white/90">
 									Ministry of Health Uganda
 								</p>
 							</div>
@@ -147,7 +147,8 @@ export default function PublicAddAlertPage() {
 									<Link href="/dashboard">
 										<Button
 											variant="secondary"
-											className="bg-white/20 text-white border-white/30 hover:bg-white/30"
+											size="sm"
+											className="h-8 bg-white/20 text-white border-white/30 hover:bg-white/30"
 										>
 											<Home className="w-4 h-4 mr-2" />
 											Dashboard
@@ -155,7 +156,8 @@ export default function PublicAddAlertPage() {
 									</Link>
 									<Button
 										variant="secondary"
-										className="bg-white/20 text-white border-white/30 hover:bg-white/30"
+										size="sm"
+										className="h-8 bg-white/20 text-white border-white/30 hover:bg-white/30"
 										onClick={async () => {
 											try {
 												await AuthService.logout();
@@ -183,7 +185,8 @@ export default function PublicAddAlertPage() {
 									>
 										<Button
 											variant="secondary"
-											className="bg-white/20 text-white border-white/30 hover:bg-white/30"
+											size="sm"
+											className="h-8 bg-white/20 text-white border-white/30 hover:bg-white/30"
 										>
 											<Home className="w-4 h-4 mr-2" />
 											EVD Definition
@@ -192,7 +195,8 @@ export default function PublicAddAlertPage() {
 									<Link href="/login">
 										<Button
 											variant="secondary"
-											className="bg-white/20 text-white border-white/30 hover:bg-white/30"
+											size="sm"
+											className="h-8 bg-white/20 text-white border-white/30 hover:bg-white/30"
 										>
 											<LogIn className="w-4 h-4 mr-2" />
 											Login
@@ -205,21 +209,21 @@ export default function PublicAddAlertPage() {
 				</div>
 			</div>
 
-			<div className="mx-auto max-w-[1440px] px-4 py-5 pb-28 sm:px-6 lg:px-8">
+			<div className="mx-auto max-w-7xl px-4 py-3 pb-20 sm:px-6 lg:px-8">
 				{/* Main Form */}
 				<Card className="border-0 shadow-xl">
-					<CardHeader className="bg-gradient-to-r from-uganda-red to-uganda-yellow px-5 text-white sm:px-6">
-						<CardTitle className="flex items-center gap-3 text-2xl font-bold">
-							<AlertTriangleIcon className="h-7 w-7" />
+					<CardHeader className="bg-gradient-to-r from-uganda-red to-uganda-yellow py-2 text-white">
+						<CardTitle className="flex items-center gap-2 text-base font-bold">
+							<AlertTriangleIcon className="h-5 w-5" />
 							Report Health Alert
 						</CardTitle>
-						<p className="text-sm text-white/90">
+						<p className="text-xs text-white/90">
 							{isAuthenticated
 								? "Submit a health alert to the Ministry of Health surveillance system"
 								: "Anyone can report a health alert. Help us protect public health by reporting suspected cases."}
 						</p>
 					</CardHeader>
-					<CardContent>
+					<CardContent className="pt-3">
 						<AddAlertForm
 							submitAlert={submitAlert}
 							successMessage="Alert submitted successfully! Thank you for reporting this health alert. The relevant authorities have been notified."
@@ -235,7 +239,7 @@ export default function PublicAddAlertPage() {
 							successExtra={
 								submittedAlert && (
 									<>
-										<div className="mt-3 flex flex-col gap-2 rounded-lg surface-success p-4 sm:flex-row sm:items-center sm:justify-between">
+										<div className="mt-2 flex flex-col gap-2 rounded-lg surface-success px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
 											<p className="text-sm text-success">
 												Would you like a copy for
 												your records? Download a PDF
@@ -246,6 +250,7 @@ export default function PublicAddAlertPage() {
 												type="button"
 												onClick={handleDownloadPdf}
 												disabled={isDownloadingPdf}
+												size="sm"
 												className="bg-uganda-red font-semibold text-white hover:bg-uganda-red/90"
 											>
 												<Download className="mr-2 h-4 w-4" />
@@ -264,7 +269,7 @@ export default function PublicAddAlertPage() {
 							}
 							renderActions={(isSubmitting) => (
 								<div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur">
-									<div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+									<div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
 										<p className="text-xs text-gray-600">
 											Required fields are marked with{" "}
 											<span className="font-semibold text-uganda-red">
@@ -275,6 +280,7 @@ export default function PublicAddAlertPage() {
 										<Button
 											type="submit"
 											disabled={isSubmitting}
+											size="sm"
 											className="w-full bg-gradient-to-r from-uganda-red to-uganda-yellow px-8 font-semibold text-white hover:from-uganda-red/90 hover:to-uganda-yellow/90 sm:w-auto"
 										>
 											{isSubmitting
@@ -289,9 +295,9 @@ export default function PublicAddAlertPage() {
 				</Card>
 
 				{/* Emergency Contact */}
-				<Alert className="mt-4 surface-danger">
+				<Alert className="mt-3 py-2 surface-danger">
 					<AlertTriangleIcon className="h-4 w-4 text-destructive" />
-					<AlertDescription className="text-sm text-destructive">
+					<AlertDescription className="text-xs text-destructive">
 						<strong>Emergency Contact:</strong> For immediate
 						medical emergencies, please call{" "}
 						<strong>0800-100-066</strong>, SMS <strong>6767</strong> ,<strong>912</strong>

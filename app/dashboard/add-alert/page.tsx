@@ -20,9 +20,9 @@ export default function DashboardAddAlertPage() {
 	};
 
 	return (
-		<div className="max-w-6xl mx-auto space-y-4">
+		<div className="max-w-6xl mx-auto space-y-3">
 			{/* Header */}
-			<div className="flex items-center space-x-4">
+			<div className="flex items-center gap-3">
 				<Link href="/dashboard/alerts">
 					<Button variant="outline" size="sm">
 						<ArrowLeft className="w-4 h-4 mr-2" />
@@ -30,10 +30,10 @@ export default function DashboardAddAlertPage() {
 					</Button>
 				</Link>
 				<div>
-					<h1 className="text-xl font-bold text-uganda-black">
+					<h1 className="text-lg font-bold leading-tight text-uganda-black">
 						Create New Alert
 					</h1>
-					<p className="text-gray-600">
+					<p className="text-xs text-gray-600">
 						Add a new health alert to the system
 					</p>
 				</div>
@@ -41,13 +41,13 @@ export default function DashboardAddAlertPage() {
 
 			{/* Main Form */}
 			<Card className="shadow-lg border-0">
-				<CardHeader className="bg-gradient-to-r from-uganda-red to-uganda-yellow text-white">
-					<CardTitle className="text-xl font-bold flex items-center gap-3">
-						<AlertTriangleIcon className="h-6 w-6" />
+				<CardHeader className="bg-gradient-to-r from-uganda-red to-uganda-yellow py-2 text-white">
+					<CardTitle className="text-base font-bold flex items-center gap-2">
+						<AlertTriangleIcon className="h-5 w-5" />
 						Alert Information
 					</CardTitle>
 				</CardHeader>
-				<CardContent>
+				<CardContent className="pt-3">
 					<AddAlertForm
 						audience="staff"
 						submitAlert={submitAlert}
@@ -58,10 +58,11 @@ export default function DashboardAddAlertPage() {
 							}, 2000);
 						}}
 						renderActions={(isSubmitting) => (
-							<div className="flex justify-end space-x-4 pt-6 border-t">
+							<div className="flex justify-end gap-2 pt-3 border-t">
 								<Button
 									type="button"
 									variant="outline"
+									size="sm"
 									onClick={() =>
 										router.push("/dashboard/alerts")
 									}
@@ -71,6 +72,7 @@ export default function DashboardAddAlertPage() {
 								<Button
 									type="submit"
 									disabled={isSubmitting}
+									size="sm"
 									className="bg-gradient-to-r from-uganda-red to-uganda-yellow hover:from-uganda-red/90 hover:to-uganda-yellow/90 text-white px-6"
 								>
 									{isSubmitting

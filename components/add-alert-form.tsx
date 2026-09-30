@@ -312,8 +312,17 @@ const AUDIENCE_STRINGS = {
   },
 } as const;
 
+// Compact density: 32px controls, 4px label gap, tight grid gaps. Kept here
+// rather than in the Input/Select primitives, which the rest of the app still
+// renders at their default size.
 const FIELD_CLASS =
+  "h-8 py-1 border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20";
+const TEXTAREA_CLASS =
   "border-gray-300 focus:border-uganda-yellow focus:ring-uganda-yellow/20";
+const SELECT_CLASS = "h-8 py-1 border-gray-300 focus:ring-uganda-yellow/20";
+const FIELD_WRAP = "space-y-1";
+const LABEL_CLASS = "text-xs font-medium text-gray-700";
+const GRID = "grid grid-cols-1 gap-x-3 gap-y-2";
 const RADIO_CLASS = "border-uganda-red text-uganda-red";
 
 function SectionHeading({
@@ -327,8 +336,8 @@ function SectionHeading({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <Icon className="h-5 w-5 text-uganda-red" />
-      <h3 className="text-lg font-semibold text-uganda-black">
+      <Icon className="h-4 w-4 text-uganda-red" />
+      <h3 className="text-sm font-semibold text-uganda-black">
         {title}
         {required && (
           <>
@@ -356,7 +365,7 @@ function FieldLabel({
   const label = (
     <Label
       htmlFor={htmlFor}
-      className={`text-sm font-medium ${optional ? "text-gray-600" : "text-gray-700"
+      className={`text-xs font-medium ${optional ? "text-gray-600" : "text-gray-700"
         }`}
     >
       {children}
@@ -372,7 +381,7 @@ function FieldLabel({
   if (!hint) return label;
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1">
       {label}
       <FieldHint text={hint} />
     </div>
@@ -396,7 +405,7 @@ function TextField({
   hint?: string;
 } & Omit<React.ComponentProps<typeof Input>, "id" | "value" | "onChange">) {
   return (
-    <div className="space-y-2">
+    <div className={FIELD_WRAP}>
       <FieldLabel htmlFor={id} optional={optional} hint={hint}>
         {label}
       </FieldLabel>
@@ -425,10 +434,10 @@ function RadioRow({
     <RadioGroup
       value={value}
       onValueChange={onChange}
-      className="flex min-h-10 items-center gap-4"
+      className="flex h-8 items-center gap-3"
     >
       {options.map((option) => (
-        <div key={option.value} className="flex items-center space-x-2">
+        <div key={option.value} className="flex items-center gap-1.5">
           <RadioGroupItem
             value={option.value}
             id={option.id}
@@ -558,7 +567,9 @@ export function AddAlertForm({
           subcounty: loc.subcounty,
         }))
       }
-      triggerClassName={FIELD_CLASS}
+      triggerClassName={SELECT_CLASS}
+      labelClassName={LABEL_CLASS}
+      fieldClassName={FIELD_WRAP}
       hints={{
         region: FIELD_HINTS.region,
         district: FIELD_HINTS.district,
@@ -593,7 +604,7 @@ export function AddAlertForm({
   // Asked of both audiences: required for staff, optional and plainly worded for
   // a community reporter (who is usually the "Community" source themselves).
   const sourceField = (
-    <div className="space-y-2">
+    <div className={FIELD_WRAP}>
       <FieldLabel
         htmlFor="sourceOfAlert"
         optional={isPublic}
@@ -618,7 +629,7 @@ export function AddAlertForm({
         onChange={(vals) => setField("sourceOfAlert", vals.join(", "))}
         placeholder={strings.sourcePlaceholder}
         searchPlaceholder="Search sources..."
-        className="border-gray-300 focus-visible:ring-uganda-yellow/20"
+        className="min-h-8 py-1 border-gray-300 focus-visible:ring-uganda-yellow/20"
       />
     </div>
   );
@@ -626,7 +637,7 @@ export function AddAlertForm({
   // Optional for both audiences. A blank public answer falls back to
   // PUBLIC_DEFAULTS.channelOfReporting, since the web form knows its own medium.
   const channelField = (
-    <div className="space-y-2">
+    <div className={FIELD_WRAP}>
       <FieldLabel
         htmlFor="channelOfReporting"
         optional
@@ -640,7 +651,7 @@ export function AddAlertForm({
       >
         <SelectTrigger
           id="channelOfReporting"
-          className="border-gray-300 focus:ring-uganda-yellow/20"
+          className={SELECT_CLASS}
         >
           <SelectValue placeholder={strings.channelPlaceholder} />
         </SelectTrigger>
@@ -658,7 +669,7 @@ export function AddAlertForm({
   // Staff intake only — EBS triage question 1 is a desk decision, so the public
   // form does not ask it. Public reports post alertReportedBefore: "No".
   const reportedBeforeField = (
-    <div className="space-y-2">
+    <div className={FIELD_WRAP}>
       <FieldLabel optional hint={FIELD_HINTS.alertReportedBefore}>
         Signal reported before?
       </FieldLabel>
@@ -716,7 +727,7 @@ export function AddAlertForm({
         onChange={(v) => setField("numberAffected", v)}
         placeholder="e.g. 3"
       />
-      <div className="space-y-2">
+      <div className={FIELD_WRAP}>
         <FieldLabel optional={isPublic} hint={FIELD_HINTS.caseSex}>
           {isPublic ? "Sex" : "Patient Sex *"}
         </FieldLabel>
@@ -733,7 +744,7 @@ export function AddAlertForm({
           it belongs with the person it describes. Optional either way — a
           reporter who cannot say leaves it blank or answers Unknown. */}
       {isPublic && (
-        <div className="space-y-2">
+        <div className={FIELD_WRAP}>
           <FieldLabel htmlFor="status" optional hint={FIELD_HINTS.status}>
             Status
           </FieldLabel>
@@ -743,7 +754,7 @@ export function AddAlertForm({
           >
             <SelectTrigger
               id="status"
-              className="border-gray-300 focus:ring-uganda-yellow/20"
+              className={SELECT_CLASS}
             >
               <SelectValue placeholder="Alive, dead or unknown" />
             </SelectTrigger>
@@ -779,7 +790,7 @@ export function AddAlertForm({
   );
 
   const descriptionField = (
-    <div className="space-y-2">
+    <div className={FIELD_WRAP}>
       <FieldLabel htmlFor="caseDescription" hint={FIELD_HINTS.caseDescription}>
         {isPublic ? "Describe what is happening(presentation , sex, age ,signs and symptoms,date of onset) *" : "Signal Description(suspected case,sex,age,signs and symptoms,date of onset) *"}
       </FieldLabel>
@@ -788,25 +799,25 @@ export function AddAlertForm({
         value={values.caseDescription}
         onChange={(e) => setField("caseDescription", e.target.value)}
         required
-        rows={8}
+        rows={4}
         placeholder={
           isPublic
             ? "What have you seen or  heard? When did it start? number affected?"
             : "Describe what happened, when it started, who is affected, and any other relevant details"
         }
-        className={`min-h-48 ${FIELD_CLASS}`}
+        className={`min-h-24 ${TEXTAREA_CLASS}`}
       />
     </div>
   );
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-3">
       {isPublic ? (
         <>
           {/* Reporter's Details */}
-          <div className="space-y-4">
+          <div className="space-y-2">
             <SectionHeading icon={UserIcon} title="Reporter's Details" />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className={`${GRID} sm:grid-cols-2`}>
               {reporterNameField}
               {reporterPhoneField}
             </div>
@@ -815,9 +826,9 @@ export function AddAlertForm({
           <Separator />
 
           {/* Location */}
-          <div className="space-y-4">
+          <div className="space-y-2">
             <SectionHeading icon={MapPinIcon} title="Signal Location" />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className={`${GRID} sm:grid-cols-2 lg:grid-cols-5`}>
               {locationSelect}
               {villageParishFields}
             </div>
@@ -835,29 +846,29 @@ export function AddAlertForm({
               when it is the same report seen from another angle, and every
               field in it is optional. Hairline rules group the block instead,
               which is how the staff form has always carried these fields. */}
-          <div className="space-y-4">
+          <div className="space-y-2">
             <SectionHeading
               icon={AlertTriangleIcon}
               title="Signal Information"
             />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className={`${GRID} sm:grid-cols-2`}>
               {sourceField}
               {channelField}
             </div>
 
             {/* The reassurance outlives the heading it sat under: without it the
                 row reads as five more things to find out before reporting. */}
-            <div className="space-y-3 border-t border-gray-200 pt-4">
-              <p className="text-sm text-gray-600">
+            <div className="space-y-1.5 border-t border-gray-200 pt-2">
+              <p className="text-xs text-gray-600">
                 Only fill in the person&apos;s details if you know them. You can
                 send the report without them.
               </p>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+              <div className={`${GRID} sm:grid-cols-2 lg:grid-cols-4`}>
                 {patientFields}
               </div>
             </div>
 
-            <div className="border-t border-gray-200 pt-4">
+            <div className="border-t border-gray-200 pt-2">
               {descriptionField}
             </div>
           </div>
@@ -865,9 +876,12 @@ export function AddAlertForm({
       ) : (
         <>
           {/* Basic Information */}
-          <div className="space-y-4">
+          <div className="space-y-2">
             <SectionHeading icon={CalendarIcon} title="Basic Information" />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {/* items-end: "Signal reported before? (optional)" wraps to two
+                lines in a fifth-width column; bottom-aligning keeps its radios
+                level with the inputs beside it. */}
+            <div className={`${GRID} items-end sm:grid-cols-2 lg:grid-cols-5`}>
               <TextField
                 id="date"
                 hint={FIELD_HINTS.date}
@@ -885,7 +899,7 @@ export function AddAlertForm({
                 value={values.time}
                 onChange={(v) => setField("time", v)}
               />
-              <div className="space-y-2">
+              <div className={FIELD_WRAP}>
                 <FieldLabel htmlFor="status" hint={FIELD_HINTS.status}>
                   Signal Status *
                 </FieldLabel>
@@ -893,7 +907,7 @@ export function AddAlertForm({
                   value={values.status}
                   onValueChange={(v) => setField("status", v)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="status" className={SELECT_CLASS}>
                     <SelectValue placeholder="Select signal status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -921,17 +935,17 @@ export function AddAlertForm({
           <Separator />
 
           {/* Reporter Information */}
-          <div className="space-y-4">
+          <div className="space-y-2">
             <SectionHeading
               icon={UserIcon}
               title="Person Reporting the Signal"
             />
-            <p className="text-sm text-gray-600">
+            <p className="text-xs text-gray-600">
               Details of whoever is reporting this signal — the community
               member, VHT or health worker on the line. Not you: your name goes
               in Call Taker Name above.
             </p>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className={`${GRID} sm:grid-cols-2 xl:grid-cols-4`}>
               {reporterNameField}
               {reporterPhoneField}
               {sourceField}
@@ -942,9 +956,9 @@ export function AddAlertForm({
           <Separator />
 
           {/* Location Information */}
-          <div className="space-y-4">
+          <div className="space-y-2">
             <SectionHeading icon={MapPinIcon} title="Signal Location" />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <div className={`${GRID} sm:grid-cols-2 lg:grid-cols-5`}>
               {locationSelect}
               {villageParishFields}
             </div>
@@ -953,12 +967,12 @@ export function AddAlertForm({
           <Separator />
 
           {/* Case Information */}
-          <div className="space-y-4">
+          <div className="space-y-2">
             <SectionHeading
               icon={AlertTriangleIcon}
               title="Signal Information"
             />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <div className={`${GRID} sm:grid-cols-2 lg:grid-cols-3`}>
               {patientFields}
             </div>
           </div>
