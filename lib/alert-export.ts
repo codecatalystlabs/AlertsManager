@@ -419,14 +419,19 @@ function timeToTriage(alert: ExportableAlert): string {
 }
 
 /**
- * How long the signal took to verify. Blank while the clock is still running —
- * an unverified alert has no verification duration, and printing its current
- * age in that column would read as one. Its lateness shows in "SLA Status".
+ * How long verification took once triage handed the signal over: the recorded
+ * verification time minus the triage time — the two timestamps the sheet
+ * prints in "Triaged Date/Time" and "Verification Time". Blank when either is
+ * missing (still pending, or verified before triage existed) or when the
+ * verification is recorded before the triage, since no duration can be
+ * claimed then. Lateness against the signal's own deadline is "SLA Status".
  */
 function timeToVerify(alert: ExportableAlert): string {
-	const sla = computeAlertSla(alert);
-	if (!sla || sla.running) return "";
-	return formatSlaElapsed(sla.elapsedMinutes);
+	const triaged = parseTimestamp(alert.triagedAt);
+	const verified = parseTimestamp(alert.verificationTime);
+	if (!triaged || !verified) return "";
+	const minutes = Math.floor((verified.getTime() - triaged.getTime()) / 60_000);
+	return minutes < 0 ? "" : formatSlaElapsed(minutes);
 }
 
 function slaStatus(alert: ExportableAlert): string {
