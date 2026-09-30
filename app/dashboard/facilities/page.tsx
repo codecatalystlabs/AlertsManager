@@ -532,7 +532,7 @@ export default function FacilitiesPage() {
 			</Card>
 
 			<Dialog open={formOpen} onOpenChange={setFormOpen}>
-				<DialogContent className="max-w-2xl">
+				<DialogContent className="max-w-3xl">
 					<DialogHeader>
 						<DialogTitle>
 							{editing ? "Edit facility" : "Add facility"}

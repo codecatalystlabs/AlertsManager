@@ -61,22 +61,13 @@ const navigationGroups: NavigationGroup[] = [
 		],
 	},
 	{
-		// The pipeline, in guideline order. Step 5 (Alert issued) is absent
-		// because the system cannot record it yet — the pipeline strip shows it
-		// as locked rather than the nav offering a page that does not exist.
+	
 		label: "Signal Pipeline",
 		items: [
 			{ name: "Raw Information", href: "/dashboard/signal-logs", icon: RadioTower },
-			// The pipeline's queues as destinations, each named for the state a
-			// signal has REACHED and holding the work due NEXT: "Signal Register
-			// (Triage)" is the forwarded-but-unverified queue (?stage=verification
-			// is the gate they are waiting AT), "Verified" is the confirmed events waiting to be
-			// scored, and "Risk Assessed" is the concluded signals whose reporter
-			// has not been told. Steps 4 and 6 have no entries of their own for
-			// that reason — you cannot score an unverified signal or close a loop
-			// on an unconcluded one, so those queues ARE these entries.
+		
 			{
-				name: "Signal Register (Triage)",
+				name: "Signal Register (Triaged)",
 				href: "/dashboard/signal-logs?stage=verification",
 				icon: ShieldQuestion,
 			},

@@ -191,7 +191,7 @@ export function TriageDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+			<DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2 text-base">
 						<ShieldQuestion className="h-4 w-4 text-uganda-red" />
@@ -264,40 +264,6 @@ export function TriageDialog({
 								<p className="text-[11px] font-medium text-amber-700">
 									Choose the EBS signal this report matches to forward it for
 									verification.
-								</p>
-							)}
-						</div>
-					)}
-
-					{decision !== null && (
-						<div
-							className={cn(
-								"rounded-lg border p-3",
-								continues
-									? "border-emerald-200 bg-emerald-50"
-									: "border-slate-200 bg-slate-50",
-							)}
-						>
-							<p className="flex items-center gap-2 text-sm font-semibold">
-								{continues ? (
-									<ArrowRight className="h-4 w-4 text-emerald-700" />
-								) : (
-									<CircleSlash className="h-4 w-4 text-slate-500" />
-								)}
-								{decision === TRIAGE_FORWARDED
-									? "Forward to verification"
-									: decision === TRIAGE_LOGGED
-										? "Log and monitor"
-										: "Discard as already reported"}
-							</p>
-							<p className="mt-1 text-xs text-muted-foreground">
-								{TRIAGE_DECISION_GUIDANCE[decision]}
-							</p>
-							{signalSummary(signalCode) && (
-								<p className="mt-1 text-[11px] text-muted-foreground">
-									Recorded as{" "}
-									<span className="font-mono font-semibold">{signalCode}</span>{" "}
-									— {signalSummary(signalCode)?.split(" — ")[1]}
 								</p>
 							)}
 						</div>

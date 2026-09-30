@@ -184,7 +184,6 @@ export function AlertVerificationDialog({
 	const [discardReason, setDiscardReason] = useState("");
 	// What the desk is asking the field team to check. Optional, and the first
 	// thing the field verifier sees when they open the signal.
-	const [fieldRequest, setFieldRequest] = useState("");
 	const [note, setNote] = useState("");
 	// Prefilled from the signal — verification is where a status recorded at
 	// intake gets corrected, not re-entered from scratch. Optional: left blank,
@@ -230,7 +229,6 @@ export function AlertVerificationDialog({
 		if (!isOpen || !alert) return;
 		setAnswer("");
 		setDiscardReason("");
-		setFieldRequest(String(alert.fieldVerificationRequest ?? ""));
 		setNote("");
 		setStatus(entryStatusOf(alert.status));
 		setEtiology(resolveAlertResponseCode(String(alert.response ?? "")));
@@ -263,7 +261,6 @@ export function AlertVerificationDialog({
 	const canSubmit =
 		!!answer && (answer !== "discard" || !!discardReason) && !isVerifying;
 	/** An answer that SETTLES the question, as opposed to passing it on. */
-	const concluding = answer === "confirm" || answer === "discard";
 
 	/** The handover this signal is already carrying, if the desk escalated it. */
 	const escalation = {
@@ -288,14 +285,13 @@ export function AlertVerificationDialog({
 			// ---- 6767 / eCHIS / POE: verify the signal into alerts --------
 			if (isTokenlessMode) {
 				const payload = buildEidsrVerifyPayload({
-					status,
-					response: etiology,
+					status: answer === "confirm" ? status : "",
+					response: answer === "confirm" ? etiology : "",
 					verificationOutcome: outcome,
 					verificationNote: trimmedNote,
 					verificationLevel: level,
 					discardReason: answer === "discard" ? discardReason : "",
-					fieldVerificationRequest:
-						answer === "escalate" ? fieldRequest.trim() : "",
+					fieldVerificationRequest: "",
 					deskVerificationActions: legacyDeskValue(outcome, []),
 					verifiedBy,
 					verificationDate: new Date().toISOString(),
@@ -359,13 +355,10 @@ export function AlertVerificationDialog({
 				verificationNote: trimmedNote,
 				verificationLevel: level,
 				discardReason: answer === "discard" ? discardReason : undefined,
-				fieldVerificationRequest: escalating
-					? fieldRequest.trim()
-					: undefined,
 				// Omitted when blank, so an untouched field never overwrites
 				// the status or etiology the signal already carries.
-				status: status || undefined,
-				response: etiology || undefined,
+				status: (answer === "confirm" && status) || undefined,
+				response: (answer === "confirm" && etiology) || undefined,
 				// An escalation is not a verification, so it stamps no
 				// verification time — the server keeps the signal unverified
 				// and the field visit supplies the real timestamp.
@@ -419,7 +412,7 @@ export function AlertVerificationDialog({
 
 	return (
 		<Dialog open={isOpen} onOpenChange={onClose}>
-			<DialogContent className="max-w-2xl max-h-[88vh] flex flex-col overflow-hidden">
+			<DialogContent className="max-w-5xl max-h-[88vh] flex flex-col overflow-hidden">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						<ShieldQuestion className="h-4 w-4 text-uganda-red" />
@@ -555,34 +548,11 @@ export function AlertVerificationDialog({
 								</div>
 							)}
 
-							{/* What the field team is being asked to do. The
-							    first thing they see when they open it. */}
-							{answer === "escalate" && (
-								<div className="space-y-2">
-									<Label htmlFor="field-request" className="text-sm font-medium">
-										What should the field team check?
-										<span className="ml-1 font-normal text-muted-foreground">
-											(optional)
-										</span>
-									</Label>
-									<Textarea
-										id="field-request"
-										value={fieldRequest}
-										onChange={(e) => setFieldRequest(e.target.value)}
-										rows={3}
-										placeholder="e.g. visit the household in Ggaba and confirm whether the two children have the same symptoms; the reporter's phone is off"
-									/>
-									<p className="text-xs text-muted-foreground">
-										Carried with the signal to the field queue, so whoever goes
-										knows what the desk could not settle.
-									</p>
-								</div>
-							)}
 							{/* Status of the person, as it stands at verification.
 							    Offered once a conclusion is picked — an
 							    escalation concludes nothing, and the field
 							    visit is where these get answered. */}
-							{concluding && (
+							{answer === "confirm" && (
 								<div className="space-y-2">
 									<Label htmlFor="verification-status" className="text-sm font-medium">
 										Status
@@ -614,7 +584,7 @@ export function AlertVerificationDialog({
 							    register, the add/edit forms and the reports'
 							    response-type filter use, so a verifier's answer
 							    lands in the bucket those read. */}
-							{concluding && (
+							{answer === "confirm" && (
 								<div className="space-y-2">
 									<Label htmlFor="verification-etiology" className="text-sm font-medium">
 										Suspected Etiology

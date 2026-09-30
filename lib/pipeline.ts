@@ -90,7 +90,7 @@ export const STAGE_STEP: Partial<Record<StageKey, number>> = {
 
 /** One line on what each gate decides, shown on hover over the pipeline strip. */
 export const STAGE_DESCRIPTION: Record<StageKey, string> = {
-	[STAGE_INTAKE]: "Every signal reported into the system, whatever its source.",
+	[STAGE_INTAKE]: "Signals logged into the system that nobody has touched yet — awaiting triage.",
 	[STAGE_TRIAGE]:
 		"New signals only — not triaged, not verified, not risk-assessed. Triage is due within 24 hours of receipt.",
 	[STAGE_VERIFICATION]:
@@ -122,8 +122,9 @@ export const STAGE_DESCRIPTION: Record<StageKey, string> = {
  * list would disagree.
  */
 export function stageHref(key: StageKey): string {
+	// Raw information is the untouched (untriaged) queue.
 	return key === STAGE_INTAKE
-		? "/dashboard/signal-logs?view=all"
+		? `/dashboard/signal-logs?stage=${STAGE_TRIAGE}`
 		: `/dashboard/signal-logs?stage=${key}`;
 }
 

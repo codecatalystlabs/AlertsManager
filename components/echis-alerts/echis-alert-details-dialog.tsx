@@ -66,7 +66,7 @@ export function EchisAlertDetailsDialog({
 	];
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+			<DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle className="flex flex-wrap items-center gap-2">
 						<EchisSignalPill code={alert.signalReported} />
