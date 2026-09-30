@@ -12,7 +12,6 @@ export { RiskMatrixCard } from "./risk-matrix-card";
 export { DashboardScopeBar } from "./dashboard-scope-bar";
 export {
 	HeadlineStats,
-	WeeklyBriefCard,
 	WeeklySignalsCard,
 	IndicatorTrendCards,
 	SignalFlowCard,

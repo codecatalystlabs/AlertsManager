@@ -15,7 +15,6 @@ import {
 	Gauge,
 	Layers,
 	ListChecks,
-	Newspaper,
 	Play,
 	ShieldCheck,
 	Siren,
@@ -69,10 +68,9 @@ import {
 	type WeeklyCascadePoint,
 } from "@/lib/ebs-indicators";
 import { buildSignalFlow, openWorkTotal, type SignalFlowItem } from "@/lib/signal-flow";
-import { buildWeeklyBrief, type BriefTone } from "@/lib/weekly-brief";
 
 /**
- * The dashboard board: the weekly brief, headline figures, the signal flow,
+ * The dashboard board: headline figures, the signal flow,
  * the weekly chart, one card per indicator and the reporting-unit breakdown.
  *
  * Every figure is a count of the same rows under one reading
@@ -162,57 +160,6 @@ function weekTickInterval(n: number, maxTicks: number): number {
 	if (n <= maxTicks) return 0;
 	return Math.ceil(n / maxTicks) - 1;
 }
-
-/* ------------------------------------------------------------------------ */
-/* Weekly brief                                                              */
-/* ------------------------------------------------------------------------ */
-
-const TONE_DOT: Record<BriefTone, string> = {
-	good: "bg-emerald-500",
-	watch: "bg-amber-500",
-	bad: "bg-red-600",
-	neutral: "bg-sky-500",
-};
-
-/**
- * The latest complete epi week in five sentences — volume against the prior
- * weeks, triage and risk assessment against their §11 targets, conversion,
- * and the queues open right now. Built from counts the page already has
- * (lib/weekly-brief.ts); hidden when the scope holds no complete week.
- */
-export const WeeklyBriefCard = memo<BoardProps & { rangeFrom?: string }>(({ summary, isLoading, rangeFrom }) => {
-	const brief = useMemo(() => buildWeeklyBrief(summary, undefined, rangeFrom), [summary, rangeFrom]);
-	if (isLoading) return <Skeleton className="h-[132px] w-full" />;
-	if (!brief) return null;
-	return (
-		<Card>
-			<CardHeader className="pb-1">
-				<div className="flex flex-wrap items-baseline justify-between gap-2">
-					<div className="flex items-center gap-2">
-						<Newspaper className="h-4 w-4 text-uganda-red" />
-						<CardTitle className="text-base">Weekly brief · {brief.title}</CardTitle>
-					</div>
-					<span className="text-xs text-gray-500">{brief.span}</span>
-				</div>
-			</CardHeader>
-			<CardContent>
-				<ul className="grid gap-x-6 gap-y-1 text-[13px] leading-snug md:grid-cols-2">
-					{brief.lines.map((line) => (
-						<li key={line.key} className="flex items-start gap-2">
-							<span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", TONE_DOT[line.tone])} />
-							<span>
-								<span className="font-semibold text-gray-900">{line.label}.</span>{" "}
-								<span className="text-gray-700">{line.text}</span>
-							</span>
-						</li>
-					))}
-				</ul>
-				{brief.partialNote && <p className="mt-1.5 text-[11px] text-gray-500">{brief.partialNote}</p>}
-			</CardContent>
-		</Card>
-	);
-});
-WeeklyBriefCard.displayName = "WeeklyBriefCard";
 
 /* ------------------------------------------------------------------------ */
 /* Headline figures                                                          */

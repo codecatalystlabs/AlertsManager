@@ -1,5 +1,5 @@
 /**
- * Tests for the dashboard's indicator valuation, signal flow and weekly brief.
+ * Tests for the dashboard's indicator valuation and signal flow.
  * No test runner is configured in this repo, so this file is a self-contained,
  * assertion-based script:
  *
@@ -34,7 +34,6 @@ registerHooks({
 
 const { buildEbsIndicatorRows, isPartialWeek, percent } = await import("./ebs-indicators.ts");
 const { buildSignalFlow, openWorkTotal } = await import("./signal-flow.ts");
-const { buildWeeklyBrief } = await import("./weekly-brief.ts");
 
 let passed = 0;
 function check(name: string, actual: unknown, expected: unknown): void {
@@ -136,54 +135,5 @@ check("a state the API did not send reads as zero", flow.find((f) => f.key === "
 check("open work is the sum of the queues", openWorkTotal(flow), 181 + 146 + 269 + 6);
 check("tiny shares keep a decimal", flow.find((f) => f.key === "verified-unclassified")!.share, 0.1);
 check("an older API without a flow renders empty", buildSignalFlow(undefined).every((f) => f.count === 0), true);
-
-// --- weekly brief -----------------------------------------------------------
-function week(no: number, start: string, end: string, counts: Partial<typeof indicators>) {
-	return {
-		week: `2026-W${no}`,
-		year: 2026,
-		weekNo: no,
-		start,
-		end,
-		counts: { ...Object.fromEntries(Object.keys(indicators).map((k) => [k, 0])), ...counts },
-	};
-}
-const series = [
-	week(35, "2026-08-24", "2026-08-30", { signalsReported: 500 }),
-	week(36, "2026-08-31", "2026-09-06", { signalsReported: 450 }),
-	week(37, "2026-09-07", "2026-09-13", { signalsReported: 470 }),
-	week(38, "2026-09-14", "2026-09-20", { signalsReported: 473 }),
-	week(39, "2026-09-21", "2026-09-27", {
-		signalsReported: 402,
-		signalsTriaged: 262,
-		triageTimed: 262,
-		triagedWithin24h: 154,
-		signalsVerified: 209,
-		events: 106,
-		eventsRiskAssessed: 32,
-		alertsReported: 20,
-	}),
-	week(40, "2026-09-28", "2026-10-04", { signalsReported: 5 }),
-];
-const brief = buildWeeklyBrief(
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	{ indicatorSeries: series, signalFlow: [{ key: "awaiting-triage", label: "", count: 181 }] } as any,
-	"2026-09-29"
-)!;
-check("the brief reads the last COMPLETE week", brief.title, "Epi week 39, 2026");
-check("volume against the 4-week average", brief.lines[0].text, "402 signals reported, 15% below the 4-week average of 473.");
-check("triage against KPI 3", brief.lines[1].text, "59% triaged within 24 hours (154 of 262; target 90%).");
-check("59% is far below 90%", brief.lines[1].tone, "bad");
-check("risk line", brief.lines[3].text, "30% of events risk-assessed (32 of 106; target 90%); 20 alerts issued.");
-check("open queues", brief.lines[4].text, "181 in the working queues — 181 awaiting triage.");
-check("the week under way is noted, not briefed", brief.partialNote, "Week 40 so far: 5 signals (not briefed until it ends).");
-const clipped = buildWeeklyBrief(
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	{ indicatorSeries: series } as any,
-	"2026-09-29",
-	"2026-08-30" // a range starting on the Sunday of W35: W35 holds one day
-)!;
-check("a week the range only clips is not in the baseline", clipped.lines[0].text, "402 signals reported, 13% below the 3-week average of 464.");
-check("no complete week, no brief", buildWeeklyBrief({ indicatorSeries: [series[5]] } as never, "2026-09-29"), null);
 
 console.log(`ebs-indicators: ${passed} checks passed`);

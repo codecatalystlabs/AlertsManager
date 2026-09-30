@@ -9,7 +9,6 @@ import {
 	ErrorAlert,
 	DashboardScopeBar,
 	HeadlineStats,
-	WeeklyBriefCard,
 	WeeklySignalsCard,
 	IndicatorTrendCards,
 	SignalFlowCard,
@@ -23,7 +22,7 @@ import { EBS_DATA_SOURCE } from "@/lib/ebs-indicators";
 
 /**
  * The dashboard: the published signal-to-alert indicators for the selected
- * scope — the weekly brief, headline figures, where every signal is now, then
+ * scope — headline figures, where every signal is now, then
  * one card per indicator (a rate against its §11 target where the published
  * denominator really contains the numerator, a count otherwise) and the
  * reporting-unit breakdown. Each card's definition, numerator and
@@ -167,7 +166,6 @@ export default function DashboardPage(): React.JSX.Element {
 			)}
 
 			<div ref={statsRef} className={LAYOUT.pageGap}>
-				<WeeklyBriefCard summary={summary} isLoading={isLoading} rangeFrom={range.from || undefined} />
 				<HeadlineStats summary={summary} isLoading={isLoading} />
 				<SignalFlowCard summary={summary} isLoading={isLoading} />
 			</div>
