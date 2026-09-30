@@ -47,12 +47,13 @@ const AdminOverviewCharts = dynamic(
  */
 export function SignalOverviewPanel(): React.JSX.Element {
 	const scope = useDashboardScope();
-	const { range, district, region, response, isUnbounded } = scope;
+	const { range, district, region, division, response, isUnbounded } = scope;
 	const { summary, loading, error, refetch } = useDashboardSummary(
 		range,
 		district,
 		region,
-		response
+		response,
+		division
 	);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
