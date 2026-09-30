@@ -28,11 +28,15 @@ export interface DashboardScope {
 	range: DashboardRangeValue;
 	region: string;
 	district: string;
+	/** Division/subcounty within the district; "all" for none. */
+	division: string;
 	response: string;
 	setRange: (range: DashboardRangeValue) => void;
 	/** Region scopes the district list, so changing it resets the district. */
 	setRegion: (region: string) => void;
+	/** District scopes the division list, so changing it resets the division. */
 	setDistrict: (district: string) => void;
+	setDivision: (division: string) => void;
 	setResponse: (response: string) => void;
 	/** No date bound and no geography filter — "all-time, everywhere". */
 	isUnbounded: boolean;
@@ -51,7 +55,8 @@ export function useDashboardScope(): DashboardScope {
 		resolveDashboardRange(DEFAULT_RANGE_PRESET)
 	);
 	const [region, setRegionState] = useState<string>("all");
-	const [district, setDistrict] = useState<string>("all");
+	const [district, setDistrictState] = useState<string>("all");
+	const [division, setDivision] = useState<string>("all");
 	const [response, setResponse] = useState<string>("all");
 
 	// Current user (resolved after mount — localStorage is client-only).
@@ -63,11 +68,21 @@ export function useDashboardScope(): DashboardScope {
 
 	const setRegion = useCallback((value: string) => {
 		setRegionState(value);
-		setDistrict("all");
+		setDistrictState("all");
+		setDivision("all");
+	}, []);
+
+	const setDistrict = useCallback((value: string) => {
+		setDistrictState(value);
+		setDivision("all");
 	}, []);
 
 	const isUnbounded =
-		!range.from && !range.to && district === "all" && region === "all";
+		!range.from &&
+		!range.to &&
+		district === "all" &&
+		region === "all" &&
+		division === "all";
 
 	const scopeLabel =
 		scopedToDistrict && assignedDistrict
@@ -84,10 +99,12 @@ export function useDashboardScope(): DashboardScope {
 		range,
 		region,
 		district,
+		division,
 		response,
 		setRange,
 		setRegion,
 		setDistrict,
+		setDivision,
 		setResponse,
 		isUnbounded,
 		user,
