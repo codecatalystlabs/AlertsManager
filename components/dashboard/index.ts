@@ -7,6 +7,7 @@ export {
 	type DashboardRangeValue,
 } from './dashboard-range-picker';
 export { DashboardDistrictPicker } from './dashboard-district-picker';
+export { DashboardDivisionPicker } from './dashboard-division-picker';
 export { DashboardRegionPicker } from './dashboard-region-picker';
 export { RiskMatrixCard } from "./risk-matrix-card";
 export { DashboardScopeBar } from "./dashboard-scope-bar";

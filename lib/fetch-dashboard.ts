@@ -228,6 +228,8 @@ export interface DashboardSummaryParams {
 	district?: string;
 	/** Region name; omit or "all" for every region. */
 	region?: string;
+	/** Division/subcounty name; omit or "all" for every division. */
+	division?: string;
 	/** Alert response (disease/condition) value; omit or "all" for every type. */
 	response?: string;
 }
@@ -332,6 +334,9 @@ function buildSummaryUrl(apiBase: string, params: DashboardSummaryParams): strin
 	}
 	if (params.region && params.region !== "all") {
 		searchParams.set("region", params.region);
+	}
+	if (params.division && params.division !== "all") {
+		searchParams.set("division", params.division);
 	}
 	if (params.response && params.response !== "all") {
 		searchParams.set("response", params.response);

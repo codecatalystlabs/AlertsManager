@@ -154,7 +154,8 @@ check("field verification notes", row["Field Verification Notes"], "Team visited
 check("verification date uses the real timestamp", row["Verification Date"], formatDate(VERIFIED_AT));
 check("verification time", row["Verification Time"], formatTime(VERIFIED_AT));
 check("verified by", row["Verified By"], "Biostat Tororo");
-check("time to verify", row["Time to Verify"], "6h");
+// Triage (11:00) → verification (14:00), NOT signal (08:00) → verification.
+check("time to verify runs from triage to verification", row["Time to Verify"], "3h");
 check("sla status", row["SLA Status"], "Within deadline");
 check("verification comments", row["Verification Comments"], "Contact tracing started.");
 check("verification feedback", row["Verification Feedback"], "Case admitted at Tororo GH.");
@@ -234,6 +235,33 @@ const legacy = buildExcelRow({
 	triagedAt: TRIAGED_AT,
 });
 check("legacy priority-only row reads as triaged", legacy["Signal Triaged"], "Yes");
+
+// Verified with no triage time on record: there is no triage to time from.
+const verifiedUntriaged = buildExcelRow({
+	id: 4216,
+	status: "Alive",
+	date: "2026-07-24T00:00:00",
+	time: "2026-07-24T08:00:00",
+	personReporting: "VHT Opio",
+	contactNumber: "",
+	sourceOfAlert: "Community",
+	verificationTime: VERIFIED_AT,
+});
+check("no triage time means no time to verify", verifiedUntriaged["Time to Verify"], "");
+
+// Verification recorded before the triage: no duration can be claimed.
+const verifiedBeforeTriage = buildExcelRow({
+	id: 4217,
+	status: "Alive",
+	date: "2026-07-24T00:00:00",
+	time: "2026-07-24T08:00:00",
+	personReporting: "VHT Auma",
+	contactNumber: "",
+	sourceOfAlert: "Community",
+	triagedAt: VERIFIED_AT,
+	verificationTime: TRIAGED_AT,
+});
+check("verification before triage is blank", verifiedBeforeTriage["Time to Verify"], "");
 
 // Discarded at triage as a duplicate: the sheet no longer carries the decision
 // or its reason, but the earlier signal it duplicates still pins the row to
