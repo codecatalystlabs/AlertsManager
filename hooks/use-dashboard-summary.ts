@@ -33,7 +33,8 @@ export function useDashboardSummary(
 	range: DashboardRange,
 	district?: string,
 	region?: string,
-	response?: string
+	response?: string,
+	division?: string
 ): UseDashboardSummaryReturn {
 	useInvalidateAlerts();
 
@@ -45,14 +46,16 @@ export function useDashboardSummary(
 			district ?? "all",
 			region ?? "all",
 			response ?? "all",
+			division ?? "all",
 		] as const,
-		([, from, to, dist, reg, resp]) =>
+		([, from, to, dist, reg, resp, div]) =>
 			fetchDashboardSummary({
 				from_date: from || undefined,
 				to_date: to || undefined,
 				district: dist,
 				region: reg,
 				response: resp,
+				division: div,
 			}),
 		{ keepPreviousData: true }
 	);
