@@ -15,6 +15,7 @@ import { alertResponse } from "@/constants";
 import type { DashboardScope } from "@/hooks/use-dashboard-scope";
 import { DashboardRangePicker } from "./dashboard-range-picker";
 import { DashboardDistrictPicker } from "./dashboard-district-picker";
+import { DashboardDivisionPicker } from "./dashboard-division-picker";
 import { DashboardRegionPicker } from "./dashboard-region-picker";
 
 interface DashboardScopeBarProps {
@@ -57,10 +58,12 @@ export const DashboardScopeBar = memo<DashboardScopeBarProps>(
 		const {
 			region,
 			district,
+			division,
 			response,
 			setRange,
 			setRegion,
 			setDistrict,
+			setDivision,
 			setResponse,
 			scopedToDistrict,
 			assignedDistrict,
@@ -158,6 +161,12 @@ export const DashboardScopeBar = memo<DashboardScopeBarProps>(
 							/>
 						</>
 					)}
+					<DashboardDivisionPicker
+						value={division}
+						onChange={setDivision}
+						disabled={loading}
+						district={scopedToDistrict ? assignedDistrict : district}
+					/>
 					<DashboardRangePicker onChange={setRange} disabled={loading} />
 					<Select value={response} onValueChange={setResponse} disabled={loading}>
 						<SelectTrigger
