@@ -33,6 +33,8 @@ export interface CaseLocationSelectProps {
   disabled?: boolean;
   triggerClassName?: string;
   labelClassName?: string;
+  /** Wrapper around each level's label + select; controls the label/field gap. */
+  fieldClassName?: string;
   idPrefix?: string;
   /**
    * Drop the Region select and start the cascade at District. Every district is
@@ -61,6 +63,7 @@ export function CaseLocationSelect({
   disabled,
   triggerClassName,
   labelClassName = "text-sm font-medium text-gray-700",
+  fieldClassName = "space-y-2",
   idPrefix = "case-location",
   hideRegion = false,
   hints,
@@ -135,7 +138,7 @@ export function CaseLocationSelect({
     <>
       {/* Region — hidden on the public form, where it is derived instead. */}
       {hideRegion ? null : (
-        <div className="space-y-2">
+        <div className={fieldClassName}>
           <div className="flex items-center gap-1.5">
             <Label htmlFor={`${idPrefix}-region`} className={labelClassName}>
               Region *
@@ -177,7 +180,7 @@ export function CaseLocationSelect({
       )}
 
       {/* District */}
-      <div className="space-y-2">
+      <div className={fieldClassName}>
         <div className="flex items-center gap-1.5">
           <Label htmlFor={`${idPrefix}-district`} className={labelClassName}>
             District *
@@ -232,7 +235,7 @@ export function CaseLocationSelect({
       </div>
 
       {/* Division / Subcounty */}
-      <div className="space-y-2">
+      <div className={fieldClassName}>
         <div className="flex items-center gap-1.5">
           <Label htmlFor={`${idPrefix}-subcounty`} className={labelClassName}>
             Division/Subcounty *
