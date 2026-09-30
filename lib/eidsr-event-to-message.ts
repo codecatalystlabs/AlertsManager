@@ -8,7 +8,23 @@ import {
 	pickLinkedAlertId,
 } from "@/lib/eidsr-message-normalize";
 
-/** Map DHIS2 local event rows to the SMS message shape used by the 6767 UI. */
+/** "YYYY-MM-DD HH:mm" in the viewer's clock, or "" when unparseable. */
+function formatReceived(value: string | undefined): string {
+	if (!value) return "";
+	const d = new Date(value);
+	if (Number.isNaN(d.getTime())) return "";
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/**
+ * Map DHIS2 local event rows to the SMS message shape used by the 6767 UI.
+ *
+ * Rows read from eIDSR's SMS inbox (origin "sms") carry the message, the
+ * sender's number and — when eIDSR knows the sender — their name and org unit,
+ * but no location: the Location column then shows the reporter's district, and
+ * Received shows when eIDSR received the SMS, to the minute.
+ */
 export function eidsrEventToMessage(event: EidsrEvent): EidsrMessage {
 	const raw = event as unknown as Record<string, unknown>;
 	const ageStr = getEidsrDataValue(event, "age");
@@ -32,8 +48,14 @@ export function eidsrEventToMessage(event: EidsrEvent): EidsrMessage {
 		forwardedToDistrict: event.forwardedToDistrict?.trim() || null,
 		forwardedAt: event.forwardedAt || null,
 		createdAt: event.createdAt || event.eventDate,
-		receivedAt: event.eventDate || event.updatedAt,
-		alertCaseDistrict: getEidsrDataValue(event, "location"),
+		receivedAt:
+			(event.origin === "sms" && formatReceived(event.occurredAt)) ||
+			event.eventDate ||
+			event.updatedAt,
+		alertCaseDistrict:
+			getEidsrDataValue(event, "location") ||
+			event.reporterDistrict?.trim() ||
+			"",
 		village: "",
 		subCounty: "",
 		symptoms: "",

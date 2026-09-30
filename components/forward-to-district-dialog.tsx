@@ -127,7 +127,7 @@ export function ForwardToDistrictDialog({
 			);
 			toast({
 				title: repeat ? "Signal forwarded again" : successTitle,
-				description: `Forwarded to ${result.district}. Open Signal Register to triage it.`,
+				description: `Sent to ${result.district}. Open Signal Register to triage it.`,
 			});
 			notifyAlertsChanged();
 			onForwarded(result.district);

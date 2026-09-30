@@ -21,13 +21,19 @@ export const EIDSR_API_PATHS = {
 	eventVerify: (id: number) => `/eidsr/local/events/${id}/verify`,
 } as const;
 
+/**
+ * Status values, matched exactly server-side. SMS-inbox messages carry eIDSR's
+ * SMS status; records from the old tracker feed carry the event status.
+ */
 export const EIDSR_STATUS_FILTER_OPTIONS = [
 	{ value: "all", label: "All statuses" },
-	{ value: "COMPLETED", label: "Completed" },
-	{ value: "ACTIVE", label: "Active" },
-	{ value: "SCHEDULE", label: "Scheduled" },
-	{ value: "OVERDUE", label: "Overdue" },
-	{ value: "SKIPPED", label: "Skipped" },
+	{ value: "PROCESSED", label: "Processed (SMS)" },
+	{ value: "UNHANDLED", label: "Unhandled (SMS)" },
+	{ value: "INCOMING", label: "Incoming (SMS)" },
+	{ value: "PROCESSING", label: "Processing (SMS)" },
+	{ value: "FAILED", label: "Failed (SMS)" },
+	{ value: "COMPLETED", label: "Completed (event)" },
+	{ value: "ACTIVE", label: "Active (event)" },
 ] as const;
 
 /** Sex filter values. "all" = no filter; others are matched exactly server-side. */

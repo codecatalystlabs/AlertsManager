@@ -12,11 +12,9 @@
  * stage agree on which queue a tab is. They are set in three separate functions
  * here, so the round trip (tab -> href -> params -> filters) is pinned.
  *
- * The Triaged tab splits in two — the verification queue, and the archive of
- * what was discarded — which adds a second round trip through the SAME three
- * functions. Both halves are pinned below, including the one thing a split can
- * silently break: the old ?stage=verification bookmark must still land on the
- * queue, not on the archive.
+ * The discard archive is deliberately NOT one of them — it is reached from the
+ * sidebar instead — so the boundary is pinned too: no tab may filter to it or
+ * stand at it, or a queue would carry rows on which nothing is ever due.
  */
 import { registerHooks } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -38,9 +36,6 @@ registerHooks({
 
 const {
 	REGISTER_VIEWS,
-	TRIAGED_SPLITS,
-	SPLIT_KEPT,
-	SPLIT_DISCARDED,
 	VIEW_ALL,
 	VIEW_UNTRIAGED,
 	VIEW_TRIAGED,
@@ -49,7 +44,6 @@ const {
 	registerViewFromParams,
 	registerViewHref,
 	registerViewStage,
-	triagedSplitFromParams,
 } = await import("./register-view.ts");
 const {
 	STAGE_DISCARDED,
@@ -161,80 +155,49 @@ for (const tab of REGISTER_VIEWS) {
 	);
 }
 
-// --- The Triaged tab's two halves -------------------------------------------
+// --- The discard archive is a destination, not part of a queue --------------
+//
+// It used to be the second half of the Triaged tab, which put a queue and an
+// archive behind one tab and one count. It is now the sidebar's "Discarded
+// Events", which leaves exactly two things that move could break: the Triaged
+// tab inheriting archive rows, and the archive still resolving to a tab.
 
 check(
-	"the queue half keeps the Triaged tab's original stage",
-	registerViewFilters(VIEW_TRIAGED, SPLIT_KEPT).stage,
-	STAGE_VERIFICATION
-);
-
-check(
-	"the discarded half filters server-side on the discard archive",
-	registerViewFilters(VIEW_TRIAGED, SPLIT_DISCARDED).stage,
-	STAGE_DISCARDED
-);
-
-// The whole point of splitting rather than adding a fifth tab: an existing
-// ?stage=verification link is the queue, and must not silently become the
-// archive.
-check(
-	"an existing ?stage=verification link still opens the queue half",
-	triagedSplitFromParams(STAGE_VERIFICATION),
-	SPLIT_KEPT
-);
-
-check(
-	"and still resolves to the Triaged tab",
+	"an existing ?stage=verification link still opens the Triaged tab",
 	registerViewFromParams(null, STAGE_VERIFICATION),
 	VIEW_TRIAGED
 );
 
 check(
-	"the discard archive is the Triaged tab too, not a page of its own",
-	registerViewFromParams(null, STAGE_DISCARDED),
-	VIEW_TRIAGED
-);
-
-check(
-	"?stage=discarded selects the discarded half",
-	triagedSplitFromParams(STAGE_DISCARDED),
-	SPLIT_DISCARDED
-);
-
-// Nothing is due on the archive, so it must not highlight the verification card
-// on the pipeline strip as though a verification were owed on every row.
-check(
-	"the discarded half stands at no verification gate",
-	registerViewStage(VIEW_TRIAGED, SPLIT_DISCARDED) === STAGE_VERIFICATION,
-	false
-);
-
-check(
-	"while the queue half still stands at the verification gate",
-	registerViewStage(VIEW_TRIAGED, SPLIT_KEPT),
+	"which still stands at the verification gate",
+	registerViewStage(VIEW_TRIAGED),
 	STAGE_VERIFICATION
 );
 
-// Defaulting matters in three places at once — a caller that forgets the split
-// must get the queue, which is what every pre-split call site expects.
-check("filters default to the queue half", registerViewFilters(VIEW_TRIAGED).stage, STAGE_VERIFICATION);
-check("href defaults to the queue half", registerViewHref(VIEW_TRIAGED), `/dashboard/signal-logs?stage=${STAGE_VERIFICATION}`);
-check("stage defaults to the queue half", registerViewStage(VIEW_TRIAGED), STAGE_VERIFICATION);
+check(
+	"and still links to it",
+	registerViewHref(VIEW_TRIAGED),
+	`/dashboard/signal-logs?stage=${STAGE_VERIFICATION}`
+);
 
-// Each half's href round-trips back to itself, the same property the tabs have.
-for (const half of TRIAGED_SPLITS) {
-	const href = registerViewHref(VIEW_TRIAGED, half.value);
-	const query = new URLSearchParams(href.split("?")[1] ?? "");
+check(
+	"the discard archive is a page of its own, not a tab",
+	registerViewFromParams(null, STAGE_DISCARDED),
+	null
+);
+
+// Nothing is due on a discarded row, so a tab holding one would be a queue with
+// work that can never be done — and the strip must not highlight a gate for it.
+for (const tab of REGISTER_VIEWS) {
 	check(
-		`${half.label}: its href resolves back to the Triaged tab`,
-		registerViewFromParams(query.get("view"), query.get("stage")),
-		VIEW_TRIAGED
+		`${tab.label}: does not filter to the discard archive`,
+		registerViewFilters(tab.value).stage === STAGE_DISCARDED,
+		false
 	);
 	check(
-		`${half.label}: its href resolves back to itself`,
-		triagedSplitFromParams(query.get("stage")),
-		half.value
+		`${tab.label}: does not stand at the discard archive`,
+		registerViewStage(tab.value) === STAGE_DISCARDED,
+		false
 	);
 }
 

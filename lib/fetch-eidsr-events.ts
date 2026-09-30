@@ -16,7 +16,10 @@ class EidsrFetchError extends Error {
 
 export interface EidsrEvent {
 	id: number;
+	/** The eIDSR uid: the SMS id for a message read from the SMS inbox. */
 	eventId: string;
+	/** "sms" for a message read from eIDSR's SMS inbox; absent for a tracker event. */
+	origin?: string;
 	program: string;
 	programStage: string;
 	orgUnit: string;
@@ -24,6 +27,8 @@ export interface EidsrEvent {
 	trackedEntityInstance: string;
 	enrollment: string;
 	eventDate: string;
+	/** RFC 3339; for an SMS, when eIDSR received it. */
+	occurredAt?: string;
 	lastUpdatedRemote: string;
 	deletedRemote: boolean;
 	forwardedToDistrict?: string;
@@ -31,6 +36,8 @@ export interface EidsrEvent {
 	createdAt: string;
 	updatedAt: string;
 	dataValues: Record<string, string>;
+	/** District of the reporter's org unit — where the SMS came from. */
+	reporterDistrict?: string;
 }
 
 export interface EidsrEventsListParams {

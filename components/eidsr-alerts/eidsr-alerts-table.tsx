@@ -301,7 +301,7 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 			<Card className={LAYOUT.card}>
 				<CardHeader className={LAYOUT.cardHeader}>
 					<CardTitle className={LAYOUT.cardTitle}>
-						6767 events ({totalCount.toLocaleString()})
+						6767 messages ({totalCount.toLocaleString()})
 					</CardTitle>
 				</CardHeader>
 				<CardContent className={LAYOUT.cardContent}>
