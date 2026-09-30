@@ -83,6 +83,71 @@ export interface RiskMatrix {
 	maxCellCount: number;
 }
 
+/**
+ * Raw numerator / denominator of every row of the EBS indicator table
+ * (Signals reported → Alerts), computed server-side over the scoped rows.
+ * lib/ebs-indicators.ts decides, row by row, whether the published
+ * denominator really contains its numerator; only those rows are shown as a
+ * rate (rows 10 and 11 are not, and stay counts).
+ */
+export interface DashboardIndicators {
+	/** 1. Every signal in scope. */
+	signalsReported: number;
+	/** 2. Through the triage gate; and of those, within 24h of the signal timestamp. */
+	signalsTriaged: number;
+	triagedWithin24h: number;
+	/**
+	 * Triaged signals with a triage time AND a signal time on record — the
+	 * only ones a 24h clock can judge (the rate's honest denominator).
+	 * Optional: an older API does not send it.
+	 */
+	triageTimed?: number;
+	/** 3. Triage decision "Discarded" — a duplicate of a signal already under investigation. */
+	duplicateSignals: number;
+	/** 4. Outcome recorded; and of the triaged ones, verified within a flat 24h. */
+	signalsVerified: number;
+	verifiedWithin24h: number;
+	/** Triaged AND verified — the row's published denominator. */
+	triagedVerified?: number;
+	/** Of those, the ones with a real verification time the clock can judge. */
+	verificationTimed?: number;
+	/** 5. Verified signals whose outcome is Confirmed — events requiring risk assessment. */
+	events: number;
+	/** 6. Confirmed events carrying a risk level. */
+	eventsRiskAssessed: number;
+	/** 7 / 8. Of the assessed events: a response was initiated / the decision was Monitor. */
+	responseInitiated: number;
+	underMonitoring: number;
+	/** 9. Of the events with a response initiated, those whose sample was collected. */
+	sampleCollected: number;
+	/** 10. Events evacuated by EMS / events whose reporting channel is 912. */
+	evacuated: number;
+	emsChannelEvents: number;
+	/** 11. Events with an SDB recorded / events that are Dead with High or Very High risk. */
+	sdb: number;
+	sdbEligible: number;
+	/**
+	 * 12. Issued alerts — confirmed, risk-assessed and fed back: the same rows
+	 * as /dashboard/alerts and the regional report's Alerts column.
+	 */
+	alertsReported: number;
+}
+
+/**
+ * One epi week of the indicator trend. Epi weeks are ISO weeks (Monday–Sunday,
+ * the DHIS2 weekly period), keyed "2026-W35".
+ */
+export interface DashboardWeekPoint {
+	week: string;
+	year: number;
+	weekNo: number;
+	/** Monday (YYYY-MM-DD). */
+	start: string;
+	/** Sunday (YYYY-MM-DD). */
+	end: string;
+	counts: DashboardIndicators;
+}
+
 /** Full dashboard payload from GET /dashboard/summary. */
 export interface DashboardSummary {
 	total: number;
@@ -138,6 +203,18 @@ export interface DashboardSummary {
 	feedbackGiven?: number;
 	/** Confirmed events as a share of adjudicated signals, 0–100. KPI 5. */
 	signalToEventRate?: number;
+	/** The EBS indicator table's counts. Optional so an older API response doesn't crash the board. */
+	indicators?: DashboardIndicators;
+	/** The indicator counts per epi week, zero-filled, most recent 52 weeks in scope. */
+	indicatorSeries?: DashboardWeekPoint[];
+	/** Indicator 1's region axis — signals by the official region of their case district. */
+	reportedByRegion?: DashboardCountItem[];
+	/**
+	 * Where every signal in scope is NOW — one state each, so the states sum
+	 * to `total`. Keys are the SIGNAL_FLOW_STATES in lib/signal-flow.ts.
+	 * Optional: an older API does not send it.
+	 */
+	signalFlow?: DashboardCountItem[];
 	/** Distinct response (disease/condition) values available in scope — populates the Response type filter. */
 	responseTypes: string[];
 }
@@ -197,6 +274,30 @@ const EMPTY_SUMMARY: DashboardSummary = {
 	feedbackDue: 0,
 	feedbackGiven: 0,
 	signalToEventRate: 0,
+	indicators: {
+		signalsReported: 0,
+		signalsTriaged: 0,
+		triagedWithin24h: 0,
+		triageTimed: 0,
+		duplicateSignals: 0,
+		signalsVerified: 0,
+		verifiedWithin24h: 0,
+		triagedVerified: 0,
+		verificationTimed: 0,
+		events: 0,
+		eventsRiskAssessed: 0,
+		responseInitiated: 0,
+		underMonitoring: 0,
+		sampleCollected: 0,
+		evacuated: 0,
+		emsChannelEvents: 0,
+		sdb: 0,
+		sdbEligible: 0,
+		alertsReported: 0,
+	},
+	indicatorSeries: [],
+	reportedByRegion: [],
+	signalFlow: [],
 	riskMatrix: {
 		likelihoods: [],
 		impacts: [],

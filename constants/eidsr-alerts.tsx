@@ -1,7 +1,7 @@
 export const EIDSR_ALERTS_CONFIG = {
 	PAGE_TITLE: "6767 Signals",
 	PAGE_DESCRIPTION:
-		"6767 EIDSR SMS messages — sync, review, and verify into alerts",
+		"SMS signals sent to 6767, pulled from eIDSR. Each new one is logged into Raw Information as it arrives.",
 	ITEMS_PER_PAGE: 10,
 	EXPORT_FILENAME_PREFIX: "6767_messages",
 	/** Background refresh cadence for the 6767 table while the page is open. */

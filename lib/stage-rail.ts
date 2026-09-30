@@ -1,4 +1,5 @@
 import { nextAction, type PipelineSignal } from "@/lib/next-action";
+import { VERIFICATION_ESCALATED_FIELD } from "@/lib/verification-options";
 import {
 	normalizeTriageDecision,
 	isTriaged,
@@ -37,6 +38,8 @@ export interface RailStage {
 
 /** The fields the rail reads. A superset of what nextAction needs. */
 export interface RailSignal extends PipelineSignal {
+	/** When the desk handed the signal to a field team, for the rail's clock. */
+	escalatedToFieldAt?: string | null;
 	date?: string | null;
 	time?: string | null;
 	triagedAt?: string | null;
@@ -138,6 +141,17 @@ export function buildRail(signal: RailSignal): RailStage[] {
 			label: "Verification",
 			state: "blocked",
 			detail: "not on the pipeline",
+		});
+	} else if (outcome === VERIFICATION_ESCALATED_FIELD) {
+		// Adjudicated at the desk, but not ANSWERED. The verification step is
+		// still the current one — with a different person standing at it.
+		stages.push({
+			step: 3,
+			label: "Field verification",
+			state: "current",
+			detail: signal.escalatedToFieldAt
+				? `with the field team since ${shortDate(signal.escalatedToFieldAt)}`
+				: "with the field team",
 		});
 	} else if (outcome) {
 		stages.push({

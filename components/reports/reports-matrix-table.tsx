@@ -1,7 +1,7 @@
 "use client";
 
-import { memo, useCallback, useMemo, useState } from "react";
-import { ListFilter, X } from "lucide-react";
+import { memo, useCallback, useMemo, useState, type ReactNode } from "react";
+import { ArrowDown, ArrowUp, ListFilter, X } from "lucide-react";
 import { ExcelIcon, CsvIcon } from "@/components/ui/file-type-icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { TableSkeleton } from "@/components/ui/skeletons";
 import { LAYOUT } from "@/constants/layout";
 import type { ReportMatrix } from "@/lib/fetch-reports";
+import { isMissingLabel } from "@/lib/data-completeness";
 import {
 	exportReportMatrixToCsv,
 	exportReportMatrixToExcel,
@@ -35,21 +36,59 @@ interface ReportsMatrixTableProps {
 	periodLabel: string;
 	exportKey: string;
 	isLoading?: boolean;
+	/** Rendered under the title — e.g. what the disease filter left out. */
+	note?: ReactNode;
 }
 
+/** Sort key: a metric column index, or the district name. */
+type SortKey = number | "district";
+
+/**
+ * District × metric table. Opens sorted by the first metric (Signals),
+ * largest first, so the districts carrying the load lead; click any header
+ * to re-sort. A total row sits on top, and the two honesty rows — no district
+ * recorded, text that names no district — always sit at the bottom, never
+ * ranked among real districts.
+ */
 export const ReportsMatrixTable = memo<ReportsMatrixTableProps>(
-	({ matrix, fallbackTitle, periodLabel, exportKey, isLoading }) => {
+	({ matrix, fallbackTitle, periodLabel, exportKey, isLoading, note }) => {
 		const [districtFilter, setDistrictFilter] = useState("");
+		const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: 0, desc: true });
 		const title = matrix?.title?.trim() || fallbackTitle;
 		const canExport = Boolean(matrix?.rows?.length);
 		const visibleRows = useMemo(() => {
 			const rows = matrix?.rows ?? [];
 			const filter = districtFilter.trim().toLowerCase();
-			if (!filter) return rows;
-			return rows.filter((row) =>
-				row.label.toLowerCase().includes(filter)
+			const filtered = filter
+				? rows.filter((row) => row.label.toLowerCase().includes(filter))
+				: rows;
+			const cmp = (a: (typeof rows)[number], b: (typeof rows)[number]) => {
+				const d =
+					sort.key === "district"
+						? a.label.localeCompare(b.label)
+						: (a.values[sort.key] ?? 0) - (b.values[sort.key] ?? 0) ||
+							b.label.localeCompare(a.label);
+				return sort.desc ? -d : d;
+			};
+			return [
+				...filtered.filter((r) => !isMissingLabel(r.label)).sort(cmp),
+				...filtered.filter((r) => isMissingLabel(r.label)),
+			];
+		}, [districtFilter, matrix?.rows, sort]);
+
+		const toggleSort = useCallback((key: SortKey) => {
+			setSort((prev) =>
+				prev.key === key ? { key, desc: !prev.desc } : { key, desc: key !== "district" }
 			);
-		}, [districtFilter, matrix?.rows]);
+		}, []);
+		const sortIcon = (key: SortKey) =>
+			sort.key === key ? (
+				sort.desc ? (
+					<ArrowDown className="h-3 w-3" />
+				) : (
+					<ArrowUp className="h-3 w-3" />
+				)
+			) : null;
 
 		const handleExportCsv = useCallback(() => {
 			if (!exportReportMatrixToCsv(matrix, exportKey)) {
@@ -77,6 +116,7 @@ export const ReportsMatrixTable = memo<ReportsMatrixTableProps>(
 					<div className="min-w-0 flex-1">
 						<CardTitle className={LAYOUT.cardTitle}>{title}</CardTitle>
 						<p className="text-xs text-muted-foreground">{periodLabel}</p>
+						{note}
 					</div>
 					<div className="flex shrink-0 gap-1">
 						<Button
@@ -119,7 +159,15 @@ export const ReportsMatrixTable = memo<ReportsMatrixTableProps>(
 									<TableRow className="bg-slate-100 hover:bg-slate-100 border-b-2 border-slate-200">
 										<TableHead className="h-9 min-w-[5.5rem] px-2 font-semibold text-slate-800 sticky left-0 z-30 bg-slate-100 border-r border-slate-200">
 											<div className="flex items-center gap-1">
-												<span>District</span>
+												<button
+													type="button"
+													className="inline-flex items-center gap-0.5 hover:text-uganda-red"
+													onClick={() => toggleSort("district")}
+													title="Sort by district name"
+												>
+													District
+													{sortIcon("district")}
+												</button>
 												<Popover>
 													<PopoverTrigger asChild>
 														<Button
@@ -179,17 +227,38 @@ export const ReportsMatrixTable = memo<ReportsMatrixTableProps>(
 												</Popover>
 											</div>
 										</TableHead>
-										{matrix.columns.map((col) => (
+										{matrix.columns.map((col, colIndex) => (
 											<TableHead
 												key={col}
 												className="h-9 min-w-[4.5rem] px-2 text-center font-semibold text-slate-800 whitespace-nowrap border-r border-slate-100 last:border-r-0"
 											>
-												{col}
+												<button
+													type="button"
+													className="inline-flex items-center gap-0.5 hover:text-uganda-red"
+													onClick={() => toggleSort(colIndex)}
+													title={`Sort by ${col}`}
+												>
+													{col}
+													{sortIcon(colIndex)}
+												</button>
 											</TableHead>
 										))}
 									</TableRow>
 								</TableHeader>
 								<TableBody>
+									<TableRow className="border-b-2 border-slate-200 bg-slate-100/80 hover:bg-slate-100/80">
+										<TableCell className="h-8 px-2 font-semibold text-slate-900 sticky left-0 z-10 bg-slate-100 border-r border-slate-200 whitespace-nowrap">
+											Total
+										</TableCell>
+										{matrix.columns.map((col, colIndex) => (
+											<TableCell
+												key={`total-${col}`}
+												className="h-8 px-2 text-center tabular-nums font-semibold text-slate-900 border-r border-slate-100 last:border-r-0"
+											>
+												{(matrix.totals[colIndex] ?? 0).toLocaleString()}
+											</TableCell>
+										))}
+									</TableRow>
 									{visibleRows.map((row, rowIndex) => (
 										<TableRow
 											key={row.label}
@@ -201,7 +270,12 @@ export const ReportsMatrixTable = memo<ReportsMatrixTableProps>(
 												"hover:bg-warning/10"
 											)}
 										>
-											<TableCell className="h-8 px-2 font-medium text-slate-900 sticky left-0 z-10 bg-inherit border-r border-slate-200 whitespace-nowrap">
+											<TableCell
+												className={cn(
+													"h-8 px-2 font-medium sticky left-0 z-10 bg-inherit border-r border-slate-200 whitespace-nowrap",
+													isMissingLabel(row.label) ? "italic text-slate-500" : "text-slate-900"
+												)}
+											>
 												{row.label}
 											</TableCell>
 											{matrix.columns.map((_, colIndex) => {

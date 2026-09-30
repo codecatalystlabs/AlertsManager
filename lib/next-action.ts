@@ -4,6 +4,7 @@ import {
 	TRIAGE_LOGGED,
 	isTriaged,
 } from "@/lib/alert-triage";
+import { VERIFICATION_ESCALATED_FIELD } from "@/lib/verification-options";
 
 /**
  * What this signal needs next.
@@ -18,14 +19,16 @@ import {
  * action that is actually available. Everything else stays in the overflow
  * menu for the cases that need it (re-triage, re-assess, view details).
  *
- * Order follows the guideline (§3): triage → verification → risk assessment →
- * alert → feedback. A signal triage took off the pipeline has no next action at
+ * Order follows the guideline (§3): triage → verification (desk, then field
+ * for anything the desk could not settle) → risk assessment → alert →
+ * feedback. A signal triage took off the pipeline has no next action at
  * all until someone re-triages it.
  */
 
 export type NextActionKey =
 	| "triage"
 	| "verify"
+	| "field-verify"
 	| "assess-risk"
 	| "feedback"
 	| "retriage"
@@ -76,6 +79,20 @@ export function nextAction(signal: PipelineSignal): NextAction {
 	}
 
 	const outcome = (signal.verificationOutcome ?? "").trim();
+
+	// Escalated to the field, and the field has not answered yet. This is the
+	// SECOND verification level, not a new step: the same question, asked on
+	// site. Tested before the "no outcome" branch below because an escalation
+	// IS an outcome — the row has been adjudicated at the desk, and sending it
+	// back to a desk queue would ask the question that already failed.
+	if (outcome === VERIFICATION_ESCALATED_FIELD) {
+		return {
+			key: "field-verify",
+			label: "Field verify",
+			hint: "The desk could not conclude and sent this for field verification. Waiting on the field team's answer.",
+			actionable: true,
+		};
+	}
 
 	// Steps 2 and 3 only apply while the signal is still UNADJUDICATED. A row
 	// that already carries a verification outcome has passed both gates —

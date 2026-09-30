@@ -88,17 +88,22 @@ const alertResponse = [
     { code: "SuddenDeath", name: "Sudden death" },
 ]
 
+// "Pending" is gone: it described the workflow, not the person, and the
+// 2026-09-29 data cleanup folded every stored "Pending" into "Unknown".
 const alertStatus = [
     { name: "Alive" },
     { name: "Dead" },
     { name: "Unknown" },
-    { name: "Pending" },
 ]
 
-// Status options offered on the alert ENTRY forms (must be Alive or Dead).
+// Status options offered on the alert ENTRY forms — the state of the person or
+// case when the signal is reported. "Unknown" is a real answer: a caller
+// reporting on someone else often cannot say, and forcing Alive or Dead would
+// put a guess in the register.
 const alertEntryStatus = [
     { name: "Alive" },
     { name: "Dead" },
+    { name: "Unknown" },
 ]
 
 const alertActions = [

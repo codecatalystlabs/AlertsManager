@@ -1,10 +1,11 @@
 "use client";
 
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useState, type ReactNode } from "react";
 import {
 	CheckCircle2,
 	CloudDownload,
 	Database,
+	Inbox,
 	Link2,
 	Loader2,
 	X,
@@ -29,6 +30,11 @@ interface SyncProgressPanelProps {
 	summaryMessage?: string | null;
 	/** Optional side effect when the user dismisses a finished panel. */
 	onDismiss?: () => void;
+	/**
+	 * Shown under a FINISHED sync — where to go next (e.g. "Open in Raw
+	 * Information"). Not shown while running or after a failure.
+	 */
+	footer?: ReactNode;
 	className?: string;
 }
 
@@ -36,6 +42,7 @@ const STEP_ICONS = {
 	connect: Link2,
 	download: CloudDownload,
 	import: Database,
+	log: Inbox,
 	finish: CheckCircle2,
 } as const;
 
@@ -170,7 +177,7 @@ function ProgressTrack({
 }
 
 export const SyncProgressPanel = memo<SyncProgressPanelProps>(
-	({ source, isSyncing, progress, summaryMessage, onDismiss, className }) => {
+	({ source, isSyncing, progress, summaryMessage, onDismiss, footer, className }) => {
 		const view = deriveSyncView(progress, isSyncing, source);
 		const running = view.status === "connecting" || view.status === "running";
 
@@ -356,7 +363,25 @@ export const SyncProgressPanel = memo<SyncProgressPanelProps>(
 						{view.excluded > 0 && (
 							<StatChip label="excluded" value={view.excluded} tone="warning" />
 						)}
+						{view.autoLog?.enabled && view.autoLog.logged > 0 && (
+							<StatChip
+								label="logged to Raw Information"
+								value={view.autoLog.logged}
+								tone="success"
+							/>
+						)}
+						{view.autoLog?.enabled && view.autoLog.noDistrict > 0 && (
+							<StatChip
+								label="need a district"
+								value={view.autoLog.noDistrict}
+								tone="warning"
+							/>
+						)}
 					</div>
+				)}
+
+				{footer && view.status === "success" && (
+					<div className="mt-3 border-t border-foreground/10 pt-3">{footer}</div>
 				)}
 			</div>
 		);

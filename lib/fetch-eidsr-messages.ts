@@ -61,10 +61,16 @@ export type EidsrMessageVerifyPayload = {
 	pointOfContactRelationship?: string;
 	pointOfContactPhone?: string;
 	deskVerificationActions?: string;
-	/** Confirmed | Discarded — the verification conclusion, sent explicitly. */
+	/** Confirmed | Discarded | Escalated to Field — sent explicitly. */
 	verificationOutcome?: string;
-	/** The verifier's description of the decision. Required on a conclusion. */
+	/** The verifier's description of the decision. */
 	verificationNote?: string;
+	/** Which level answered: "Desk" (default) or "Field". */
+	verificationLevel?: string;
+	/** One of DISCARD_REASONS. Required by the server on a discard. */
+	discardReason?: string;
+	/** What a field team is being asked to check, on an escalation. */
+	fieldVerificationRequest?: string;
 	fieldVerificationFeedback?: string;
 	fieldVerification?: string;
 	fieldVerificationDecision?: string;

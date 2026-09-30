@@ -1,12 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import dynamic from "next/dynamic";
 import { ErrorAlert } from "@/components/dashboard";
+import { UnrecordedDiseaseNote } from "@/components/reports/unrecorded-disease-note";
+import { cn } from "@/lib/utils";
 import {
 	ReportsMatrixTable,
 	ReportsChartFilters,
 	ReportsDateFilter,
 	ManagementReportPanel,
+	RegionalPerformancePanel,
+	SignalOverviewPanel,
 } from "@/components/reports";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChartSkeleton } from "@/components/ui/skeletons";
@@ -47,28 +52,48 @@ export default function ReportsPage() {
 		dailyError,
 		setDailyDate,
 		refetchDaily,
+		includeUnrecorded,
+		setIncludeUnrecorded,
 	} = useReportsData();
+	// One district table, two readings: everything to date, or a single day.
+	const [districtMode, setDistrictMode] = useState<"cumulative" | "daily">("cumulative");
+	const note = (count: number | undefined) => (
+		<UnrecordedDiseaseNote
+			count={count ?? -1}
+			included={includeUnrecorded}
+			onToggle={setIncludeUnrecorded}
+		/>
+	);
 
 	return (
 		<div className={LAYOUT.pageGap}>
 			<div className="min-w-0">
 				<h1 className={LAYOUT.pageTitle}>Summaries / Reports</h1>
 				<p className={LAYOUT.pageSubtitle}>
-					Each tab has its own filter — the chart uses a date range; the
-					cumulative and daily tables each use a single date.
+					Overview breaks every signal down by time, place, source and outcome. The EVD tabs
+					count signals recorded as EVD/VHF. Regional performance scores each region&apos;s EBS
+					steps; Presentation builds the weekly management deck.
 				</p>
 			</div>
 
-			<Tabs defaultValue="chart" className="w-full">
+			<Tabs defaultValue="overview" className="w-full">
 				<TabsList>
-					<TabsTrigger value="chart">Chart</TabsTrigger>
-					<TabsTrigger value="cumulative">Cumulative</TabsTrigger>
-					<TabsTrigger value="daily">Daily</TabsTrigger>
+					<TabsTrigger value="overview">Overview</TabsTrigger>
+					<TabsTrigger value="trend">EVD trend</TabsTrigger>
+					<TabsTrigger value="district">EVD by district</TabsTrigger>
+					<TabsTrigger value="regional">Regional performance</TabsTrigger>
 					<TabsTrigger value="presentation">Presentation</TabsTrigger>
 				</TabsList>
 
-				{/* Chart — date range + scope */}
-				<TabsContent value="chart" className="space-y-3">
+				{/* Overview — data completeness, then the breakdowns (when, what,
+				    where, who, how each gate closed) and the risk matrix. The
+				    pipeline figures themselves live on the dashboard. */}
+				<TabsContent value="overview" className="space-y-3">
+					<SignalOverviewPanel />
+				</TabsContent>
+
+				{/* EVD trend — date range + daily/cumulative */}
+				<TabsContent value="trend" className="space-y-3">
 					<ReportsChartFilters
 						options={options}
 						dateRange={chartRange}
@@ -88,59 +113,94 @@ export default function ReportsPage() {
 					<ReportsTimeseriesChart
 						timeseries={timeseries}
 						isLoading={timeseriesLoading && !timeseries}
+						note={note(timeseries?.unrecordedDisease)}
 					/>
 				</TabsContent>
 
-				{/* Cumulative — single "as of" date */}
-				<TabsContent value="cumulative" className="space-y-3">
-					<ReportsDateFilter
-						label="As of"
-						inputId="cumulative-date"
-						date={cumulativeDate}
-						onDateChange={setCumulativeDate}
-						onRefresh={refetchCumulative}
-						isRefreshing={cumulativeLoading}
-					/>
-					{cumulativeError && (
-						<ErrorAlert
-							error={cumulativeError}
-							onRetry={refetchCumulative}
-							retrying={cumulativeLoading}
-						/>
+				{/* EVD by district — cumulative to a date, or one day */}
+				<TabsContent value="district" className="space-y-3">
+					<div className="flex flex-wrap items-center gap-2">
+						<div className="inline-flex rounded-md border bg-muted/40 p-0.5" role="group" aria-label="District table period">
+							{(
+								[
+									["cumulative", "Cumulative to date"],
+									["daily", "Single day"],
+								] as const
+							).map(([mode, label]) => (
+								<button
+									key={mode}
+									type="button"
+									onClick={() => setDistrictMode(mode)}
+									aria-pressed={districtMode === mode}
+									className={cn(
+										"rounded px-2.5 py-1 text-xs font-medium transition-colors",
+										districtMode === mode
+											? "bg-background text-foreground shadow-sm"
+											: "text-muted-foreground hover:text-foreground"
+									)}
+								>
+									{label}
+								</button>
+							))}
+						</div>
+						{districtMode === "cumulative" ? (
+							<ReportsDateFilter
+								label="As of"
+								inputId="cumulative-date"
+								date={cumulativeDate}
+								onDateChange={setCumulativeDate}
+								onRefresh={refetchCumulative}
+								isRefreshing={cumulativeLoading}
+							/>
+						) : (
+							<ReportsDateFilter
+								label="Date"
+								inputId="daily-date"
+								date={dailyDate}
+								onDateChange={setDailyDate}
+								onRefresh={refetchDaily}
+								isRefreshing={dailyLoading}
+							/>
+						)}
+					</div>
+					{districtMode === "cumulative" ? (
+						<>
+							{cumulativeError && (
+								<ErrorAlert
+									error={cumulativeError}
+									onRetry={refetchCumulative}
+									retrying={cumulativeLoading}
+								/>
+							)}
+							<ReportsMatrixTable
+								matrix={cumulativeMatrix}
+								fallbackTitle={`Cumulative EVD Signals & alerts as on ${cumulativeDate}`}
+								periodLabel="Cumulative"
+								exportKey="reports_cumulative"
+								isLoading={cumulativeLoading && !cumulativeMatrix}
+								note={note(cumulativeMatrix?.unrecordedDisease)}
+							/>
+						</>
+					) : (
+						<>
+							{dailyError && (
+								<ErrorAlert error={dailyError} onRetry={refetchDaily} retrying={dailyLoading} />
+							)}
+							<ReportsMatrixTable
+								matrix={dailyMatrix}
+								fallbackTitle={`Daily EVD Signals & alerts — ${dailyDate}`}
+								periodLabel={`Daily (as of ${dailyDate})`}
+								exportKey="reports_daily"
+								isLoading={dailyLoading && !dailyMatrix}
+								note={note(dailyMatrix?.unrecordedDisease)}
+							/>
+						</>
 					)}
-					<ReportsMatrixTable
-						matrix={cumulativeMatrix}
-						fallbackTitle={`Cumulative EVD Signals & alerts as on ${cumulativeDate}`}
-						periodLabel="Cumulative"
-						exportKey="reports_cumulative"
-						isLoading={cumulativeLoading && !cumulativeMatrix}
-					/>
 				</TabsContent>
 
-				{/* Daily — single date */}
-				<TabsContent value="daily" className="space-y-3">
-					<ReportsDateFilter
-						label="Date"
-						inputId="daily-date"
-						date={dailyDate}
-						onDateChange={setDailyDate}
-						onRefresh={refetchDaily}
-						isRefreshing={dailyLoading}
-					/>
-					{dailyError && (
-						<ErrorAlert
-							error={dailyError}
-							onRetry={refetchDaily}
-							retrying={dailyLoading}
-						/>
-					)}
-					<ReportsMatrixTable
-						matrix={dailyMatrix}
-						fallbackTitle={`Daily EVD Signals & alerts — ${dailyDate}`}
-						periodLabel={`Daily (as of ${dailyDate})`}
-						exportKey="reports_daily"
-						isLoading={dailyLoading && !dailyMatrix}
-					/>
+				{/* Regional performance — the EBS funnel per region for a date range */}
+				<TabsContent value="regional" className="space-y-3">
+					<RegionalPerformancePanel />
 				</TabsContent>
 
 				{/* Presentation — the full Alerts Management deck for a date range */}

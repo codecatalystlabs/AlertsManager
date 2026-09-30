@@ -1,4 +1,5 @@
 import { deriveAlertOutcome, OUTCOME_NOT_RECORDED, type OutcomeSource } from "@/lib/alert-outcome";
+import { VERIFICATION_ESCALATED_FIELD } from "@/lib/verification-options";
 import { verificationDeadlineMinutes } from "@/lib/alert-triage";
 
 /**
@@ -37,6 +38,11 @@ export type AlertSlaColor = "green" | "orange" | "red";
 export interface SlaSource extends OutcomeSource {
 	/** Triage priority — sets the deadline. Absent/null = untriaged. */
 	priority?: string | null;
+	/**
+	 * The recorded outcome. Read here only to spot "Escalated to Field", which
+	 * is a handover rather than an answer — see slaStopTimestamp.
+	 */
+	verificationOutcome?: string | null;
 	/** Signal day. Its time-of-day is a junk import artifact — ignored. */
 	date?: string | null;
 	/** Signal time-of-day (the real clock time). */
@@ -154,7 +160,18 @@ export function alertSignalTimestamp(alert: SlaSource): Date | null {
  * predate verification-timestamp enforcement.
  */
 function slaStopTimestamp(alert: SlaSource, now: Date): { stop: Date; running: boolean } {
-	const verified = deriveAlertOutcome(alert) !== OUTCOME_NOT_RECORDED;
+	// An ESCALATION does not stop the clock. The desk recorded something, but
+	// not an answer — the signal is still owed a verification, now from a field
+	// team, and a signal sitting unanswered for a week is exactly what this
+	// clock exists to show. It stops when the field concludes.
+	const outcome = (alert.verificationOutcome ?? "").trim();
+	const escalated = outcome === VERIFICATION_ESCALATED_FIELD;
+	// A concluded outcome stops the clock even with no legacy desk mirror —
+	// the twin of alertOutcomeRecordedSQL, which counts the 55 rows carrying
+	// only verification_outcome as verified.
+	const concluded = outcome === "Confirmed" || outcome === "Discarded";
+	const verified =
+		!escalated && (concluded || deriveAlertOutcome(alert) !== OUTCOME_NOT_RECORDED);
 	if (!verified) return { stop: now, running: true };
 
 	const stop =

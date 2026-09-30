@@ -6,7 +6,9 @@ import {
 	deriveAlertOutcome,
 	deriveDeskVerificationOutcome,
 } from "./alert-outcome";
-import { formatDeadline, priorityLabel } from "@/lib/alert-triage";
+import { isSignalTriaged } from "@/lib/alert-triage";
+import { signalSummary } from "@/lib/ebs-signals";
+import { isRiskAssessed } from "@/lib/alert-risk";
 import {
 	alertSignalTimestamp,
 	computeAlertSla,
@@ -40,11 +42,30 @@ export interface ExportableAlert {
 	fieldVerificationDecision?: string | null;
 	actions?: string | null;
 	// --- Triage (EBS step 2) -------------------------------------------------
+	/**
+	 * Legacy marker only. Triage no longer sets a priority, but a row carrying
+	 * one was triaged before the decision column existed, so it still answers
+	 * "Signal Triaged". It is never a column of its own.
+	 */
 	priority?: string | null;
+	triageDecision?: string | null;
+	triageReason?: string | null;
+	triageDuplicateOf?: number | null;
+	/** The Annex I / II signal named at triage (CH1, FH3…). */
+	signalCode?: string | null;
 	triagedAt?: string | null;
 	triagedBy?: string | null;
 	// --- Verification (EBS step 3) + response (step 6) -----------------------
 	verificationOutcome?: string | null;
+	verificationLevel?: string | null;
+	discardReason?: string | null;
+	escalatedToFieldAt?: string | null;
+	escalatedToFieldBy?: string | null;
+	fieldVerificationRequest?: string | null;
+	fieldVerifiedAt?: string | null;
+	fieldVerifiedBy?: string | null;
+	fieldVerificationNote?: string | null;
+	verificationNote?: string | null;
 	responseActions?: string | null;
 	fieldVerification?: string | null;
 	verificationDate?: string | null;
@@ -67,6 +88,8 @@ export interface ExportableAlert {
 	riskContextNote?: string | null;
 	riskTeamLead?: string | null;
 	riskTeamMembers?: string | null;
+	riskActionTaken?: string | null;
+	riskEvacuationFacility?: string | null;
 	riskAssessedAt?: string | null;
 	riskAssessedBy?: string | null;
 	// --- Reporter feedback (EBS step 7) --------------------------------------
@@ -128,17 +151,30 @@ const TAIL_COLUMNS: ExportColumn[] = [
 ];
 
 /**
- * Triage (EBS step 2). "Untriaged" is spelled out rather than left blank
- * because an empty priority cell reads as missing data, when in fact it is the
- * finding: nobody has screened the signal. The deadline column is the one the
- * SLA was actually scored against, so an untriaged row shows the Medium
- * fallback (see verificationDeadlineMinutes).
+ * Triage (EBS step 2). The gate no longer sets a priority — it answers the two
+ * screening questions and names the Annex I/II signal — so the columns are the
+ * signal and who took it, when. "Signal Triaged" is a spelled-out Yes/No
+ * rather than a blank, because a blank reads as missing data when in fact it
+ * is the finding: nobody has screened the signal. Same test as the register's
+ * column (isSignalTriaged).
+ *
+ * The decision and its free-text reason are deliberately NOT here: the sheet
+ * reports where a signal got to, and both live on the signal's own record for
+ * anyone who needs the detail.
  */
 const TRIAGE_COLUMNS: ExportColumn[] = [
-	{ header: "Triage Priority", getValue: (a) => priorityLabel(a.priority) },
 	{
-		header: "Verification Deadline",
-		getValue: (a) => formatDeadline(a.priority),
+		header: "Signal Triaged",
+		getValue: (a) => (isSignalTriaged(a) ? "Yes" : "No"),
+	},
+	{
+		header: "EBS Signal",
+		getValue: (a) => signalSummary(a.signalCode) ?? a.signalCode ?? "",
+	},
+	{
+		header: "Duplicate Of",
+		getValue: (a) =>
+			a.triageDuplicateOf != null ? `${altCode(a.triageDuplicateOf)}` : "",
 	},
 	{ header: "Triaged Date", getValue: (a) => formatExportDate(a.triagedAt) },
 	{ header: "Triaged Time", getValue: (a) => formatExportTime(a.triagedAt) },
@@ -157,6 +193,15 @@ const VERIFICATION_DETAIL_COLUMNS: ExportColumn[] = [
 		header: "Verification Decision",
 		getValue: (a) => a.verificationOutcome ?? "",
 	},
+	{ header: "Verification Note", getValue: (a) => a.verificationNote ?? "" },
+	// WHICH LEVEL answered, and why a discard was a discard. A discard from a
+	// site visit and one from a phone call are not the same evidence, and
+	// discards only become analysable when they carry a reason.
+	{
+		header: "Verification Level",
+		getValue: (a) => a.verificationLevel ?? "",
+	},
+	{ header: "Discard Reason", getValue: (a) => a.discardReason ?? "" },
 	{
 		header: "Desk Verification Actions",
 		getValue: (a) => a.caseVerificationDesk ?? "",
@@ -170,6 +215,27 @@ const VERIFICATION_DETAIL_COLUMNS: ExportColumn[] = [
 		header: "Field Verification Notes",
 		getValue: (a) => a.fieldVerification ?? "",
 	},
+	{
+		header: "Field Verification Findings",
+		getValue: (a) => a.fieldVerificationNote ?? "",
+	},
+	{
+		header: "Escalated To Field On",
+		getValue: (a) => formatExportDate(a.escalatedToFieldAt),
+	},
+	{
+		header: "Escalated To Field By",
+		getValue: (a) => a.escalatedToFieldBy ?? "",
+	},
+	{
+		header: "Field Verification Requested",
+		getValue: (a) => a.fieldVerificationRequest ?? "",
+	},
+	{
+		header: "Field Verified On",
+		getValue: (a) => formatExportDate(a.fieldVerifiedAt),
+	},
+	{ header: "Field Verified By", getValue: (a) => a.fieldVerifiedBy ?? "" },
 	{
 		header: "Verification Date",
 		getValue: (a) => formatExportDate(a.verificationTime ?? a.verificationDate),
@@ -196,6 +262,10 @@ const VERIFICATION_DETAIL_COLUMNS: ExportColumn[] = [
 
 /** Risk assessment (step 4): the algorithm answers, the matrix axes and the RRT. */
 const RISK_COLUMNS: ExportColumn[] = [
+	{
+		header: "Risk Assessed",
+		getValue: (a) => (isRiskAssessed(a.riskLevel) ? "Yes" : "No"),
+	},
 	{ header: "Risk Level", getValue: (a) => a.riskLevel ?? "" },
 	{
 		header: "Risk: Severe Illness/Death",
@@ -213,6 +283,11 @@ const RISK_COLUMNS: ExportColumn[] = [
 	{ header: "Risk Context Notes", getValue: (a) => a.riskContextNote ?? "" },
 	{ header: "RRT Lead", getValue: (a) => a.riskTeamLead ?? "" },
 	{ header: "RRT Members", getValue: (a) => a.riskTeamMembers ?? "" },
+	{ header: "Risk Action Taken", getValue: (a) => a.riskActionTaken ?? "" },
+	{
+		header: "Evacuation Facility",
+		getValue: (a) => a.riskEvacuationFacility ?? "",
+	},
 	{
 		header: "Risk Assessed Date",
 		getValue: (a) => formatExportDate(a.riskAssessedAt),
@@ -252,6 +327,25 @@ const EXPORT_COLUMNS: ExportColumn[] = [
 ];
 
 /**
+ * How far down the pipeline the signal has actually got, as one word. The
+ * per-stage columns below say Yes/No for each gate; this says where the signal
+ * STOPPED, which is what a reader scanning a sheet of thousands wants first.
+ * Stages are tested furthest-first, because a risk-assessed signal is also
+ * verified and triaged.
+ */
+function stageReached(alert: ExportableAlert): string {
+	if (isRiskAssessed(alert.riskLevel)) return "Risk assessed";
+	if (alert.isVerified || deriveAlertOutcome(alert)) return "Verified";
+	if (isSignalTriaged(alert)) return "Triaged";
+	return "Reported";
+}
+
+/** Excel-only summary of the row's progress through the EBS steps. */
+const STAGE_COLUMNS: ExportColumn[] = [
+	{ header: "Stage Reached", getValue: (a) => stageReached(a) },
+];
+
+/**
  * Excel is the full case record: every stage of the EBS steps the row has
  * been through, with the date, the actor and the detail for each. Blocks run in
  * pipeline order (signal → triage → verification/response → risk → feedback) so
@@ -262,6 +356,7 @@ const EXCEL_COLUMNS: ExportColumn[] = [
 	...SIGNAL_COLUMNS.slice(0, 9),
 	{ header: "Subcounty", getValue: (a) => a.subCounty ?? "" },
 	...SIGNAL_COLUMNS.slice(9),
+	...STAGE_COLUMNS,
 	...TRIAGE_COLUMNS,
 	...OUTCOME_SUMMARY_COLUMNS,
 	...VERIFICATION_DETAIL_COLUMNS,

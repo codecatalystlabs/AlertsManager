@@ -27,6 +27,14 @@ export interface ReportMatrix {
 	asOf?: string;
 	columns: string[];
 	rows: ReportMatrixRow[];
+	/** Column totals over every district (the API's own sums), aligned to `columns`. */
+	totals: number[];
+	/**
+	 * Signals in the same date/place scope with NO disease recorded, which the
+	 * disease-filtered table does not count. -1 when not applicable (no disease
+	 * filter, or they were included on request).
+	 */
+	unrecordedDisease: number;
 }
 
 export interface ReportTimeseriesPoint {
@@ -40,6 +48,8 @@ export interface ReportTimeseries {
 	title: string;
 	scope?: ReportScope;
 	points: ReportTimeseriesPoint[];
+	/** As on ReportMatrix, over the chart's date range. */
+	unrecordedDisease: number;
 }
 
 export interface ReportOptions {
@@ -67,6 +77,11 @@ export interface ReportsQueryParams {
 	districts?: string;
 	/** Disease filter: "all" for every disease, else comma-separated values. */
 	response?: string;
+	/**
+	 * Count signals with no disease recorded as matching the disease filter.
+	 * Off by default — a table titled "EVD" counts signals recorded as EVD/VHF.
+	 */
+	include_unrecorded?: boolean;
 }
 
 export function todayIsoDate(): string {
@@ -115,8 +130,12 @@ export function buildCumulativeQuery(asOf: string): ReportsQueryParams {
 const METRIC_LABELS: Record<string, string> = {
 	signal: "Signals",
 	signals: "Signals",
-	alert: "Alerts",
-	alerts: "Alerts",
+	// Verified and not discarded — the outbreak-sitrep sense of "alert". NOT
+	// an issued EBS alert (confirmed, risk-assessed, fed back), which is what
+	// "Alerts" means everywhere else in the app; one word, two counts, is how
+	// the dashboard came to read 481 against the regional report's 85.
+	alert: "Verified, not discarded",
+	alerts: "Verified, not discarded",
 	discarded: "Discarded",
 	discarded_alerts: "Discarded",
 	discarded_signals: "Discarded",
@@ -226,6 +245,7 @@ async function requestReport<T>(path: string, params?: ReportsQueryParams): Prom
 	if (params?.regions) searchParams.set("regions", params.regions);
 	if (params?.districts) searchParams.set("districts", params.districts);
 	if (params?.response) searchParams.set("response", params.response);
+	if (params?.include_unrecorded) searchParams.set("include_unrecorded", "true");
 	const query = searchParams.toString();
 	const url = query
 		? `${apiBase}/reports/${path}?${query}`
@@ -274,6 +294,12 @@ export function parseMatrixResponse(json: unknown): ReportMatrix | null {
 		values: metricKeys.map((key) => Number(d.metrics?.[key] ?? 0)),
 	}));
 	const rows = mergeMatrixRowsByDistrict(rawRows);
+	const apiTotals = asRecord(body.totals);
+	const totals = metricKeys.map((key, i) =>
+		apiTotals && apiTotals[key] !== undefined
+			? Number(apiTotals[key])
+			: rows.reduce((sum, r) => sum + (r.values[i] ?? 0), 0)
+	);
 
 	return {
 		title: String(body.title ?? ""),
@@ -285,13 +311,20 @@ export function parseMatrixResponse(json: unknown): ReportMatrix | null {
 				: undefined,
 		columns,
 		rows,
+		totals,
+		unrecordedDisease: readUnrecorded(body),
 	};
+}
+
+function readUnrecorded(body: Record<string, unknown>): number {
+	const n = Number(body.unrecordedDisease);
+	return Number.isFinite(n) ? n : -1;
 }
 
 /** Backend: series[].metrics with keys signals, alerts, etc. */
 export function parseTimeseriesResponse(json: unknown): ReportTimeseries {
 	const body = asRecord(json);
-	if (!body) return { title: "Signals & Alerts", points: [] };
+	if (!body) return { title: "Signals & Alerts", points: [], unrecordedDisease: -1 };
 
 	const series = body.series as
 		| { date: string; metrics: Record<string, number> }[]
@@ -334,6 +367,7 @@ export function parseTimeseriesResponse(json: unknown): ReportTimeseries {
 		title: String(body.title ?? "Signals & Alerts"),
 		scope: body.scope ? normalizeScope(body.scope) : undefined,
 		points,
+		unrecordedDisease: readUnrecorded(body),
 	};
 }
 
@@ -544,6 +578,51 @@ export async function fetchManagementReport(
 		params.response = focusDiseases.join(",");
 	}
 	return requestReport<ManagementReport>("alerts-management", params);
+}
+
+/** One region's EBS funnel (GET /reports/regional-performance). Each count is
+ * a subset of the one before it, except `verifiedWithin24h`, a subset of
+ * `verified` that the later columns do not build on. */
+export interface RegionalPerformanceRow {
+	region: string;
+	rawData: number;
+	triaged: number;
+	signals: number;
+	verified: number;
+	verifiedWithin24h: number;
+	riskAssessed: number;
+	alerts: number;
+}
+
+export interface RegionalPerformanceReport {
+	fromDate: string;
+	toDate: string;
+	rows: RegionalPerformanceRow[];
+	total: RegionalPerformanceRow;
+	/**
+	 * Alerts issued in the period whose signal was never coded at triage, so no
+	 * column holds them. total.alerts + this = the Alerts page for the period.
+	 * Optional: an older API does not send it.
+	 */
+	alertsOutsideFunnel?: number;
+}
+
+/**
+ * The regional signal-performance table for an inclusive date range. Every
+ * column is counted server-side with the pipeline's own stage predicates, so
+ * it reconciles with the register tabs and the Alerts page. `regions` limits
+ * the table to those regions (each gets a row even at zero); empty = all.
+ */
+export async function fetchRegionalPerformance(
+	range: ReportsDateRange,
+	regions: string[] = []
+): Promise<RegionalPerformanceReport> {
+	const params: ReportsQueryParams = {
+		from_date: range.fromDate,
+		to_date: range.toDate,
+	};
+	if (regions.length > 0) params.regions = regions.join(",");
+	return requestReport<RegionalPerformanceReport>("regional-performance", params);
 }
 
 export async function fetchReportMatrix(

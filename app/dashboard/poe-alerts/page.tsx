@@ -1,24 +1,31 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ErrorAlert } from "@/components/dashboard";
-import {
-	PoeAlertDetailsDialog,
-	PoeAlertsFilters,
-	PoeAlertsTable,
-} from "@/components/poe-alerts";
-import { NdwSyncHeader } from "@/components/ndw-alerts/ndw-sync-header";
-import { NdwFilterBar } from "@/components/ndw-alerts/ndw-filter-bar";
-import { NdwAlertsStats } from "@/components/ndw-alerts/ndw-alerts-stats";
+import { PoeAlertDetailsDialog, PoeAlertsTable } from "@/components/poe-alerts";
+import { NdwPageHeader } from "@/components/ndw-alerts/ndw-page-header";
+import { NdwSegmentTiles } from "@/components/ndw-alerts/ndw-segment-tiles";
+import { NdwQuickFilterBar } from "@/components/ndw-alerts/ndw-quick-filter-bar";
+import { NdwLiveFilterSheet } from "@/components/ndw-alerts/ndw-live-filter-sheet";
+import { NdwEmptyState, NdwLiveBanner } from "@/components/ndw-alerts/ndw-feed-notices";
 import { ForwardToDistrictDialog } from "@/components/forward-to-district-dialog";
-import { SyncProgressPanel } from "@/components/sync";
+import { ndwRegisterAlertId } from "@/components/ndw-alerts/ndw-signals-table";
+import { RawInformationSyncFooter, SyncProgressPanel } from "@/components/sync";
 import { POE_NDW_FILTER_FIELDS } from "@/constants/ndw-filter-fields";
-import { POE_ALERTS_CONFIG } from "@/constants/poe-alerts";
+import {
+	buildPoeChips,
+	buildPoeSegments,
+	POE_ALERTS_CONFIG,
+	POE_MORE_FIELDS,
+} from "@/constants/poe-alerts";
 import { usePoeAlertsData } from "@/hooks/use-poe-alerts-data";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { feedActions } from "@/lib/access";
 import { forwardPoeAlert, type PoeAlertRow } from "@/lib/fetch-ndw-alerts";
 import { poeToAlertShape } from "@/lib/ndw-alert-to-shape";
 import { LAYOUT } from "@/constants/layout";
+import { ORIGIN_POE } from "@/lib/signal-origin";
 
 const AlertVerificationDialog = dynamic(
 	() =>
@@ -32,20 +39,21 @@ export default function PoeAlertsPage() {
 	const {
 		alerts,
 		stats,
-		filters,
+		applied,
+		facets,
+		facetsLoading,
+		segment,
+		setSegment,
 		pagination,
 		loading,
 		isSyncing,
 		error,
 		syncMessage,
 		syncProgress,
-		setSearch,
-		setNdwFilters,
-		setOperators,
+		applyQuickFilters,
+		applyLiveFilters,
+		clearLiveFilters,
 		clearFilters,
-		applyFilters,
-		applyLocalFilters,
-		clearLocalFilters,
 		setColumnFilters,
 		filtersResetKey,
 		setPage,
@@ -53,6 +61,7 @@ export default function PoeAlertsPage() {
 		refetch,
 		syncFromRemote,
 	} = usePoeAlertsData();
+	const actions = feedActions(useCurrentUser(), "poe");
 
 	const [selected, setSelected] = useState<PoeAlertRow | null>(null);
 	const [detailsOpen, setDetailsOpen] = useState(false);
@@ -60,7 +69,14 @@ export default function PoeAlertsPage() {
 	const [forwardOpen, setForwardOpen] = useState(false);
 	const [verifyTarget, setVerifyTarget] = useState<PoeAlertRow | null>(null);
 	const [verifyOpen, setVerifyOpen] = useState(false);
+	const [liveOpen, setLiveOpen] = useState(false);
 	const [isRefreshing, setIsRefreshing] = useState(false);
+
+	const live = stats.live;
+	const filtered = Boolean(applied.search) || Object.keys(applied.local).length > 0;
+	const segments = useMemo(() => buildPoeSegments(facets, filtered), [facets, filtered]);
+	const chips = useMemo(() => buildPoeChips(facets), [facets]);
+	const activeSegment = segment ? segments.find((s) => s.key === segment) : undefined;
 
 	// Stabilize the prefill shape so the verify dialog isn't handed a brand-new
 	// object on every SWR auto-refresh (belt-and-suspenders alongside the dialog's
@@ -69,6 +85,22 @@ export default function PoeAlertsPage() {
 		() => (verifyTarget ? poeToAlertShape(verifyTarget) : null),
 		[verifyTarget]
 	);
+
+	// Stable so the table's column defs are not rebuilt on every render.
+	const openDetails = useCallback((a: PoeAlertRow) => {
+		setSelected(a);
+		setDetailsOpen(true);
+	}, []);
+	const openForward = useCallback((a: PoeAlertRow) => {
+		setDetailsOpen(false);
+		setForwardTarget(a);
+		setForwardOpen(true);
+	}, []);
+	const openVerify = useCallback((a: PoeAlertRow) => {
+		setDetailsOpen(false);
+		setVerifyTarget(a);
+		setVerifyOpen(true);
+	}, []);
 
 	const handleRefresh = async () => {
 		setIsRefreshing(true);
@@ -81,13 +113,16 @@ export default function PoeAlertsPage() {
 
 	return (
 		<div className={LAYOUT.pageGap}>
-			<NdwSyncHeader
+			<NdwPageHeader
+				feed="poe"
 				title={POE_ALERTS_CONFIG.PAGE_TITLE}
 				description={POE_ALERTS_CONFIG.PAGE_DESCRIPTION}
-				onRefresh={() => void handleRefresh()}
-				onSyncFromRemote={() => void syncFromRemote()}
-				isRefreshing={isRefreshing}
+				sync={facets?.sync}
 				isSyncing={isSyncing}
+				progress={syncProgress}
+				onSync={() => void syncFromRemote()}
+				onRefresh={() => void handleRefresh()}
+				isRefreshing={isRefreshing}
 			/>
 
 			{error ? (
@@ -99,35 +134,45 @@ export default function PoeAlertsPage() {
 				isSyncing={isSyncing}
 				progress={syncProgress}
 				summaryMessage={syncMessage}
+				footer={
+					<RawInformationSyncFooter autoLog={syncProgress?.autoLog} origin={ORIGIN_POE}>
+						They are untriaged in Raw Information, flagged{" "}
+						<span className="font-semibold text-violet-700">PoE</span>, with a district only where the traveller&apos;s address in Uganda names
+					one — confirm it, or set it, at triage.
+					</RawInformationSyncFooter>
+				}
 			/>
 
-			<NdwAlertsStats
-				total={stats.total}
-				filtered={stats.filtered}
-				live={stats.live}
+			<NdwSegmentTiles
+				segments={segments}
+				active={segment}
+				onSelect={setSegment}
+				isLoading={facetsLoading}
+				disabled={live}
+				className="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
 			/>
 
-			<NdwFilterBar
-				fields={POE_NDW_FILTER_FIELDS}
-				search={filters.search}
-				searchPlaceholder="Search name, passport, port, flight…"
-				filters={filters.ndwFilters}
-				operators={filters.operators}
-				onSearchChange={setSearch}
-				onFiltersChange={setNdwFilters}
-				onOperatorsChange={setOperators}
-				onApply={() => void applyFilters()}
-				onClear={() => void clearFilters()}
-				isLoading={loading}
-			/>
-
-			<PoeAlertsFilters
-				onApply={applyLocalFilters}
-				onClear={clearLocalFilters}
-				isLoading={loading}
-			/>
+			{live ? (
+				<NdwLiveBanner
+					total={pagination.total}
+					noun="travellers"
+					onEdit={() => setLiveOpen(true)}
+					onExit={clearLiveFilters}
+				/>
+			) : (
+				<NdwQuickFilterBar
+					searchPlaceholder="Search name, passport, flight, ref…"
+					chips={chips}
+					moreFields={POE_MORE_FIELDS}
+					applied={applied}
+					onApply={applyQuickFilters}
+					onOpenLive={() => setLiveOpen(true)}
+					isLoading={loading}
+				/>
+			)}
 
 			<PoeAlertsTable
+				title={live ? "Live NDW results" : (activeSegment?.label ?? "All travellers")}
 				alerts={alerts}
 				totalCount={pagination.total}
 				page={pagination.page}
@@ -138,24 +183,35 @@ export default function PoeAlertsPage() {
 				onPageSizeChange={setPageSize}
 				onColumnFiltersChange={setColumnFilters}
 				filtersResetKey={filtersResetKey}
-				onView={(a) => {
-					setSelected(a);
-					setDetailsOpen(true);
-				}}
-				onForward={(a) => {
-					setForwardTarget(a);
-					setForwardOpen(true);
-				}}
-				onVerify={(a) => {
-					setVerifyTarget(a);
-					setVerifyOpen(true);
-				}}
+				emptyState={
+					<NdwEmptyState
+						noun="travellers"
+						segmentLabel={live ? undefined : activeSegment?.label}
+						filtered={filtered || live}
+						onShowAll={() => setSegment("")}
+						onClear={clearFilters}
+					/>
+				}
+				onView={openDetails}
+				onForward={openForward}
+				onVerify={openVerify}
+			/>
+
+			<NdwLiveFilterSheet
+				open={liveOpen}
+				onOpenChange={setLiveOpen}
+				fields={POE_NDW_FILTER_FIELDS}
+				filters={applied.ndwFilters}
+				operators={applied.operators}
+				onApply={applyLiveFilters}
 			/>
 
 			<PoeAlertDetailsDialog
 				alert={selected}
 				open={detailsOpen}
 				onOpenChange={setDetailsOpen}
+				onForward={actions.forward ? openForward : undefined}
+				onVerify={actions.verify ? openVerify : undefined}
 			/>
 
 			<ForwardToDistrictDialog
@@ -163,8 +219,10 @@ export default function PoeAlertsPage() {
 				onClose={() => setForwardOpen(false)}
 				sourceLabel="POE alert"
 				alreadyForwarded={forwardTarget?.forwardedToDistrict ?? null}
-				onForward={(district, note) =>
-					forwardPoeAlert(forwardTarget!.id, { district, note })
+				allowRepeat
+				registerAlertId={ndwRegisterAlertId(forwardTarget)}
+				onForward={(district, note, again) =>
+					forwardPoeAlert(forwardTarget!.id, { district, note, again })
 				}
 				onForwarded={() => void refetch()}
 			/>

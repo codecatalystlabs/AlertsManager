@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAlertNotifications } from "@/hooks/use-alert-notifications";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { can, PERM } from "@/lib/access";
 
 /** Compact "x ago" for a recent timestamp; falls back to a local time string. */
 function timeAgo(iso?: string): string {
@@ -27,7 +29,17 @@ function timeAgo(iso?: string): string {
 	return new Date(t).toLocaleDateString();
 }
 
+/**
+ * The bell polls the signal list, so it exists only for accounts that may
+ * read signals — gated here rather than by the layout (#18).
+ */
 export function NotificationBell() {
+	const user = useCurrentUser();
+	if (!can(user, PERM.signalsView)) return null;
+	return <SignalNotificationBell />;
+}
+
+function SignalNotificationBell() {
 	const router = useRouter();
 	const {
 		notifications,

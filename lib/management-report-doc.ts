@@ -27,7 +27,11 @@ import type {
 } from "@/lib/fetch-reports";
 import type { DeckConfig } from "@/lib/management-report-config";
 import { defaultDeckConfig } from "@/lib/management-report-config";
-import { formatReportRange, scopeColumns } from "@/lib/management-report-pptx";
+import {
+	formatReportRange,
+	MANAGEMENT_CASCADE_STAGES,
+	scopeColumns,
+} from "@/lib/management-report-pptx";
 
 /** One renderable piece of the document. */
 export type DocBlock =
@@ -96,17 +100,7 @@ function cascadeTable(scope: ManagementScope, heading: string): DocBlock[] {
 	const statuses = Object.keys(scope.cascade);
 	if (statuses.length === 0) return [];
 
-	const metrics: { label: string; key: keyof ManagementScope["cascade"][string] }[] =
-		[
-			{ label: "Signals", key: "signals" },
-			{ label: "Signals verified", key: "signalsVerified" },
-			{ label: "Alerts", key: "alerts" },
-			{ label: "Sample collected", key: "sampleCollected" },
-			{ label: "Field case verification", key: "fieldCaseVerification" },
-			{ label: "SDB", key: "sdb" },
-			{ label: "RRT deployment", key: "rrtDeployment" },
-			{ label: "EMS", key: "ems" },
-		];
+	const metrics = MANAGEMENT_CASCADE_STAGES;
 
 	return [
 		{ kind: "heading", text: heading, level: 2 },
@@ -254,7 +248,7 @@ export function buildManagementReportDoc({
 		blocks.push({ kind: "heading", text: "Signals vs alerts trend", level: 1 });
 		blocks.push({
 			kind: "table",
-			headers: ["Date", "Signals", "Alerts"],
+			headers: ["Date", "Signals", "Alerts issued"],
 			rows: report.trend.map((p) => [p.date, num(p.signals), num(p.alerts)]),
 			firstNumericColumn: 1,
 		});

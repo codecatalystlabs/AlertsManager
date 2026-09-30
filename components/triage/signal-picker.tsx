@@ -28,10 +28,12 @@ import { useEbsSignals } from "@/hooks/use-lookup-options";
  *
  * Two deliberate properties:
  *
- *   - It is never required. The guidelines call the signal list a
- *     non-prescriptive guide and encourage reporting anything unusual whether
- *     or not it appears on it, so "none of these" must remain expressible —
- *     hence the Clear control rather than a mandatory choice.
+ *   - It is required (user's call, 2026-09-29): a report forwarded without a
+ *     code never counts as a SIGNAL — the regional performance report measured
+ *     695 forwarded-but-unnamed reports in 1–22 Sep alone. The guidelines still
+ *     call the list a non-prescriptive guide, which is why each annex carries
+ *     a catch-all for anything unusual (CH4 community, FH1 facility) and the
+ *     copy points operators at it instead of at leaving the field blank.
  *   - The full definition is shown, not just the code. Operators pick the
  *     wording they recognise; a grid of bare codes would be guessed at.
  *
@@ -42,6 +44,11 @@ import { useEbsSignals } from "@/hooks/use-lookup-options";
  * in before they know which line of it they want. Showing all 34 entries at
  * once made them scroll past half a list that could not apply.
  */
+/** Annex I and II are a guide, not a closed set; this is where an unusual
+ * report that fits no specific line goes now that a signal is required. */
+const CATCH_ALL_HINT =
+	"Nothing specific fits? Use the catch-all for anything unusual — CH4 (community) or FH1 (health facility).";
+
 export function SignalPicker({
 	value,
 	onChange,
@@ -85,7 +92,7 @@ export function SignalPicker({
 		<div className={cn("space-y-2", className)}>
 			<div className="flex items-baseline justify-between gap-2">
 				<Label className="text-xs">
-					EBS signal <span className="text-muted-foreground">(optional)</span>
+					EBS signal <span className="text-uganda-red">*</span>
 				</Label>
 				{selected && (
 					<button
@@ -147,9 +154,7 @@ export function SignalPicker({
 
 			{setting === null ? (
 				<p className="text-[11px] text-muted-foreground">
-					Annex I and II are a guide, not a closed set — anything unusual is
-					reportable whether or not it appears there. Pick a setting to name the
-					signal, or leave this blank when nothing matches.
+					Pick a setting, then the signal this report matches. {CATCH_ALL_HINT}
 				</p>
 			) : (
 				<>
@@ -167,8 +172,8 @@ export function SignalPicker({
 						{groups.length === 0 ? (
 							<p className="px-1 py-6 text-center text-xs text-muted-foreground">
 								Nothing in {SIGNAL_SETTING_LABEL[setting]} matches “{query}”.
-								That is a valid outcome — leave the signal blank and describe it
-								in the note.
+								Try another word, or clear the search and pick the catch-all
+								for anything unusual.
 							</p>
 						) : (
 							groups.map((group) => (
@@ -192,9 +197,7 @@ export function SignalPicker({
 					</div>
 
 					<p className="text-[11px] text-muted-foreground">
-						Annex I and II are a guide, not a closed set — anything unusual is
-						reportable whether or not it appears here. Leave blank when nothing
-						matches.
+						{CATCH_ALL_HINT}
 					</p>
 				</>
 			)}

@@ -46,7 +46,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { canManageUsers } from "@/lib/auth";
+import { can, PERM } from "@/lib/access";
 import {
 	useFacilities,
 	useFacilityFacets,
@@ -111,7 +111,7 @@ function levelLabel(level: string): string {
 export default function FacilitiesPage() {
 	const { toast } = useToast();
 	const user = useCurrentUser();
-	const isAdmin = canManageUsers(user);
+	const isAdmin = can(user, PERM.facilitiesManage);
 	const invalidate = useInvalidateFacilities();
 
 	const [search, setSearch] = useState("");
@@ -308,7 +308,7 @@ export default function FacilitiesPage() {
 					<p className="text-xs text-muted-foreground">
 						The national Master Facility List — the reference list behind
 						every facility picker.
-						{!isAdmin && " Read-only: only an administrator can change it."}
+						{!isAdmin && " Read-only: your role cannot change it."}
 					</p>
 				</div>
 				{isAdmin && (

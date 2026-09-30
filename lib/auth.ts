@@ -3,6 +3,7 @@ import { getClientApiBaseUrl } from '@/lib/api-config'
 import { notifyAuthStatusChange } from '@/lib/auth-events'
 import { notifyAlertsChanged } from '@/lib/alerts-events'
 import { clearPersistedSwrCache } from '@/lib/swr-cache-provider'
+import type { Scope } from '@/lib/access'
 
 const API_BASE_URL = getClientApiBaseUrl()
 
@@ -25,7 +26,11 @@ interface LoginCredentials {
     password: string
 }
 
-// Updated user interface to match API response
+/**
+ * The signed-in account, as POST /login and GET /users/profile return it. The
+ * role, area and permissions are what lib/access.ts reads to decide what to
+ * show; the API enforces them regardless.
+ */
 export interface User {
     id: number
     username: string
@@ -35,114 +40,23 @@ export interface User {
     email: string
     affiliation: string
     userType: string
+    /** Mirror of the role's name, kept for older readers. */
     level: string
-    /** District a district-scoped user (e.g. District Biostat) is limited to. */
+    role?: { id: number; name: string; scope: Scope; isSystem: boolean } | null
+    /** Effective scope: national, one region or one district. */
+    scope?: Scope
+    /** The built-in administrator: every permission. */
+    isSuperAdmin?: boolean
+    /** Permission codes the role grants (see lib/access.ts PERM). */
+    permissions?: string[]
+    /** District a district-scoped account is limited to. */
     district?: string | null
-    /** Region a region-scoped user (the REOC role) is limited to. */
+    /** Region a region-scoped account is limited to. */
     region?: string | null
+    isActive?: boolean
+    lastLoginAt?: string | null
     createdAt: string
     updatedAt: string
-}
-
-/** Canonical role names (compared case-insensitively against User.level). */
-export const ROLE_ADMIN = "admin"
-export const ROLE_DISTRICT_BIOSTAT = "district biostat"
-/**
- * District: district-scoped user BELOW the District Biostat. May verify and add
- * alerts but may NOT delete or forward them.
- */
-export const ROLE_DISTRICT = "district"
-export const ROLE_REOC = "reoc"
-/** Emergency Operations Centre: admin-like rights but NO user management. */
-export const ROLE_EOC = "eoc"
-
-/** Lower-cased, trimmed role of the user (User.level), or "". */
-function normalizedLevel(user: User | null): string {
-    return (user?.level ?? "").trim().toLowerCase()
-}
-
-/** True for the plain District role (the one below District Biostat). */
-export function isDistrictRole(user: User | null): boolean {
-    return normalizedLevel(user) === ROLE_DISTRICT
-}
-
-/** True if the user's role is the unscoped Admin role. */
-export function isAdminRole(user: User | null): boolean {
-    return (user?.level ?? "").trim().toLowerCase() === ROLE_ADMIN
-}
-
-/**
- * True if the user is an EOC: admin-like access to alerts (including delete) but
- * no access to user management. Unscoped (sees all districts/regions).
- */
-export function isEOCRole(user: User | null): boolean {
-    return (user?.level ?? "").trim().toLowerCase() === ROLE_EOC
-}
-
-/**
- * True if the user may manage other users (the Manage Users area). Only the
- * Admin role qualifies — EOC is deliberately excluded. Mirrors the backend,
- * which gates the user endpoints to RoleAdmin only.
- */
-export function canManageUsers(user: User | null): boolean {
-    return isAdminRole(user)
-}
-
-/** True if the user may only ever see data for their own assigned district. */
-export function isDistrictScopedRole(user: User | null): boolean {
-    const level = normalizedLevel(user)
-    return level === ROLE_DISTRICT_BIOSTAT || level === ROLE_DISTRICT
-}
-
-/**
- * True if the user may delete alerts. Only the unscoped admin-like roles
- * qualify; the District role explicitly may not (mirrors the backend, which
- * gates DELETE /alerts/:id to admin/EOC).
- */
-export function canDeleteAlerts(user: User | null): boolean {
-    return isAdminRole(user) || isEOCRole(user)
-}
-
-/**
- * True if the user may forward alerts/6767 events to a district. Everyone except
- * the plain District role (mirrors the backend ForbidRole(RoleDistrict) on the
- * forward endpoints).
- */
-export function canForwardAlerts(user: User | null): boolean {
-    return !isDistrictRole(user)
-}
-
-/** True if the user may only ever see data for their own assigned region (REOC). */
-export function isRegionScopedRole(user: User | null): boolean {
-    return (user?.level ?? "").trim().toLowerCase() === ROLE_REOC
-}
-
-/** One page of users from GET /users. */
-export interface UsersPage {
-    users: User[]
-    pagination: {
-        page: number
-        limit: number
-        total: number
-        pages: number
-    }
-}
-
-export interface UpdateUserPayload {
-    username: string
-    firstName: string
-    lastName: string
-    otherName: string
-    email: string
-    affiliation: string
-    userType: string
-    level: string
-    /** District for a district-scoped role (e.g. District Biostat); null/"" clears it. */
-    district?: string | null
-    /** Region for a region-scoped role (REOC); null/"" clears it. */
-    region?: string | null
-    /** Empty string leaves the password unchanged on the server */
-    password: string
 }
 
 // Alert interface to match the Go struct
@@ -206,6 +120,18 @@ export interface Alert {
     verificationPendingReason?: string | null
     verificationAttemptedAt?: string | null
     verificationAttemptedBy?: string | null
+    /** Which level reached the current outcome: "Desk" | "Field". */
+    verificationLevel?: string | null
+    /** Why it was discarded, from DISCARD_REASONS. */
+    discardReason?: string | null
+    /** The desk → field handover: when, by whom, and what was asked for. */
+    escalatedToFieldAt?: string | null
+    escalatedToFieldBy?: string | null
+    fieldVerificationRequest?: string | null
+    /** The field team's own conclusion, kept apart from the desk's note. */
+    fieldVerifiedAt?: string | null
+    fieldVerifiedBy?: string | null
+    fieldVerificationNote?: string | null
     /** Risk assessment (EBS step 4). */
     riskLevel?: string | null
     riskSevere?: boolean | null
@@ -251,6 +177,8 @@ export interface Alert {
     isVerified?: boolean
     verifiedBy?: string
     region?: string
+    /** When it was moved or logged in from a feed; null if logged directly. */
+    forwardedAt?: string | null
     createdAt?: string
     updatedAt?: string
 }
@@ -283,9 +211,11 @@ export class AuthService {
 
             if (!response.ok) {
                 let errorMessage = 'Login failed'
+                let serverMessage = ''
                 try {
-                    const errorData: ApiError = await response.json()
-                    errorMessage = errorData.message || errorMessage
+                    const errorData: ApiError & { error?: string } = await response.json()
+                    serverMessage = errorData.error || errorData.message || ''
+                    errorMessage = serverMessage || errorMessage
                 } catch (e) {
                     // If response is not JSON, use status text
                     errorMessage = response.statusText || errorMessage
@@ -295,7 +225,9 @@ export class AuthService {
                 if (response.status === 401) {
                     errorMessage = 'Invalid username or password'
                 } else if (response.status === 403) {
-                    errorMessage = 'Access denied'
+                    // The password was right but the account cannot sign in:
+                    // no role, or deactivated. The server says which.
+                    errorMessage = serverMessage || 'Access denied'
                 } else if (response.status === 404) {
                     errorMessage = 'Login service not found'
                 } else if (response.status >= 500) {
@@ -436,131 +368,6 @@ export class AuthService {
             return userData
         } catch (error) {
             console.error('Error fetching user profile:', error)
-            throw error
-        }
-    }
-
-    static async fetchAllUsers(): Promise<User[]> {
-        try {
-            const response = await this.makeAuthenticatedRequest(`${API_BASE_URL}/users/all`, {
-                method: 'GET',
-            })
-
-            if (!response.ok) {
-                throw new Error(`Failed to fetch users: ${response.statusText}`)
-            }
-
-            const users = await response.json()
-            return users
-        } catch (error) {
-            console.error('Error fetching users:', error)
-            throw error
-        }
-    }
-
-    /** Server-paginated, filterable user list (GET /users). Admin only. */
-    static async fetchUsers(params: {
-        page?: number
-        limit?: number
-        search?: string
-        userType?: string
-        level?: string
-    } = {}): Promise<UsersPage> {
-        const sp = new URLSearchParams()
-        sp.set('page', String(params.page ?? 1))
-        sp.set('limit', String(params.limit ?? 10))
-        if (params.search?.trim()) sp.set('search', params.search.trim())
-        if (params.userType && params.userType !== 'all')
-            sp.set('user_type', params.userType)
-        if (params.level && params.level !== 'all') sp.set('level', params.level)
-
-        const response = await this.makeAuthenticatedRequest(
-            `${API_BASE_URL}/users?${sp.toString()}`,
-            { method: 'GET' }
-        )
-        if (!response.ok) {
-            throw new Error(`Failed to fetch users: ${response.statusText}`)
-        }
-        return response.json()
-    }
-
-    static async updateUser(
-        userId: number,
-        userData: UpdateUserPayload
-    ): Promise<User> {
-        try {
-            const response = await this.makeAuthenticatedRequest(
-                `${API_BASE_URL}/users/${userId}`,
-                {
-                    method: 'PUT',
-                    body: JSON.stringify({
-                        username: userData.username,
-                        firstName: userData.firstName,
-                        lastName: userData.lastName,
-                        otherName: userData.otherName ?? '',
-                        email: userData.email,
-                        affiliation: userData.affiliation,
-                        userType: userData.userType ?? '',
-                        level: userData.level ?? '',
-                        district: userData.district ?? null,
-                        region: userData.region ?? null,
-                        password: userData.password ?? '',
-                    }),
-                }
-            )
-
-            if (!response.ok) {
-                let errorMessage = 'Failed to update user'
-                try {
-                    const errorData = await response.json()
-                    errorMessage = errorData.message || errorMessage
-                } catch {
-                    errorMessage = response.statusText || errorMessage
-                }
-                throw new Error(errorMessage)
-            }
-
-            return (await response.json()) as User
-        } catch (error) {
-            console.error('Error updating user:', error)
-            throw error
-        }
-    }
-
-    static async registerUser(userData: {
-        username: string
-        password: string
-        firstName: string
-        lastName: string
-        otherName?: string
-        email: string
-        affiliation: string
-        userType?: string
-        level?: string
-        district?: string | null
-        region?: string | null
-    }): Promise<User> {
-        try {
-            const response = await this.makeAuthenticatedRequest(`${API_BASE_URL}/users/register`, {
-                method: 'POST',
-                body: JSON.stringify(userData),
-            })
-
-            if (!response.ok) {
-                let errorMessage = 'Failed to register user'
-                try {
-                    const errorData = await response.json()
-                    errorMessage = errorData.message || errorMessage
-                } catch (e) {
-                    errorMessage = response.statusText || errorMessage
-                }
-                throw new Error(errorMessage)
-            }
-
-            const newUser = await response.json()
-            return newUser
-        } catch (error) {
-            console.error('Error registering user:', error)
             throw error
         }
     }
@@ -847,11 +654,23 @@ export class AuthService {
         token: string
         /** Answer to "have you verified this signal?". False takes the pending path. */
         verified?: boolean
-        /** Confirmed | Discarded. Required on a conclusion. */
+        /** Confirmed | Discarded | Escalated to Field. Required on a conclusion. */
         verificationOutcome?: string
-        /** The verifier's description of the decision. Required on a conclusion. */
+        /** The verifier's description of the decision. */
         verificationNote?: string
+        /**
+         * Which level answered: "Desk" (default) or "Field". Only the desk may
+         * escalate, and a field note is stored separately from the desk's so a
+         * visit adds to the record rather than overwriting it.
+         */
+        verificationLevel?: string
+        /** One of DISCARD_REASONS. Required by the server on a discard. */
+        discardReason?: string
+        /** What the desk is asking the field team to check, on an escalation. */
+        fieldVerificationRequest?: string
         status?: string
+        /** Suspected etiology — an alertResponse code. */
+        response?: string
         verificationDate?: string
         verificationTime?: string
         verifiedBy?: string
@@ -865,6 +684,12 @@ export class AuthService {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    // The endpoint is public (the one-time token in the body is
+                    // what authorises it), but a signed-in verifier's token lets
+                    // the backend name them in the audit trail. Without it every
+                    // desk verification was recorded with no user. No token →
+                    // anonymous, exactly as before.
+                    ...this.getAuthHeaders(),
                 },
                 body: JSON.stringify(verificationData),
                 credentials: 'omit',
@@ -961,13 +786,34 @@ export class AuthService {
             credentials: 'omit',
         })
 
-        // If we get a 401, the token might be expired
-        if (response.status === 401) {
-            this.clearLocalStorage()
-            window.location.href = '/login'
-            throw new Error('Session expired. Please login again.')
+        // 401: the token expired, or an administrator deactivated the account
+        // (code "inactive"). 403 "no_role": the account's role was removed.
+        // Either way the session is over; the login page says why.
+        if (response.status === 401 || response.status === 403) {
+            const code = await AuthService.accessCode(response)
+            if (response.status === 401 || code === 'no_role') {
+                this.clearLocalStorage()
+                window.location.href = code ? `/login?reason=${code}` : '/login'
+                throw new Error(
+                    code === 'inactive'
+                        ? 'Your account has been deactivated.'
+                        : code === 'no_role'
+                          ? 'Your account has no access role.'
+                          : 'Session expired. Please login again.'
+                )
+            }
         }
 
         return response
+    }
+
+    /** The "code" of an access-failure body, read without consuming it. */
+    private static async accessCode(response: Response): Promise<string | null> {
+        try {
+            const body = await response.clone().json()
+            return typeof body?.code === 'string' ? body.code : null
+        } catch {
+            return null
+        }
     }
 } 

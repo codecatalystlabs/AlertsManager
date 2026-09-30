@@ -59,6 +59,8 @@ export interface GeoQuery {
 	responses?: string[];
 	/** Selected verification-outcome buckets (see GEO_OUTCOME_FILTER_OPTIONS); empty/undefined = every outcome. */
 	outcomes?: string[];
+	/** A pipeline stage key (e.g. "alert" = issued alerts), so the map counts what that list holds. */
+	stage?: string;
 }
 
 class GeoFetchError extends Error {
@@ -81,6 +83,7 @@ function buildQuery(q: GeoQuery, extra: Record<string, string> = {}): string {
 		params.set("response", q.responses.join(","));
 	if (q.outcomes && q.outcomes.length)
 		params.set("outcome", q.outcomes.join(","));
+	if (q.stage) params.set("stage", q.stage);
 	for (const [key, value] of Object.entries(extra)) {
 		if (value) params.set(key, value);
 	}

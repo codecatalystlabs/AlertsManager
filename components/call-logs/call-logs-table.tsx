@@ -12,8 +12,9 @@ import {
 } from "@/constants/call-logs";
 import { alertSlaRowClass } from "@/lib/alert-sla";
 import { useTickingNow } from "@/hooks/use-ticking-now";
-import { canDeleteAlerts } from "@/lib/auth";
+import { signalActions } from "@/lib/access";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { type VerificationLevel } from "@/lib/verification-options";
 
 // Table column id <-> API sort_by key. Only the columns the server can sort on
 // are listed; clicking any other header's sort toggle is ignored.
@@ -41,7 +42,7 @@ interface CallLogsTableProps {
 	onPageSizeChange: (pageSize: number) => void;
 	onViewDetails: (alert: AlertLog) => void;
 	onEditAlert: (alert: AlertLog) => void;
-	onVerifyAlert: (alert: AlertLog) => void;
+	onVerifyAlert: (alert: AlertLog, level?: VerificationLevel) => void;
 	onTriageAlert: (alert: AlertLog) => void;
 	onAssessRisk: (alert: AlertLog) => void;
 	onRecordFeedback: (alert: AlertLog) => void;
@@ -86,7 +87,8 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 		showResponse,
 		showVerification,
 	}) => {
-		const canDelete = canDeleteAlerts(useCurrentUser());
+		const user = useCurrentUser();
+		const can = useMemo(() => signalActions(user), [user]);
 		const now = useTickingNow();
 		const callbacks: CallLogsTableCallbacks = useMemo(
 			() => ({
@@ -96,10 +98,10 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 				onTriageAlert,
 				onAssessRisk,
 				onRecordFeedback,
-						onDeleteAlert,
-				canDelete,
+				onDeleteAlert,
+				can,
 			}),
-			[onViewDetails, onEditAlert, onVerifyAlert, onTriageAlert, onAssessRisk, onRecordFeedback, onDeleteAlert, canDelete]
+			[onViewDetails, onEditAlert, onVerifyAlert, onTriageAlert, onAssessRisk, onRecordFeedback, onDeleteAlert, can]
 		);
 
 		const columns = useMemo(

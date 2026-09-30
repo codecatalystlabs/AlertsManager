@@ -1,6 +1,7 @@
 "use client";
 
 import { altCode } from "@/lib/alt-code";
+import { SignalOriginBadge } from "@/components/signal-origin-badge";
 import {
 	Dialog,
 	DialogContent,
@@ -174,6 +175,12 @@ export function AlertDetailsDialog({
 						    into one in conversation. */}
 						{signalTitle(alert, altCode(alert.id))}
 						<SignalStateBadge record={alert} />
+						{/* How it came in — a 6767 signal logged on sync is
+						    the one people most need to tell apart. */}
+						<SignalOriginBadge
+							alertFrom={alert.alertFrom}
+							arrivedAt={alert.forwardedAt || alert.createdAt}
+						/>
 					</DialogTitle>
 					{/* Kept for aria-describedby, not shown: the stage rail below
 					    says where the record stands far better than a sentence
@@ -631,6 +638,56 @@ export function AlertDetailsDialog({
 															: ""}
 													</p>
 												)}
+										</div>
+									)}
+
+									{/* Why it was thrown out, from the fixed list. The
+								    note explains it; this is the countable part. */}
+									<NoteBlock label="Discard Reason" value={alert.discardReason} />
+
+									{/* The second verification level, shown as the handover
+								    it is: who sent it, what they asked for, and — once
+								    the visit has happened — what the field found. Kept
+								    apart from the desk's note above, because a field
+								    visit adds to the record instead of replacing it. */}
+									{(alert.escalatedToFieldAt ||
+										alert.fieldVerificationRequest ||
+										alert.fieldVerifiedAt ||
+										alert.fieldVerificationNote) && (
+										<div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5">
+											<p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+												Field Verification
+											</p>
+											{(alert.escalatedToFieldAt || alert.escalatedToFieldBy) && (
+												<p className="mt-1 text-xs text-muted-foreground">
+													Escalated by the desk
+													{alert.escalatedToFieldBy
+														? ` — ${alert.escalatedToFieldBy}`
+														: ""}
+													{alert.escalatedToFieldAt
+														? ` on ${formatDate(alert.escalatedToFieldAt)}`
+														: ""}
+												</p>
+											)}
+											{alert.fieldVerificationRequest && (
+												<p className="mt-1 whitespace-pre-wrap text-sm">
+													Asked to check: {alert.fieldVerificationRequest}
+												</p>
+											)}
+											{alert.fieldVerificationNote && (
+												<p className="mt-1 whitespace-pre-wrap text-sm">
+													{alert.fieldVerificationNote}
+												</p>
+											)}
+											<p className="mt-1 text-xs text-muted-foreground">
+												{alert.fieldVerifiedAt
+													? `Verified in the field${
+															alert.fieldVerifiedBy
+																? ` by ${alert.fieldVerifiedBy}`
+																: ""
+													  } on ${formatDate(alert.fieldVerifiedAt)}`
+													: "Waiting on the field team — no outcome until they answer."}
+											</p>
 										</div>
 									)}
 

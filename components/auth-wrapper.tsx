@@ -6,13 +6,14 @@ import { AuthLoading } from "@/components/auth-loading";
 import { useAuthStatus } from "@/hooks/use-auth-status";
 import { isProtectedRoute, isPublicRoute } from "@/lib/auth-routes";
 import { AuthService } from "@/lib/auth";
-import { userNameParts } from "@/lib/user-name";
+import { firstOpenPath } from "@/lib/access";
 
 interface AuthWrapperProps {
 	children: React.ReactNode;
 }
 
 const REDIRECT_FALLBACK_MS = 1500;
+const SESSION_REFRESH_MS = 60_000;
 
 export function AuthWrapper({ children }: AuthWrapperProps) {
 	const pathname = usePathname();
@@ -44,7 +45,7 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
 		}
 
 		if (isAuthenticated && pathname === "/login") {
-			router.replace("/dashboard");
+			router.replace(firstOpenPath(AuthService.getUser()));
 		}
 	}, [isReady, isAuthenticated, isProtected, pathname, router]);
 
@@ -56,26 +57,35 @@ export function AuthWrapper({ children }: AuthWrapperProps) {
 		};
 	}, []);
 
-	// One-time repair of a stored user that carries no NAME.
+	// Keep the stored account current. What an account may do is decided on
+	// the server and can change at any time (an administrator edits a role,
+	// moves the account to another district, deactivates it), so the copy
+	// /login stored is refreshed from /users/profile on every page load and
+	// whenever the tab regains focus — at most once a minute. The same refresh
+	// heals sessions stored before the login response carried the name fields,
+	// which otherwise recorded the USERNAME as the verifier of a signal.
 	//
-	// The stored object is whatever /login returned and is otherwise refreshed
-	// only when someone opens the Profile page. Logins issued before the name
-	// fields were added to that response left a nameless user sitting in local
-	// storage for the life of the session — and userFullName falls back to the
-	// USERNAME, so those sessions went on recording "bkroland19" as the verifier
-	// of a signal. Healing it here rather than telling everyone to sign out
-	// again matters because the value is written into a permanent record.
-	//
-	// Runs at most once per mount, and only when the name is actually missing,
-	// so a complete profile costs nothing. A failure is deliberately ignored:
-	// the fields stay editable, and a request that did not come back is no
-	// reason to interrupt someone's work.
-	const healedNameRef = useRef(false);
+	// A failure is ignored: a request that did not come back is no reason to
+	// interrupt someone's work, and a revoked account is signed out by the
+	// request wrapper when the API refuses it.
+	const lastRefreshRef = useRef(0);
 	useEffect(() => {
-		if (!isReady || !isAuthenticated || healedNameRef.current) return;
-		if (userNameParts(AuthService.getUser()).length > 0) return;
-		healedNameRef.current = true;
-		void AuthService.fetchUserProfile().catch(() => {});
+		if (!isReady || !isAuthenticated) return;
+		const refresh = () => {
+			if (Date.now() - lastRefreshRef.current < SESSION_REFRESH_MS) return;
+			lastRefreshRef.current = Date.now();
+			void AuthService.fetchUserProfile().catch(() => {});
+		};
+		refresh();
+		const onVisible = () => {
+			if (document.visibilityState === "visible") refresh();
+		};
+		window.addEventListener("focus", refresh);
+		document.addEventListener("visibilitychange", onVisible);
+		return () => {
+			window.removeEventListener("focus", refresh);
+			document.removeEventListener("visibilitychange", onVisible);
+		};
 	}, [isReady, isAuthenticated]);
 
 	if (isPublic) {

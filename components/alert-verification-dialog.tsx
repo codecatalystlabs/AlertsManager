@@ -5,6 +5,13 @@ import { useCallback, useEffect, useState } from "react";
 import { altCode } from "@/lib/alt-code";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
 	Dialog,
@@ -16,30 +23,41 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-	AlertTriangleIcon,
 	CheckCircleIcon,
 	XCircleIcon,
 	Loader2,
+	MapPin,
 	ShieldQuestion,
+	Trash2,
+	TruckIcon,
 } from "lucide-react";
 import { AuthService } from "@/lib/auth";
 import { verifyEidsrMessage } from "@/lib/fetch-eidsr-messages";
 import { verifyEchisAlert, verifyPoeAlert } from "@/lib/fetch-ndw-alerts";
 import { buildEidsrVerifyPayload } from "@/lib/eidsr-verify-payload";
 import {
+	DISCARD_REASONS,
+	DISCARD_REASON_GUIDANCE,
 	VERIFICATION_CONFIRMED,
 	VERIFICATION_DISCARDED,
+	VERIFICATION_ESCALATED_FIELD,
+	VERIFICATION_LEVEL_DESK,
+	VERIFICATION_LEVEL_FIELD,
 	legacyDeskValue,
+	type VerificationLevel,
 	type VerificationOutcome,
 } from "@/lib/verification-options";
+import { formatDate } from "@/lib/format-date";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { userFullName } from "@/lib/user-name";
 import { cn } from "@/lib/utils";
 import { SignalSummaryCard } from "@/components/signal-summary";
+import { alertEntryStatus, alertResponse } from "@/constants";
+import { resolveAlertResponseCode } from "@/lib/resolve-alert-response";
 
 /**
- * Verification — EBS step 3, asked as the two questions it actually is.
+ * Verification — EBS step 3, asked as the one question it actually is.
  *
  * The guideline's verification step answers ONE thing: is this signal a real
  * public-health event? This dialog used to ask forty fields to get there — a
@@ -51,20 +69,32 @@ import { SignalSummaryCard } from "@/components/signal-summary";
  *
  * So the form asks what verification decides, and nothing else:
  *
- *   1. Have you verified this signal?
- *        no  → say why. NOTHING is recorded as an outcome: the signal keeps
- *              its place in the queue and its clock keeps running. An attempt
- *              is not a verification.
- *        yes → question 2.
- *   2. Is this a true signal?
- *        yes → CONFIRMED. It is an event, and goes on to risk assessment.
- *        no  → DISCARDED. Checked and closed, and the reporter is owed
- *              feedback saying so.
+ *   Is this a true signal?
+ *     yes      → CONFIRMED. It is an event, and goes on to risk assessment.
+ *     no       → DISCARDED, with a reason from the list. Closed, and the
+ *                reporter is owed feedback saying so.
+ *     can't tell from here → ESCALATED TO FIELD (desk only).
  *
- * Every branch requires the verifier to describe the decision in their own
- * words. The outcome says what was decided; only the note says what was checked
- * and on what basis, and for a discard it is the sole record of why nobody
- * pursued the signal.
+ * THE SAME QUESTION IS ASKED AT TWO LEVELS. The desk asks it by phone, from
+ * the records, and is the only level allowed to decline to answer: a signal it
+ * cannot settle goes to a field team, which may take days. The field asks it
+ * on site and always concludes, because there is no level beyond it.
+ *
+ * Both levels use THIS dialog, keyed off `level`, because they are the same
+ * question — a second form would be a second definition of verification.
+ * What the level changes: the answers offered (three vs two), whose findings
+ * the note becomes (verification_note vs field_verification_note), and the
+ * handover shown at the top, so a team arriving a week later can see who sent
+ * them and what they were asked to check.
+ *
+ * (It used to open with "Have you verified this signal?", whose "no" branch
+ * saved a reason without an outcome. That question was dropped on request
+ * (2026-09-22): opening this dialog now means a decision is being recorded.)
+ *
+ * The verifier is asked to describe the decision in their own words. The
+ * outcome says what was decided; only the note says what was checked and on
+ * what basis, and for a discard it is the sole record of why nobody pursued
+ * the signal.
  *
  * The case details are NOT gone — they are captured at intake and editable in
  * the alert edit dialog, which is where correcting a case record belongs.
@@ -75,6 +105,12 @@ interface AlertVerificationDialogProps {
 	onClose: () => void;
 	alert: any;
 	onVerificationComplete: () => void;
+	/**
+	 * Which level is answering. Desk by default; "Field" is opened from the
+	 * register row of a signal the desk escalated (or straight from the
+	 * register, for a team already going out) and offers no escalation.
+	 */
+	level?: VerificationLevel;
 	/** When `eidsr`, verifies via POST /eidsr/local/messages/:id/verify (JWT only, no body token). */
 	verificationMode?: "alert" | "eidsr";
 	eidsrMessageId?: number;
@@ -87,7 +123,23 @@ interface AlertVerificationDialogProps {
 	ndwId?: number;
 }
 
-type YesNo = "yes" | "no" | "";
+/**
+ * What the verifier answered. Three branches, not a yes/no: "I cannot tell
+ * from here" is a real answer to the verification question, and the one the
+ * field level exists to receive.
+ */
+type Answer = "" | "confirm" | "discard" | "escalate";
+
+/**
+ * The signal's recorded status, matched to one of the options this dialog
+ * offers. The register also holds legacy values ("Pending", "COMPLETED", a
+ * blank), which the select cannot show — those prefill as empty, and leaving
+ * the field alone leaves the stored status untouched.
+ */
+function entryStatusOf(value: unknown): string {
+	const v = String(value ?? "").trim().toLowerCase();
+	return alertEntryStatus.find((s) => s.name.toLowerCase() === v)?.name ?? "";
+}
 
 /** Local date + time, for the "verifying as … at …" stamp. */
 function nowLabel(): string {
@@ -105,6 +157,7 @@ export function AlertVerificationDialog({
 	onClose,
 	alert,
 	onVerificationComplete,
+	level = VERIFICATION_LEVEL_DESK,
 	verificationMode = "alert",
 	eidsrMessageId,
 	eidsrEventLocalId,
@@ -125,9 +178,21 @@ export function AlertVerificationDialog({
 	const currentUser = useCurrentUser();
 	const currentUserName = userFullName(currentUser);
 
-	const [verified, setVerified] = useState<YesNo>("");
-	const [trueSignal, setTrueSignal] = useState<YesNo>("");
+	const [answer, setAnswer] = useState<Answer>("");
+	// Required on a discard, from the fixed list — the note explains it, the
+	// reason makes discards countable.
+	const [discardReason, setDiscardReason] = useState("");
+	// What the desk is asking the field team to check. Optional, and the first
+	// thing the field verifier sees when they open the signal.
+	const [fieldRequest, setFieldRequest] = useState("");
 	const [note, setNote] = useState("");
+	// Prefilled from the signal — verification is where a status recorded at
+	// intake gets corrected, not re-entered from scratch. Optional: left blank,
+	// no status is sent and the stored one stands.
+	const [status, setStatus] = useState("");
+	// Suspected etiology — what the verifier thinks this is. Also prefilled, and
+	// also optional: "we do not know yet" is a normal answer at verification.
+	const [etiology, setEtiology] = useState("");
 	const [verificationToken, setVerificationToken] = useState("");
 	const [isGeneratingToken, setIsGeneratingToken] = useState(false);
 	const [isVerifying, setIsVerifying] = useState(false);
@@ -163,9 +228,12 @@ export function AlertVerificationDialog({
 	// the verifier has typed.
 	useEffect(() => {
 		if (!isOpen || !alert) return;
-		setVerified("");
-		setTrueSignal("");
+		setAnswer("");
+		setDiscardReason("");
+		setFieldRequest(String(alert.fieldVerificationRequest ?? ""));
 		setNote("");
+		setStatus(entryStatusOf(alert.status));
+		setEtiology(resolveAlertResponseCode(String(alert.response ?? "")));
 		setError(null);
 		setSuccess(null);
 		if (isTokenlessMode) {
@@ -177,31 +245,35 @@ export function AlertVerificationDialog({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [isOpen, alert?.id, isTokenlessMode]);
 
-	/**
-	 * An external signal answering "not verified" has nowhere to record a
-	 * reason: it is not on the alerts register yet, and shadowing the eCHIS /
-	 * POE / 6767 mirror tables to give it one is exactly what we do not do.
-	 * Leaving it alone IS the correct outcome — it stays on its source list.
-	 */
-	const pendingIsNoOp = isTokenlessMode && verified === "no";
+	const isFieldLevel = level === VERIFICATION_LEVEL_FIELD;
 
 	const outcome: VerificationOutcome | "" =
-		verified === "yes"
-			? trueSignal === "yes"
-				? VERIFICATION_CONFIRMED
-				: trueSignal === "no"
-				? VERIFICATION_DISCARDED
-				: ""
+		answer === "confirm"
+			? VERIFICATION_CONFIRMED
+			: answer === "discard"
+			? VERIFICATION_DISCARDED
+			: answer === "escalate"
+			? VERIFICATION_ESCALATED_FIELD
 			: "";
 
-	const answered = verified === "no" || (verified === "yes" && !!outcome);
-	// Required only on the "not verified" branch — there the note IS the record,
-	// because nothing else on the signal says why it is stuck. Once a decision
-	// has been taken the outcome carries it, so the note is supporting detail
-	// and must not block recording the decision.
-	const noteRequired = verified === "no";
+	// The outcome carries the decision, so the note is supporting detail and
+	// must not block recording it. A DISCARD is the exception: it ends the
+	// signal's life, and the reason is what makes a register full of
+	// duplicates distinguishable from one full of hoaxes.
 	const canSubmit =
-		answered && (!noteRequired || note.trim().length > 0) && !isVerifying;
+		!!answer && (answer !== "discard" || !!discardReason) && !isVerifying;
+	/** An answer that SETTLES the question, as opposed to passing it on. */
+	const concluding = answer === "confirm" || answer === "discard";
+
+	/** The handover this signal is already carrying, if the desk escalated it. */
+	const escalation = {
+		at: String(alert?.escalatedToFieldAt ?? ""),
+		by: String(alert?.escalatedToFieldBy ?? ""),
+		request: String(alert?.fieldVerificationRequest ?? ""),
+	};
+	const wasEscalated =
+		!!escalation.at ||
+		String(alert?.verificationOutcome ?? "") === VERIFICATION_ESCALATED_FIELD;
 
 	const submit = async () => {
 		if (!canSubmit) return;
@@ -213,33 +285,17 @@ export function AlertVerificationDialog({
 		const verifiedBy = currentUserName;
 
 		try {
-			// ---- "No, I have not verified this signal" -------------------
-			if (verified === "no") {
-				await AuthService.recordVerificationAttempt(alert.id, {
-					token: verificationToken,
-					verificationPendingReason: trimmedNote,
-					verifiedBy,
-				});
-				setSuccess("Recorded as not yet verified.");
-				toast({
-					title: "Saved — still awaiting verification",
-					description: `${altCode(
-						alert.id
-					)} stays on the Triaged list with its clock running.`,
-					duration: 5000,
-				});
-				setTimeout(() => {
-					onVerificationComplete();
-					onClose();
-				}, 1200);
-				return;
-			}
-
 			// ---- 6767 / eCHIS / POE: verify the signal into alerts --------
 			if (isTokenlessMode) {
 				const payload = buildEidsrVerifyPayload({
+					status,
+					response: etiology,
 					verificationOutcome: outcome,
 					verificationNote: trimmedNote,
+					verificationLevel: level,
+					discardReason: answer === "discard" ? discardReason : "",
+					fieldVerificationRequest:
+						answer === "escalate" ? fieldRequest.trim() : "",
 					deskVerificationActions: legacyDeskValue(outcome, []),
 					verifiedBy,
 					verificationDate: new Date().toISOString(),
@@ -264,10 +320,16 @@ export function AlertVerificationDialog({
 					alertId = result.alertId || null;
 				}
 
-				setSuccess("Verified into alerts successfully.");
+				setSuccess(
+					answer === "escalate"
+						? "Escalated for field verification."
+						: "Verified into alerts successfully."
+				);
 				toast({
 					title:
-						outcome === VERIFICATION_CONFIRMED
+						answer === "escalate"
+							? "Sent for field verification"
+							: outcome === VERIFICATION_CONFIRMED
 							? "Confirmed as an event"
 							: "Discarded",
 					description:
@@ -285,27 +347,52 @@ export function AlertVerificationDialog({
 
 			// ---- A signal already on the register -------------------------
 			const now = new Date();
+			const escalating = answer === "escalate";
 			await AuthService.verifyAlert(alert.id, {
 				token: verificationToken,
+				// "The verifier answered the form", not "the signal is
+				// verified": the server decides what an escalation means for
+				// is_verified. It is what makes the outcome and the discard
+				// reason mandatory server-side.
 				verified: true,
 				verificationOutcome: outcome,
 				verificationNote: trimmedNote,
-				verificationDate: now.toISOString(),
-				verificationTime: now.toISOString(),
+				verificationLevel: level,
+				discardReason: answer === "discard" ? discardReason : undefined,
+				fieldVerificationRequest: escalating
+					? fieldRequest.trim()
+					: undefined,
+				// Omitted when blank, so an untouched field never overwrites
+				// the status or etiology the signal already carries.
+				status: status || undefined,
+				response: etiology || undefined,
+				// An escalation is not a verification, so it stamps no
+				// verification time — the server keeps the signal unverified
+				// and the field visit supplies the real timestamp.
+				verificationDate: escalating ? undefined : now.toISOString(),
+				verificationTime: escalating ? undefined : now.toISOString(),
 				verifiedBy,
-				isVerified: true,
+				isVerified: !escalating,
 			});
 
-			setSuccess("Verification recorded.");
+			setSuccess(
+				escalating
+					? "Sent for field verification."
+					: "Verification recorded."
+			);
 			toast({
-				title:
-					outcome === VERIFICATION_CONFIRMED
-						? "✅ Confirmed as an event"
-						: "✅ Discarded",
-				description:
-					outcome === VERIFICATION_CONFIRMED
-						? `${altCode(alert.id)} now awaits risk assessment.`
-						: `${altCode(alert.id)} is closed. The reporter is owed feedback.`,
+				title: escalating
+					? "🚩 Sent for field verification"
+					: outcome === VERIFICATION_CONFIRMED
+					? "✅ Confirmed as an event"
+					: "✅ Discarded",
+				description: escalating
+					? `${altCode(
+							alert.id
+					  )} stays in the verification queue, now waiting on a field team.`
+					: outcome === VERIFICATION_CONFIRMED
+					? `${altCode(alert.id)} now awaits risk assessment.`
+					: `${altCode(alert.id)} is closed. The reporter is owed feedback.`,
 				duration: 5000,
 			});
 			setTimeout(() => {
@@ -340,11 +427,14 @@ export function AlertVerificationDialog({
 							? `Verify 6767 SMS #${eidsrMessageId}`
 							: isNdwMode
 							? `Verify ${ndwSource === "echis" ? "eCHIS" : "POE"} signal`
-							: `Verify signal — ${altCode(alert?.id)}`}
+							: isFieldLevel
+							? `Field verification — ${altCode(alert?.id)}`
+							: `Desk verification — ${altCode(alert?.id)}`}
 					</DialogTitle>
 					<DialogDescription>
-						Verification answers one question: is this signal a real
-						public-health event?
+						{isFieldLevel
+							? "The same question, answered on site — and answered for good: there is no level beyond the field."
+							: "Verification answers one question: is this signal a real public-health event?"}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -378,30 +468,41 @@ export function AlertVerificationDialog({
 							{/* What is being adjudicated. Read-only by design. */}
 							<SignalSummaryCard alert={alert} />
 
-							{/* Question 1 */}
-							<QuestionCard
-								step={1}
-								question="Have you verified this signal?"
-								hint="Did you actually check it — with the reporter, the facility, or on site?"
-								value={verified}
-								onChange={(v) => {
-									setVerified(v);
-									setTrueSignal("");
-								}}
-							/>
-
-							{/* Question 2 — only once the first is answered yes. */}
-							{verified === "yes" && (
-								<QuestionCard
-									step={2}
-									question="Is this a true signal?"
-									hint="A true signal is a real or probable public-health event. Confirming it makes it an event."
-									value={trueSignal}
-									onChange={setTrueSignal}
-									yesLabel="Yes — it is a true signal"
-									noLabel="No — it is not"
-								/>
+							{/* The handover, for a team picking this up days
+							    later: who sent them, when, and what they were
+							    asked to check. */}
+							{isFieldLevel && wasEscalated && (
+								<div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+									<p className="font-semibold">
+										Escalated by the desk
+										{escalation.by ? ` — ${escalation.by}` : ""}
+										{escalation.at ? ` on ${formatDate(escalation.at)}` : ""}
+									</p>
+									<p className="mt-1">
+										{escalation.request
+											? `Asked to check: ${escalation.request}`
+											: "No specific instructions were left. Verify the signal as reported."}
+									</p>
+								</div>
 							)}
+
+							<AnswerCard
+								question="Is this a true signal?"
+								hint={
+									isFieldLevel
+										? "What the visit found. A true signal is a real or probable public-health event."
+										: "A true signal is a real or probable public-health event. Confirming it makes it an event."
+								}
+								value={answer}
+								onChange={(next) => {
+									setAnswer(next);
+									if (next !== "discard") setDiscardReason("");
+								}}
+								// The desk may decline to answer; the field may not.
+								// Offering an escalation here would send a signal to
+								// the queue it is already standing in.
+								allowEscalate={!isFieldLevel}
+							/>
 
 							{/* Where the answer leads, shown before it is committed. */}
 							{outcome === VERIFICATION_CONFIRMED && (
@@ -418,44 +519,143 @@ export function AlertVerificationDialog({
 									body="Recorded, never deleted. The reporter is still owed feedback telling them what was found."
 								/>
 							)}
-							{verified === "no" && !pendingIsNoOp && (
+							{answer === "escalate" && (
 								<Consequence
-									tone="pending"
-									title="Not verified yet"
-									body="No outcome is recorded. The signal stays on the Triaged list awaiting verification, and its clock keeps running."
-								/>
-							)}
-							{pendingIsNoOp && (
-								<Consequence
-									tone="pending"
-									title="Nothing to record yet"
-									body={`This signal is not on the alerts register until it is verified, so there is no record to attach a reason to. It stays on the ${
-										isEidsrMode
-											? "6767"
-											: ndwSource === "echis"
-											? "eCHIS"
-											: "POE"
-									} list and can be verified later.`}
+									tone="escalate"
+									title="Sent for field verification"
+									body="No outcome yet — the question stays open until a field team answers it. The signal stays in the verification queue, marked as being with the field team, and can be picked up today or next week."
 								/>
 							)}
 
-							{/* The note. Required only where it is the whole record. */}
-							{answered && !pendingIsNoOp && (
+							{/* Why it is being thrown out. Required, because a
+							    discard is the one conclusion that ends a
+							    signal's life. */}
+							{answer === "discard" && (
+								<div className="space-y-2">
+									<Label htmlFor="discard-reason" className="text-sm font-medium">
+										Why is it being discarded?
+										<span className="ml-1 text-uganda-red">*</span>
+									</Label>
+									<Select value={discardReason} onValueChange={setDiscardReason}>
+										<SelectTrigger id="discard-reason" className="w-full sm:w-96">
+											<SelectValue placeholder="Pick the reason" />
+										</SelectTrigger>
+										<SelectContent>
+											{DISCARD_REASONS.map((reason) => (
+												<SelectItem key={reason} value={reason}>
+													{reason}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+									<p className="text-xs text-muted-foreground">
+										{DISCARD_REASON_GUIDANCE[discardReason] ??
+											"Discards are counted by reason: duplicates point at reporting quality, hoaxes at community trust."}
+									</p>
+								</div>
+							)}
+
+							{/* What the field team is being asked to do. The
+							    first thing they see when they open it. */}
+							{answer === "escalate" && (
+								<div className="space-y-2">
+									<Label htmlFor="field-request" className="text-sm font-medium">
+										What should the field team check?
+										<span className="ml-1 font-normal text-muted-foreground">
+											(optional)
+										</span>
+									</Label>
+									<Textarea
+										id="field-request"
+										value={fieldRequest}
+										onChange={(e) => setFieldRequest(e.target.value)}
+										rows={3}
+										placeholder="e.g. visit the household in Ggaba and confirm whether the two children have the same symptoms; the reporter's phone is off"
+									/>
+									<p className="text-xs text-muted-foreground">
+										Carried with the signal to the field queue, so whoever goes
+										knows what the desk could not settle.
+									</p>
+								</div>
+							)}
+							{/* Status of the person, as it stands at verification.
+							    Offered once a conclusion is picked — an
+							    escalation concludes nothing, and the field
+							    visit is where these get answered. */}
+							{concluding && (
+								<div className="space-y-2">
+									<Label htmlFor="verification-status" className="text-sm font-medium">
+										Status
+										<span className="ml-1 font-normal text-muted-foreground">
+											(optional)
+										</span>
+									</Label>
+									<Select value={status} onValueChange={setStatus}>
+										<SelectTrigger id="verification-status" className="w-full sm:w-64">
+											<SelectValue placeholder="Alive, dead or unknown" />
+										</SelectTrigger>
+										<SelectContent>
+											{alertEntryStatus.map((s) => (
+												<SelectItem key={s.name} value={s.name}>
+													{s.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+									<p className="text-xs text-muted-foreground">
+										Prefilled from the signal. Change it if the person&apos;s
+										status has changed; leave it as it is and the recorded
+										status stands.
+									</p>
+								</div>
+							)}
+
+							{/* Suspected etiology — the same disease taxonomy the
+							    register, the add/edit forms and the reports'
+							    response-type filter use, so a verifier's answer
+							    lands in the bucket those read. */}
+							{concluding && (
+								<div className="space-y-2">
+									<Label htmlFor="verification-etiology" className="text-sm font-medium">
+										Suspected Etiology
+										<span className="ml-1 font-normal text-muted-foreground">
+											(optional)
+										</span>
+									</Label>
+									<Select value={etiology} onValueChange={setEtiology}>
+										<SelectTrigger id="verification-etiology" className="w-full sm:w-96">
+											<SelectValue placeholder="Select the suspected disease" />
+										</SelectTrigger>
+										<SelectContent className="max-h-72">
+											{alertResponse.map((r) => (
+												<SelectItem key={r.code} value={r.code}>
+													{r.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+									<p className="text-xs text-muted-foreground">
+										What the signal is suspected to be. Leave it blank if it is
+										not yet known — it can be set later from the alert record.
+									</p>
+								</div>
+							)}
+
+							{/* The note — supporting detail, never a blocker.
+							    At the field level it is kept SEPARATELY from
+							    the desk's note, so a visit adds to the record
+							    instead of overwriting why it was sent. */}
+							{!!answer && (
 								<div className="space-y-2">
 									<Label htmlFor="verification-note" className="text-sm font-medium">
-										{verified === "no" ? (
-											<>
-												Why has it not been verified?
-												<span className="ml-1 text-uganda-red">*</span>
-											</>
-										) : (
-											<>
-												Describe the decision taken
-												<span className="ml-1 font-normal text-muted-foreground">
-													(optional)
-												</span>
-											</>
-										)}
+										{answer === "escalate"
+											? "What did the desk try?"
+											: isFieldLevel
+											? "What did the visit find?"
+											: "Describe the decision taken"}
+										<span className="ml-1 font-normal text-muted-foreground">
+											(optional)
+										</span>
 									</Label>
 									<Textarea
 										id="verification-note"
@@ -463,16 +663,18 @@ export function AlertVerificationDialog({
 										onChange={(e) => setNote(e.target.value)}
 										rows={4}
 										placeholder={
-											verified === "no"
-												? "e.g. reporter's phone off since yesterday; facility focal person away until Thursday"
+											answer === "escalate"
+												? "e.g. called the reporter twice and the in-charge at the health centre; nobody can say whether the two cases are linked"
 												: outcome === VERIFICATION_DISCARDED
 												? "e.g. spoke to the VHT and the clinician — the two children had malaria confirmed by RDT, no cluster"
+												: isFieldLevel
+												? "e.g. visited the household; three linked cases, onset within four days of each other, samples taken"
 												: "e.g. confirmed by the health centre in-charge; three linked cases in one household, samples taken"
 										}
 									/>
 									<p className="text-xs text-muted-foreground">
-										{noteRequired
-											? "Say what you tried and what is blocking it. This is the only record of why the signal is still open."
+										{answer === "escalate"
+											? "What you already checked, so the field team does not repeat it."
 											: "Say what you checked and who you spoke to — this is the only record of how the decision was reached, but you can record the decision without it."}
 									</p>
 								</div>
@@ -489,9 +691,9 @@ export function AlertVerificationDialog({
 
 				<DialogFooter className="border-t pt-4">
 					<Button variant="outline" onClick={onClose}>
-						{pendingIsNoOp ? "Close" : "Cancel"}
+						Cancel
 					</Button>
-					{ready && !pendingIsNoOp && (
+					{ready && (
 						<Button
 							onClick={submit}
 							disabled={!canSubmit}
@@ -502,8 +704,10 @@ export function AlertVerificationDialog({
 									<Loader2 className="h-4 w-4 animate-spin mr-2" />
 									Saving...
 								</>
-							) : verified === "no" ? (
-								"Save reason"
+							) : answer === "escalate" ? (
+								"Send for field verification"
+							) : isFieldLevel ? (
+								"Record field verification"
 							) : (
 								"Record verification"
 							)}
@@ -515,29 +719,66 @@ export function AlertVerificationDialog({
 	);
 }
 
-/** One yes/no question, asked as two buttons rather than a dropdown. */
-function QuestionCard({
-	step,
+/**
+ * The verification question and the answers to it.
+ *
+ * Stacked cards rather than a row of buttons: the answers are not symmetrical
+ * (one makes an event, one closes a signal, one hands the work to someone
+ * else), and each needs a line saying what it means. They are also not a
+ * dropdown — the whole question is one screen, and a verifier should be able
+ * to see every way out of it without opening anything.
+ */
+function AnswerCard({
 	question,
 	hint,
 	value,
 	onChange,
-	yesLabel = "Yes",
-	noLabel = "No",
+	allowEscalate,
 }: {
-	step: number;
 	question: string;
 	hint: string;
-	value: YesNo;
-	onChange: (value: YesNo) => void;
-	yesLabel?: string;
-	noLabel?: string;
+	value: Answer;
+	onChange: (value: Answer) => void;
+	allowEscalate: boolean;
 }) {
+	const options: {
+		key: Exclude<Answer, "">;
+		label: string;
+		body: string;
+		icon: typeof CheckCircleIcon;
+		selected: string;
+	}[] = [
+		{
+			key: "confirm",
+			label: "Yes — it is a true signal",
+			body: "A real or probable public-health event. It becomes an event and goes for risk assessment.",
+			icon: CheckCircleIcon,
+			selected: "border-success bg-success/10 text-success ring-1 ring-success",
+		},
+		{
+			key: "discard",
+			label: "No — it is not",
+			body: "Checked and found not to be an event. Closed, with a reason, and the reporter is owed feedback.",
+			icon: Trash2,
+			selected:
+				"border-destructive bg-destructive/10 text-destructive ring-1 ring-destructive",
+		},
+	];
+	if (allowEscalate) {
+		options.push({
+			key: "escalate",
+			label: "I cannot tell from here",
+			body: "The desk cannot settle it. Send a field team; the question stays open until they answer.",
+			icon: MapPin,
+			selected: "border-amber-500 bg-amber-50 text-amber-900 ring-1 ring-amber-500",
+		});
+	}
+
 	return (
 		<div className="space-y-2 rounded-lg border p-3">
 			<div className="flex items-start gap-2">
 				<span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-uganda-red text-[11px] font-semibold text-white">
-					{step}
+					1
 				</span>
 				<div>
 					<p className="text-sm font-semibold">
@@ -547,26 +788,32 @@ function QuestionCard({
 					<p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
 				</div>
 			</div>
-			<div className="flex gap-2 pl-7">
-				{(
-					[
-						["yes", yesLabel],
-						["no", noLabel],
-					] as const
-				).map(([key, label]) => (
+			<div className="space-y-1.5 pl-7">
+				{options.map((option) => (
 					<button
-						key={key}
+						key={option.key}
 						type="button"
-						aria-pressed={value === key}
-						onClick={() => onChange(key)}
+						aria-pressed={value === option.key}
+						onClick={() => onChange(option.key)}
 						className={cn(
-							"rounded-md border px-4 py-1.5 text-sm font-medium transition-colors",
-							value === key
-								? "border-uganda-red bg-uganda-red/10 text-uganda-red ring-1 ring-uganda-red"
+							"flex w-full items-start gap-2 rounded-md border px-3 py-2 text-left transition-colors",
+							value === option.key
+								? option.selected
 								: "border-gray-200 hover:bg-gray-50"
 						)}
 					>
-						{label}
+						<option.icon className="mt-0.5 h-4 w-4 shrink-0" />
+						<span className="space-y-0.5">
+							<span className="block text-sm font-medium">{option.label}</span>
+							<span
+								className={cn(
+									"block text-xs",
+									value === option.key ? "opacity-90" : "text-muted-foreground"
+								)}
+							>
+								{option.body}
+							</span>
+						</span>
 					</button>
 				))}
 			</div>
@@ -580,7 +827,7 @@ function Consequence({
 	title,
 	body,
 }: {
-	tone: "confirm" | "discard" | "pending";
+	tone: "confirm" | "discard" | "escalate";
 	title: string;
 	body: string;
 }) {
@@ -589,7 +836,7 @@ function Consequence({
 			? CheckCircleIcon
 			: tone === "discard"
 			? XCircleIcon
-			: AlertTriangleIcon;
+			: TruckIcon;
 
 	return (
 		<div
@@ -597,7 +844,7 @@ function Consequence({
 				"flex items-start gap-3 rounded-lg border p-3 text-xs",
 				tone === "confirm" && "border-success/30 surface-success",
 				tone === "discard" && "border-destructive/30 surface-danger",
-				tone === "pending" && "border-amber-200 bg-amber-50 text-amber-900"
+				tone === "escalate" && "border-amber-200 bg-amber-50 text-amber-900"
 			)}
 		>
 			<Icon className="mt-0.5 h-4 w-4 shrink-0" />

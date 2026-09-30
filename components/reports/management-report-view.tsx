@@ -32,6 +32,7 @@ import type {
 import type { GeoFeatureCollection } from "@/lib/fetch-geo";
 import {
 	formatReportRange,
+	MANAGEMENT_CASCADE_STAGES,
 	renderDistrictChoropleth,
 	scopeColumns,
 } from "@/lib/management-report-pptx";
@@ -79,16 +80,7 @@ const ALERTS_COLOR = "#ca8a04";
 const VHF_STACK_COLOR = "#2a78d6";
 const OTHER_STACK_COLOR = "#eb6834";
 
-const CASCADE_STAGES: { key: keyof ManagementScope["cascade"][string]; label: string }[] = [
-	{ key: "signals", label: "Signals" },
-	{ key: "signalsVerified", label: "Signals verified" },
-	{ key: "alerts", label: "Alerts" },
-	{ key: "sampleCollected", label: "Sample Collected" },
-	{ key: "fieldCaseVerification", label: "Field Case Verification" },
-	{ key: "sdb", label: "SDB" },
-	{ key: "rrtDeployment", label: "RRT deployment" },
-	{ key: "ems", label: "EMS" },
-];
+const CASCADE_STAGES = MANAGEMENT_CASCADE_STAGES;
 
 interface ManagementReportViewProps {
 	report: ManagementReport;
@@ -175,7 +167,7 @@ export function ManagementReportView({
 					title="Other PHEs reported: Alerts"
 					counts={report.otherPhes}
 					color={theme.accent}
-					seriesLabel="Alerts"
+					seriesLabel="Alerts issued"
 				/>
 			)}
 
@@ -390,13 +382,19 @@ function SectionRows({
 /* Signal sources pie (slide 3)                                        */
 /* ------------------------------------------------------------------ */
 
-/** Fold everything beyond the 8 fixed hues into one grey "Other" slice. */
+/**
+ * Fold everything beyond the 8 fixed hues into one grey "Other" slice. A real
+ * "Other" category joins that slice rather than sitting beside it — two
+ * slices both labelled Other read as a bug (and were one, week of 23 Sep).
+ */
 function foldCounts(counts: ManagementCount[], max = 8): ManagementCount[] {
-	if (counts.length <= max) return counts;
-	const kept = counts.slice(0, max - 1);
-	const other = counts
-		.slice(max - 1)
-		.reduce((s, c) => s + c.count, 0);
+	const named = counts.filter((c) => c.label !== "Other");
+	const realOther = counts.filter((c) => c.label === "Other").reduce((s, c) => s + c.count, 0);
+	if (named.length + (realOther > 0 ? 1 : 0) <= max) {
+		return realOther > 0 ? [...named, { label: "Other", count: realOther }] : named;
+	}
+	const kept = named.slice(0, max - 1);
+	const other = named.slice(max - 1).reduce((s, c) => s + c.count, 0) + realOther;
 	return [...kept, { label: "Other", count: other }];
 }
 
@@ -796,7 +794,7 @@ function MapCard({
 
 const trendConfig: ChartConfig = {
 	signals: { label: "Signals", color: SIGNALS_COLOR },
-	alerts: { label: "Alerts", color: ALERTS_COLOR },
+	alerts: { label: "Alerts issued", color: ALERTS_COLOR },
 };
 
 function TrendCard({ report }: { report: ManagementReport }) {

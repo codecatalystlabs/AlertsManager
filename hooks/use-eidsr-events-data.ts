@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { altCode } from "@/lib/alt-code";
 import type { ColumnFiltersState } from "@tanstack/react-table";
 import useSWR from "swr";
 import {
@@ -29,7 +30,6 @@ import {
 	DEFAULT_EIDSR_FORWARD_TAB,
 	type EidsrForwardTab,
 } from "@/components/eidsr-alerts/eidsr-forward-tabs";
-import { isEidsr6767Verified } from "@/lib/eidsr-verified-state";
 import { sourceFilterValues } from "@/lib/source-of-alert";
 import {
 	exportEidsrMessagesToCsv,
@@ -59,6 +59,13 @@ interface UseEidsrEventsDataReturn {
 	error: string | null;
 	syncMessage: string | null;
 	syncProgress: EidsrSyncProgress | null;
+	/**
+	 * When the sync that finished on this page started (ISO). Rows the mirror
+	 * first saw at or after it arrived in that sync — the table marks them.
+	 */
+	lastSyncStartedAt: string | null;
+	/** When the last successful sync finished, per the server (ISO), or null. */
+	lastSyncedAt: string | null;
 	verificationFilter: EidsrLinkFilter;
 	setVerificationFilter: (f: EidsrLinkFilter) => void;
 	/** Which side of the register split the list is showing (server-side). */
@@ -125,21 +132,29 @@ function toEventsApiParams(
 	return params;
 }
 
-/** Human summary of a finished sync, emphasising new records pulled. */
+/**
+ * Human summary of a finished sync. Leads with what the user will act on: how
+ * many new signals arrived and that they are already in Raw Information.
+ */
 function summarizeSync(p: EidsrSyncProgress): string {
-	const mode = p.incremental ? "Incremental sync" : "Full sync";
-	const changes: string[] = [];
-	if (p.imported > 0) changes.push(`${p.imported} new`);
-	if (p.updated > 0) changes.push(`${p.updated} updated`);
-	const what = changes.length ? changes.join(", ") : "no new messages";
-	return `${mode} complete — ${what} (scanned ${p.scanned} of ${p.remoteTotal} remote events).`;
-}
-
-/** Received/created time as a sortable number; unknown/invalid dates sort last. */
-function receivedTimestamp(m: EidsrMessage): number {
-	const raw = m.receivedAt || m.createdAt;
-	const t = raw ? new Date(raw).getTime() : 0;
-	return Number.isNaN(t) ? 0 : t;
+	if (p.imported === 0) {
+		const updated = p.updated > 0 ? ` ${p.updated} updated.` : "";
+		return `No new 6767 signals since the last sync.${updated}`;
+	}
+	const arrived = `${p.imported} new 6767 ${p.imported === 1 ? "signal" : "signals"} — now at the top of the list`;
+	const log = p.autoLog;
+	if (!log?.enabled) {
+		return `${arrived}. Move them into Raw Information from the row menu.`;
+	}
+	if (log.logged === 0) return `${arrived}.`;
+	const range =
+		log.firstAlertId && log.lastAlertId
+			? log.firstAlertId === log.lastAlertId
+				? ` as ${altCode(log.firstAlertId)}`
+				: ` as ${altCode(log.firstAlertId)}–${altCode(log.lastAlertId)}`
+			: "";
+	const all = log.logged === p.imported ? "all" : `${log.logged} of them`;
+	return `${arrived}, ${all} logged into Raw Information${range}, untriaged.`;
 }
 
 /** Stats are supplementary — never let them fail the whole fetch. */
@@ -240,6 +255,10 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 	const [syncProgress, setSyncProgress] = useState<EidsrSyncProgress | null>(
 		null
 	);
+	const [lastSyncStartedAt, setLastSyncStartedAt] = useState<string | null>(
+		null
+	);
+	const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 	// Errors from actions (sync) that aren't part of the SWR fetch lifecycle.
 	const [actionError, setActionError] = useState<string | null>(null);
 
@@ -313,17 +332,11 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 		[page, limit, serverTotal, serverTotalPages]
 	);
 
-	const messages = useMemo(() => {
-		// The server already applied every filter; here we only float pending
-		// (unverified) messages to the top of the current page, newest first
-		// within each group, so new arrivals are easy to spot.
-		return [...allMessages].sort((a, b) => {
-			const byVerified =
-				Number(isEidsr6767Verified(a)) - Number(isEidsr6767Verified(b));
-			if (byVerified !== 0) return byVerified;
-			return receivedTimestamp(b) - receivedTimestamp(a);
-		});
-	}, [allMessages]);
+	// The server's order, untouched: newest SYNC first, newest report first
+	// within a sync. This used to re-sort each page by the reporter's event
+	// date, which sank a just-synced SMS that was sent days earlier below rows
+	// that had been on the page for weeks — the opposite of what a sync is for.
+	const messages = allMessages;
 
 	const setFilters = useCallback((patch: Partial<EidsrAlertsFilterState>) => {
 		setFiltersState((prev) => ({ ...prev, ...patch }));
@@ -376,23 +389,17 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 		await mutate();
 	}, [mutate]);
 
-	const syncFromRemote = useCallback(
-		async (opts?: { fullSync?: boolean }) => {
+	// Poll a sync until it settles, then land the user on what it brought in.
+	// Shared by a sync started here and one already running (started by a
+	// colleague, or before a reload) when the page opens.
+	const watchSync = useCallback(
+		async (initial: EidsrSyncProgress) => {
 			setIsSyncing(true);
-			setSyncMessage(null);
-			setActionError(null);
-			setSyncProgress(null);
+			setSyncProgress(initial);
 			try {
-				// Kick off a background sync (incremental by default) — returns at
-				// once, so the request never hits the proxy/undici timeout that used
-				// to surface as a misleading "could not pull data from EIDSR" error.
-				const start = await syncEidsr6767(opts?.fullSync ?? false);
-				setSyncProgress(start.progress);
-
-				// Poll the live progress until the background sync settles.
 				const deadline = Date.now() + 20 * 60 * 1000; // 20-min safety cap
-				let final: EidsrSyncProgress = start.progress;
-				for (;;) {
+				let final: EidsrSyncProgress = initial;
+				while (final.running) {
 					await new Promise((resolve) => setTimeout(resolve, 1200));
 					// Stop polling once the component has unmounted (navigated away).
 					if (!mountedRef.current) return;
@@ -406,26 +413,74 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 					if (!mountedRef.current) return;
 					setSyncProgress(status);
 					final = status;
-					if (!status.running || Date.now() > deadline) break;
+					if (Date.now() > deadline) break;
 				}
 
 				if (final.phase === "error") {
 					setActionError(final.error || "Failed to sync from EIDSR");
-				} else {
-					setSyncMessage(summarizeSync(final));
-					setPageState(1);
-					await mutate();
+					return;
 				}
-			} catch (err) {
-				setActionError(
-					err instanceof Error ? err.message : "Failed to sync from EIDSR"
-				);
+				setSyncMessage(summarizeSync(final));
+				setLastSyncedAt(final.endedAt ?? new Date().toISOString());
+				if (final.imported > 0) {
+					// The new signals are the point of the sync, so show them: they
+					// are already in Raw Information, which is exactly what the
+					// "Not logged" tab hides.
+					setLastSyncStartedAt(final.startedAt);
+					setForwardFilterState("all");
+				}
+				setPageState(1);
+				await mutate();
 			} finally {
-				setIsSyncing(false);
+				if (mountedRef.current) setIsSyncing(false);
 			}
 		},
 		[mutate]
 	);
+
+	const syncFromRemote = useCallback(
+		async (opts?: { fullSync?: boolean }) => {
+			setIsSyncing(true);
+			setSyncMessage(null);
+			setActionError(null);
+			setSyncProgress(null);
+			try {
+				// Kick off a background sync (incremental by default) — returns at
+				// once, so the request never hits the proxy/undici timeout that used
+				// to surface as a misleading "could not pull data from EIDSR" error.
+				const start = await syncEidsr6767(opts?.fullSync ?? false);
+				await watchSync(start.progress);
+			} catch (err) {
+				setActionError(
+					err instanceof Error ? err.message : "Failed to sync from EIDSR"
+				);
+				setIsSyncing(false);
+			}
+		},
+		[watchSync]
+	);
+
+	// On arrival: when did the last sync finish, and is one running right now?
+	// A sync started elsewhere keeps going on the server, so attach to it
+	// rather than let someone start a second one blind.
+	useEffect(() => {
+		let cancelled = false;
+		void (async () => {
+			try {
+				const status = await getEidsr6767SyncStatus();
+				if (cancelled || !mountedRef.current) return;
+				setLastSyncedAt(status.lastSyncedAt ?? null);
+				if (status.running) await watchSync(status);
+			} catch {
+				// Older API or no EIDSR configured: nothing to show.
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+		// Once per mount; watchSync is stable for the hook's lifetime.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	const loadMessagesForExport = useCallback(async (): Promise<
 		EidsrMessage[]
@@ -578,6 +633,8 @@ export function useEidsrEventsData(): UseEidsrEventsDataReturn {
 		error,
 		syncMessage,
 		syncProgress,
+		lastSyncStartedAt,
+		lastSyncedAt,
 		verificationFilter,
 		setVerificationFilter,
 		forwardFilter,

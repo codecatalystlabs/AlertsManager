@@ -1,24 +1,31 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ErrorAlert } from "@/components/dashboard";
-import {
-	EchisAlertDetailsDialog,
-	EchisAlertsFilters,
-	EchisAlertsTable,
-} from "@/components/echis-alerts";
-import { NdwSyncHeader } from "@/components/ndw-alerts/ndw-sync-header";
-import { NdwFilterBar } from "@/components/ndw-alerts/ndw-filter-bar";
-import { NdwAlertsStats } from "@/components/ndw-alerts/ndw-alerts-stats";
+import { EchisAlertDetailsDialog, EchisAlertsTable } from "@/components/echis-alerts";
+import { NdwPageHeader } from "@/components/ndw-alerts/ndw-page-header";
+import { NdwSegmentTiles } from "@/components/ndw-alerts/ndw-segment-tiles";
+import { NdwQuickFilterBar } from "@/components/ndw-alerts/ndw-quick-filter-bar";
+import { NdwLiveFilterSheet } from "@/components/ndw-alerts/ndw-live-filter-sheet";
+import { NdwEmptyState, NdwLiveBanner } from "@/components/ndw-alerts/ndw-feed-notices";
 import { ForwardToDistrictDialog } from "@/components/forward-to-district-dialog";
-import { SyncProgressPanel } from "@/components/sync";
+import { ndwRegisterAlertId } from "@/components/ndw-alerts/ndw-signals-table";
+import { RawInformationSyncFooter, SyncProgressPanel } from "@/components/sync";
 import { ECHIS_NDW_FILTER_FIELDS } from "@/constants/ndw-filter-fields";
-import { ECHIS_ALERTS_CONFIG } from "@/constants/echis-alerts";
+import {
+	buildEchisChips,
+	buildEchisSegments,
+	ECHIS_ALERTS_CONFIG,
+	ECHIS_MORE_FIELDS,
+} from "@/constants/echis-alerts";
 import { useEchisAlertsData } from "@/hooks/use-echis-alerts-data";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { feedActions } from "@/lib/access";
 import { forwardEchisAlert, type EchisAlertRow } from "@/lib/fetch-ndw-alerts";
 import { echisToAlertShape } from "@/lib/ndw-alert-to-shape";
 import { LAYOUT } from "@/constants/layout";
+import { ORIGIN_ECHIS } from "@/lib/signal-origin";
 
 const AlertVerificationDialog = dynamic(
 	() =>
@@ -32,20 +39,21 @@ export default function EchisAlertsPage() {
 	const {
 		alerts,
 		stats,
-		filters,
+		applied,
+		facets,
+		facetsLoading,
+		segment,
+		setSegment,
 		pagination,
 		loading,
 		isSyncing,
 		error,
 		syncMessage,
 		syncProgress,
-		setSearch,
-		setNdwFilters,
-		setOperators,
+		applyQuickFilters,
+		applyLiveFilters,
+		clearLiveFilters,
 		clearFilters,
-		applyFilters,
-		applyLocalFilters,
-		clearLocalFilters,
 		setColumnFilters,
 		filtersResetKey,
 		setPage,
@@ -53,6 +61,7 @@ export default function EchisAlertsPage() {
 		refetch,
 		syncFromRemote,
 	} = useEchisAlertsData();
+	const actions = feedActions(useCurrentUser(), "echis");
 
 	const [selected, setSelected] = useState<EchisAlertRow | null>(null);
 	const [detailsOpen, setDetailsOpen] = useState(false);
@@ -60,7 +69,14 @@ export default function EchisAlertsPage() {
 	const [forwardOpen, setForwardOpen] = useState(false);
 	const [verifyTarget, setVerifyTarget] = useState<EchisAlertRow | null>(null);
 	const [verifyOpen, setVerifyOpen] = useState(false);
+	const [liveOpen, setLiveOpen] = useState(false);
 	const [isRefreshing, setIsRefreshing] = useState(false);
+
+	const live = stats.live;
+	const filtered = Boolean(applied.search) || Object.keys(applied.local).length > 0;
+	const segments = useMemo(() => buildEchisSegments(facets), [facets]);
+	const chips = useMemo(() => buildEchisChips(facets), [facets]);
+	const activeSegment = segment ? segments.find((s) => s.key === segment) : undefined;
 
 	// Stabilize the prefill shape so the verify dialog isn't handed a brand-new
 	// object on every SWR auto-refresh (belt-and-suspenders alongside the dialog's
@@ -69,6 +85,22 @@ export default function EchisAlertsPage() {
 		() => (verifyTarget ? echisToAlertShape(verifyTarget) : null),
 		[verifyTarget]
 	);
+
+	// Stable so the table's column defs are not rebuilt on every render.
+	const openDetails = useCallback((a: EchisAlertRow) => {
+		setSelected(a);
+		setDetailsOpen(true);
+	}, []);
+	const openForward = useCallback((a: EchisAlertRow) => {
+		setDetailsOpen(false);
+		setForwardTarget(a);
+		setForwardOpen(true);
+	}, []);
+	const openVerify = useCallback((a: EchisAlertRow) => {
+		setDetailsOpen(false);
+		setVerifyTarget(a);
+		setVerifyOpen(true);
+	}, []);
 
 	const handleRefresh = async () => {
 		setIsRefreshing(true);
@@ -81,13 +113,16 @@ export default function EchisAlertsPage() {
 
 	return (
 		<div className={LAYOUT.pageGap}>
-			<NdwSyncHeader
+			<NdwPageHeader
+				feed="echis"
 				title={ECHIS_ALERTS_CONFIG.PAGE_TITLE}
 				description={ECHIS_ALERTS_CONFIG.PAGE_DESCRIPTION}
-				onRefresh={() => void handleRefresh()}
-				onSyncFromRemote={() => void syncFromRemote({ refreshExisting: true })}
-				isRefreshing={isRefreshing}
+				sync={facets?.sync}
 				isSyncing={isSyncing}
+				progress={syncProgress}
+				onSync={() => void syncFromRemote({ refreshExisting: true })}
+				onRefresh={() => void handleRefresh()}
+				isRefreshing={isRefreshing}
 			/>
 
 			{error ? (
@@ -99,36 +134,45 @@ export default function EchisAlertsPage() {
 				isSyncing={isSyncing}
 				progress={syncProgress}
 				summaryMessage={syncMessage}
+				footer={
+					<RawInformationSyncFooter autoLog={syncProgress?.autoLog} origin={ORIGIN_ECHIS}>
+						They are untriaged in Raw Information, flagged{" "}
+						<span className="font-semibold text-emerald-700">eCHIS</span>, each in the district its eCHIS record names; any whose district matches
+					none wait for one to be set at triage.
+					</RawInformationSyncFooter>
+				}
 			/>
 
-			<NdwAlertsStats
-				total={stats.total}
-				filtered={stats.filtered}
-				live={stats.live}
-				note={stats.note}
+			<NdwSegmentTiles
+				segments={segments}
+				active={segment}
+				onSelect={setSegment}
+				isLoading={facetsLoading}
+				disabled={live}
+				className="grid-cols-2 sm:grid-cols-4 2xl:grid-cols-8"
 			/>
 
-			<NdwFilterBar
-				fields={ECHIS_NDW_FILTER_FIELDS}
-				search={filters.search}
-				searchPlaceholder="Search district, facility, VHT, village…"
-				filters={filters.ndwFilters}
-				operators={filters.operators}
-				onSearchChange={setSearch}
-				onFiltersChange={setNdwFilters}
-				onOperatorsChange={setOperators}
-				onApply={() => void applyFilters()}
-				onClear={() => void clearFilters()}
-				isLoading={loading}
-			/>
-
-			<EchisAlertsFilters
-				onApply={applyLocalFilters}
-				onClear={clearLocalFilters}
-				isLoading={loading}
-			/>
+			{live ? (
+				<NdwLiveBanner
+					total={pagination.total}
+					noun="signals"
+					onEdit={() => setLiveOpen(true)}
+					onExit={clearLiveFilters}
+				/>
+			) : (
+				<NdwQuickFilterBar
+					searchPlaceholder="Search district, facility, VHT, village, description…"
+					chips={chips}
+					moreFields={ECHIS_MORE_FIELDS}
+					applied={applied}
+					onApply={applyQuickFilters}
+					onOpenLive={() => setLiveOpen(true)}
+					isLoading={loading}
+				/>
+			)}
 
 			<EchisAlertsTable
+				title={live ? "Live NDW results" : (activeSegment?.label ?? "All signals")}
 				alerts={alerts}
 				totalCount={pagination.total}
 				page={pagination.page}
@@ -139,24 +183,35 @@ export default function EchisAlertsPage() {
 				onPageSizeChange={setPageSize}
 				onColumnFiltersChange={setColumnFilters}
 				filtersResetKey={filtersResetKey}
-				onView={(a) => {
-					setSelected(a);
-					setDetailsOpen(true);
-				}}
-				onForward={(a) => {
-					setForwardTarget(a);
-					setForwardOpen(true);
-				}}
-				onVerify={(a) => {
-					setVerifyTarget(a);
-					setVerifyOpen(true);
-				}}
+				emptyState={
+					<NdwEmptyState
+						noun="signals"
+						segmentLabel={live ? undefined : activeSegment?.label}
+						filtered={filtered || live}
+						onShowAll={() => setSegment("")}
+						onClear={clearFilters}
+					/>
+				}
+				onView={openDetails}
+				onForward={openForward}
+				onVerify={openVerify}
+			/>
+
+			<NdwLiveFilterSheet
+				open={liveOpen}
+				onOpenChange={setLiveOpen}
+				fields={ECHIS_NDW_FILTER_FIELDS}
+				filters={applied.ndwFilters}
+				operators={applied.operators}
+				onApply={applyLiveFilters}
 			/>
 
 			<EchisAlertDetailsDialog
 				alert={selected}
 				open={detailsOpen}
 				onOpenChange={setDetailsOpen}
+				onForward={actions.forward ? openForward : undefined}
+				onVerify={actions.verify ? openVerify : undefined}
 			/>
 
 			<ForwardToDistrictDialog
@@ -165,8 +220,10 @@ export default function EchisAlertsPage() {
 				sourceLabel="eCHIS signal"
 				defaultDistrict={forwardTarget?.district || ""}
 				alreadyForwarded={forwardTarget?.forwardedToDistrict ?? null}
-				onForward={(district, note) =>
-					forwardEchisAlert(forwardTarget!.id, { district, note })
+				allowRepeat
+				registerAlertId={ndwRegisterAlertId(forwardTarget)}
+				onForward={(district, note, again) =>
+					forwardEchisAlert(forwardTarget!.id, { district, note, again })
 				}
 				onForwarded={() => void refetch()}
 			/>

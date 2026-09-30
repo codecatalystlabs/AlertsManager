@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { ErrorAlert } from "@/components/dashboard";
-import { SyncProgressPanel } from "@/components/sync";
+import { RawInformationSyncFooter, SyncProgressPanel } from "@/components/sync";
 import {
 	EidsrAlertsFilters,
 	EidsrAlertsHeader,
@@ -20,6 +20,7 @@ import type { EidsrMessage } from "@/lib/eidsr-message-normalize";
 import { getEidsr6767ById, moveEidsr6767ToRegister } from "@/lib/fetch-eidsr-6767";
 import { useInvalidateAlerts } from "@/hooks/use-invalidate-alerts";
 import { LAYOUT } from "@/constants/layout";
+import { ORIGIN_6767 } from "@/lib/signal-origin";
 import { useToast } from "@/hooks/use-toast";
 
 export default function EidsrAlertsPage() {
@@ -34,6 +35,8 @@ export default function EidsrAlertsPage() {
 		error,
 		syncMessage,
 		syncProgress,
+		lastSyncStartedAt,
+		lastSyncedAt,
 		forwardFilter,
 		setForwardFilter,
 		setFilters,
@@ -125,14 +128,25 @@ export default function EidsrAlertsPage() {
 		(district: string) => {
 			if (selected) {
 				// Stamp the district AND the link so the row shows its new ALT id
-				// straight away; the revalidate then drops it off the "Not moved"
-				// tab, which is where the user is standing.
+				// straight away; the revalidate then drops it off the "Not logged"
+				// tab, if that is where the user is standing.
 				markMessageForwarded(selected.id, district);
 			}
 			void invalidateAlerts();
 			void refetch();
 		},
 		[selected, markMessageForwarded, invalidateAlerts, refetch]
+	);
+
+	// Where a finished sync's signals went. The sync logs them into Raw
+	// Information, so the next move is there — opened on the 6767 ones only.
+	const syncFooter = (
+		<RawInformationSyncFooter autoLog={syncProgress?.autoLog} origin={ORIGIN_6767}>
+			They are untriaged in Raw Information, flagged{" "}
+			<span className="font-semibold text-sky-700">6767 SMS</span>, each with its
+			district read from the reporter&apos;s eIDSR org unit — confirm it at
+			triage.
+		</RawInformationSyncFooter>
 	);
 
 	return (
@@ -145,6 +159,7 @@ export default function EidsrAlertsPage() {
 				isRefreshing={isRefreshing}
 				isSyncing={isSyncing}
 				isExporting={isExporting}
+				lastSyncedAt={lastSyncedAt}
 			/>
 
 			<EidsrMessagesStats
@@ -158,6 +173,7 @@ export default function EidsrAlertsPage() {
 				isSyncing={isSyncing}
 				progress={syncProgress}
 				summaryMessage={syncMessage}
+				footer={syncFooter}
 			/>
 
 			{/* Load errors only — sync failures are surfaced by the panel above
@@ -201,6 +217,7 @@ export default function EidsrAlertsPage() {
 				onView={handleView}
 				onEdit={handleEdit}
 				onMove={handleMove}
+				highlightSince={lastSyncStartedAt}
 			/>
 
 			<EidsrMessageDetailsDialog
@@ -230,10 +247,10 @@ export default function EidsrAlertsPage() {
 				isOpen={moveOpen}
 				onClose={() => setMoveOpen(false)}
 				sourceLabel="6767 signal"
-				title="Move to Signal Register"
-				description="Creates a Signal Register entry for this 6767 signal, with its own alert id, in the district you choose. It lands untriaged, ready to be triaged and verified there."
-				submitLabel="Move to register"
-				successTitle="Signal moved to the register"
+				title="Log into Raw Information"
+				description="New 6767 signals are logged automatically on sync; this one was not (it is older than the auto-log window). Logging it creates a Raw Information entry with its own alert id, in the district you choose, untriaged."
+				submitLabel="Log it"
+				successTitle="Signal logged into Raw Information"
 				alreadyForwarded={selected?.forwardedToDistrict ?? null}
 				reportedLocation={
 					[selected?.village, selected?.alertCaseDistrict]

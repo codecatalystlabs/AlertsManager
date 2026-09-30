@@ -49,6 +49,11 @@ export interface AlertsListParams {
 	status_not?: string;
 	/** Sent as `source_of_alert` — comma-separated list for an IN match. */
 	source?: string;
+	/**
+	 * Which door the signal came in through: "6767" | "echis" | "poe" |
+	 * "direct". See lib/signal-origin.ts.
+	 */
+	origin?: string;
 	/** Free-text search across reporter, case name, contact, CIF, district, id. */
 	search?: string;
 	/** Partial match on the alert id (per-column "Alert ID" filter). */
@@ -145,6 +150,9 @@ function appendAlertFilterParams(
 	}
 	if (params.source) {
 		searchParams.set("source_of_alert", params.source);
+	}
+	if (params.origin) {
+		searchParams.set("origin", params.origin);
 	}
 	if (params.search) {
 		searchParams.set("search", params.search);
@@ -398,4 +406,35 @@ export async function fetchAlertsStats(
 		verified: num(json.verified),
 		pending: num(json.pending),
 	};
+}
+
+/** Signals per origin ("6767", "echis", "poe", "direct"), plus the total. */
+export interface AlertOriginCounts {
+	total: number;
+	origins: Record<string, number>;
+}
+
+/**
+ * GET /api/v1/alerts/origins — how many signals matching the same filters as
+ * the list came in through each door. The server ignores `origin` itself, so
+ * every chip keeps its count while one is selected.
+ */
+export async function fetchAlertOrigins(
+	params: AlertsListParams = {}
+): Promise<AlertOriginCounts> {
+	const apiBase = getClientApiBaseUrl();
+	const searchParams = new URLSearchParams();
+	appendAlertFilterParams(searchParams, params);
+	const query = searchParams.toString();
+	const json = await requestAlerts<Record<string, unknown>>(
+		query ? `${apiBase}/alerts/origins?${query}` : `${apiBase}/alerts/origins`
+	);
+	const origins: Record<string, number> = {};
+	const raw = (json.origins ?? {}) as Record<string, unknown>;
+	for (const [key, value] of Object.entries(raw)) {
+		const n = Number(value);
+		origins[key] = Number.isFinite(n) ? n : 0;
+	}
+	const total = Number(json.total);
+	return { total: Number.isFinite(total) ? total : 0, origins };
 }

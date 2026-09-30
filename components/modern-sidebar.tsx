@@ -1,50 +1,45 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef, useMemo } from 'react';
-import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { AuthService, canManageUsers } from '@/lib/auth';
-import { cn } from '@/lib/utils';
+import { useEffect, useRef, useMemo } from "react";
+import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { accessKnown, canOpen } from "@/lib/access";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard,
-  BellPlus,
-  Siren,
-  UsersRound,
-  Building2,
-  ListTree,
-  X,
-  RadioTower,
-  Headset,
-  CircleUser,
-  FileBarChart,
-  Map as MapIcon,
-  Stethoscope,
-  PlaneLanding,
-  MessageCircleReply,
-  ShieldQuestion,
-  ShieldCheck,
-} from 'lucide-react';
-import { MohLogo } from '@/components/moh-logo';
+	LayoutDashboard,
+	BellPlus,
+	Siren,
+	UsersRound,
+	Building2,
+	ListTree,
+	X,
+	RadioTower,
+	Headset,
+	CircleUser,
+	FileBarChart,
+	Map as MapIcon,
+	Stethoscope,
+	PlaneLanding,
+	MessageCircleReply,
+	ShieldQuestion,
+	ShieldCheck,
+} from "lucide-react";
+import { MohLogo } from "@/components/moh-logo";
 
 interface NavigationItem {
-  name: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  badge?: string | null;
-  /**
-   * Only shown to users who can manage other users (Admin). EOC is excluded —
-   * it has admin-like alert rights but no user management. The backend also
-   * enforces these routes (403), so this is UX, not the security boundary.
-   */
-  adminOnly?: boolean;
+	name: string;
+	href: string;
+	icon: React.ComponentType<{ className?: string }>;
+	badge?: string | null;
 }
 
 interface NavigationGroup {
-  label: string;
-  items: NavigationItem[];
+	label: string;
+	items: NavigationItem[];
 }
 
 /**
@@ -58,391 +53,373 @@ interface NavigationGroup {
  * reconciliation, not inboxes.
  */
 const navigationGroups: NavigationGroup[] = [
-  {
-    label: 'Main',
-    items: [
-      { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-      { name: 'Add Alert', href: '/add-alert', icon: BellPlus },
-    ],
-  },
-  {
-    // The pipeline, in guideline order. Step 5 (Alert issued) is absent
-    // because the system cannot record it yet — the pipeline strip shows it
-    // as locked rather than the nav offering a page that does not exist.
-    label: 'Signal Pipeline',
-    items: [
-      {
-        name: 'Signal Register',
-        href: '/dashboard/signal-logs',
-        icon: RadioTower,
-      },
-      // The pipeline's queues as destinations, each named for the state a
-      // signal has REACHED and holding the work due NEXT: "Triaged" is the
-      // forwarded-but-unverified queue (?stage=verification is the gate they
-      // are waiting AT), "Verified" is the confirmed events waiting to be
-      // scored, and "Risk Assessed" is the concluded signals whose reporter
-      // has not been told. Steps 4 and 6 have no entries of their own for
-      // that reason — you cannot score an unverified signal or close a loop
-      // on an unconcluded one, so those queues ARE these entries.
-      {
-        name: 'Triaged',
-        href: '/dashboard/signal-logs?stage=verification',
-        icon: ShieldQuestion,
-      },
-      {
-        name: 'Verified',
-        href: '/dashboard/signal-logs?stage=risk',
-        icon: ShieldCheck,
-      },
-      {
-        name: 'Risk Assessed',
-        href: '/dashboard/signal-logs?stage=feedback',
-        icon: MessageCircleReply,
-      },
-      { name: 'Alerts', href: '/dashboard/alerts', icon: Siren },
-      // NOTE: the "Discarded Events" link was removed from this nav on
-      // request (2026-08-28). The queue itself still exists and is still
-      // reachable at /dashboard/signal-logs?stage=offpipeline — the
-      // guideline's rule is "discard AND record", so those signals are an
-      // archive, not a bin, and nothing about them was deleted.
-    ],
-  },
-  {
-    // Feed inspectors. A signal only enters the pipeline when it is linked
-    // or forwarded from here, which is why these stay reachable.
-    label: 'Sources',
-    items: [
-      { name: '6767 Signals', href: '/dashboard/eidsr-alerts', icon: Headset },
-      {
-        name: 'eCHIS Signals',
-        href: '/dashboard/echis-alerts',
-        icon: Stethoscope,
-      },
-      {
-        name: 'POE Signals',
-        href: '/dashboard/poe-alerts',
-        icon: PlaneLanding,
-      },
-    ],
-  },
-  {
-    label: 'Insights',
-    items: [
-      { name: 'Map', href: '/dashboard/map', icon: MapIcon },
-      {
-        name: 'Summaries / Reports',
-        href: '/dashboard/reports',
-        icon: FileBarChart,
-      },
-    ],
-  },
-  {
-    label: 'Administration',
-    items: [
-      {
-        name: 'Manage Users',
-        href: '/dashboard/users',
-        icon: UsersRound,
-        adminOnly: true,
-      },
-      {
-        name: 'Dropdown Options',
-        href: '/dashboard/dropdown-options',
-        icon: ListTree,
-        adminOnly: true,
-      },
-      // Not adminOnly: everyone signed in may LOOK UP a facility (a
-      // district biostat needs the list for their district). The page hides
-      // its add/edit/delete controls for non-admins, and the API enforces
-      // that independently.
-      {
-        name: 'Health Facilities',
-        href: '/dashboard/facilities',
-        icon: Building2,
-      },
-      { name: 'Profile', href: '/dashboard/profile', icon: CircleUser },
-    ],
-  },
+	{
+		label: "Main",
+		items: [
+			{ name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+			{ name: "Add Alert", href: "/add-alert", icon: BellPlus },
+		],
+	},
+	{
+		// The pipeline, in guideline order. Step 5 (Alert issued) is absent
+		// because the system cannot record it yet — the pipeline strip shows it
+		// as locked rather than the nav offering a page that does not exist.
+		label: "Signal Pipeline",
+		items: [
+			{ name: "Raw Information", href: "/dashboard/signal-logs", icon: RadioTower },
+			// The pipeline's queues as destinations, each named for the state a
+			// signal has REACHED and holding the work due NEXT: "Signal Register
+			// (Triage)" is the forwarded-but-unverified queue (?stage=verification
+			// is the gate they are waiting AT), "Verified" is the confirmed events waiting to be
+			// scored, and "Risk Assessed" is the concluded signals whose reporter
+			// has not been told. Steps 4 and 6 have no entries of their own for
+			// that reason — you cannot score an unverified signal or close a loop
+			// on an unconcluded one, so those queues ARE these entries.
+			{
+				name: "Signal Register (Triage)",
+				href: "/dashboard/signal-logs?stage=verification",
+				icon: ShieldQuestion,
+			},
+			{
+				name: "Verified",
+				href: "/dashboard/signal-logs?stage=risk",
+				icon: ShieldCheck,
+			},
+			{
+				name: "Risk Assessed",
+				href: "/dashboard/signal-logs?stage=feedback",
+				icon: MessageCircleReply,
+			},
+			{ name: "Alerts", href: "/dashboard/alerts", icon: Siren },
+			// NOTE: the "Discarded Events" link was removed from this nav on
+			// request (2026-08-28). The queue itself still exists and is still
+			// reachable at /dashboard/signal-logs?stage=offpipeline — the
+			// guideline's rule is "discard AND record", so those signals are an
+			// archive, not a bin, and nothing about them was deleted.
+		],
+	},
+	{
+		// Feed inspectors. A signal only enters the pipeline when it is linked
+		// or forwarded from here, which is why these stay reachable.
+		label: "Sources",
+		items: [
+			{ name: "6767 Signals", href: "/dashboard/eidsr-alerts", icon: Headset },
+			{ name: "eCHIS Signals", href: "/dashboard/echis-alerts", icon: Stethoscope },
+			{ name: "POE Signals", href: "/dashboard/poe-alerts", icon: PlaneLanding },
+		],
+	},
+	{
+		label: "Insights",
+		items: [
+			{ name: "Map", href: "/dashboard/map", icon: MapIcon },
+			{
+				name: "Summaries / Reports",
+				href: "/dashboard/reports",
+				icon: FileBarChart,
+			},
+		],
+	},
+	{
+		label: "Administration",
+		items: [
+			{ name: "Users & Access", href: "/dashboard/users", icon: UsersRound },
+			{
+				name: "Dropdown Options",
+				href: "/dashboard/dropdown-options",
+				icon: ListTree,
+			},
+			// Everyone signed in may LOOK UP a facility (a district biostat needs
+			// the list for their district); the page hides its add/edit/delete
+			// controls without facilities.manage, and the API enforces that.
+			{
+				name: "Health Facilities",
+				href: "/dashboard/facilities",
+				icon: Building2,
+			},
+			{ name: "Profile", href: "/dashboard/profile", icon: CircleUser },
+		],
+	},
 ];
 
 interface ModernSidebarProps {
-  mobileOpen: boolean;
-  onMobileClose: () => void;
-  collapsed: boolean;
+	mobileOpen: boolean;
+	onMobileClose: () => void;
+	collapsed: boolean;
 }
 
 export function ModernSidebar({
-  mobileOpen,
-  onMobileClose,
-  collapsed,
+	mobileOpen,
+	onMobileClose,
+	collapsed,
 }: ModernSidebarProps) {
-  const pathname = usePathname();
-  // The pipeline queues are the same page under different ?stage= values, so
-  // the active item cannot be decided on pathname alone — without the search
-  // string every queue would highlight "Signal Register".
-  const searchParams = useSearchParams();
-  const currentUrl = useMemo(() => {
-    const query = searchParams?.toString();
-    return query ? `${pathname}?${query}` : pathname;
-  }, [pathname, searchParams]);
-  const mobilePanelRef = useRef<HTMLDivElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
+	const pathname = usePathname();
+	// The pipeline queues are the same page under different ?stage= values, so
+	// the active item cannot be decided on pathname alone — without the search
+	// string every queue would highlight "Raw Information".
+	const searchParams = useSearchParams();
+	const currentUrl = useMemo(() => {
+		const query = searchParams?.toString();
+		return query ? `${pathname}?${query}` : pathname;
+	}, [pathname, searchParams]);
+	const mobilePanelRef = useRef<HTMLDivElement>(null);
+	const closeButtonRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    if (!mobileOpen) return;
 
-    const previousFocus = document.activeElement as HTMLElement | null;
-    closeButtonRef.current?.focus();
+	useEffect(() => {
+		if (!mobileOpen) return;
 
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onMobileClose();
-    };
-    document.addEventListener('keydown', onKeyDown);
-    document.body.style.overflow = 'hidden';
+		const previousFocus = document.activeElement as HTMLElement | null;
+		closeButtonRef.current?.focus();
 
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = '';
-      previousFocus?.focus();
-    };
-  }, [mobileOpen, onMobileClose]);
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") onMobileClose();
+		};
+		document.addEventListener("keydown", onKeyDown);
+		document.body.style.overflow = "hidden";
 
-  const getBadgeValue = (item: NavigationItem): string | null => {
-    return item.badge ?? null;
-  };
+		return () => {
+			document.removeEventListener("keydown", onKeyDown);
+			document.body.style.overflow = "";
+			previousFocus?.focus();
+		};
+	}, [mobileOpen, onMobileClose]);
 
-  const contentProps = {
-    currentUrl,
-    getBadgeValue,
-  };
+	const getBadgeValue = (item: NavigationItem): string | null => {
+		return item.badge ?? null;
+	};
 
-  return (
-    <>
-      {/* Mobile drawer */}
-      <div
-        className={cn(
-          'fixed inset-0 z-50 lg:hidden transition-opacity duration-300',
-          mobileOpen
-            ? 'pointer-events-auto opacity-100'
-            : 'pointer-events-none opacity-0',
-        )}
-        role="dialog"
-        aria-modal="true"
-        aria-hidden={!mobileOpen}
-        aria-label="Navigation menu"
-        id="mobile-sidebar"
-      >
-        <button
-          type="button"
-          className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm"
-          onClick={onMobileClose}
-          aria-label="Close navigation menu"
-          tabIndex={mobileOpen ? 0 : -1}
-        />
-        <div
-          ref={mobilePanelRef}
-          className={cn(
-            'fixed inset-y-0 left-0 flex w-[min(14rem,80vw)] flex-col bg-white shadow-2xl transition-transform duration-300 ease-out',
-            mobileOpen ? 'translate-x-0' : '-translate-x-full',
-          )}
-        >
-          <SidebarContent
-            {...contentProps}
-            collapsed={false}
-            onNavigate={onMobileClose}
-          />
-          <div className="absolute top-3 right-3">
-            <Button
-              ref={closeButtonRef}
-              variant="ghost"
-              size="icon"
-              onClick={onMobileClose}
-              className="h-8 w-8 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-              aria-label="Close navigation menu"
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-      </div>
+	const contentProps = {
+		currentUrl,
+		getBadgeValue,
+	};
 
-      {/* Desktop sidebar */}
-      <aside
-        id="desktop-sidebar"
-        className={cn(
-          'hidden lg:fixed lg:inset-y-0 lg:z-30 lg:flex lg:flex-col transition-[width] duration-300 ease-in-out',
-          collapsed ? 'lg:w-14' : 'lg:w-56',
-        )}
-        aria-label="Main navigation"
-      >
-        <SidebarContent {...contentProps} collapsed={collapsed} />
-      </aside>
-    </>
-  );
+	return (
+		<>
+			{/* Mobile drawer */}
+			<div
+				className={cn(
+					"fixed inset-0 z-50 lg:hidden transition-opacity duration-300",
+					mobileOpen
+						? "pointer-events-auto opacity-100"
+						: "pointer-events-none opacity-0"
+				)}
+				role="dialog"
+				aria-modal="true"
+				aria-hidden={!mobileOpen}
+				aria-label="Navigation menu"
+				id="mobile-sidebar"
+			>
+				<button
+					type="button"
+					className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm"
+					onClick={onMobileClose}
+					aria-label="Close navigation menu"
+					tabIndex={mobileOpen ? 0 : -1}
+				/>
+				<div
+					ref={mobilePanelRef}
+					className={cn(
+						"fixed inset-y-0 left-0 flex w-[min(14rem,80vw)] flex-col bg-white shadow-2xl transition-transform duration-300 ease-out",
+						mobileOpen ? "translate-x-0" : "-translate-x-full"
+					)}
+				>
+					<SidebarContent {...contentProps} collapsed={false} onNavigate={onMobileClose} />
+					<div className="absolute top-3 right-3">
+						<Button
+							ref={closeButtonRef}
+							variant="ghost"
+							size="icon"
+							onClick={onMobileClose}
+							className="h-8 w-8 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+							aria-label="Close navigation menu"
+						>
+							<X className="h-5 w-5" />
+						</Button>
+					</div>
+				</div>
+			</div>
+
+			{/* Desktop sidebar */}
+			<aside
+				id="desktop-sidebar"
+				className={cn(
+					"hidden lg:fixed lg:inset-y-0 lg:z-30 lg:flex lg:flex-col transition-[width] duration-300 ease-in-out",
+					collapsed ? "lg:w-14" : "lg:w-56"
+				)}
+				aria-label="Main navigation"
+			>
+				<SidebarContent {...contentProps} collapsed={collapsed} />
+			</aside>
+		</>
+	);
 }
 
 function NavLink({
-  item,
-  currentUrl,
-  getBadgeValue,
-  collapsed,
-  onNavigate,
+	item,
+	currentUrl,
+	getBadgeValue,
+	collapsed,
+	onNavigate,
 }: {
-  item: NavigationItem;
-  currentUrl: string;
-  getBadgeValue: (item: NavigationItem) => string | null;
-  collapsed: boolean;
-  onNavigate?: () => void;
+	item: NavigationItem;
+	currentUrl: string;
+	getBadgeValue: (item: NavigationItem) => string | null;
+	collapsed: boolean;
+	onNavigate?: () => void;
 }) {
-  // Exact match including the query, so /signal-logs and
-  // /signal-logs?stage=triage are different destinations — which they are.
-  const isActive = currentUrl === item.href;
-  const badge = getBadgeValue(item);
+	// Exact match including the query, so /signal-logs and
+	// /signal-logs?stage=triage are different destinations — which they are.
+	const isActive = currentUrl === item.href;
+	const badge = getBadgeValue(item);
 
-  return (
-    <Link
-      href={item.href}
-      onClick={onNavigate}
-      title={collapsed ? item.name : undefined}
-      aria-current={isActive ? 'page' : undefined}
-      className={cn(
-        'group relative flex items-center rounded-none text-[13px] leading-tight transition-colors',
-        collapsed ? 'mx-auto h-8 w-8 justify-center' : 'gap-2 px-2 py-1',
-        isActive
-          ? 'bg-uganda-red/10 font-semibold text-uganda-red'
-          : 'font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-      )}
-    >
-      {/* Active accent bar */}
-      {isActive && !collapsed && (
-        <span className="absolute inset-y-0.5 left-0 w-0.5 bg-uganda-red" />
-      )}
-      <item.icon
-        className={cn(
-          'h-4 w-4 shrink-0 transition-colors',
-          isActive
-            ? 'text-uganda-red'
-            : 'text-gray-400 group-hover:text-gray-600',
-        )}
-      />
-      {!collapsed && (
-        <>
-          <span className="truncate">{item.name}</span>
-          {badge && (
-            <Badge
-              variant="secondary"
-              className={cn(
-                'ml-auto h-4 px-1 text-[10px] font-semibold',
-                isActive
-                  ? 'bg-uganda-red/15 text-uganda-red'
-                  : badge === 'New'
-                    ? 'bg-uganda-yellow text-uganda-black'
-                    : 'bg-gray-200 text-gray-700',
-              )}
-            >
-              {badge}
-            </Badge>
-          )}
-        </>
-      )}
-      {collapsed && badge && (
-        <span
-          className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-uganda-red px-1 text-[10px] font-semibold text-white"
-          aria-label={`${item.name}: ${badge}`}
-        >
-          {badge.length > 2 ? '•' : badge}
-        </span>
-      )}
-    </Link>
-  );
+	return (
+		<Link
+			href={item.href}
+			onClick={onNavigate}
+			title={collapsed ? item.name : undefined}
+			aria-current={isActive ? "page" : undefined}
+			className={cn(
+				"group relative flex items-center rounded-none text-[13px] leading-tight transition-colors",
+				collapsed ? "mx-auto h-8 w-8 justify-center" : "gap-2 px-2 py-1",
+				isActive
+					? "bg-uganda-red/10 font-semibold text-uganda-red"
+					: "font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+			)}
+		>
+			{/* Active accent bar */}
+			{isActive && !collapsed && (
+				<span className="absolute inset-y-0.5 left-0 w-0.5 bg-uganda-red" />
+			)}
+			<item.icon
+				className={cn(
+					"h-4 w-4 shrink-0 transition-colors",
+					isActive
+						? "text-uganda-red"
+						: "text-gray-400 group-hover:text-gray-600"
+				)}
+			/>
+			{!collapsed && (
+				<>
+					<span className="truncate">{item.name}</span>
+					{badge && (
+						<Badge
+							variant="secondary"
+							className={cn(
+								"ml-auto h-4 px-1 text-[10px] font-semibold",
+								isActive
+									? "bg-uganda-red/15 text-uganda-red"
+									: badge === "New"
+										? "bg-uganda-yellow text-uganda-black"
+										: "bg-gray-200 text-gray-700"
+							)}
+						>
+							{badge}
+						</Badge>
+					)}
+				</>
+			)}
+			{collapsed && badge && (
+				<span
+					className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-uganda-red px-1 text-[10px] font-semibold text-white"
+					aria-label={`${item.name}: ${badge}`}
+				>
+					{badge.length > 2 ? "•" : badge}
+				</span>
+			)}
+		</Link>
+	);
 }
 
 function SidebarContent({
-  currentUrl,
-  getBadgeValue,
-  collapsed,
-  onNavigate,
+	currentUrl,
+	getBadgeValue,
+	collapsed,
+	onNavigate,
 }: {
-  currentUrl: string;
-  getBadgeValue: (item: NavigationItem) => string | null;
-  collapsed: boolean;
-  onNavigate?: () => void;
+	currentUrl: string;
+	getBadgeValue: (item: NavigationItem) => string | null;
+	collapsed: boolean;
+	onNavigate?: () => void;
 }) {
-  // Role-gated nav: resolved after mount to avoid a hydration mismatch
-  // (localStorage is client-only). The backend independently enforces these
-  // admin-only routes (403), so this is UX, not the security boundary.
-  const [canManage, setCanManage] = useState(false);
-  useEffect(() => {
-    setCanManage(canManageUsers(AuthService.getUser()));
-  }, []);
+	// Each entry shows only if the account may open its page — the same
+	// PAGE_ACCESS table the page guard uses (lib/access.ts), so the rail never
+	// offers a page that would answer "no access". Resolved after mount
+	// (localStorage is client-only) and again whenever the session refreshes;
+	// a session stored by an older release shows the full rail until its
+	// permissions arrive, like the page guard. The API enforces every
+	// permission independently; this is UX.
+	const user = useCurrentUser();
+	const visibleGroups = useMemo(
+		() =>
+			navigationGroups
+				.map((group) => ({
+					...group,
+					items: !user
+						? []
+						: accessKnown(user)
+							? group.items.filter((item) => canOpen(user, item.href))
+							: group.items,
+				}))
+				.filter((group) => group.items.length > 0),
+		[user]
+	);
 
-  const visibleGroups = useMemo(
-    () =>
-      navigationGroups
-        .map((group) => ({
-          ...group,
-          items: group.items.filter((item) => !item.adminOnly || canManage),
-        }))
-        .filter((group) => group.items.length > 0),
-    [canManage],
-  );
+	return (
+		<div className="flex h-full flex-col overflow-hidden border-r border-gray-200 bg-white">
+			{/* Brand header */}
+			<div
+				className={cn(
+					// Same height as the topbar it sits beside (h-12 in the dashboard
+					// layout), so the brand block and the page title share a baseline
+					// instead of the sidebar overhanging it.
+					"flex h-12 shrink-0 items-center border-b border-gray-200",
+					collapsed ? "justify-center px-1.5" : "gap-2 px-2.5"
+				)}
+			>
+				<MohLogo size="sm" className="border-gray-200" />
+				{!collapsed && (
+					<div className="min-w-0">
+						<h1 className="truncate text-sm font-bold leading-tight text-gray-900">
+							HEALTH ALERT
+						</h1>
+						<p className="truncate text-[11px] text-gray-500">
+							Ministry of Health Uganda
+						</p>
+					</div>
+				)}
+			</div>
 
-  return (
-    <div className="flex h-full flex-col overflow-hidden border-r border-gray-200 bg-white">
-      {/* Brand header */}
-      <div
-        className={cn(
-          // Same height as the topbar it sits beside (h-12 in the dashboard
-          // layout), so the brand block and the page title share a baseline
-          // instead of the sidebar overhanging it.
-          'flex h-12 shrink-0 items-center border-b border-gray-200',
-          collapsed ? 'justify-center px-1.5' : 'gap-2 px-2.5',
-        )}
-      >
-        <MohLogo size="sm" className="border-gray-200" />
-        {!collapsed && (
-          <div className="min-w-0">
-            <h1 className="truncate text-sm font-bold leading-tight text-gray-900">
-              HEALTH ALERT
-            </h1>
-            <p className="truncate text-[11px] text-gray-500">
-              Ministry of Health Uganda
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Navigation */}
-      <ScrollArea className="flex-1">
-        <nav
-          className={cn('space-y-3 py-2', collapsed ? 'px-1.5' : 'px-2')}
-          aria-label="Sidebar navigation"
-        >
-          {visibleGroups.map((group, groupIndex) => (
-            <div key={group.label} className="space-y-px">
-              {collapsed ? (
-                groupIndex > 0 && (
-                  <div className="mx-1.5 mb-1.5 border-t border-gray-200" />
-                )
-              ) : (
-                <h3 className="px-2 pb-0.5 text-[10px] font-semibold uppercase leading-none tracking-wider text-gray-400">
-                  {group.label}
-                </h3>
-              )}
-              {group.items.map((item) => (
-                <NavLink
-                  key={item.name}
-                  item={item}
-                  currentUrl={currentUrl}
-                  getBadgeValue={getBadgeValue}
-                  collapsed={collapsed}
-                  onNavigate={onNavigate}
-                />
-              ))}
-            </div>
-          ))}
-        </nav>
-      </ScrollArea>
-    </div>
-  );
+			{/* Navigation */}
+			<ScrollArea className="flex-1">
+				<nav
+					className={cn("space-y-3 py-2", collapsed ? "px-1.5" : "px-2")}
+					aria-label="Sidebar navigation"
+				>
+					{visibleGroups.map((group, groupIndex) => (
+						<div key={group.label} className="space-y-px">
+							{collapsed
+								? groupIndex > 0 && (
+									<div className="mx-1.5 mb-1.5 border-t border-gray-200" />
+								)
+								: (
+									<h3 className="px-2 pb-0.5 text-[10px] font-semibold uppercase leading-none tracking-wider text-gray-400">
+										{group.label}
+									</h3>
+								)}
+							{group.items.map((item) => (
+								<NavLink
+									key={item.name}
+									item={item}
+									currentUrl={currentUrl}
+									getBadgeValue={getBadgeValue}
+									collapsed={collapsed}
+									onNavigate={onNavigate}
+								/>
+							))}
+						</div>
+					))}
+				</nav>
+			</ScrollArea>
+		</div>
+	);
 }

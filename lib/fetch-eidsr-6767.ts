@@ -193,6 +193,8 @@ export async function moveEidsr6767ToRegister(
 	);
 }
 
+export type MoveEidsr6767ToRegisterResult = ForwardEidsr6767Result;
+
 export async function getEidsr6767Stats(
 	messages: EidsrMessage[],
 	eventsTotal?: number

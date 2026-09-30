@@ -4,6 +4,9 @@ import { RefreshCw, CloudDownload } from "lucide-react";
 import { ExcelIcon, CsvIcon } from "@/components/ui/file-type-icons";
 import { EIDSR_ALERTS_CONFIG } from "@/constants/eidsr-alerts";
 import { LAYOUT } from "@/constants/layout";
+import { formatDateTime, formatTimeAgo } from "@/lib/format-date";
+import { can, PERM } from "@/lib/access";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 interface EidsrAlertsHeaderProps {
 	onRefresh: () => void;
@@ -13,6 +16,8 @@ interface EidsrAlertsHeaderProps {
 	isRefreshing?: boolean;
 	isSyncing?: boolean;
 	isExporting?: boolean;
+	/** When the last successful sync finished (ISO), if known. */
+	lastSyncedAt?: string | null;
 }
 
 export const EidsrAlertsHeader = memo<EidsrAlertsHeaderProps>(
@@ -24,13 +29,25 @@ export const EidsrAlertsHeader = memo<EidsrAlertsHeaderProps>(
 		isRefreshing = false,
 		isSyncing = false,
 		isExporting = false,
+		lastSyncedAt = null,
 	}) => {
+		const canSync = can(useCurrentUser(), PERM.eidsrSync);
 		return (
 			<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
 				<div>
 					<h1 className={LAYOUT.pageTitle}>{EIDSR_ALERTS_CONFIG.PAGE_TITLE}</h1>
 					<p className={LAYOUT.pageSubtitle}>
 						{EIDSR_ALERTS_CONFIG.PAGE_DESCRIPTION}
+						{lastSyncedAt && (
+							// Whether it is worth syncing now is the first thing to
+							// know on arrival; the exact time is on hover.
+							<span
+								className="ml-1 whitespace-nowrap"
+								title={`Last successful sync: ${formatDateTime(lastSyncedAt)}`}
+							>
+								· Last synced {formatTimeAgo(lastSyncedAt)}
+							</span>
+						)}
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-1.5 justify-end">
@@ -66,17 +83,19 @@ export const EidsrAlertsHeader = memo<EidsrAlertsHeaderProps>(
 						<ExcelIcon className="h-4 w-4" />
 						{isExporting ? "Exporting…" : "Download Excel"}
 					</Button>
-					<Button
-						onClick={onSyncFromRemote}
-						size="sm"
-						className="bg-uganda-red hover:bg-uganda-red/90 gap-1.5 h-8"
-						disabled={isSyncing || isRefreshing}
-					>
-						<CloudDownload
-							className={`h-4 w-4 ${isSyncing ? "animate-pulse" : ""}`}
-						/>
-						{isSyncing ? "Updating…" : "Update 6767 Messages"}
-					</Button>
+					{canSync && (
+						<Button
+							onClick={onSyncFromRemote}
+							size="sm"
+							className="bg-uganda-red hover:bg-uganda-red/90 gap-1.5 h-8"
+							disabled={isSyncing || isRefreshing}
+						>
+							<CloudDownload
+								className={`h-4 w-4 ${isSyncing ? "animate-pulse" : ""}`}
+							/>
+							{isSyncing ? "Updating…" : "Update 6767 Messages"}
+						</Button>
+					)}
 				</div>
 			</div>
 		);

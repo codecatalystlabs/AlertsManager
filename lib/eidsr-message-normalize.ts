@@ -20,6 +20,13 @@ export interface EidsrAlertRef {
 	verifiedBy: string;
 	verificationDate: string;
 	district: string;
+	/**
+	 * How the register row got there: "6767 Sync" (logged automatically when a
+	 * sync imported it) or "6767 Forward" (moved in by hand). "" when unknown.
+	 */
+	alertFrom: string;
+	/** Has the register row been through the triage gate yet. */
+	triaged: boolean;
 }
 
 export interface EidsrMessage {
@@ -121,6 +128,8 @@ export function pickAlertRef(
 						"verification_date"
 					),
 					district: pickString(r, "district"),
+					alertFrom: pickString(r, "alertFrom", "alert_from"),
+					triaged: pickBool(r, "triaged"),
 				};
 			}
 		}

@@ -10,13 +10,16 @@ import {
     type CallLogsFilterState,
 } from '@/constants/call-logs';
 import {
+    fetchAlertOrigins,
     fetchAlertsPage,
     fetchAlertsStats,
+    type AlertOriginCounts,
     type AlertsListParams,
 } from '@/lib/fetch-alerts';
 import { columnFiltersToAlertParams } from '@/lib/alert-column-filters';
-import { stageLabel } from '@/lib/pipeline';
+import { STAGE_PROCESSED, stageLabel } from '@/lib/pipeline';
 import { sourceFilterValues } from '@/lib/source-of-alert';
+import { isSignalOrigin, signalOriginLabel } from '@/lib/signal-origin';
 import { useInvalidateAlerts } from '@/hooks/use-invalidate-alerts';
 
 /** Server-side sort selection for the call-logs list. */
@@ -76,8 +79,22 @@ export interface AlertLog {
     triagedBy?: string | null;
     /** Verification outcome: Confirmed | Discarded | Escalated to Field. */
     verificationOutcome?: string | null;
+    /** The verifier's description of the decision. Mandatory on every conclusion. */
+    verificationNote?: string | null;
     /** Comma-joined response actions taken. */
     responseActions?: string | null;
+    /** Which level reached the outcome: "Desk" | "Field". */
+    verificationLevel?: string | null;
+    /** Why it was discarded, from DISCARD_REASONS. */
+    discardReason?: string | null;
+    /** The desk → field handover: when, by whom, and what was asked for. */
+    escalatedToFieldAt?: string | null;
+    escalatedToFieldBy?: string | null;
+    fieldVerificationRequest?: string | null;
+    /** The field team's own conclusion, kept apart from the desk's. */
+    fieldVerifiedAt?: string | null;
+    fieldVerifiedBy?: string | null;
+    fieldVerificationNote?: string | null;
     /** Risk assessment (EBS step 4). */
     riskLevel?: string | null;
     riskSevere?: boolean | null;
@@ -140,6 +157,8 @@ export interface AlertLog {
     isVerified: boolean;
     verifiedBy: string;
     region: string;
+    /** When it was moved or logged in from a feed; null if logged directly. */
+    forwardedAt?: string | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -162,6 +181,8 @@ interface CallLogsPagination {
 
 interface UseCallLogsDataReturn {
     alerts: AlertLog[];
+    /** Signals per origin in the current view, for the "Came in via" chips. */
+    originCounts: AlertOriginCounts | null;
     filteredAlerts: AlertLog[];
     stats: CallLogsStats;
     filters: CallLogsFilters;
@@ -185,8 +206,14 @@ interface UseCallLogsDataReturn {
     deleteAlert: (alertId: number) => Promise<void>;
     exportToExcel: () => Promise<void>;
     exportToCSV: () => void;
+    /**
+     * "Export All Signals" (offered on the Risk Assessed list): every signal
+     * that has been triaged, verified AND risk-assessed, as the full case
+     * record (Excel), whether or not feedback has been given.
+     */
+    exportProcessedToExcel: () => Promise<void>;
     /** Which export is currently running (drives the header's loading state). */
-    exporting: 'csv' | 'excel' | null;
+    exporting: ExportKind | null;
     clearFilters: () => void;
 }
 
@@ -244,6 +271,11 @@ function toApiParams(
     // Member" for "Community"). Mirrors normalizeSourceOfAlert on the client.
     if (filters.source && filters.source !== 'all') {
         params.source = sourceFilterValues(filters.source).join(',');
+    }
+
+    // Which door the signal came in through (the "Came in via" chips).
+    if (filters.origin && filters.origin !== 'all') {
+        params.origin = filters.origin;
     }
 
     // Free-text search now runs server-side (scans the whole dataset, not just
@@ -395,11 +427,46 @@ function buildExportFilterTokens(filters: CallLogsFilters): string[] {
         tokens.push(filters.verification);
     }
     if (filters.source && filters.source !== 'all') tokens.push(filters.source);
+    if (isSignalOrigin(filters.origin)) tokens.push(signalOriginLabel(filters.origin));
     if (filters.sex && filters.sex !== 'all') tokens.push(filters.sex);
     if (filters.ageMin || filters.ageMax) {
         tokens.push(`age${filters.ageMin || '0'}-${filters.ageMax || 'max'}`);
     }
     return tokens;
+}
+
+/** The downloads the header offers; drives its button spinners. */
+export type ExportKind = 'csv' | 'excel' | 'processed';
+
+// Walk every page of one query. A single huge `limit` is unreliable because
+// the backend caps page size (this is why exports were silently truncated to
+// ~9 days). Page through until done.
+const EXPORT_PAGE_LIMIT = 500;
+const MAX_EXPORT_PAGES = 200; // safety cap → up to 100k rows
+
+async function collectExportRows(
+    paramsForPage: (page: number) => AlertsListParams
+): Promise<AlertLog[]> {
+    const fetchExportPage = (targetPage: number) =>
+        fetchAlertsPage(paramsForPage(targetPage));
+
+    const first = await fetchExportPage(1);
+    const collected: AlertLog[] = [...(first.data as AlertLog[])];
+
+    const lastPage = Math.min(Math.max(first.totalPages, 1), MAX_EXPORT_PAGES);
+
+    if (lastPage > 1) {
+        const rest = await Promise.all(
+            Array.from({ length: lastPage - 1 }, (_, index) =>
+                fetchExportPage(index + 2)
+            )
+        );
+        for (const pageResult of rest) {
+            collected.push(...(pageResult.data as AlertLog[]));
+        }
+    }
+
+    return collected;
 }
 
 async function fetchCallLogsPage(
@@ -435,7 +502,7 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
     const [filtersResetKey, setFiltersResetKey] = useState(0);
     const [page, setPageState] = useState(1);
     const [limit, setLimitState] = useState<number>(CALL_LOGS_CONFIG.ITEMS_PER_PAGE);
-    const [exporting, setExporting] = useState<'csv' | 'excel' | null>(null);
+    const [exporting, setExporting] = useState<ExportKind | null>(null);
 
     const filtersRef = useRef(filters);
     filtersRef.current = filters;
@@ -468,6 +535,24 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         { keepPreviousData: true }
     );
 
+    // Counts for the "Came in via" chips: the current view with every filter
+    // EXCEPT origin (the server ignores it), so each chip keeps its number
+    // while another is selected. Keyed without origin for the same reason —
+    // switching chips must not refetch the counts.
+    const originScope = useMemo(
+        () => ({ ...filters, origin: 'all' }),
+        [filters]
+    );
+    const { data: originCounts } = useSWR(
+        ['alerts', 'call-logs-origins', originScope, columnFilters] as const,
+        ([, , currentFilters, currentColumnFilters]) =>
+            fetchAlertOrigins({
+                ...toApiParams(currentFilters, 1, 1),
+                ...columnFiltersToAlertParams(currentColumnFilters),
+            }),
+        { keepPreviousData: true }
+    );
+
     const alerts = useMemo(() => (data?.data ?? []) as AlertLog[], [data]);
 
     const pagination: CallLogsPagination = {
@@ -483,39 +568,43 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
             : 'Failed to fetch signal logs'
         : null;
 
+    // The current view, exactly as the table shows it: tab, filter bar and
+    // per-column header filters.
     const loadAlertsForExport = useCallback(async (): Promise<AlertLog[]> => {
-        // Walk every page in the selected range. A single huge `limit` is
-        // unreliable because the backend caps page size (this is why exports
-        // were silently truncated to ~9 days). Page through until done.
-        const EXPORT_PAGE_LIMIT = 500;
-        const MAX_EXPORT_PAGES = 200; // safety cap → up to 100k rows
-
-        const fetchExportPage = (targetPage: number) =>
-            fetchAlertsPage({
-                ...toApiParams(filtersRef.current, targetPage, EXPORT_PAGE_LIMIT, {
-                    sort: sortRef.current,
-                }),
-                ...columnFiltersToAlertParams(columnFiltersRef.current),
-            });
-
-        const first = await fetchExportPage(1);
-        const collected: AlertLog[] = [...(first.data as AlertLog[])];
-
-        const lastPage = Math.min(Math.max(first.totalPages, 1), MAX_EXPORT_PAGES);
-
-        if (lastPage > 1) {
-            const rest = await Promise.all(
-                Array.from({ length: lastPage - 1 }, (_, index) =>
-                    fetchExportPage(index + 2)
-                )
-            );
-            for (const pageResult of rest) {
-                collected.push(...(pageResult.data as AlertLog[]));
-            }
-        }
-
-        return applyClientFilters(collected, filtersRef.current);
+        const rows = await collectExportRows((targetPage) => ({
+            ...toApiParams(filtersRef.current, targetPage, EXPORT_PAGE_LIMIT, {
+                sort: sortRef.current,
+            }),
+            ...columnFiltersToAlertParams(columnFiltersRef.current),
+        }));
+        return applyClientFilters(rows, filtersRef.current);
     }, []);
+
+    // Every signal that has been through all three mandatory gates — triaged,
+    // verified and risk-assessed — whichever tab the page is standing on. The
+    // filter bar's own refinements (date range, geography, status, source,
+    // search…) still apply, because they are visible and deliberate; the tab
+    // (the stage + verification pair the URL owns) and the per-column header
+    // filters do not, because they are the view rather than a selection, and
+    // the point of this download is to leave the view behind.
+    const processedExportFilters = useCallback(
+        (): CallLogsFilters => ({
+            ...filtersRef.current,
+            stage: STAGE_PROCESSED,
+            verification: 'all',
+        }),
+        []
+    );
+
+    const loadProcessedForExport = useCallback(async (): Promise<AlertLog[]> => {
+        const filters = processedExportFilters();
+        const rows = await collectExportRows((targetPage) =>
+            toApiParams(filters, targetPage, EXPORT_PAGE_LIMIT, {
+                sort: sortRef.current,
+            })
+        );
+        return applyClientFilters(rows, filters);
+    }, [processedExportFilters]);
 
     const deleteAlert = useCallback(
         async (alertId: number) => {
@@ -646,12 +735,42 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         }
     }, [loadAlertsForExport, exportPrefix]);
 
+    const exportProcessedToExcel = useCallback(async () => {
+        setExporting('processed');
+        try {
+            const rows = await loadProcessedForExport();
+            // Named by the filter bar only: the stage is the prefix's whole point,
+            // so it is not repeated as a token.
+            const named = { ...processedExportFilters(), stage: '' };
+            const exported = await exportAlertsToExcel(
+                rows,
+                CALL_LOGS_CONFIG.PROCESSED_EXPORT_FILENAME_PREFIX,
+                'Processed Signals',
+                {
+                    range: { from: named.fromDate, to: named.toDate },
+                    tokens: buildExportFilterTokens(named),
+                }
+            );
+            if (!exported) {
+                window.alert(
+                    'No processed signals to export — nothing matching your filters has been triaged, verified and risk-assessed yet.'
+                );
+            }
+        } catch (err) {
+            console.error('Processed-signals export failed:', err);
+            window.alert('Failed to export processed signals. Please try again.');
+        } finally {
+            setExporting(null);
+        }
+    }, [loadProcessedForExport, processedExportFilters]);
+
     const refetch = useCallback(async () => {
         await mutate();
     }, [mutate]);
 
     return {
         alerts,
+        originCounts: originCounts ?? null,
         filteredAlerts,
         stats,
         filters,
@@ -673,6 +792,7 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         deleteAlert,
         exportToExcel,
         exportToCSV,
+        exportProcessedToExcel,
         exporting,
         clearFilters,
     };

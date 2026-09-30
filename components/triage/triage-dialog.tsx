@@ -59,9 +59,10 @@ const API_BASE_URL = getClientApiBaseUrl();
  * (facility) / Annex II (community) list the report matches. That is the one
  * classification triage is in a position to make — someone is already reading
  * the report against the list to answer question 2 — and it is what makes
- * signals countable by type instead of by free text. It is optional, because
- * the guidelines are explicit that the list is a guide and anything unusual is
- * reportable whether or not it appears on it.
+ * signals countable by type instead of by free text. It is REQUIRED to forward
+ * (user's call, 2026-09-29) — a forwarded report with no code is never counted
+ * as a signal anywhere downstream. The exits (discard / log) still do not ask:
+ * nobody verifies those reports, so their Annex line answers nothing.
  */
 export function TriageDialog({
 	open,
@@ -118,7 +119,9 @@ export function TriageDialog({
 	// rather than the triage note — the reason is optional, not the field.
 	const isExit = decision !== null && !continues;
 
-	const canSubmit = decision !== null;
+	// Forwarding needs the signal named; the server enforces the same rule.
+	const signalChosen = normalizeSignalCode(signalCode) !== null;
+	const canSubmit = decision !== null && (!continues || signalChosen);
 
 	const submit = useCallback(async () => {
 		if (!alertId || decision === null || !canSubmit) return;
@@ -214,9 +217,10 @@ export function TriageDialog({
 				{/* One column, read top to bottom: the gate first, then the
 				    naming. Side by side, the signal list sat level with question 1
 				    and read as something to answer before it — but naming the
-				    signal is not a gate, and an operator who has not yet decided
-				    the report is worth verifying has no reason to hunt for its
-				    Annex line. The list only appears on the forward path. */}
+				    signal comes after the gate, and an operator who has not yet
+				    decided the report is worth verifying has no reason to hunt for
+				    its Annex line. The list only appears (and is only required) on
+				    the forward path. */}
 				<div className="space-y-4">
 					{/* What is being triaged, read-only — the same card the
 					    verification dialog opens with. Question 1 asks whether this
@@ -256,6 +260,12 @@ export function TriageDialog({
 					{continues && (
 						<div className="space-y-2 border-t border-gray-100 pt-4">
 							<SignalPicker value={signalCode} onChange={setSignalCode} />
+							{!signalChosen && (
+								<p className="text-[11px] font-medium text-amber-700">
+									Choose the EBS signal this report matches to forward it for
+									verification.
+								</p>
+							)}
 						</div>
 					)}
 

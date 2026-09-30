@@ -113,7 +113,7 @@ export function exportTimeseriesToCsv(
 ): boolean {
 	if (!timeseries?.points?.length) return false;
 
-	const headers = ["Date", "Signals", "Alerts", "Discarded"];
+	const headers = ["Date", "Signals", "Verified, not discarded", "Discarded"];
 	const rows = timeseries.points.map((p) => [
 		p.date,
 		String(p.signals),
@@ -145,7 +145,7 @@ export async function exportTimeseriesToExcel(
 	const sheetData = timeseries.points.map((p) => ({
 		Date: p.date,
 		Signals: p.signals,
-		Alerts: p.alerts,
+		"Verified, not discarded": p.alerts,
 		Discarded: p.discarded ?? 0,
 	}));
 

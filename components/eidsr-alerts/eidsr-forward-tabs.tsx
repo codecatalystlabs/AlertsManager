@@ -2,24 +2,23 @@ import React, { memo } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /**
- * Has this 6767 signal been moved into the Signal Register yet?
+ * Has this 6767 signal been logged into Raw Information yet?
  *
- * This is the page's primary worklist split, not a filter. The 6767 list is
- * where somebody decides which of ~24,000 mirrored SMS signals should enter the
- * EBS pipeline, and a signal that has already been moved has nothing left to
- * decide — leaving it in the list makes the work look larger than it is and
- * invites a second, duplicate forward. So "Not forwarded" IS the list, and the
- * moved ones get a tab of their own where they can still be traced.
+ * Since 2026-09-29 a sync logs every new signal into Raw Information by itself,
+ * so this page is no longer a to-do list of moves — it is the feed, newest sync
+ * first, and the default tab is All so a sync's arrivals are what you see. "Not
+ * logged" is what is left for a person: signals older than the auto-log window
+ * (and history from before it existed), moved in by hand if they still matter.
  *
  * It replaced a second strip that asked linked/unlinked. That was a real second
  * question only while "verify into alerts" was a separate route into the
- * register; now that moving is the one way in, linked and moved are the same
- * answer, and two strips could only disagree.
+ * register; now linked and logged are the same answer, and two strips could
+ * only disagree.
  */
 export type EidsrForwardTab = "not_moved" | "moved" | "all";
 
-/** The list opens on the work that has not been done. */
-export const DEFAULT_EIDSR_FORWARD_TAB: EidsrForwardTab = "not_moved";
+/** The feed, newest sync first — where a sync's arrivals land. */
+export const DEFAULT_EIDSR_FORWARD_TAB: EidsrForwardTab = "all";
 
 interface EidsrForwardTabsProps {
 	value: EidsrForwardTab;
@@ -34,19 +33,19 @@ const FORWARD_TABS: Array<{
 	hint: string;
 }> = [
 	{
-		value: "not_moved",
-		label: "Not moved",
-		hint: "Still to be moved into the Signal Register — this is the work.",
+		value: "all",
+		label: "All",
+		hint: "Every 6767 signal, newest sync first. New signals are logged into Raw Information as they arrive.",
 	},
 	{
 		value: "moved",
-		label: "In the register",
-		hint: "Already in the Signal Register, with the alert id and district each was given.",
+		label: "In Raw Information",
+		hint: "Logged into Raw Information — automatically on sync, or moved in by hand — with the alert id and district each was given.",
 	},
 	{
-		value: "all",
-		label: "All",
-		hint: "Every 6767 signal, moved or not.",
+		value: "not_moved",
+		label: "Not logged",
+		hint: "Not in Raw Information: older signals the sync does not log automatically. Move one in from its row menu if it still matters.",
 	},
 ];
 
@@ -60,7 +59,7 @@ export const EidsrForwardTabs = memo<EidsrForwardTabsProps>(
 	({ value, onChange, count }) => (
 		<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 			<span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-				Signal register
+				Logged into Raw Information?
 				{typeof count === "number" && (
 					<span className="ml-2 font-normal normal-case tracking-normal">
 						{count.toLocaleString()}{" "}

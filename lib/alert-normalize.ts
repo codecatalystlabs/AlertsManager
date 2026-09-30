@@ -63,6 +63,18 @@ export interface ApiAlert {
 	verificationPendingReason?: string | null;
 	verificationAttemptedAt?: string | null;
 	verificationAttemptedBy?: string | null;
+	/** Which level reached the current outcome: "Desk" | "Field". */
+	verificationLevel?: string | null;
+	/** Why it was discarded, from DISCARD_REASONS. */
+	discardReason?: string | null;
+	/** The desk → field handover, and what the field team was asked to check. */
+	escalatedToFieldAt?: string | null;
+	escalatedToFieldBy?: string | null;
+	fieldVerificationRequest?: string | null;
+	/** The field team's own conclusion, kept apart from the desk's. */
+	fieldVerifiedAt?: string | null;
+	fieldVerifiedBy?: string | null;
+	fieldVerificationNote?: string | null;
 	/** Risk assessment (EBS step 4). */
 	riskLevel?: string | null;
 	riskSevere?: boolean | null;
@@ -111,6 +123,11 @@ export interface ApiAlert {
 	verifiedBy?: string;
 	region?: string;
 	caseCode?: string;
+	/**
+	 * When the signal was moved or logged into Raw Information from a feed
+	 * (6767 / eCHIS / PoE). Null for a signal logged directly.
+	 */
+	forwardedAt?: string | null;
 	createdAt?: string;
 	updatedAt?: string;
 }
@@ -251,6 +268,20 @@ export function normalizeAlertFromApi(raw: unknown): ApiAlert {
 		verificationAttemptedBy:
 			str(body.verificationAttemptedBy ?? body.verification_attempted_by) ??
 			null,
+		verificationLevel:
+			str(body.verificationLevel ?? body.verification_level) ?? null,
+		discardReason: str(body.discardReason ?? body.discard_reason) ?? null,
+		escalatedToFieldAt:
+			str(body.escalatedToFieldAt ?? body.escalated_to_field_at) ?? null,
+		escalatedToFieldBy:
+			str(body.escalatedToFieldBy ?? body.escalated_to_field_by) ?? null,
+		fieldVerificationRequest:
+			str(body.fieldVerificationRequest ?? body.field_verification_request) ??
+			null,
+		fieldVerifiedAt: str(body.fieldVerifiedAt ?? body.field_verified_at) ?? null,
+		fieldVerifiedBy: str(body.fieldVerifiedBy ?? body.field_verified_by) ?? null,
+		fieldVerificationNote:
+			str(body.fieldVerificationNote ?? body.field_verification_note) ?? null,
 		riskLevel: str(body.riskLevel ?? body.risk_level) ?? null,
 		riskSevere: boolOrNull(body.riskSevere ?? body.risk_severe),
 		riskSpread: boolOrNull(body.riskSpread ?? body.risk_spread),
@@ -328,6 +359,7 @@ export function normalizeAlertFromApi(raw: unknown): ApiAlert {
 		verifiedBy: str(body.verifiedBy ?? body.verified_by),
 		region: str(body.region),
 		caseCode: str(body.caseCode ?? body.case_code),
+		forwardedAt: str(body.forwardedAt ?? body.forwarded_at) ?? null,
 		createdAt: str(body.createdAt ?? body.created_at),
 		updatedAt: str(body.updatedAt ?? body.updated_at),
 	};

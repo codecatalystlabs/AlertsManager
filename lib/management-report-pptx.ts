@@ -284,9 +284,6 @@ export function scopeColumns(
 		{ header: "Signals", value: (r) => r.signals },
 		{ header: "Discarded", value: (r) => r.discarded },
 	];
-	// Alerts sits AFTER Discarded so the row reads as the funnel actually runs:
-	// signals come in, some are discarded, and what survives is an alert.
-	if (withAlerts) cols.push({ header: "Alerts", value: (r) => r.alerts });
 	cols.push(
 		{ header: "Field Case Verification", value: (r) => r.fieldCaseVerification },
 		{ header: "Sample Collected", value: (r) => r.sampleCollected }
@@ -296,8 +293,33 @@ export function scopeColumns(
 	if (scope.totals.others > 0)
 		cols.push({ header: "Others", value: (r) => r.others });
 	cols.push({ header: "Pending verification", value: (r) => r.pending });
+	// Last and apart from the outcome columns (which sum to Signals): the
+	// alerts ISSUED — confirmed, risk-assessed, reporter told — the same count
+	// as the Alerts page, the dashboard and the regional report.
+	if (withAlerts) cols.push({ header: "Alerts issued", value: (r) => r.alerts });
 	return cols;
 }
+
+/**
+ * The response-cascade stages, in order, shared by the slides, the in-app
+ * view and the PDF/Word document so all three read the same. Verified and
+ * alerts nest (alerts ⊆ verified); the response actions are what verification
+ * recorded, so "Alerts issued" closes the chart rather than sitting between
+ * stages it is not a subset of.
+ */
+export const MANAGEMENT_CASCADE_STAGES: {
+	key: keyof ManagementScope["cascade"][string];
+	label: string;
+}[] = [
+	{ key: "signals", label: "Signals" },
+	{ key: "signalsVerified", label: "Signals verified" },
+	{ key: "sampleCollected", label: "Sample Collected" },
+	{ key: "fieldCaseVerification", label: "Field Case Verification" },
+	{ key: "sdb", label: "SDB" },
+	{ key: "rrtDeployment", label: "RRT deployment" },
+	{ key: "ems", label: "EMS" },
+	{ key: "alerts", label: "Alerts issued" },
+];
 
 function scopeTableRows(
 	scope: ManagementScope,
@@ -412,16 +434,7 @@ function barCascadeSlide(
 ): void {
 	const slide = pptx.addSlide();
 	addTitle(slide, title, pal);
-	const labels = [
-		"Signals",
-		"Signals verified",
-		"Alerts",
-		"Sample Collected",
-		"Field Case Verification",
-		"SDB",
-		"RRT deployment",
-		"EMS",
-	];
+	const labels = MANAGEMENT_CASCADE_STAGES.map((st) => st.label);
 	const data = ["Alive", "Dead", "Unknown"]
 		.filter((s) => scope.cascade?.[s] && scope.cascade[s].signals > 0)
 		.map((s) => {
@@ -429,16 +442,7 @@ function barCascadeSlide(
 			return {
 				name: s,
 				labels,
-				values: [
-					c.signals,
-					c.signalsVerified,
-					c.alerts,
-					c.sampleCollected,
-					c.fieldCaseVerification,
-					c.sdb,
-					c.rrtDeployment,
-					c.ems,
-				],
+				values: MANAGEMENT_CASCADE_STAGES.map((st) => c[st.key]),
 			};
 		});
 	if (!data.length) data.push({ name: "Alive", labels, values: labels.map(() => 0) });
@@ -788,7 +792,7 @@ export async function downloadManagementReportPptx({
 				values: report.trend.map((p) => p.signals),
 			},
 			{
-				name: "Alerts",
+				name: "Alerts issued",
 				labels: report.trend.map((p) => shortDay(p.date)),
 				values: report.trend.map((p) => p.alerts),
 			},

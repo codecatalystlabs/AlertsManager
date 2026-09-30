@@ -10,7 +10,9 @@ import {
 	Check,
 	Edit3,
 	IdCard,
+	KeyRound,
 	Loader2,
+	Lock,
 	Mail,
 	MapPin,
 	Save,
@@ -24,13 +26,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AuthService, type User } from "@/lib/auth";
+import { areaLabel, canAny, isDistrictScoped, isRegionScoped, PERM } from "@/lib/access";
 import {
-	AuthService,
-	isDistrictScopedRole,
-	isRegionScopedRole,
-	type UpdateUserPayload,
-	type User,
-} from "@/lib/auth";
+	AccessApiError,
+	changeMyPassword,
+	fetchPermissionCatalogue,
+	updateMyProfile,
+	type PermissionGroup,
+} from "@/lib/access-api";
+import { groupHeld } from "@/components/access/permission-labels";
+import { FieldError } from "@/components/access/access-bits";
 import { cn } from "@/lib/utils";
 import { userFullName, userInitials } from "@/lib/user-name";
 
@@ -69,19 +75,11 @@ function formatDate(dateString: string): string {
 	});
 }
 
-function getRoleBadgeClass(level: string): string {
-	switch (level.toLowerCase()) {
-		case "admin":
-			return "border-destructive/30 bg-destructive/15 text-destructive";
-		case "district":
-			return "border-border bg-muted text-foreground";
-		case "reoc":
-			return "border-success/30 bg-success/15 text-success";
-		case "eoc":
-			return "border-border bg-muted text-foreground";
-		default:
-			return "border-slate-200 bg-slate-50 text-slate-700";
-	}
+/** The built-in administrator stands out; every other role looks alike. */
+function roleBadgeClass(user: User): string {
+	return user.role?.isSystem || user.isSuperAdmin
+		? "border-destructive/30 bg-destructive/15 text-destructive"
+		: "border-border bg-muted text-foreground";
 }
 
 function ReadOnlyField({
@@ -114,6 +112,7 @@ function EditableField({
 	value,
 	placeholder,
 	type = "text",
+	error,
 	onChange,
 }: {
 	id: keyof ProfileForm;
@@ -121,6 +120,8 @@ function EditableField({
 	value: string;
 	placeholder: string;
 	type?: string;
+	/** The server's message for this field, if it refused it. */
+	error?: string;
 	onChange: (field: keyof ProfileForm, value: string) => void;
 }) {
 	return (
@@ -135,7 +136,9 @@ function EditableField({
 				onChange={(event) => onChange(id, event.target.value)}
 				placeholder={placeholder}
 				className="h-9"
+				aria-invalid={Boolean(error)}
 			/>
+			<FieldError message={error} />
 		</div>
 	);
 }
@@ -148,6 +151,7 @@ export default function ProfilePage() {
 	const [error, setError] = useState<string | null>(null);
 	const [success, setSuccess] = useState<string | null>(null);
 	const [isEditing, setIsEditing] = useState(false);
+	const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
 	useEffect(() => {
 		const fetchUserProfile = async () => {
@@ -201,6 +205,12 @@ export default function ProfilePage() {
 
 	const handleFieldChange = (field: keyof ProfileForm, value: string) => {
 		setForm((current) => ({ ...current, [field]: value }));
+		setFieldErrors((current) => {
+			if (!current[field]) return current;
+			const next = { ...current };
+			delete next[field];
+			return next;
+		});
 		setSuccess(null);
 	};
 
@@ -214,6 +224,7 @@ export default function ProfilePage() {
 	const handleCancel = () => {
 		if (user) setForm(userToForm(user));
 		setIsEditing(false);
+		setFieldErrors({});
 		setSuccess(null);
 	};
 
@@ -222,33 +233,28 @@ export default function ProfilePage() {
 		setSaving(true);
 		setError(null);
 		setSuccess(null);
-
-		const payload: UpdateUserPayload = {
-			username: user.username,
-			firstName: form.firstName,
-			lastName: form.lastName,
-			otherName: form.otherName,
-			email: form.email,
-			affiliation: form.affiliation,
-			userType: user.userType ?? "",
-			level: user.level ?? "",
-			password: "",
-		};
+		setFieldErrors({});
 
 		try {
-			const updatedUser = await AuthService.updateUser(user.id, payload);
+			// Only the caller's own details: username, role, area and user type
+			// are set by an administrator.
+			const updatedUser = await updateMyProfile(form);
 			setUser(updatedUser);
 			setForm(userToForm(updatedUser));
-			AuthService.setUser(updatedUser);
 			setIsEditing(false);
 			setSuccess("Profile updated.");
 		} catch (err) {
 			console.error("Error saving profile:", err);
-			setError(
-				err instanceof Error
-					? err.message
-					: "Failed to save profile changes"
-			);
+			if (err instanceof AccessApiError && Object.keys(err.fields).length) {
+				setFieldErrors(err.fields);
+				setError(err.message);
+			} else {
+				setError(
+					err instanceof Error
+						? err.message
+						: "Failed to save profile changes"
+				);
+			}
 		} finally {
 			setSaving(false);
 		}
@@ -286,7 +292,7 @@ export default function ProfilePage() {
 	}
 
 	const fullName = userFullName(user);
-	const level = user.level || "User";
+	const roleName = user.role?.name || user.level || "No role";
 
 	return (
 		<div className="mx-auto w-full max-w-6xl space-y-4 p-4">
@@ -308,10 +314,10 @@ export default function ProfilePage() {
 									<Badge
 										className={cn(
 											"border",
-											getRoleBadgeClass(level)
+											roleBadgeClass(user)
 										)}
 									>
-										{level}
+										{roleName}
 									</Badge>
 								</div>
 								<p className="mt-1 flex items-center gap-1.5 text-sm text-slate-300">
@@ -429,6 +435,7 @@ export default function ProfilePage() {
 								<>
 									<EditableField
 										id="firstName"
+										error={fieldErrors.firstName}
 										label="First name"
 										value={form.firstName}
 										placeholder="First name"
@@ -436,6 +443,7 @@ export default function ProfilePage() {
 									/>
 									<EditableField
 										id="lastName"
+										error={fieldErrors.lastName}
 										label="Last name"
 										value={form.lastName}
 										placeholder="Last name"
@@ -443,6 +451,7 @@ export default function ProfilePage() {
 									/>
 									<EditableField
 										id="otherName"
+										error={fieldErrors.otherName}
 										label="Other name"
 										value={form.otherName}
 										placeholder="Other name"
@@ -450,6 +459,7 @@ export default function ProfilePage() {
 									/>
 									<EditableField
 										id="email"
+										error={fieldErrors.email}
 										label="Email address"
 										type="email"
 										value={form.email}
@@ -459,6 +469,7 @@ export default function ProfilePage() {
 									<div className="sm:col-span-2">
 										<EditableField
 											id="affiliation"
+											error={fieldErrors.affiliation}
 											label="Affiliation"
 											value={form.affiliation}
 											placeholder="Affiliation"
@@ -502,77 +513,8 @@ export default function ProfilePage() {
 				</Card>
 
 				<div className="space-y-4">
-					<Card className="shadow-sm">
-						<CardContent>
-							<div className="mb-3 flex items-center gap-2">
-								<ShieldCheck className="h-4 w-4 text-success" />
-								<h2 className="text-sm font-semibold text-slate-950">
-									Access Summary
-								</h2>
-							</div>
-							<div className="space-y-3">
-								<div>
-									<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-										Access level
-									</p>
-									<Badge
-										className={cn(
-											"mt-1 border",
-											getRoleBadgeClass(level)
-										)}
-									>
-										{level}
-									</Badge>
-								</div>
-								{isDistrictScopedRole(user) && (
-									<div>
-										<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-											District
-										</p>
-										<p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-slate-900">
-											<MapPin className="h-3.5 w-3.5 text-uganda-red" />
-											{user.district?.trim() ||
-												"Not assigned"}
-										</p>
-									</div>
-								)}
-								{isRegionScopedRole(user) && (
-									<div>
-										<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-											Region
-										</p>
-										<p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-slate-900">
-											<MapPin className="h-3.5 w-3.5 text-uganda-red" />
-											{user.region?.trim() ||
-												"Not assigned"}
-										</p>
-									</div>
-								)}
-								<div>
-									<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-										User type
-									</p>
-									<p className="mt-1 text-sm font-medium text-slate-900">
-										{user.userType || "Not specified"}
-									</p>
-								</div>
-								<div>
-									<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-										Profile completeness
-									</p>
-									<div className="mt-2 h-2 rounded-full bg-slate-100">
-										<div
-											className="h-2 rounded-full bg-success"
-											style={{ width: `${completeness}%` }}
-										/>
-									</div>
-									<p className="mt-1 text-xs text-slate-500">
-										{completeness}% complete
-									</p>
-								</div>
-							</div>
-						</CardContent>
-					</Card>
+					<YourAccessCard user={user} completeness={completeness} />
+					<ChangePasswordCard />
 
 					<Card className="shadow-sm">
 						<CardContent>
@@ -596,5 +538,190 @@ export default function ProfilePage() {
 				</div>
 			</div>
 		</div>
+	);
+}
+
+/**
+ * What this account may do and see: its role, its area and the permissions
+ * the role grants, by name. Role and area are set by an administrator.
+ */
+function YourAccessCard({ user, completeness }: { user: User; completeness: number }) {
+	const [groups, setGroups] = useState<PermissionGroup[] | null>(null);
+	// The catalogue's labels need users.view or roles.manage; everyone else
+	// gets readable fallback labels (components/access/permission-labels.ts).
+	const mayReadCatalogue = canAny(user, PERM.usersView, PERM.rolesManage);
+	useEffect(() => {
+		if (!mayReadCatalogue) return;
+		let cancelled = false;
+		fetchPermissionCatalogue()
+			.then((g) => !cancelled && setGroups(g))
+			.catch(() => {});
+		return () => {
+			cancelled = true;
+		};
+	}, [mayReadCatalogue]);
+
+	const held = useMemo(() => groupHeld(user.permissions ?? [], groups), [user.permissions, groups]);
+	const scoped = isDistrictScoped(user) || isRegionScoped(user);
+
+	return (
+		<Card className="shadow-sm">
+			<CardContent>
+				<div className="mb-3 flex items-center gap-2">
+					<ShieldCheck className="h-4 w-4 text-success" />
+					<h2 className="text-sm font-semibold text-slate-950">Your access</h2>
+				</div>
+				<div className="space-y-3">
+					<div>
+						<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Role</p>
+						<Badge className={cn("mt-1 border", roleBadgeClass(user))}>
+							{user.role?.name || "No role"}
+						</Badge>
+					</div>
+					<div>
+						<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+							{isDistrictScoped(user) ? "District" : isRegionScoped(user) ? "Region" : "Area"}
+						</p>
+						<p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-slate-900">
+							<MapPin className="h-3.5 w-3.5 text-uganda-red" />
+							{areaLabel(user)}
+						</p>
+						{scoped && (
+							<p className="mt-0.5 text-xs text-slate-500">
+								You see signals, feeds and reports for this area only.
+							</p>
+						)}
+					</div>
+					<div>
+						<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+							What you can do
+						</p>
+						{user.isSuperAdmin ? (
+							<p className="mt-1 text-sm text-slate-900">All permissions (built-in administrator)</p>
+						) : held.length === 0 ? (
+							<p className="mt-1 text-sm text-slate-500">No permissions.</p>
+						) : (
+							<dl className="mt-1 space-y-1.5">
+								{held.map((g) => (
+									<div key={g.group}>
+										<dt className="text-xs font-medium text-slate-700">{g.group}</dt>
+										<dd className="text-xs text-slate-500">{g.labels.join(" · ")}</dd>
+									</div>
+								))}
+							</dl>
+						)}
+					</div>
+					<p className="flex items-start gap-1.5 text-xs text-slate-500">
+						<Lock className="mt-0.5 h-3 w-3 shrink-0" />
+						Your username, role, area and user type are set by an administrator.
+					</p>
+					<div>
+						<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">User type</p>
+						<p className="mt-1 text-sm font-medium text-slate-900">{user.userType || "Not specified"}</p>
+					</div>
+					<div>
+						<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+							Profile completeness
+						</p>
+						<div className="mt-2 h-2 rounded-full bg-slate-100">
+							<div className="h-2 rounded-full bg-success" style={{ width: `${completeness}%` }} />
+						</div>
+						<p className="mt-1 text-xs text-slate-500">{completeness}% complete</p>
+					</div>
+				</div>
+			</CardContent>
+		</Card>
+	);
+}
+
+const MIN_PASSWORD = 8;
+
+/** Change one's own password; the current one is required. */
+function ChangePasswordCard() {
+	const [current, setCurrent] = useState("");
+	const [next, setNext] = useState("");
+	const [confirm, setConfirm] = useState("");
+	const [errors, setErrors] = useState<Record<string, string>>({});
+	const [saving, setSaving] = useState(false);
+	const [done, setDone] = useState(false);
+
+	const submit = async () => {
+		const e: Record<string, string> = {};
+		if (!current) e.currentPassword = "Enter your current password";
+		if (next.length < MIN_PASSWORD) e.newPassword = `At least ${MIN_PASSWORD} characters`;
+		else if (next === current) e.newPassword = "Choose a password different from the current one";
+		if (confirm !== next) e.confirm = "The two new passwords do not match";
+		setErrors(e);
+		setDone(false);
+		if (Object.keys(e).length) return;
+
+		setSaving(true);
+		try {
+			await changeMyPassword(current, next);
+			setCurrent("");
+			setNext("");
+			setConfirm("");
+			setDone(true);
+		} catch (err) {
+			if (err instanceof AccessApiError && Object.keys(err.fields).length) setErrors(err.fields);
+			else setErrors({ form: err instanceof Error ? err.message : "Could not change the password" });
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	const field = (id: string, label: string, value: string, set: (v: string) => void, autoComplete: string) => (
+		<div className="space-y-1">
+			<Label htmlFor={id} className="text-xs font-semibold text-slate-700">
+				{label}
+			</Label>
+			<Input
+				id={id}
+				type="password"
+				autoComplete={autoComplete}
+				value={value}
+				onChange={(ev) => {
+					set(ev.target.value);
+					setDone(false);
+				}}
+				className="h-9"
+				aria-invalid={Boolean(errors[id])}
+			/>
+			<FieldError message={errors[id]} />
+		</div>
+	);
+
+	return (
+		<Card className="shadow-sm">
+			<CardContent>
+				<div className="mb-3 flex items-center gap-2">
+					<KeyRound className="h-4 w-4 text-slate-500" />
+					<h2 className="text-sm font-semibold text-slate-950">Change password</h2>
+				</div>
+				<form
+					className="space-y-3"
+					onSubmit={(ev) => {
+						ev.preventDefault();
+						void submit();
+					}}
+				>
+					{field("currentPassword", "Current password", current, setCurrent, "current-password")}
+					{field("newPassword", "New password", next, setNext, "new-password")}
+					{field("confirm", "Confirm new password", confirm, setConfirm, "new-password")}
+					<p className="text-xs text-slate-500">At least {MIN_PASSWORD} characters.</p>
+					<FieldError message={errors.form} />
+					{done && (
+						<p className="flex items-center gap-1.5 text-xs text-success">
+							<Check className="h-3.5 w-3.5" />
+							Password changed.
+						</p>
+					)}
+					<Button type="submit" size="sm" className="w-full" disabled={saving}>
+						{saving && <Loader2 className="h-4 w-4 animate-spin" />}
+						Change password
+					</Button>
+				</form>
+			</CardContent>
+		</Card>
 	);
 }
