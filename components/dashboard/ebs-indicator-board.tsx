@@ -2,6 +2,7 @@
 
 import { memo, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
 	Ambulance,
 	ArrowRight,
@@ -16,6 +17,7 @@ import {
 	Layers,
 	ListChecks,
 	Play,
+	RadioTower,
 	ShieldCheck,
 	Siren,
 	Split,
@@ -181,15 +183,26 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading }) => {
 	const events = i?.events ?? 0;
 	const riskAssessed = i?.eventsRiskAssessed ?? 0;
 	const alerts = i?.alertsReported ?? 0;
-	const open = openWorkTotal(buildSignalFlow(summary?.signalFlow));
+	// Raw Information is the untriaged queue — the sidebar page's default view
+	// (stage=triage) — so the card counts the flow's "awaiting-triage" state.
+	const rawInformation =
+		buildSignalFlow(summary?.signalFlow).find((f) => f.key === "awaiting-triage")
+			?.count ?? 0;
+	// Signals: raw information that triage judged a real signal and forwarded
+	// to verification (the backend also folds legacy priority-only rows in).
+	const signals =
+		summary?.triageOutcomes?.find((o) => o.key === "forwarded_to_verification")
+			?.count ?? 0;
+	const router = useRouter();
 
 	const rows = useMemo(() => buildEbsIndicatorRows(summary), [summary]);
 	const triage = rows.find((r) => r.id === "signals-triaged");
 	const verify = rows.find((r) => r.id === "signals-verified");
+	// The count leads, like every other tile; the rate moves to the caption.
 	const timely = (row: EbsIndicatorRow | undefined) => ({
-		value: row?.rate === null || row?.rate === undefined ? "—" : `${row.rate}%`,
+		value: row ? row.numerator.toLocaleString() : "—",
 		sub: row && row.rateBase
-			? `${row.numerator.toLocaleString()} of ${row.rateBase.toLocaleString()} timed${row.target ? ` · target ${row.target.percent}%` : ""}`
+			? `${row.rate ?? 0}% of ${row.rateBase.toLocaleString()} timed${row.target ? ` · target ${row.target.percent}%` : ""}`
 			: "nothing timed in scope",
 	});
 	const triageTimely = timely(triage);
@@ -197,12 +210,13 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading }) => {
 
 	const cards = [
 		{
-			title: "Signals reported",
-			value: reported.toLocaleString(),
-			sub: open > 0 ? `${open.toLocaleString()} still in a working queue` : "none waiting in a queue",
-			hint: "Every signal on the register in scope. 'Working queue' = awaiting triage, verification, risk assessment or feedback.",
-			icon: Files,
+			title: "Raw Information",
+			value: rawInformation.toLocaleString(),
+			sub: `awaiting triage · of ${reported.toLocaleString()} signals reported`,
+			hint: "Signals in Raw Information: reported, not yet triaged, and nothing downstream has happened to them. Triage is due within 24 hours. Click to open Raw Information.",
+			icon: RadioTower,
 			ink: SKY_INK,
+			onClick: () => router.push("/dashboard/signal-logs"),
 		},
 		{
 			title: "Triaged",
@@ -210,6 +224,14 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading }) => {
 			sub: shareText(triaged, reported, "signals reported"),
 			hint: "Signals through the triage gate — a decision or priority is recorded, whichever exit it took.",
 			icon: ListChecks,
+			ink: AMBER_INK,
+		},
+		{
+			title: "Signals",
+			value: signals.toLocaleString(),
+			sub: shareText(signals, triaged, "triaged"),
+			hint: "Triaged raw information judged to be a real signal and forwarded to verification. Logged and discarded items are not counted.",
+			icon: Workflow,
 			ink: AMBER_INK,
 		},
 		{
@@ -263,7 +285,7 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading }) => {
 	];
 
 	return (
-		<div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+		<div className="grid grid-cols-2 gap-2.5 md:grid-cols-3">
 			{cards.map((c) => (
 				<StatCard
 					key={c.title}
@@ -273,6 +295,7 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading }) => {
 					hint={c.hint}
 					icon={c.icon}
 					ink={c.ink}
+					onClick={"onClick" in c ? c.onClick : undefined}
 					isLoading={isLoading}
 				/>
 			))}
