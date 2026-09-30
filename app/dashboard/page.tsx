@@ -34,12 +34,13 @@ import { EBS_DATA_SOURCE } from "@/lib/ebs-indicators";
  */
 export default function DashboardPage(): React.JSX.Element {
 	const scope = useDashboardScope();
-	const { range, district, region, response, isUnbounded } = scope;
+	const { range, district, region, division, response, isUnbounded } = scope;
 	const { summary, loading, error, refetch } = useDashboardSummary(
 		range,
 		district,
 		region,
-		response
+		response,
+		division
 	);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
@@ -98,6 +99,7 @@ export default function DashboardPage(): React.JSX.Element {
 				...(range.to ? { to_date: range.to } : {}),
 				...(region !== "all" ? { region } : {}),
 				...(district !== "all" ? { district } : {}),
+				...(division !== "all" ? { division } : {}),
 				...(response !== "all" ? { response } : {}),
 			};
 
@@ -129,6 +131,7 @@ export default function DashboardPage(): React.JSX.Element {
 				tokens: [
 					region !== "all" ? region : "",
 					district !== "all" ? district : "",
+					division !== "all" ? division : "",
 					response !== "all" ? response : "",
 				].filter(Boolean),
 			});
@@ -141,7 +144,7 @@ export default function DashboardPage(): React.JSX.Element {
 		} finally {
 			setIsDownloadingExcel(false);
 		}
-	}, [range.from, range.to, region, district, response]);
+	}, [range.from, range.to, region, district, division, response]);
 
 	const isLoading = loading && !summary;
 
