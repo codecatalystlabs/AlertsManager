@@ -241,6 +241,7 @@ export const EidsrMessagesTable = memo<EidsrMessagesTableProps>(
 				</CardHeader>
 				<CardContent>
 					<DataTable
+						id="eidsr-messages"
 						columns={columns}
 						data={messages}
 						enableHeaderFilters

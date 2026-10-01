@@ -127,6 +127,8 @@ export interface FacilityFacets {
 	ownerships: string[];
 	statuses: string[];
 	reportings: string[];
+	/** Divisions/subcounties — empty until a district is picked. */
+	subCounties: string[];
 }
 
 class FacilityApiError extends Error {
@@ -276,6 +278,7 @@ export async function fetchFacilityFacets(
 		ownerships: list(json.ownerships),
 		statuses: list(json.statuses),
 		reportings: list(json.reportings),
+		subCounties: list(json.subCounties),
 	};
 }
 

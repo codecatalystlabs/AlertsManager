@@ -67,6 +67,8 @@ export interface EidsrEventsListParams {
 	disease?: string;
 	/** Substring match on the location/district data value. */
 	district?: string;
+	/** Substring match on the location data value, or the reporter's division. */
+	division?: string;
 	/** Exact (case-insensitive) match on the sex data value. */
 	sex?: string;
 	/** Comma-separated source-of-alert values; matches any (exact, case-insensitive). */
@@ -101,6 +103,7 @@ function buildEventsUrl(apiBase: string, params?: EidsrEventsListParams): string
 	if (params?.search) searchParams.set("search", params.search);
 	if (params?.disease) searchParams.set("disease", params.disease);
 	if (params?.district) searchParams.set("district", params.district);
+	if (params?.division) searchParams.set("division", params.division);
 	if (params?.sex) searchParams.set("sex", params.sex);
 	if (params?.source) searchParams.set("source", params.source);
 	const query = searchParams.toString();

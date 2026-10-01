@@ -245,6 +245,8 @@ export interface EchisFacets {
 	signals: NdwFacetCount[];
 	regions: NdwFacetCount[];
 	districts: NdwFacetCount[];
+	/** Divisions (the sub-county column); `group` is the district. */
+	subCounties?: NdwFacetCount[];
 	sync: NdwSyncSummary | null;
 }
 

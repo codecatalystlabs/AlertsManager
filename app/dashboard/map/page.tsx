@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { MapPin, RefreshCw, TrendingUp } from "lucide-react";
+import { Activity, History, MapPin, Radio, RefreshCw } from "lucide-react";
 
 import { LAYOUT } from "@/constants/layout";
 import { ErrorAlert } from "@/components/dashboard";
@@ -16,23 +16,58 @@ import { Button } from "@/components/ui/button";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { alertResponse } from "@/constants";
 import { useGeoLayers } from "@/hooks/use-geo-layers";
-import { TopDistrictsCard } from "@/components/map/top-districts-card";
 import { GEO_OUTCOME_FILTER_OPTIONS } from "@/lib/geo-outcome-filter";
+import { toYmd } from "@/lib/geo-map-analytics";
 import type { GeoQuery } from "@/lib/fetch-geo";
 
-// Leaflet touches `window`, so the map is client-only (no SSR) and lazy-loaded.
-const AlertsGeoMap = dynamic(
+// Leaflet touches `window`, so the map workspace is client-only (no SSR) and lazy-loaded.
+const SignalsMapExplorer = dynamic(
 	() =>
-		import("@/components/map/alerts-geo-map").then((m) => ({
-			default: m.AlertsGeoMap,
+		import("@/components/map/signals-map-explorer").then((m) => ({
+			default: m.SignalsMapExplorer,
 		})),
 	{
 		ssr: false,
 		loading: () => (
-			<div className="h-full w-full animate-pulse rounded-md bg-gray-100" />
+			<div className="h-[72vh] min-h-[420px] w-full animate-pulse rounded-md bg-gray-100" />
 		),
 	}
 );
+
+/** Live mode re-polls every minute (see LIVE_REFRESH_MS in the explorer). */
+const LIVE_REFRESH_MS = 60_000;
+
+/**
+ * localStorage key remembering whether the side panel is shown. Kept from the
+ * old "Top 10 districts" panel so the preference carries over to Insights,
+ * which still opens with that ranking.
+ */
+const INSIGHTS_VISIBLE_KEY = "map-top-districts-visible";
+
+function readFlag(key: string, fallback: boolean): boolean {
+	try {
+		const v = localStorage.getItem(key);
+		return v === null ? fallback : v !== "0";
+	} catch {
+		return fallback;
+	}
+}
+
+function writeFlag(key: string, value: boolean): void {
+	try {
+		localStorage.setItem(key, value ? "1" : "0");
+	} catch {
+		/* storage blocked — the choice just isn't remembered */
+	}
+}
+
+const RESPONSE_NAMES = new Map(alertResponse.map((r) => [r.code, r.name]));
+
+function summarise(values: string[], all: string, nameOf: (v: string) => string): string {
+	if (values.length === 0) return all;
+	const names = values.map(nameOf);
+	return names.length <= 2 ? names.join(", ") : `${names.slice(0, 2).join(", ")} +${names.length - 2} more`;
+}
 
 /**
  * Signals Map — a click-to-drill map of signal volume across Uganda. The overview
@@ -40,30 +75,36 @@ const AlertsGeoMap = dynamic(
  * clicking a district opens just that district's subcounties. A breadcrumb climbs
  * back up. Counts honour the same date window, canonical district matching and
  * RBAC scope as the dashboard.
+ *
+ * Around the map: trend comparison with hotspot rings, timeline playback, an
+ * area insights panel, search, live updates, full screen, deep links, image and
+ * Excel exports, and keyboard shortcuts (see SignalsMapExplorer).
  */
-/** localStorage key remembering whether the top-districts panel is shown. */
-const TOP_DISTRICTS_VISIBLE_KEY = "map-top-districts-visible";
-
 export default function MapPage(): React.JSX.Element {
 	const [range, setRange] = useState<DashboardRangeValue>(() =>
 		resolveDashboardRange(DEFAULT_RANGE_PRESET)
 	);
 	const [responses, setResponses] = useState<string[]>([]);
 	const [outcomes, setOutcomes] = useState<string[]>([]);
+	const [live, setLive] = useState(false);
+	const [timelineOpen, setTimelineOpen] = useState(false);
 	// Shown by default; the preference persists across visits. Read after mount
 	// so the server and first client render agree (no hydration mismatch).
-	const [showTopDistricts, setShowTopDistricts] = useState(true);
+	const [insightsOpen, setInsightsOpen] = useState(true);
 	useEffect(() => {
-		setShowTopDistricts(
-			localStorage.getItem(TOP_DISTRICTS_VISIBLE_KEY) !== "0"
-		);
+		setInsightsOpen(readFlag(INSIGHTS_VISIBLE_KEY, true));
 	}, []);
-	function toggleTopDistricts() {
-		setShowTopDistricts((shown) => {
-			localStorage.setItem(TOP_DISTRICTS_VISIBLE_KEY, shown ? "0" : "1");
-			return !shown;
-		});
-	}
+	const changeInsightsOpen = useCallback((open: boolean) => {
+		setInsightsOpen(open);
+		writeFlag(INSIGHTS_VISIBLE_KEY, open);
+	}, []);
+
+	// Live updates only make sense when the window reaches today.
+	const today = toYmd(new Date());
+	const liveAvailable = !range.to || range.to >= today;
+	useEffect(() => {
+		if (!liveAvailable) setLive(false);
+	}, [liveAvailable]);
 
 	const query: GeoQuery = useMemo(
 		() => ({
@@ -81,7 +122,23 @@ export default function MapPage(): React.JSX.Element {
 	);
 
 	const { regions, districts, loading, validating, error, refetch } =
-		useGeoLayers(query);
+		useGeoLayers(query, { refreshInterval: live ? LIVE_REFRESH_MS : 0 });
+
+	const toggle = (value: string) => (prev: string[]) =>
+		prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value];
+
+	const rangeLabel =
+		range.from && range.to
+			? `${range.from} to ${range.to}`
+			: range.from
+				? `From ${range.from}`
+				: range.to
+					? `Through ${range.to}`
+					: "All time";
+	const filterLabel = [
+		summarise(responses, "All response types", (v) => RESPONSE_NAMES.get(v) ?? v),
+		summarise(outcomes, "All outcomes", (v) => v),
+	].join(" · ");
 
 	return (
 		<div className={LAYOUT.pageGap}>
@@ -123,19 +180,52 @@ export default function MapPage(): React.JSX.Element {
 					/>
 					<DashboardRangePicker onChange={setRange} disabled={loading} />
 					<Button
-						variant={showTopDistricts ? "secondary" : "outline"}
+						variant={live ? "secondary" : "outline"}
+						size="sm"
+						className={`h-8 ${live ? "text-emerald-700" : ""}`}
+						onClick={() => setLive((v) => !v)}
+						disabled={!liveAvailable}
+						title={
+							!liveAvailable
+								? "Live updates need a date range that includes today"
+								: live
+									? "Stop live updates (L)"
+									: "Refresh every minute and flash areas that get new signals (L)"
+						}
+						aria-pressed={live}
+					>
+						<Radio className={`mr-1 h-3.5 w-3.5 ${live ? "animate-pulse" : ""}`} />
+						Live
+					</Button>
+					<Button
+						variant={timelineOpen ? "secondary" : "outline"}
 						size="sm"
 						className="h-8"
-						onClick={toggleTopDistricts}
+						onClick={() => setTimelineOpen((v) => !v)}
 						title={
-							showTopDistricts
-								? "Hide the top districts panel"
-								: "Show the top districts panel"
+							timelineOpen
+								? "Close the timeline (T)"
+								: "Play the map back over time (T)"
 						}
-						aria-pressed={showTopDistricts}
+						aria-pressed={timelineOpen}
 					>
-						<TrendingUp className="mr-1 h-3.5 w-3.5" />
-						Top 10
+						<History className="mr-1 h-3.5 w-3.5" />
+						Timeline
+					</Button>
+					<Button
+						variant={insightsOpen ? "secondary" : "outline"}
+						size="sm"
+						className="h-8"
+						onClick={() => changeInsightsOpen(!insightsOpen)}
+						title={
+							insightsOpen
+								? "Hide the insights panel (I)"
+								: "Show the insights panel (I)"
+						}
+						aria-pressed={insightsOpen}
+					>
+						<Activity className="mr-1 h-3.5 w-3.5" />
+						Insights
 					</Button>
 					<Button
 						variant="outline"
@@ -154,40 +244,36 @@ export default function MapPage(): React.JSX.Element {
 
 			{error && <ErrorAlert error={error.message} onRetry={refetch} />}
 
-			<div className="flex flex-wrap items-center justify-end gap-2">
-				<div className="text-xs text-muted-foreground">
-					{regions
-						? `${regions.total.toLocaleString()} signals plotted • click a region to drill into its districts`
-						: "Loading…"}
-				</div>
-			</div>
-
-			<div className="flex flex-col gap-3 lg:flex-row">
-				<div className="h-[72vh] min-h-[420px] min-w-0 flex-1">
-					<AlertsGeoMap
-						regions={regions}
-						districts={districts}
-						query={query}
-						validating={validating}
-					/>
-				</div>
-				{showTopDistricts && (
-					<TopDistrictsCard
-						districts={districts}
-						loading={loading}
-						className="lg:w-72 lg:shrink-0"
-						onClose={toggleTopDistricts}
-					/>
-				)}
-			</div>
+			<SignalsMapExplorer
+				query={query}
+				regions={regions}
+				districts={districts}
+				loading={loading}
+				validating={validating}
+				live={live}
+				liveAvailable={liveAvailable}
+				onLiveChange={setLive}
+				timelineOpen={timelineOpen}
+				onTimelineOpenChange={setTimelineOpen}
+				insightsOpen={insightsOpen}
+				onInsightsOpenChange={changeInsightsOpen}
+				onToggleResponse={(v) => setResponses(toggle(v))}
+				onToggleOutcome={(v) => setOutcomes(toggle(v))}
+				rangeLabel={rangeLabel}
+				filterLabel={filterLabel}
+			/>
 
 			<p className="text-[11px] text-muted-foreground">
 				The overview shows every region. Click a region to open just its
 				districts, then click a district to open just its subcounties (loaded on
-				demand); use the breadcrumb to climb back up. Hover any area for its name
-				and count. Counts use the same canonical district matching and date
-				window as the dashboard; signals whose location can&apos;t be matched to a
-				boundary aren&apos;t plotted.
+				demand); use the breadcrumb, Esc, or the locator inset to move back.
+				Hover any area for its count and trend. Pulsing rings mark hotspots —
+				areas rising fast against the comparison window. The timeline plays the
+				map back frame by frame; the insights panel describes whatever area is
+				on screen, and its condition/outcome rows filter the map when clicked.
+				Counts use the same canonical district matching and date window as the
+				dashboard; signals whose location can&apos;t be matched to a boundary
+				aren&apos;t plotted.
 			</p>
 		</div>
 	);

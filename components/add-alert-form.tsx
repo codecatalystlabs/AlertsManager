@@ -26,6 +26,7 @@ import { FieldHint } from "@/components/field-hint";
 import { alertEntryStatus } from "@/constants";
 import { CaseLocationSelect } from "@/components/case-location-select";
 import { MultiSelect } from "@/components/searchable-select";
+import { FacilityPicker } from "@/components/facilities/facility-picker";
 import {
   useChannelOfReportingOptions,
   useSourceOfAlertOptions,
@@ -128,6 +129,8 @@ export interface AlertFormValues {
   village: string;
   parish: string;
   sourceOfAlert: string; // comma-joined MultiSelect values
+  /** Master Facility List name; only meaningful when the source includes "Health facility". */
+  facility: string;
   channelOfReporting: string;
   caseDescription: string;
   caseName: string;
@@ -154,6 +157,7 @@ export function createEmptyAlertFormValues(): AlertFormValues {
     village: "",
     parish: "",
     sourceOfAlert: "",
+    facility: "",
     channelOfReporting: "",
     caseDescription: "",
     caseName: "",
@@ -221,6 +225,11 @@ export function buildAlertPayload(
     alertCaseParish: values.parish || "",
     alertCaseNationality: "Ugandan",
     sourceOfAlert,
+    // Only kept while "Health facility" is still a selected source, so a
+    // facility picked and then abandoned is not saved against the alert.
+    facility: /health facility/i.test(sourceOfAlert)
+      ? values.facility.trim()
+      : "",
     channelOfReporting,
     callTaker,
     history: values.caseDescription,
@@ -603,6 +612,7 @@ export function AddAlertForm({
 
   // Asked of both audiences: required for staff, optional and plainly worded for
   // a community reporter (who is usually the "Community" source themselves).
+  const facilitySelected = /health facility/i.test(values.sourceOfAlert);
   const sourceField = (
     <div className={FIELD_WRAP}>
       <FieldLabel
@@ -633,6 +643,20 @@ export function AddAlertForm({
       />
     </div>
   );
+
+  // Shown once "Health facility" is a chosen source: pick the facility from the
+  // national Master Facility List (same picker as the risk assessment). Optional.
+  const facilityField = facilitySelected ? (
+    <div className={`${FIELD_WRAP} col-span-full`}>
+      <FacilityPicker
+        label="Health facility (optional)"
+        value={values.facility}
+        onChange={(name) => setField("facility", name)}
+        defaultDistrict={values.district}
+        placeholder="Search for the health facility…"
+      />
+    </div>
+  ) : null;
 
   // Optional for both audiences. A blank public answer falls back to
   // PUBLIC_DEFAULTS.channelOfReporting, since the web form knows its own medium.
@@ -854,6 +878,7 @@ export function AddAlertForm({
             <div className={`${GRID} sm:grid-cols-2`}>
               {sourceField}
               {channelField}
+              {facilityField}
             </div>
 
             {/* The reassurance outlives the heading it sat under: without it the
@@ -950,6 +975,7 @@ export function AddAlertForm({
               {reporterPhoneField}
               {sourceField}
               {channelField}
+              {facilityField}
             </div>
           </div>
 

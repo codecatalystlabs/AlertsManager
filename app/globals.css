@@ -240,3 +240,490 @@ svg text,
 .leaflet-container {
   font-family: var(--font-dm) !important;
 }
+
+/* ── Data table (components/data-table) ───────────────────────────────────
+   Density, striping, grid lines and wrapping are attributes on .dt, so
+   switching them restyles the grid without re-rendering a single row.
+   Row-state selectors stay at (0,2,0) or lower so a page's own row tint
+   (getRowClassName, e.g. the SLA colours) still wins where it should. */
+@layer components {
+  .dt {
+    --dt-px: 8px;
+    --dt-py: 4px;
+    --dt-fs: 13px;
+    --dt-head-h: 32px;
+    --dt-head-fs: 10px;
+  }
+  .dt[data-density="compact"] {
+    --dt-px: 6px;
+    --dt-py: 2px;
+    --dt-fs: 12px;
+    --dt-head-h: 28px;
+  }
+  .dt[data-density="comfortable"] {
+    --dt-px: 12px;
+    --dt-py: 8px;
+    --dt-fs: 14px;
+    --dt-head-h: 38px;
+    --dt-head-fs: 11px;
+  }
+
+  .dt-frame {
+    /* clip, not hidden: rounds the corners without becoming a scroll
+       container, so the details panel can stick to the page. */
+    overflow: clip;
+  }
+  .dt-scroll {
+    overflow: auto;
+    outline: none;
+    overscroll-behavior-x: contain;
+  }
+  .dt-scroll:focus-visible {
+    box-shadow: inset 0 0 0 2px hsl(var(--ring) / 0.45);
+  }
+  .dt-scroll[data-busy] tbody {
+    opacity: 0.55;
+    transition: opacity 0.15s;
+  }
+
+  .dt-table {
+    border-collapse: collapse;
+    font-size: var(--dt-fs);
+  }
+
+  /* header */
+  .dt-th {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    height: var(--dt-head-h);
+    padding: 0 var(--dt-px);
+    background: hsl(var(--muted));
+    color: hsl(var(--muted-foreground));
+    font-size: var(--dt-head-fs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-align: left;
+    white-space: nowrap;
+    vertical-align: middle;
+    box-shadow: inset 0 -1px 0 hsl(var(--border));
+    user-select: none;
+  }
+  .dt-th[draggable="true"] {
+    cursor: grab;
+  }
+  .dt-th button {
+    cursor: pointer;
+  }
+  .dt-th[data-dragging] {
+    opacity: 0.45;
+  }
+  .dt-th[data-drop="before"] {
+    box-shadow: inset 2px 0 0 hsl(var(--primary)), inset 0 -1px 0 hsl(var(--border));
+  }
+  .dt-th[data-drop="after"] {
+    box-shadow: inset -2px 0 0 hsl(var(--primary)), inset 0 -1px 0 hsl(var(--border));
+  }
+  .dt-th-inner {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+  .dt-th-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .dt-sort-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    margin: 0 -4px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    color: inherit;
+  }
+  .dt-sort-btn:hover {
+    background: hsl(var(--foreground) / 0.06);
+    color: hsl(var(--foreground));
+  }
+  .dt-sort-idle {
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+  .dt-th:hover .dt-sort-idle,
+  .dt-sort-btn:focus-visible .dt-sort-idle {
+    opacity: 0.6;
+  }
+  .dt-th-tools {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 1px;
+    margin-left: auto;
+  }
+  .dt-th-inner.justify-end .dt-th-tools,
+  .dt-th-inner.justify-center .dt-th-tools {
+    margin-left: 0;
+  }
+  .dt-head-icon {
+    display: inline-flex;
+    width: 18px;
+    height: 18px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: opacity 0.12s, background-color 0.12s;
+  }
+  .dt-head-icon:hover {
+    background: hsl(var(--foreground) / 0.08);
+    color: hsl(var(--foreground));
+  }
+  .dt-head-menu {
+    opacity: 0;
+  }
+  .dt-th:hover .dt-head-menu,
+  .dt-head-menu:focus-visible,
+  .dt-head-menu[data-state="open"] {
+    opacity: 1;
+  }
+  @media (hover: none) {
+    .dt-head-menu,
+    .dt-sort-idle {
+      opacity: 0.6;
+    }
+  }
+  .dt-resizer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    width: 7px;
+    cursor: col-resize;
+    touch-action: none;
+    outline: none;
+  }
+  .dt-resizer::after {
+    content: "";
+    position: absolute;
+    top: 28%;
+    bottom: 28%;
+    right: 0;
+    width: 1px;
+    background: hsl(var(--border));
+    transition: background-color 0.12s, top 0.12s, bottom 0.12s;
+  }
+  .dt-th:hover .dt-resizer::after {
+    background: hsl(var(--muted-foreground) / 0.45);
+  }
+  .dt-resizer:hover::after,
+  .dt-resizer:focus-visible::after,
+  .dt-th[data-resizing] .dt-resizer::after {
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: hsl(var(--primary));
+  }
+
+  /* body */
+  .dt-td {
+    padding: var(--dt-py) var(--dt-px);
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  .dt-cell {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .dt[data-wrap] .dt-td,
+  .dt-td.dt-wrap {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .dt-td-synthetic {
+    padding-left: 0;
+    padding-right: 0;
+    text-align: center;
+  }
+  .dt-rownum {
+    padding-right: 10px;
+    color: hsl(var(--muted-foreground));
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .dt-tr {
+    border-bottom: 1px solid hsl(var(--border));
+    transition: background-color 0.1s;
+  }
+  :where(.dt[data-striped] .dt-tr[data-odd]) {
+    background-color: hsl(var(--muted) / 0.4);
+  }
+  .dt-tr:hover {
+    background-color: hsl(var(--muted) / 0.65);
+  }
+  .dt-tr[data-clickable] {
+    cursor: pointer;
+  }
+  .dt-tr[data-state="selected"] {
+    background-color: hsl(var(--primary) / 0.07);
+  }
+  .dt-tr[data-active] {
+    background-color: hsl(var(--action) / 0.07);
+  }
+  .dt-tr[data-active] > .dt-td:first-child {
+    box-shadow: inset 2px 0 0 hsl(var(--action));
+  }
+  .dt[data-grid] .dt-td,
+  .dt[data-grid] .dt-th {
+    border-right: 1px solid hsl(var(--border));
+  }
+  .dt-group-row {
+    background-color: hsl(var(--muted) / 0.55);
+  }
+  .dt-group-cell {
+    position: relative;
+    z-index: 1;
+    overflow: visible;
+  }
+  .dt-empty {
+    padding: 0;
+  }
+  .dt-detail-row > td {
+    background: hsl(var(--muted) / 0.35);
+    border-bottom: 1px solid hsl(var(--border));
+  }
+  .dt-detail-inner {
+    position: sticky;
+    left: 0;
+    width: var(--dt-viewport-w, 100%);
+  }
+  .dt-spacer > td {
+    padding: 0;
+    border: 0;
+  }
+
+  /* pinned columns: an opaque cell that still shows the row's tint. The
+     inherited (possibly translucent) row colour multiplies over the card
+     colour, which is exactly "tint over white". */
+  .dt-pin {
+    position: sticky;
+    z-index: 5;
+  }
+  .dt-th.dt-pin {
+    z-index: 25;
+  }
+  td.dt-pin {
+    background-color: inherit;
+    background-image: linear-gradient(hsl(var(--card)), hsl(var(--card)));
+    background-blend-mode: multiply;
+  }
+  .dark td.dt-pin {
+    background-blend-mode: screen;
+  }
+  /* The pinned edge: a hairline always, plus a soft shadow while content is
+     actually scrolled underneath it. */
+  td.dt-pin-l.dt-pin-edge {
+    box-shadow: inset -1px 0 0 hsl(var(--border));
+  }
+  th.dt-pin-l.dt-pin-edge {
+    box-shadow: inset 0 -1px 0 hsl(var(--border)), inset -1px 0 0 hsl(var(--border));
+  }
+  td.dt-pin-r.dt-pin-edge {
+    box-shadow: inset 1px 0 0 hsl(var(--border));
+  }
+  th.dt-pin-r.dt-pin-edge {
+    box-shadow: inset 0 -1px 0 hsl(var(--border)), inset 1px 0 0 hsl(var(--border));
+  }
+  .dt-scroll:not([data-scroll-x="start"]):not([data-scroll-x="none"]) td.dt-pin-l.dt-pin-edge {
+    box-shadow: inset -1px 0 0 hsl(var(--border)), 8px 0 10px -6px hsl(0 0% 0% / 0.22);
+  }
+  .dt-scroll:not([data-scroll-x="start"]):not([data-scroll-x="none"]) th.dt-pin-l.dt-pin-edge {
+    box-shadow: inset 0 -1px 0 hsl(var(--border)), inset -1px 0 0 hsl(var(--border)), 8px 0 10px -6px hsl(0 0% 0% / 0.22);
+  }
+  .dt-scroll:not([data-scroll-x="end"]):not([data-scroll-x="none"]) td.dt-pin-r.dt-pin-edge {
+    box-shadow: inset 1px 0 0 hsl(var(--border)), -8px 0 10px -6px hsl(0 0% 0% / 0.22);
+  }
+  .dt-scroll:not([data-scroll-x="end"]):not([data-scroll-x="none"]) th.dt-pin-r.dt-pin-edge {
+    box-shadow: inset 0 -1px 0 hsl(var(--border)), inset 1px 0 0 hsl(var(--border)), -8px 0 10px -6px hsl(0 0% 0% / 0.22);
+  }
+
+  /* summary footer */
+  .dt-foot-row > td {
+    position: sticky;
+    bottom: 0;
+    z-index: 4;
+    background: hsl(var(--muted));
+    box-shadow: inset 0 1px 0 hsl(var(--border));
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .dt-foot-row > td.dt-pin {
+    z-index: 6;
+    background-image: none;
+  }
+
+  /* controls */
+  .dt-check {
+    display: inline-flex;
+    width: 15px;
+    height: 15px;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    border: 1.5px solid hsl(var(--muted-foreground) / 0.55);
+    border-radius: 4px;
+    background: hsl(var(--background));
+    color: hsl(var(--primary-foreground));
+    transition: background-color 0.1s, border-color 0.1s;
+  }
+  .dt-check:hover {
+    border-color: hsl(var(--primary));
+  }
+  .dt-check[data-state="checked"],
+  .dt-check[data-state="indeterminate"] {
+    border-color: hsl(var(--primary));
+    background: hsl(var(--primary));
+  }
+  .dt-check:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 1px;
+  }
+  .dt-check:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+  .dt-expander {
+    display: inline-flex;
+    width: 20px;
+    height: 20px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    color: hsl(var(--muted-foreground));
+  }
+  .dt-expander:hover {
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
+  }
+  .dt-expander svg {
+    transition: transform 0.15s;
+  }
+  .dt-expander[aria-expanded="true"] svg {
+    transform: rotate(90deg);
+  }
+  .dt-dense-controls button {
+    height: 1.75rem;
+  }
+  .dt-dense-controls button[title] {
+    width: 1.75rem;
+  }
+
+  /* loading */
+  .dt-progress {
+    position: absolute;
+    inset: 0 0 auto 0;
+    z-index: 30;
+    height: 2px;
+    overflow: hidden;
+    background: hsl(var(--primary) / 0.12);
+  }
+  .dt-progress::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 40%;
+    background: hsl(var(--primary));
+    animation: dt-progress 1.1s ease-in-out infinite;
+  }
+
+  /* cards */
+  .dt-card {
+    position: relative;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid hsl(var(--border));
+    border-radius: 8px;
+    background: hsl(var(--card));
+    box-shadow: 0 1px 2px hsl(0 0% 0% / 0.04);
+    transition: border-color 0.12s, box-shadow 0.12s;
+  }
+  .dt[data-density="compact"] .dt-card {
+    padding: 6px 8px;
+  }
+  .dt[data-density="comfortable"] .dt-card {
+    padding: 14px 16px;
+  }
+  .dt-card:hover {
+    border-color: hsl(var(--primary) / 0.3);
+    box-shadow: 0 2px 8px hsl(0 0% 0% / 0.06);
+  }
+  .dt-card[data-clickable] {
+    cursor: pointer;
+  }
+  .dt-card[data-state="selected"] {
+    border-color: hsl(var(--primary) / 0.5);
+    background: hsl(var(--primary) / 0.04);
+  }
+  .dt-card[data-active] {
+    box-shadow: 0 0 0 2px hsl(var(--action) / 0.45);
+  }
+
+  /* details panel: docked beside the grid; a sliding sheet on narrow screens */
+  .dt-inspector {
+    width: 20rem;
+    flex-shrink: 0;
+  }
+  .dt:not(.dt-fullscreen) .dt-frame:not([data-bounded]) .dt-inspector {
+    position: sticky;
+    top: 3.5rem;
+    align-self: flex-start;
+    max-height: calc(100vh - 4.5rem);
+  }
+  @media (max-width: 1023px) {
+    .dt-inspector,
+    .dt:not(.dt-fullscreen) .dt-frame:not([data-bounded]) .dt-inspector {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 35;
+      width: min(20rem, 92%);
+      max-height: none;
+      box-shadow: -8px 0 24px hsl(0 0% 0% / 0.12);
+    }
+  }
+}
+
+@keyframes dt-progress {
+  0% {
+    left: -40%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+::highlight(dt-search) {
+  background-color: hsl(48 100% 55% / 0.5);
+  color: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dt-progress::after {
+    animation-duration: 3s;
+  }
+  .dt-tr,
+  .dt-card,
+  .dt-expander svg {
+    transition: none;
+  }
+}

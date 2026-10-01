@@ -157,6 +157,8 @@ export const PAGE_ACCESS: readonly PageRule[] = [
 	{ path: "/dashboard/eidsr-messages", anyOf: [PERM.eidsrView] },
 	// A simulated upload with no API behind it.
 	{ path: "/dashboard/upload", anyOf: null },
+	// The data-table proving ground: synthetic rows only, no API behind it.
+	{ path: "/dashboard/table-lab", anyOf: null },
 ];
 
 /** The rule for a path: the longest listed path it equals or sits under. */

@@ -126,6 +126,7 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 			<Card className={LAYOUT.card}>
 				<CardContent>
 					<DataTable
+						id="signal-register"
 						columns={columns}
 						data={alerts}
 						enableHeaderFilters

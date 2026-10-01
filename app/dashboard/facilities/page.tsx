@@ -118,6 +118,7 @@ export default function FacilitiesPage() {
 	const [debouncedSearch, setDebouncedSearch] = useState("");
 	const [district, setDistrict] = useState("all");
 	const [region, setRegion] = useState("all");
+	const [subcounty, setSubcounty] = useState("all");
 	const [level, setLevel] = useState("all");
 	const [ownership, setOwnership] = useState("all");
 	const [status, setStatus] = useState("all");
@@ -134,7 +135,7 @@ export default function FacilitiesPage() {
 	// of a result set that now has 2 pages shows an empty table.
 	useEffect(() => {
 		setPage(0);
-	}, [debouncedSearch, district, region, level, ownership, status]);
+	}, [debouncedSearch, district, region, subcounty, level, ownership, status]);
 
 	// Region -> district is a strict hierarchy, so changing the region clears the
 	// district outright rather than waiting for the facets to come back. Without
@@ -143,6 +144,12 @@ export default function FacilitiesPage() {
 	const changeRegion = useCallback((value: string) => {
 		setRegion(value);
 		setDistrict("all");
+		setSubcounty("all");
+	}, []);
+	// Same one level down: a division belongs to exactly one district.
+	const changeDistrict = useCallback((value: string) => {
+		setDistrict(value);
+		setSubcounty("all");
 	}, []);
 
 
@@ -151,13 +158,14 @@ export default function FacilitiesPage() {
 			search: debouncedSearch,
 			district,
 			region,
+			subcounty,
 			level,
 			ownership,
 			status,
 			limit: PAGE_SIZE,
 			offset: page * PAGE_SIZE,
 		}),
-		[debouncedSearch, district, region, level, ownership, status, page]
+		[debouncedSearch, district, region, subcounty, level, ownership, status, page]
 	);
 
 	const { facilities, total, loading, validating, error, refetch } =
@@ -181,10 +189,11 @@ export default function FacilitiesPage() {
 		};
 		drop(region, facets.regions, setRegion);
 		drop(district, facets.districts, setDistrict);
+		drop(subcounty, facets.subCounties, setSubcounty);
 		drop(level, facets.levels, setLevel);
 		drop(ownership, facets.ownerships, setOwnership);
 		drop(status, facets.statuses, setStatus);
-	}, [facets, region, district, level, ownership, status]);
+	}, [facets, region, district, subcounty, level, ownership, status]);
 
 	const [formOpen, setFormOpen] = useState(false);
 	const [editing, setEditing] = useState<Facility | null>(null);
@@ -355,9 +364,16 @@ export default function FacilitiesPage() {
 						/>
 						<FilterSelect
 							value={district}
-							onChange={setDistrict}
+							onChange={changeDistrict}
 							placeholder="All districts"
 							options={facets?.districts ?? []}
+						/>
+						<FilterSelect
+							value={subcounty}
+							onChange={setSubcounty}
+							placeholder={district === "all" ? "Select a district" : "All divisions"}
+							options={facets?.subCounties ?? []}
+							disabled={district === "all"}
 						/>
 						<FilterSelect
 							value={level}
@@ -687,15 +703,17 @@ function FilterSelect({
 	placeholder,
 	options,
 	labelFor,
+	disabled,
 }: {
 	value: string;
 	onChange: (v: string) => void;
 	placeholder: string;
 	options: string[];
 	labelFor?: (v: string) => string;
+	disabled?: boolean;
 }) {
 	return (
-		<Select value={value} onValueChange={onChange}>
+		<Select value={value} onValueChange={onChange} disabled={disabled}>
 			<SelectTrigger className="h-8 w-[150px] text-xs">
 				<SelectValue placeholder={placeholder} />
 			</SelectTrigger>
