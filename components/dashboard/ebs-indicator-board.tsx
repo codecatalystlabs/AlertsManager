@@ -275,7 +275,7 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading }) => {
 			ink: VIOLET_INK,
 		},
 		{
-			title: "Alerts issued",
+			title: "Alerts",
 			value: alerts.toLocaleString(),
 			sub: shareText(alerts, riskAssessed, "risk-assessed events"),
 			hint: "Confirmed, risk-assessed events whose reporter has been told — exactly the signals on the Alerts page.",
@@ -433,7 +433,7 @@ const WEEKLY_SERIES = [
 	{ key: "reported", label: "Reported", color: "#93c5fd", size: "92%" },
 	{ key: "verified", label: "Verified", color: "#16a34a", size: "66%" },
 	{ key: "events", label: "Events", color: "#7c3aed", size: "42%" },
-	{ key: "alerts", label: "Alerts issued", color: "#D90000", size: "20%" },
+	{ key: "alerts", label: "Alerts", color: "#D90000", size: "20%" },
 ] as const;
 
 function WeeklyTooltip({ active, payload }: { active?: boolean; payload?: { payload: WeeklyCascadePoint }[] }) {
@@ -476,29 +476,28 @@ export const WeeklySignalsCard = memo<BoardProps>(({ summary, isLoading }) => {
 	);
 
 	return (
-		// Full width: up to 52 epi weeks need the room, and it keeps the
-		// indicator cards below in whole rows of two.
-		<Card className="lg:col-span-2">
-			<CardHeader>
-				<div className="flex flex-wrap items-center justify-between gap-2">
-					<div className="flex items-center gap-2">
-						<CalendarRange className="h-4 w-4 text-uganda-red" />
-						<CardTitle className="text-base">Signals by epi week</CardTitle>
+		// One column, sized like the indicator trend cards beside it.
+		<Card>
+			<CardHeader className="pb-1">
+				<div className="flex items-start justify-between gap-2">
+					<div className="flex min-w-0 items-center gap-1.5">
+						<CalendarRange className="h-4 w-4 shrink-0 text-uganda-red" />
+						<CardTitle className="truncate text-sm">Signals by epi week</CardTitle>
 					</div>
-					<span className="text-xs text-gray-500">{span}</span>
+					<span className="shrink-0 text-[11px] text-gray-500">{span}</span>
 				</div>
-				<CardDescription>
-					How far each week&apos;s signals got: verified, confirmed and issued drawn inside the
-					reported bar. Recent weeks are still being worked.
+				<CardDescription className="truncate text-[11px]">
+					How far each week&apos;s signals got: verified, confirmed and alerts drawn inside the
+					reported bar.
 				</CardDescription>
 			</CardHeader>
-			<CardContent>
+			<CardContent className="pt-0">
 				{isLoading ? (
-					<Skeleton className="h-[260px] w-full" />
+					<Skeleton className="w-full" style={{ height: TREND_HEIGHT }} />
 				) : data.length === 0 ? (
-					<ChartEmpty message="No dated signals in scope." height={260} />
+					<ChartEmpty message="No dated signals in scope." height={TREND_HEIGHT} />
 				) : (
-					<ChartContainer config={config} className="w-full" style={{ height: 260 }}>
+					<ChartContainer config={config} className="w-full" style={{ height: TREND_HEIGHT }}>
 						<BarChart data={data} margin={{ left: 0, right: 8, top: 8, bottom: 0 }} barCategoryGap="12%">
 							<CartesianGrid strokeDasharray="3 3" vertical={false} />
 							{WEEKLY_SERIES.map((s, idx) => (
@@ -510,7 +509,7 @@ export const WeeklySignalsCard = memo<BoardProps>(({ summary, isLoading }) => {
 									tickLine={false}
 									axisLine={false}
 									tick={{ fontSize: 10 }}
-									interval={weekTickInterval(data.length, 13)}
+									interval={weekTickInterval(data.length, 9)}
 								/>
 							))}
 							<YAxis tickLine={false} axisLine={false} width={36} tick={{ fontSize: 11 }} allowDecimals={false} />
@@ -534,7 +533,7 @@ export const WeeklySignalsCard = memo<BoardProps>(({ summary, isLoading }) => {
 					</ChartContainer>
 				)}
 				{data.length > 0 && (
-					<div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-600">
+					<div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-600">
 						{WEEKLY_SERIES.map((s) => (
 							<span key={s.key} className="inline-flex items-center gap-1.5">
 								<span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: s.color }} />
@@ -717,6 +716,7 @@ const LEAD_INDICATOR_IDS: readonly string[] = ["signals-triaged", "signals-verif
  * its chart back.
  */
 const HIDDEN_INDICATOR_IDS: readonly string[] = [
+	"duplicated-signals", // Duplicate signals
 	"response-initiated", // Response initiated
 	"under-monitoring", // Under monitoring
 ];
