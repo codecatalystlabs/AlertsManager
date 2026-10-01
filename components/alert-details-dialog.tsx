@@ -303,6 +303,15 @@ export function AlertDetailsDialog({
 								label="Parish"
 								value={alert.alertCaseParish}
 							/>
+							{/* Only recorded when "Health facility" is a source, so
+							    only shown then — a "—" on every community signal
+							    would read as a missing answer. */}
+							{alert.facility && (
+								<Field
+									label="Health Facility"
+									value={alert.facility}
+								/>
+							)}
 						</div>
 					</section>
 
