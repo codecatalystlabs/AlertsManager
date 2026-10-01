@@ -287,13 +287,25 @@ export function ManagementReportPanel() {
 	const regionOptions = useMemo(() => geoRegions.map((g) => ({ value: g.name, label: g.name })), [geoRegions]);
 	const stale = data !== null && data.key !== fetchKey;
 
+	// A slide added a moment ago isn't in the (deferred) deck yet — remember it
+	// and jump to it as soon as the rebuilt deck contains it.
+	const [pendingItem, setPendingItem] = useState<string | null>(null);
 	const onSelectItem = useCallback(
 		(itemId: string) => {
 			const idx = firstIndex[itemId];
 			if (idx !== undefined) setSelected(idx);
+			else setPendingItem(itemId);
 		},
 		[firstIndex]
 	);
+	useEffect(() => {
+		if (!pendingItem) return;
+		const idx = firstIndex[pendingItem];
+		if (idx !== undefined) {
+			setSelected(idx);
+			setPendingItem(null);
+		}
+	}, [firstIndex, pendingItem]);
 
 	/* ------------------------- exports ------------------------- */
 
