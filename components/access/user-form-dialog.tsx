@@ -150,9 +150,7 @@ export function UserFormDialog({ open, onOpenChange, user, roles, actor, onSaved
 		if (!form.roleId) e.roleId = "Choose a role";
 		if (role?.scope === "region" && !form.region) e.region = "This role is limited to one region: choose it";
 		if (role?.scope === "district" && !form.district) e.district = "This role is limited to one district: choose it";
-		if (!isEdit && form.password.length < MIN_PASSWORD)
-			e.password = `Password must be at least ${MIN_PASSWORD} characters`;
-		if (isEdit && form.password && form.password.length < MIN_PASSWORD)
+		if (form.password && form.password.length < MIN_PASSWORD)
 			e.password = `Password must be at least ${MIN_PASSWORD} characters`;
 		return e;
 	};
@@ -220,7 +218,7 @@ export function UserFormDialog({ open, onOpenChange, user, roles, actor, onSaved
 
 	return (
 		<Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
-			<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+			<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
 				<DialogHeader>
 					<DialogTitle>{isEdit ? `Edit ${user.username}` : "New account"}</DialogTitle>
 					<DialogDescription>
@@ -350,18 +348,22 @@ export function UserFormDialog({ open, onOpenChange, user, roles, actor, onSaved
 				{!isSelf && (
 					<div className="space-y-1">
 						<Label htmlFor="user-password" className="text-xs">
-							{isEdit ? "Set a new password (optional)" : "Password"}
+							{isEdit ? "Set a new password (optional)" : "Password (optional)"}
 						</Label>
 						<PasswordInput
 							id="user-password"
 							autoComplete="new-password"
 							value={form.password}
 							onChange={(ev) => set("password", ev.target.value)}
-							placeholder={isEdit ? "Leave blank to keep the current password" : ""}
+							placeholder={isEdit ? "Leave blank to keep the current password" : "Leave blank to use the default: 123456789"}
 							className="h-8"
 							aria-invalid={Boolean(errors.password)}
 						/>
-						<p className="text-[11px] text-muted-foreground">At least {MIN_PASSWORD} characters.</p>
+						<p className="text-[11px] text-muted-foreground">
+							{isEdit
+								? `At least ${MIN_PASSWORD} characters.`
+								: "Blank = default password 123456789. The user can change it from their profile."}
+						</p>
 						<FieldError message={errors.password} />
 					</div>
 				)}

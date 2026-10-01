@@ -68,6 +68,8 @@ export interface EidsrAlertsFilterState {
 	disease: string;
 	/** Location/district substring; "" = none. */
 	district: string;
+	/** Location/division (subcounty) substring; "" = none. */
+	division: string;
 	/** Sex; "all" = none. */
 	sex: string;
 	/** Canonical source-of-alert label; "all" = none. */
@@ -85,6 +87,7 @@ export const EIDSR_INITIAL_FILTERS: EidsrAlertsFilterState = {
 	search: "",
 	disease: "",
 	district: "",
+	division: "",
 	sex: "all",
 	source: "all",
 	forwardVerification: "all",

@@ -117,28 +117,133 @@ async function fetchGeo<T>(path: string): Promise<T> {
 	return (await response.json()) as T;
 }
 
+/**
+ * Fetch options for the boundary endpoints. `countsOnly` drops the polygons
+ * server-side (geometry=0) — for a comparison window, where only the numbers
+ * matter, the district set shrinks from ~250 KB to ~40 KB.
+ */
+export interface GeoFetchOptions {
+	countsOnly?: boolean;
+}
+
+function geometryParam(opts?: GeoFetchOptions): Record<string, string> {
+	return opts?.countsOnly ? { geometry: "0" } : {};
+}
+
 /** GET /geo/regions — the 15 regions (or the caller's region when scoped). */
-export function fetchGeoRegions(q: GeoQuery): Promise<GeoFeatureCollection> {
-	return fetchGeo<GeoFeatureCollection>(`/geo/regions${buildQuery(q)}`);
+export function fetchGeoRegions(
+	q: GeoQuery,
+	opts?: GeoFetchOptions
+): Promise<GeoFeatureCollection> {
+	return fetchGeo<GeoFeatureCollection>(
+		`/geo/regions${buildQuery(q, geometryParam(opts))}`
+	);
 }
 
 /** GET /geo/districts — districts of a region (all districts if regionUid is ""). */
 export function fetchGeoDistricts(
 	regionUid: string,
-	q: GeoQuery
+	q: GeoQuery,
+	opts?: GeoFetchOptions
 ): Promise<GeoFeatureCollection> {
 	return fetchGeo<GeoFeatureCollection>(
-		`/geo/districts${buildQuery(q, { region_uid: regionUid })}`
+		`/geo/districts${buildQuery(q, { region_uid: regionUid, ...geometryParam(opts) })}`
 	);
 }
 
 /** GET /geo/subcounties — subcounties of a district. */
 export function fetchGeoSubcounties(
 	districtUid: string,
-	q: GeoQuery
+	q: GeoQuery,
+	opts?: GeoFetchOptions
 ): Promise<GeoFeatureCollection> {
 	return fetchGeo<GeoFeatureCollection>(
-		`/geo/subcounties${buildQuery(q, { district_uid: districtUid })}`
+		`/geo/subcounties${buildQuery(q, { district_uid: districtUid, ...geometryParam(opts) })}`
+	);
+}
+
+export type TimelineGranularity = "day" | "week" | "month";
+
+/** One frame of the map timeline: an inclusive YYYY-MM-DD day range. */
+export interface TimelineBucket {
+	start: string;
+	end: string;
+	/** Server label, e.g. "15 Sep 2026" / "W38 2026" / "Sep 2026". */
+	label: string;
+}
+
+/**
+ * GET /geo/timeline — per-frame signal counts of every district (or of one
+ * district's subcounties). A series summed over its frames equals that
+ * polygon's count on the map; region frames are the sum of their districts'.
+ */
+export interface GeoTimeline {
+	level: "district" | "subcounty";
+	parentUid: string;
+	granularity: TimelineGranularity;
+	/** The resolved window (an all-time request comes back pinned). */
+	from: string;
+	to: string;
+	buckets: TimelineBucket[];
+	/** Boundary uid → count per frame; only areas with a signal are listed. */
+	series: Record<string, number[]>;
+	/** Per frame: every plotted signal (incl. unassigned at subcounty level). */
+	totals: number[];
+	/** Subcounty level only: per frame, signals not placed on a subcounty. */
+	unassigned?: number[];
+}
+
+export function fetchGeoTimeline(
+	q: GeoQuery,
+	opts: { districtUid?: string; granularity?: TimelineGranularity | "auto" } = {}
+): Promise<GeoTimeline> {
+	return fetchGeo<GeoTimeline>(
+		`/geo/timeline${buildQuery(q, {
+			district_uid: opts.districtUid ?? "",
+			granularity: opts.granularity ?? "",
+		})}`
+	);
+}
+
+/** One row of an area breakdown; `value` is what the map's matching filter accepts. */
+export interface GeoInsightCount {
+	label: string;
+	value?: string;
+	count: number;
+}
+
+export interface GeoInsightStage {
+	key: string;
+	label: string;
+	count: number;
+}
+
+/** GET /geo/insights — what the signals in one area are and where they stand. */
+export interface GeoInsights {
+	level: "country" | "region" | "district";
+	uid: string;
+	name: string;
+	/** Equal to the area's count on the map. */
+	total: number;
+	/** Country level: signals in scope whose district matches no boundary. */
+	unplotted: number;
+	pipeline: GeoInsightStage[];
+	responses: GeoInsightCount[];
+	outcomes: GeoInsightCount[];
+	facilities: { total: number; functional: number; reporting: number };
+	/** The area's latest signals, newest first. */
+	recent: import("@/lib/auth").Alert[];
+}
+
+export function fetchGeoInsights(
+	q: GeoQuery,
+	area: { regionUid?: string; districtUid?: string } = {}
+): Promise<GeoInsights> {
+	return fetchGeo<GeoInsights>(
+		`/geo/insights${buildQuery(q, {
+			region_uid: area.regionUid ?? "",
+			district_uid: area.districtUid ?? "",
+		})}`
 	);
 }
 

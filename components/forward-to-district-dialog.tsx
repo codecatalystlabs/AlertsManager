@@ -158,7 +158,7 @@ export function ForwardToDistrictDialog({
 			open={isOpen}
 			onOpenChange={(open) => !open && !submitting && onClose()}
 		>
-			<DialogContent className="sm:max-w-md">
+			<DialogContent className="sm:max-w-2xl">
 				<DialogHeader>
 					<DialogTitle>{repeat ? "Forward again" : title}</DialogTitle>
 					<DialogDescription>

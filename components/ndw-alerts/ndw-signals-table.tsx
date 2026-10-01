@@ -245,6 +245,7 @@ export function NdwSignalsTable<TRow extends NdwSignalRow>({
 			</CardHeader>
 			<CardContent className="p-0">
 				<DataTable
+					id={`ndw-${feed}`}
 					columns={columns}
 					data={alerts}
 					hideToolbar

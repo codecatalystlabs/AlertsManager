@@ -228,6 +228,22 @@ export const EidsrAlertsFilters = memo<EidsrAlertsFiltersProps>(
 						</div>
 
 						<div className="space-y-1 min-w-0">
+							<Label htmlFor="eidsr-division" className="text-[11px]">
+								Division
+							</Label>
+							<Input
+								id="eidsr-division"
+								placeholder="e.g. Kawempe"
+								value={filters.division}
+								onChange={(e) =>
+									onFiltersChange({ division: e.target.value })
+								}
+								disabled={localIdActive}
+								className="h-8 text-xs"
+							/>
+						</div>
+
+						<div className="space-y-1 min-w-0">
 							<Label htmlFor="eidsr-sex" className="text-[11px]">
 								Sex
 							</Label>

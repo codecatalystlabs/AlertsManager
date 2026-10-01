@@ -92,6 +92,7 @@ export const AlertsTable = memo<AlertsTableProps>(
 				</CardHeader>
 				<CardContent className={LAYOUT.cardContent}>
 					<DataTable
+						id="alerts"
 						columns={columns}
 						data={alerts}
 						enableHeaderFilters

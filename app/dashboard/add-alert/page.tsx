@@ -20,7 +20,7 @@ export default function DashboardAddAlertPage() {
 	};
 
 	return (
-		<div className="max-w-6xl mx-auto space-y-3">
+		<div className="max-w-7xl mx-auto space-y-3">
 			{/* Header */}
 			<div className="flex items-center gap-3">
 				<Link href="/dashboard/alerts">

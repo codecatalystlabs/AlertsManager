@@ -306,6 +306,7 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 				</CardHeader>
 				<CardContent className={LAYOUT.cardContent}>
 					<DataTable
+						id="eidsr-6767"
 						columns={columns}
 						data={messages}
 						enableHeaderFilters

@@ -6,6 +6,8 @@ import useSWR from "swr";
 import { cn } from "@/lib/utils";
 import {
 	STAGE_ALERT,
+	STAGE_INTAKE,
+	STAGE_TRIAGE,
 	STAGE_DESCRIPTION,
 	STAGE_STEP,
 	fetchPipeline,
@@ -124,7 +126,10 @@ export function PipelineStrip({
 						>
 							<StageTile
 								stage={stage}
-								active={activeStage === stage.key}
+								active={
+									activeStage === stage.key ||
+									(stage.key === STAGE_INTAKE && activeStage === STAGE_TRIAGE)
+								}
 							/>
 							{index < stages.length - 1 && (
 								<ChevronRight

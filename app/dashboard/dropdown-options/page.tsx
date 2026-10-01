@@ -528,7 +528,7 @@ function OptionListCard({ kind }: { kind: LookupKind }) {
 					if (!saving) setDialogOpen(open);
 				}}
 			>
-				<DialogContent className="sm:max-w-lg">
+				<DialogContent className="sm:max-w-2xl">
 					<DialogHeader>
 						<DialogTitle>
 							{editing ? `Edit ${label} option` : `Add ${label} option`}
@@ -1076,7 +1076,7 @@ function EbsSignalsCard() {
 					if (!saving) setDialogOpen(open);
 				}}
 			>
-				<DialogContent className="sm:max-w-lg">
+				<DialogContent className="sm:max-w-2xl">
 					<DialogHeader>
 						<DialogTitle>
 							{editing ? `Edit signal ${editing.code}` : "Add EBS signal"}

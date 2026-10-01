@@ -1,37 +1,18 @@
 /**
- * The Alerts Management report as a FORMAT-NEUTRAL document.
+ * The Alerts Management report as a FORMAT-NEUTRAL document (PDF + Word).
  *
- * The deck already existed as .pptx (management-report-pptx.ts). Adding PDF and
- * DOCX by writing each one against the raw `ManagementReport` would have given
- * three exporters free to drift — three places to add a column, three places to
- * honour a section toggle, three chances for the Word file to disagree with the
- * slides about what "Alerts" means.
+ * Built from the SAME resolved slide list as the deck and the in-app preview
+ * (management-report-deck.ts), in the same order, honouring the same hidden /
+ * renamed / custom slides — so the Word file can never disagree with the
+ * slides about what "Alerts" means or which sections were included.
  *
- * So both new formats render from this one block list instead. It carries the
- * same section toggles and the same `scopeColumns()` the deck and the in-app
- * view use, which is what keeps every output reconciling with the app.
- *
- * Charts are the one thing that does NOT survive the translation: a pie is a
- * picture, and a document that draws its own would be a second implementation of
- * the same numbers. Their underlying counts are emitted as tables instead — the
- * data is all there, and the map (already rendered to a PNG for the deck) is
- * carried through as an image.
+ * Charts do not survive the translation (a pie is a picture, and a document
+ * that drew its own would be a second implementation of the same numbers), so
+ * their series are emitted as tables. Multi-page slide tables are stitched
+ * back into one table, since a document paginates by itself.
  */
 
-import type {
-	ManagementCount,
-	ManagementDetail,
-	ManagementReport,
-	ManagementScope,
-	ManagementTopDistrict,
-} from "@/lib/fetch-reports";
-import type { DeckConfig } from "@/lib/management-report-config";
-import { defaultDeckConfig } from "@/lib/management-report-config";
-import {
-	formatReportRange,
-	MANAGEMENT_CASCADE_STAGES,
-	scopeColumns,
-} from "@/lib/management-report-pptx";
+import type { BuiltDeck, ChartSpec, DeckSlide } from "@/lib/management-report-deck";
 
 /** One renderable piece of the document. */
 export type DocBlock =
@@ -44,260 +25,189 @@ export type DocBlock =
 			rows: string[][];
 			/** Rendered bold — section subtotals and grand totals. */
 			boldRows?: number[];
-			/** Columns after this index are numeric (right-aligned). */
+			/** Columns from this index are numeric (right-aligned). */
 			firstNumericColumn?: number;
 	  }
 	| { kind: "image"; dataUrl: string; aspect: number; caption?: string };
 
-const num = (n: number): string => n.toLocaleString();
+const num = (n: number): string => n.toLocaleString("en-US");
 
-/**
- * A scope's district tables, one per patient status, plus the grand total.
- * Columns come from the SAME scopeColumns() the slides use, so a column that
- * appears in the deck cannot be missing from the Word file.
- */
-function scopeTables(
-	scope: ManagementScope,
-	withAlerts: boolean,
-	heading: string
-): DocBlock[] {
-	const cols = scopeColumns(scope, withAlerts);
-	const blocks: DocBlock[] = [{ kind: "heading", text: heading, level: 2 }];
+/** Strip a "(2/3)" page suffix so continuation pages share one heading. */
+const baseTitle = (s: DeckSlide) => (s.page ? s.title.replace(/\s*\(\d+\/\d+\)$/, "") : s.title);
 
-	for (const section of scope.sections) {
-		const rows = section.districts.map((d) => [
-			d.district,
-			...cols.map((c) => num(c.value(d))),
+function chartTable(spec: ChartSpec, labelHeader: string): DocBlock[] {
+	if (spec.empty || spec.labels.length === 0) {
+		return [{ kind: "paragraph", text: spec.empty ?? "No data.", muted: true }];
+	}
+	if (spec.series.length === 1) {
+		const s = spec.series[0];
+		const total = s.values.reduce((a, b) => a + b, 0);
+		const rows = spec.labels.map((l, i) => [
+			l,
+			num(s.values[i]),
+			total > 0 ? `${Math.round((s.values[i] / total) * 100)}%` : "—",
 		]);
-		rows.push([
-			`${section.status} total`,
-			...cols.map((c) => num(c.value(section.totals))),
-		]);
-		blocks.push(
-			{ kind: "heading", text: section.status, level: 2 },
+		rows.push(["Total", num(total), total > 0 ? "100%" : "—"]);
+		return [
 			{
 				kind: "table",
-				headers: ["District", ...cols.map((c) => c.header)],
+				headers: [labelHeader, s.name, "Share"],
 				rows,
 				boldRows: [rows.length - 1],
 				firstNumericColumn: 1,
-			}
-		);
+			},
+		];
 	}
-
-	blocks.push({
-		kind: "table",
-		headers: ["Grand total", ...cols.map((c) => c.header)],
-		rows: [["All statuses", ...cols.map((c) => num(c.value(scope.totals)))]],
-		boldRows: [0],
-		firstNumericColumn: 1,
-	});
-	return blocks;
-}
-
-/** The response cascade as a table — the numbers behind the deck's bar chart. */
-function cascadeTable(scope: ManagementScope, heading: string): DocBlock[] {
-	const statuses = Object.keys(scope.cascade);
-	if (statuses.length === 0) return [];
-
-	const metrics = MANAGEMENT_CASCADE_STAGES;
-
 	return [
-		{ kind: "heading", text: heading, level: 2 },
 		{
 			kind: "table",
-			headers: ["Stage", ...statuses],
-			rows: metrics.map((m) => [
-				m.label,
-				...statuses.map((s) => num(scope.cascade[s][m.key])),
-			]),
+			headers: [labelHeader, ...spec.series.map((s) => s.name)],
+			rows: spec.labels.map((l, i) => [l, ...spec.series.map((s) => num(s.values[i]))]),
 			firstNumericColumn: 1,
 		},
 	];
-}
-
-function countTable(
-	items: ManagementCount[],
-	heading: string,
-	labelHeader: string
-): DocBlock[] {
-	if (items.length === 0) return [];
-	const total = items.reduce((s, i) => s + i.count, 0);
-	const rows = items.map((i) => [i.label, num(i.count)]);
-	rows.push(["Total", num(total)]);
-	return [
-		{ kind: "heading", text: `${heading} (n=${num(total)})`, level: 2 },
-		{
-			kind: "table",
-			headers: [labelHeader, "Count"],
-			rows,
-			boldRows: [rows.length - 1],
-			firstNumericColumn: 1,
-		},
-	];
-}
-
-function topDistrictsTable(items: ManagementTopDistrict[]): DocBlock[] {
-	if (items.length === 0) return [];
-	return [
-		{ kind: "heading", text: "Top districts", level: 2 },
-		{
-			kind: "table",
-			headers: ["District", "VHF", "Other PHEs"],
-			rows: items.map((d) => [d.district, num(d.vhf), num(d.other)]),
-			firstNumericColumn: 1,
-		},
-	];
-}
-
-function narrativesTable(
-	details: ManagementDetail[],
-	total: number,
-	emptyText: string
-): DocBlock[] {
-	const blocks: DocBlock[] = [
-		{ kind: "heading", text: "Alert details", level: 2 },
-	];
-	if (details.length === 0) {
-		blocks.push({ kind: "paragraph", text: emptyText, muted: true });
-		return blocks;
-	}
-	blocks.push({
-		kind: "table",
-		headers: ["Source", "District", "Narrative"],
-		rows: details.map((d) => [d.source, d.district, d.narrative]),
-	});
-	// Say when the table is a subset, so a missing alert reads as "truncated",
-	// not "not reported".
-	if (total > details.length) {
-		blocks.push({
-			kind: "paragraph",
-			text: `Showing ${num(details.length)} of ${num(total)} alert details.`,
-			muted: true,
-		});
-	}
-	return blocks;
 }
 
 export interface ManagementDocInput {
-	report: ManagementReport;
-	config?: DeckConfig;
-	/** The district choropleth, already rendered to a PNG for the deck. */
-	map?: { dataUrl: string; aspect: number } | null;
+	deck: BuiltDeck;
+	/** Natural aspect ratios of uploaded images (from the panel), by data URL. */
+	aspects?: Map<string, number>;
 }
 
-/**
- * Build the document. Honours the same `config.slides` toggles as the deck, so
- * turning a section off turns it off in every format.
- */
-export function buildManagementReportDoc({
-	report,
-	config = defaultDeckConfig(),
-	map = null,
-}: ManagementDocInput): DocBlock[] {
-	const range = formatReportRange(report.fromDate, report.toDate);
-	const slides = config.slides;
+/** Build the document from the resolved slides. */
+export function buildManagementReportDoc({ deck, aspects }: ManagementDocInput): DocBlock[] {
 	const blocks: DocBlock[] = [];
+	const slides = deck.slides;
+	// The renderers draw the title as page one, so it always leads — even when
+	// the cover slide was moved, or hidden.
+	const cover = slides.find((s): s is Extract<DeckSlide, { type: "cover" }> => s.type === "cover");
+	blocks.push(
+		cover
+			? {
+					kind: "title",
+					text: cover.cover.title,
+					subtitle: [cover.cover.subtitle, cover.cover.scope].filter(Boolean).join(" — ") || undefined,
+					meta: [cover.cover.organization, cover.cover.presenter, cover.cover.dateLine].filter(Boolean).join(" · "),
+				}
+			: { kind: "title", text: deck.title, meta: `${deck.range}${deck.scopeSuffix}` }
+	);
 
-	const title = config.cover.title.trim() || "Alerts Management report";
-	blocks.push({
-		kind: "title",
-		text: title,
-		subtitle: config.cover.subtitle?.trim() || undefined,
-		meta: range,
-	});
+	for (let i = 0; i < slides.length; i++) {
+		const s = slides[i];
+		// Continuation pages are folded into the first page's table below.
+		if (s.page && s.page.index > 0) continue;
+		const pages = s.page
+			? slides.filter((x) => x.itemId === s.itemId && x.page && x.key.replace(/-\d+$/, "") === s.key.replace(/-\d+$/, ""))
+			: [s];
 
-	if (slides.districtTables) {
-		blocks.push({ kind: "heading", text: "All PHEs", level: 1 });
-		blocks.push(...scopeTables(report.allPhes, false, "District summary"));
-		blocks.push({ kind: "heading", text: "VHFs", level: 1 });
-		blocks.push(...scopeTables(report.vhf, true, "District summary"));
-	}
-
-	if (slides.cascade) {
-		blocks.push({ kind: "heading", text: "Response cascade", level: 1 });
-		blocks.push(...cascadeTable(report.allPhes, "All PHEs"));
-		blocks.push(...cascadeTable(report.vhf, "VHFs"));
-	}
-
-	if (slides.sources) {
-		blocks.push({ kind: "heading", text: "Signal sources", level: 1 });
-		blocks.push(...countTable(report.sources, "Signal sources", "Source"));
-	}
-
-	if (slides.diseaseBar) {
-		blocks.push(
-			...countTable(report.otherPhes, "Other PHEs reported", "Condition")
-		);
-	}
-
-	if (slides.map) {
-		blocks.push({ kind: "heading", text: "Geographic distribution", level: 1 });
-		if (map) {
-			blocks.push({
-				kind: "image",
-				dataUrl: map.dataUrl,
-				aspect: map.aspect,
-				caption: `Alerts by district (${range})`,
-			});
+		switch (s.type) {
+			case "cover":
+				break; // already emitted as the title page
+			case "agenda":
+				blocks.push({ kind: "heading", text: s.title, level: 1 });
+				s.items.forEach((item, n) => blocks.push({ kind: "paragraph", text: `${n + 1}. ${item}` }));
+				break;
+			case "kpis":
+				blocks.push({ kind: "heading", text: s.title, level: 1 });
+				blocks.push({
+					kind: "table",
+					headers: s.comparison ? ["Indicator", "Value", "Previous period", "Change"] : ["Indicator", "Value"],
+					rows: s.tiles.map((t) =>
+						s.comparison
+							? [t.label, t.value, t.delta?.previous ?? "—", t.delta?.text ?? "—"]
+							: [t.label, t.value]
+					),
+					firstNumericColumn: 1,
+				});
+				if (s.comparison) blocks.push({ kind: "paragraph", text: `Change ${s.comparison}.`, muted: true });
+				break;
+			case "bullets":
+				blocks.push({ kind: "heading", text: s.title, level: 1 });
+				if (s.bullets.length === 0 && s.empty) blocks.push({ kind: "paragraph", text: s.empty, muted: true });
+				for (const b of s.bullets) blocks.push({ kind: "paragraph", text: `•  ${b.text}` });
+				break;
+			case "twoColumn":
+				blocks.push({ kind: "heading", text: s.title, level: 1 });
+				for (const l of [...s.left, ...s.right]) blocks.push({ kind: "paragraph", text: `•  ${l}` });
+				break;
+			case "statement":
+				blocks.push({ kind: "heading", text: s.title, level: 1 });
+				blocks.push({ kind: "paragraph", text: `“${s.text}”${s.attribution ? ` — ${s.attribution}` : ""}` });
+				break;
+			case "table": {
+				blocks.push({ kind: "heading", text: baseTitle(s), level: 1 });
+				if (s.empty) {
+					blocks.push({ kind: "paragraph", text: s.empty, muted: true });
+					break;
+				}
+				const header = s.rows[0];
+				const body = pages.flatMap((p) => (p.type === "table" ? p.rows.slice(1) : []));
+				const boldRows = body
+					.map((r, idx) => (r.style === "section" || r.style === "total" ? idx : -1))
+					.filter((idx) => idx >= 0);
+				blocks.push({
+					kind: "table",
+					headers: header.cells,
+					rows: body.map((r) => (r.style === "body" ? [`  ${r.cells[0]}`, ...r.cells.slice(1)] : r.cells)),
+					boldRows,
+					firstNumericColumn: 1,
+				});
+				const note = pages.map((p) => (p.type === "table" ? p.note : undefined)).find(Boolean);
+				if (note) blocks.push({ kind: "paragraph", text: note, muted: true });
+				break;
+			}
+			case "narratives": {
+				blocks.push({ kind: "heading", text: baseTitle(s), level: 1 });
+				if (s.empty) {
+					blocks.push({ kind: "paragraph", text: s.empty, muted: true });
+					break;
+				}
+				const rows = pages.flatMap((p) => (p.type === "narratives" ? p.rows : []));
+				blocks.push({
+					kind: "table",
+					headers: ["Source", "District", "Narrative"],
+					rows: rows.map((d) => [d.source, d.district, d.narrative]),
+				});
+				const note = pages.map((p) => (p.type === "narratives" ? p.note : undefined)).find(Boolean);
+				if (note) blocks.push({ kind: "paragraph", text: note, muted: true });
+				break;
+			}
+			case "chart": {
+				blocks.push({ kind: "heading", text: s.title, level: 1 });
+				const labelHeader =
+					s.kind === "cascadeAll" || s.kind === "cascadeVhf" || s.key === "focus-cascade"
+						? "Stage"
+						: s.kind === "trend"
+							? "Period"
+							: s.kind === "diseaseBar"
+								? "Condition"
+								: "Source";
+				blocks.push(...chartTable(s.chart, labelHeader));
+				break;
+			}
+			case "map":
+				blocks.push({ kind: "heading", text: s.title, level: 1 });
+				if (s.map) blocks.push({ kind: "image", dataUrl: s.map.dataUrl, aspect: s.map.aspect, caption: `Alerts issued by district (${deck.range})` });
+				if (s.top && !s.top.empty) {
+					blocks.push({ kind: "heading", text: s.top.heading ?? "Top districts", level: 2 });
+					blocks.push(...chartTable(s.top, "District"));
+				}
+				break;
+			case "divider":
+				blocks.push({ kind: "heading", text: s.heading, level: 1 });
+				if (s.subheading) blocks.push({ kind: "paragraph", text: s.subheading, muted: true });
+				break;
+			case "image":
+				blocks.push({ kind: "heading", text: s.title, level: 1 });
+				if (s.image)
+					blocks.push({ kind: "image", dataUrl: s.image, aspect: aspects?.get(s.image) ?? 1.5, caption: s.caption || undefined });
+				break;
+			case "closing":
+				blocks.push({ kind: "heading", text: s.heading, level: 1 });
+				if (s.message) blocks.push({ kind: "paragraph", text: s.message });
+				for (const c of s.contact) blocks.push({ kind: "paragraph", text: c, muted: true });
+				break;
 		}
-		blocks.push(...topDistrictsTable(report.topDistricts));
 	}
-
-	if (slides.trend && report.trend.length > 0) {
-		blocks.push({ kind: "heading", text: "Signals vs alerts trend", level: 1 });
-		blocks.push({
-			kind: "table",
-			headers: ["Date", "Signals", "Alerts issued"],
-			rows: report.trend.map((p) => [p.date, num(p.signals), num(p.alerts)]),
-			firstNumericColumn: 1,
-		});
-	}
-
-	if (slides.narratives) {
-		blocks.push({ kind: "heading", text: "Alert details", level: 1 });
-		blocks.push(
-			...narrativesTable(
-				report.details,
-				report.detailsTotal,
-				"No VHF alerts in this range."
-			)
-		);
-	}
-
-	// The disease-focus block sits ALONGSIDE the full report, never replacing
-	// it — same rule as the deck.
-	if (slides.focus && report.focus) {
-		const focus = report.focus;
-		blocks.push({
-			kind: "heading",
-			text: `Disease focus: ${focus.diseases.join(", ")}`,
-			level: 1,
-		});
-		blocks.push(...scopeTables(focus.scope, true, "District summary"));
-		blocks.push(...countTable(focus.sources, "Signal sources", "Source"));
-		blocks.push(...topDistrictsTable(focus.topDistricts));
-		blocks.push(
-			...narrativesTable(
-				focus.details,
-				focus.detailsTotal,
-				"No alerts for the focus diseases in this range."
-			)
-		);
-	}
-
 	return blocks;
-}
-
-/** Shared filename, so the three formats differ only by extension. */
-export function managementReportFileName(
-	report: ManagementReport,
-	config: DeckConfig,
-	extension: string
-): string {
-	const base = (config.cover.title.trim() || "Alerts Management report")
-		.replace(/[^\w\s-]/g, "")
-		.trim()
-		.replace(/\s+/g, "-");
-	return `${base}-${report.fromDate}-to-${report.toDate}.${extension}`;
 }

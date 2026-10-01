@@ -25,6 +25,8 @@ export interface AlertsFilterState {
 	status: string;
 	region: string;
 	district: string;
+	/** Division/subcounty name; "" or "all" = every division. */
+	division: string;
 	source: string;
 	fromDate: string;
 	toDate: string;
@@ -49,6 +51,7 @@ const HIDDEN_FILTER_KEYS: readonly (keyof AlertsFilterState)[] = [
 	"status",
 	"region",
 	"district",
+	"division",
 	"source",
 	"sla",
 ];
@@ -72,9 +75,15 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 	({ filters, onFiltersChange }) => {
 		// Admin-managed list (Administration -> Dropdown Options).
 		const sourceOptions = useSourceOfAlertOptions();
-		// Region → District cascade (district scoped to the selected region),
-		// from the official admin-units hierarchy.
-		const { regions, districts: uniqueDistricts } = useLocationCascade({
+		// Region → District → Division cascade (each level scoped to the one
+		// above it), from the official admin-units hierarchy.
+		const {
+			regions,
+			districts: uniqueDistricts,
+			divisions,
+			divisionsLoading,
+			divisionsEnabled,
+		} = useLocationCascade({
 			region: filters.region,
 			district: filters.district,
 		});
@@ -151,11 +160,12 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 							<Select
 								value={filters.region || "all"}
 								onValueChange={(value) =>
-									// Region scopes the district list, so clear a
-									// now-out-of-scope district selection.
+									// Region scopes the district list (and the
+									// divisions below it), so clear both.
 									onFiltersChange({
 										region: value,
 										district: "all",
+										division: "all",
 									})
 								}
 							>
@@ -185,8 +195,10 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 							<Select
 								value={filters.district}
 								onValueChange={(value) =>
+									// District scopes the division list.
 									onFiltersChange({
 										district: value,
+										division: "all",
 									})
 								}
 							>
@@ -207,6 +219,44 @@ export const AlertsFilters = memo<AlertsFiltersProps>(
 											</SelectItem>
 										)
 									)}
+								</SelectContent>
+							</Select>
+						</div>
+
+						<div className="space-y-1 min-w-0">
+							<Label htmlFor="division-filter" className="text-[11px]">
+								Division
+							</Label>
+							<Select
+								value={filters.division || "all"}
+								onValueChange={(value) =>
+									onFiltersChange({ division: value })
+								}
+								disabled={!divisionsEnabled || divisionsLoading}
+							>
+								<SelectTrigger id="division-filter" className="h-8 text-xs">
+									<SelectValue
+										placeholder={
+											!divisionsEnabled
+												? "Select a district"
+												: divisionsLoading
+												? "Loading…"
+												: "All Divisions"
+										}
+									/>
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="all">
+										All Divisions
+									</SelectItem>
+									{divisions.map((division) => (
+										<SelectItem
+											key={division}
+											value={division}
+										>
+											{division}
+										</SelectItem>
+									))}
 								</SelectContent>
 							</Select>
 						</div>

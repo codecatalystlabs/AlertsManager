@@ -19,6 +19,7 @@ interface AlertsFilters {
     status: string;
     region: string;
     district: string;
+    division: string;
     source: string;
     fromDate: string;
     toDate: string;
@@ -75,6 +76,7 @@ const initialFilters: AlertsFilters = {
     status: '',
     region: '',
     district: '',
+    division: '',
     source: '',
     fromDate: '',
     toDate: '',
@@ -111,6 +113,10 @@ function toApiParams(
 
     if (filters.district && filters.district !== 'all') {
         params.district = filters.district;
+    }
+
+    if (filters.division && filters.division !== 'all') {
+        params.division = filters.division;
     }
 
     // SLA colour (time in system: green <=2h, yellow 2-6h, red >6h). Server-side

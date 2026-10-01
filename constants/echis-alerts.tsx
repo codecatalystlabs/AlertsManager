@@ -102,6 +102,20 @@ export function buildEchisChips(f: EchisFacets | undefined): QuickChip[] {
 				group: o.group || NDW_BLANK_FACET,
 			})),
 		},
+		{
+			kind: "select",
+			param: "sub_county_is",
+			label: "Division",
+			searchable: true,
+			// Picking a district narrows this list, as region does districts.
+			groupParam: "district_is",
+			options: (f?.subCounties ?? []).map((o) => ({
+				value: o.value || NDW_BLANK_FACET,
+				label: o.value || "Not recorded",
+				count: o.count,
+				group: o.group || NDW_BLANK_FACET,
+			})),
+		},
 		{ kind: "dateRange", fromParam: "from_date", toParam: "to_date", label: "Reported" },
 	];
 }

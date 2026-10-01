@@ -112,6 +112,7 @@ function toEventsApiParams(
 	if (filters.search.trim()) params.search = filters.search.trim();
 	if (filters.disease.trim()) params.disease = filters.disease.trim();
 	if (filters.district.trim()) params.district = filters.district.trim();
+	if (filters.division.trim()) params.division = filters.division.trim();
 	if (filters.sex && filters.sex !== "all") params.sex = filters.sex;
 	if (filters.source && filters.source !== "all") {
 		// Expand the canonical label into every legacy stored alias so e.g.

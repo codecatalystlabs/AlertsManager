@@ -452,6 +452,7 @@ export function UsersPanel({ actor, roles, filter, onFilterChange, onAccountsCha
 						</div>
 					) : (
 						<DataTable
+							id="users"
 							columns={columns}
 							data={data.users}
 							hideToolbar

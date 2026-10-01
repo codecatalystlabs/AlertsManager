@@ -150,7 +150,7 @@ export function RoleEditorDialog({ open, onOpenChange, draft, groups, readOnly, 
 
 	return (
 		<Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
-			<DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl">
+			<DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-4xl">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
 						{isSystem && <Lock className="h-4 w-4 text-uganda-red" />}

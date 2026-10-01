@@ -477,6 +477,23 @@ export const NdwQuickFilterBar = memo<NdwQuickFilterBarProps>(
 		}, [applied]);
 
 		const patch = (p: Params) => setStaged((s) => ({ ...s, ...p }));
+		// Changing a parent chip clears the chips that cascade from it (region →
+		// district → division), so the bar never stages a district outside the
+		// region it shows, which would match nothing.
+		const pick = (param: string, value: string) => {
+			if (value === (staged[param] ?? "")) return;
+			const p: Params = { [param]: value };
+			const clearBelow = (parent: string) => {
+				for (const c of chips) {
+					if (c.kind === "select" && c.groupParam === parent && !(c.param in p)) {
+						p[c.param] = "";
+						clearBelow(c.param);
+					}
+				}
+			};
+			clearBelow(param);
+			patch(p);
+		};
 
 		const all: Filter[] = [...chips, ...moreFields];
 		const changedFilters = all.filter((f) => differs(f, staged, applied.local)).length;
@@ -517,7 +534,7 @@ export const NdwQuickFilterBar = memo<NdwQuickFilterBarProps>(
 								chip={chip}
 								staged={staged}
 								applied={applied.local}
-								onPick={(v) => patch({ [chip.param]: v })}
+								onPick={(v) => pick(chip.param, v)}
 							/>
 						) : (
 							<DateChip

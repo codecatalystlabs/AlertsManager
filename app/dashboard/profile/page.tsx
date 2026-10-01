@@ -24,6 +24,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
@@ -294,250 +295,281 @@ export default function ProfilePage() {
 
 	const fullName = userFullName(user);
 	const roleName = user.role?.name || user.level || "No role";
+	const isAdmin = Boolean(user.role?.isSystem || user.isSuperAdmin);
+	const missing = [
+		!user.firstName && "first name",
+		!user.lastName && "last name",
+		!user.email && "email",
+		!user.affiliation && "affiliation",
+	].filter(Boolean) as string[];
 
 	return (
-		<div className="mx-auto w-full max-w-6xl space-y-4 p-4">
-			<section className="overflow-hidden rounded-md border bg-white shadow-sm">
-				<div className="border-b bg-slate-950 px-4 py-4 text-white sm:px-5">
-					<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-						<div className="flex min-w-0 items-center gap-4">
-							<Avatar className="h-16 w-16 border border-white/20">
-								<AvatarImage src="" alt={fullName} />
-								<AvatarFallback className="bg-uganda-yellow text-lg font-bold text-slate-950">
-									{userInitials(user)}
-								</AvatarFallback>
-							</Avatar>
-							<div className="min-w-0">
-								<div className="flex flex-wrap items-center gap-2">
-									<h1 className="truncate text-xl font-semibold tracking-tight">
+		<div className="mx-auto w-full max-w-6xl p-4">
+			<div className="grid items-start gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
+				{/* ---- Credential card ---- */}
+				<aside className="space-y-4 lg:sticky lg:top-4">
+					<div className="overflow-hidden rounded-2xl bg-slate-950 text-white shadow-lg">
+						<div className="flex h-1.5">
+							<span className="flex-1 bg-slate-900" />
+							<span className="flex-1 bg-uganda-yellow" />
+							<span className="flex-1 bg-uganda-red" />
+						</div>
+						<div className="p-5">
+							<div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.18em]">
+								<span className="text-slate-500">Health alert credential</span>
+								<span className="text-uganda-yellow">
+									MOH-UG-{String(user.id).padStart(4, "0")}
+								</span>
+							</div>
+
+							<div className="mt-5 flex items-center gap-4">
+								<div className="relative shrink-0">
+									<Avatar className="h-16 w-16 rounded-2xl">
+										<AvatarImage src="" alt={fullName} />
+										<AvatarFallback className="rounded-2xl bg-uganda-yellow text-xl font-bold text-slate-950">
+											{userInitials(user)}
+										</AvatarFallback>
+									</Avatar>
+									<span
+										className={cn(
+											"absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-slate-950",
+											user.isActive === false ? "bg-slate-500" : "bg-emerald-500"
+										)}
+										title={user.isActive === false ? "Inactive" : "Active"}
+									/>
+								</div>
+								<div className="min-w-0">
+									<h1 className="truncate text-lg font-semibold leading-tight tracking-tight">
 										{fullName}
 									</h1>
-									<Badge
-										className={cn(
-											"border",
-											roleBadgeClass(user)
-										)}
-									>
-										{roleName}
-									</Badge>
+									<p className="mt-0.5 truncate font-mono text-xs text-slate-400">
+										@{user.username}
+									</p>
 								</div>
-								<p className="mt-1 flex items-center gap-1.5 text-sm text-slate-300">
-									<AtSign className="h-3.5 w-3.5" />
-									{user.username}
-								</p>
 							</div>
-						</div>
-						<div className="flex flex-wrap gap-2">
-							{isEditing ? (
-								<>
-									<Button
-										type="button"
-										variant="outline"
-										size="sm"
-										className="border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white"
-										onClick={handleCancel}
-										disabled={saving}
-									>
-										<X className="h-4 w-4" />
-										Cancel
-									</Button>
-									<Button
-										type="button"
-										size="sm"
-										className="bg-uganda-yellow text-slate-950 hover:bg-uganda-yellow/90"
-										onClick={handleSave}
-										disabled={saving}
-									>
-										{saving ? (
-											<Loader2 className="h-4 w-4 animate-spin" />
-										) : (
-											<Save className="h-4 w-4" />
-										)}
-										Save changes
-									</Button>
-								</>
-							) : (
-								<Button
-									type="button"
-									size="sm"
-									className="bg-white text-slate-950 hover:bg-slate-100"
-									onClick={handleEdit}
-								>
-									<Edit3 className="h-4 w-4" />
-									Edit profile
-								</Button>
-							)}
+
+							<dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-white/10 text-sm">
+								{[
+									["Role", roleName, isAdmin ? "text-rose-400" : "text-white"],
+									["Jurisdiction", areaLabel(user), "text-white"],
+									["Affiliation", user.affiliation || "—", "text-white"],
+									["Since", formatDate(user.createdAt), "text-white"],
+								].map(([k, v, tone]) => (
+									<div key={k} className="bg-slate-900 px-3 py-2.5">
+										<dt className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+											{k}
+										</dt>
+										<dd className={cn("mt-0.5 truncate font-semibold", tone)}>{v}</dd>
+									</div>
+								))}
+							</dl>
+
+							<p className="mt-4 flex items-start gap-1.5 text-[11px] leading-snug text-slate-500">
+								<Lock className="mt-0.5 h-3 w-3 shrink-0" />
+								Role, jurisdiction and username are managed by a system administrator.
+							</p>
 						</div>
 					</div>
-				</div>
 
-				<div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
-					<ReadOnlyField label="Email" value={user.email} icon={Mail} />
-					<ReadOnlyField
-						label="Affiliation"
-						value={user.affiliation}
-						icon={Building2}
-					/>
-					<ReadOnlyField
-						label="User type"
-						value={user.userType || "Not specified"}
-						icon={IdCard}
-					/>
-					<ReadOnlyField
-						label="Account created"
-						value={formatDate(user.createdAt)}
-						icon={CalendarDays}
-					/>
-				</div>
-			</section>
+					<CompletenessCard completeness={completeness} missing={missing} onEdit={handleEdit} />
+				</aside>
 
-			{(error || success) && (
-				<div
-					className={cn(
-						"flex items-start gap-2 rounded-md border px-3 py-2 text-sm",
-						error
-							? "surface-danger text-destructive"
-							: "surface-success text-success"
-					)}
-				>
-					{error ? (
-						<AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-					) : (
-						<Check className="mt-0.5 h-4 w-4 shrink-0" />
-					)}
-					<span>{error || success}</span>
-				</div>
-			)}
-
-			<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-				<Card className="shadow-sm">
-					<CardContent>
-						<div className="mb-4 flex items-center justify-between gap-3">
-							<div>
-								<h2 className="text-base font-semibold text-slate-950">
-									Personal Information
-								</h2>
-								<p className="text-sm text-slate-500">
-									Name, contact, and organizational details.
-								</p>
-							</div>
-							{!isEditing && (
-								<Badge
-									variant="outline"
-									className="hidden sm:inline-flex"
-								>
-									Read-only
-								</Badge>
+				{/* ---- Tabs ---- */}
+				<main className="min-w-0 space-y-3">
+					{(error || success) && (
+						<div
+							className={cn(
+								"flex items-start gap-2 rounded-xl border px-3 py-2 text-sm",
+								error ? "surface-danger text-destructive" : "surface-success text-success"
 							)}
-						</div>
-
-						<div className="grid gap-4 sm:grid-cols-2">
-							{isEditing ? (
-								<>
-									<EditableField
-										id="firstName"
-										error={fieldErrors.firstName}
-										label="First name"
-										value={form.firstName}
-										placeholder="First name"
-										onChange={handleFieldChange}
-									/>
-									<EditableField
-										id="lastName"
-										error={fieldErrors.lastName}
-										label="Last name"
-										value={form.lastName}
-										placeholder="Last name"
-										onChange={handleFieldChange}
-									/>
-									<EditableField
-										id="otherName"
-										error={fieldErrors.otherName}
-										label="Other name"
-										value={form.otherName}
-										placeholder="Other name"
-										onChange={handleFieldChange}
-									/>
-									<EditableField
-										id="email"
-										error={fieldErrors.email}
-										label="Email address"
-										type="email"
-										value={form.email}
-										placeholder="Email address"
-										onChange={handleFieldChange}
-									/>
-									<div className="sm:col-span-2">
-										<EditableField
-											id="affiliation"
-											error={fieldErrors.affiliation}
-											label="Affiliation"
-											value={form.affiliation}
-											placeholder="Affiliation"
-											onChange={handleFieldChange}
-										/>
-									</div>
-								</>
+						>
+							{error ? (
+								<AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
 							) : (
-								<>
-									<ReadOnlyField
-										label="First name"
-										value={user.firstName}
-										icon={UserRound}
-									/>
-									<ReadOnlyField
-										label="Last name"
-										value={user.lastName}
-										icon={UserRound}
-									/>
-									<ReadOnlyField
-										label="Other name"
-										value={user.otherName}
-										icon={UserRound}
-									/>
-									<ReadOnlyField
-										label="Email address"
-										value={user.email}
-										icon={Mail}
-									/>
-									<div className="sm:col-span-2">
-										<ReadOnlyField
-											label="Affiliation"
-											value={user.affiliation}
-											icon={Building2}
-										/>
-									</div>
-								</>
+								<Check className="mt-0.5 h-4 w-4 shrink-0" />
 							)}
+							<span>{error || success}</span>
 						</div>
-					</CardContent>
-				</Card>
+					)}
 
-				<div className="space-y-4">
-					<YourAccessCard user={user} completeness={completeness} />
-					<ChangePasswordCard />
+					<Tabs defaultValue="profile" className="space-y-3">
+						<TabsList>
+							<TabsTrigger value="profile">Profile</TabsTrigger>
+							<TabsTrigger value="security">Security</TabsTrigger>
+							<TabsTrigger value="activity">Activity</TabsTrigger>
+						</TabsList>
 
-					<Card className="shadow-sm">
-						<CardContent>
-							<h2 className="mb-3 text-sm font-semibold text-slate-950">
-								Account Timeline
-							</h2>
-							<div className="space-y-3">
-								<ReadOnlyField
-									label="Created"
-									value={formatDate(user.createdAt)}
-									icon={CalendarDays}
-								/>
-								<ReadOnlyField
-									label="Last updated"
-									value={formatDate(user.updatedAt)}
-									icon={CalendarDays}
-								/>
-							</div>
-						</CardContent>
-					</Card>
+						<TabsContent value="profile" className="mt-0 space-y-4">
+							<section className="overflow-hidden rounded-2xl border bg-white shadow-sm">
+								<div className="flex items-center justify-between gap-3 border-b px-5 py-4">
+									<div>
+										<h2 className="text-base font-semibold text-slate-950">Personal details</h2>
+										<p className="text-xs text-slate-500">How colleagues and the system identify you.</p>
+									</div>
+									{isEditing ? (
+										<div className="flex gap-2">
+											<Button type="button" variant="outline" size="sm" onClick={handleCancel} disabled={saving}>
+												<X className="h-4 w-4" />
+												Cancel
+											</Button>
+											<Button type="button" size="sm" onClick={handleSave} disabled={saving}>
+												{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+												Save
+											</Button>
+										</div>
+									) : (
+										<Button type="button" variant="outline" size="sm" onClick={handleEdit}>
+											<Edit3 className="h-4 w-4" />
+											Edit
+										</Button>
+									)}
+								</div>
+
+								<div className="divide-y">
+									<DetailRow label="First name" value={user.firstName} editing={isEditing}
+										input={<EditableField id="firstName" error={fieldErrors.firstName} label="First name" value={form.firstName} placeholder="First name" onChange={handleFieldChange} />} />
+									<DetailRow label="Last name" value={user.lastName} editing={isEditing}
+										input={<EditableField id="lastName" error={fieldErrors.lastName} label="Last name" value={form.lastName} placeholder="Last name" onChange={handleFieldChange} />} />
+									<DetailRow label="Other name" value={user.otherName} optional editing={isEditing}
+										input={<EditableField id="otherName" error={fieldErrors.otherName} label="Other name" value={form.otherName} placeholder="Other name" onChange={handleFieldChange} />} />
+									<DetailRow label="Email" value={user.email} editing={isEditing}
+										input={<EditableField id="email" type="email" error={fieldErrors.email} label="Email address" value={form.email} placeholder="Email address" onChange={handleFieldChange} />} />
+									<DetailRow label="Affiliation" value={user.affiliation} editing={isEditing}
+										input={<EditableField id="affiliation" error={fieldErrors.affiliation} label="Affiliation" value={form.affiliation} placeholder="Affiliation" onChange={handleFieldChange} />} />
+									<DetailRow label="User type" value={user.userType} locked="Set by admin" />
+									<DetailRow label="Username" value={user.username ? `@${user.username}` : ""} locked="Set by admin" mono />
+								</div>
+								<p className="border-t bg-slate-50/60 px-5 py-2.5 text-[11px] text-slate-500">
+									Email changes require re-verification.
+								</p>
+							</section>
+
+							<YourAccessCard user={user} />
+						</TabsContent>
+
+						<TabsContent value="security" className="mt-0">
+							<ChangePasswordCard />
+						</TabsContent>
+
+						<TabsContent value="activity" className="mt-0">
+							<section className="rounded-2xl border bg-white p-5 shadow-sm">
+								<h2 className="text-base font-semibold text-slate-950">Account activity</h2>
+								<p className="text-xs text-slate-500">Key moments in the life of this account.</p>
+								<ol className="relative mt-5 space-y-5 border-l border-slate-200 pl-6">
+									{[
+										["Last sign-in", user.lastLoginAt ? formatDate(user.lastLoginAt) : "Not recorded", KeyRound],
+										["Profile last updated", formatDate(user.updatedAt), Edit3],
+										["Account created", formatDate(user.createdAt), CalendarDays],
+									].map(([label, when, Icon]) => {
+										const I = Icon as ComponentType<{ className?: string }>;
+										return (
+											<li key={label as string} className="relative">
+												<span className="absolute -left-[2.15rem] flex h-6 w-6 items-center justify-center rounded-full border bg-white">
+													<I className="h-3 w-3 text-slate-500" />
+												</span>
+												<p className="text-sm font-medium text-slate-900">{label as string}</p>
+												<p className="text-xs text-slate-500">{when as string}</p>
+											</li>
+										);
+									})}
+								</ol>
+							</section>
+						</TabsContent>
+					</Tabs>
+				</main>
+			</div>
+		</div>
+	);
+}
+
+/** One labelled row of the details list: read-only text, or an input while editing. */
+function DetailRow({
+	label,
+	value,
+	optional,
+	locked,
+	mono,
+	editing,
+	input,
+}: {
+	label: string;
+	value?: string;
+	optional?: boolean;
+	locked?: string;
+	mono?: boolean;
+	editing?: boolean;
+	input?: React.ReactNode;
+}) {
+	const showInput = editing && input;
+	return (
+		<div className={cn("grid items-center gap-1 px-5 sm:grid-cols-[9rem_1fr_auto] sm:gap-4", showInput ? "py-3" : "py-3.5")}>
+			<span className="text-xs text-slate-500">{label}</span>
+			<div className="min-w-0">
+				{showInput ? (
+					input
+				) : value ? (
+					<span className={cn("block truncate text-sm font-semibold text-slate-900", mono && "font-mono")}>{value}</span>
+				) : (
+					<span className="text-sm italic text-slate-400">{locked ? "Not assigned" : "Not added"}</span>
+				)}
+			</div>
+			{(locked || optional) && !showInput && (
+				<span className="font-mono text-[10px] uppercase tracking-wider text-slate-400">
+					{locked ?? "Optional"}
+				</span>
+			)}
+		</div>
+	);
+}
+
+/** Ring + the next thing worth filling in. */
+function CompletenessCard({
+	completeness,
+	missing,
+	onEdit,
+}: {
+	completeness: number;
+	missing: string[];
+	onEdit: () => void;
+}) {
+	const r = 18;
+	const c = 2 * Math.PI * r;
+	return (
+		<div className="rounded-2xl border bg-white p-4 shadow-sm">
+			<div className="flex items-center gap-3">
+				<div className="relative h-11 w-11 shrink-0">
+					<svg viewBox="0 0 44 44" className="-rotate-90">
+						<circle cx="22" cy="22" r={r} fill="none" strokeWidth="4" className="stroke-slate-100" />
+						<circle
+							cx="22" cy="22" r={r} fill="none" strokeWidth="4" strokeLinecap="round"
+							className="stroke-uganda-red"
+							strokeDasharray={c}
+							strokeDashoffset={c * (1 - completeness / 100)}
+						/>
+					</svg>
+					<span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-slate-900">
+						{completeness}%
+					</span>
+				</div>
+				<div>
+					<p className="text-sm font-semibold text-slate-950">
+						{completeness === 100 ? "Profile complete" : "Finish your profile"}
+					</p>
+					<p className="text-xs text-slate-500">
+						Complete profiles help district teams reach you during an outbreak.
+					</p>
 				</div>
 			</div>
+			{missing.length > 0 && (
+				<button
+					type="button"
+					onClick={onEdit}
+					className="mt-3 flex w-full items-center justify-between rounded-lg border border-dashed px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
+				>
+					<span>Add your {missing[0]}</span>
+					<span className="font-semibold text-uganda-red">+</span>
+				</button>
+			)}
 		</div>
 	);
 }
@@ -546,7 +578,7 @@ export default function ProfilePage() {
  * What this account may do and see: its role, its area and the permissions
  * the role grants, by name. Role and area are set by an administrator.
  */
-function YourAccessCard({ user, completeness }: { user: User; completeness: number }) {
+function YourAccessCard({ user }: { user: User }) {
 	const [groups, setGroups] = useState<PermissionGroup[] | null>(null);
 	// The catalogue's labels need users.view or roles.manage; everyone else
 	// gets readable fallback labels (components/access/permission-labels.ts).
@@ -611,23 +643,6 @@ function YourAccessCard({ user, completeness }: { user: User; completeness: numb
 								))}
 							</dl>
 						)}
-					</div>
-					<p className="flex items-start gap-1.5 text-xs text-slate-500">
-						<Lock className="mt-0.5 h-3 w-3 shrink-0" />
-						Your username, role, area and user type are set by an administrator.
-					</p>
-					<div>
-						<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">User type</p>
-						<p className="mt-1 text-sm font-medium text-slate-900">{user.userType || "Not specified"}</p>
-					</div>
-					<div>
-						<p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-							Profile completeness
-						</p>
-						<div className="mt-2 h-2 rounded-full bg-slate-100">
-							<div className="h-2 rounded-full bg-success" style={{ width: `${completeness}%` }} />
-						</div>
-						<p className="mt-1 text-xs text-slate-500">{completeness}% complete</p>
 					</div>
 				</div>
 			</CardContent>
