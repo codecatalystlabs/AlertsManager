@@ -230,7 +230,7 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 	{
 		n: 12,
 		id: "alerts",
-		label: "Alerts issued",
+		label: "Alerts",
 		name: "Alerts",
 		definition: "Proportion of alerts reported.",
 		numeratorLabel: "Total number of alerts reported",
