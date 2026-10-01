@@ -172,19 +172,20 @@ export async function downloadManagementReportDocx({
 					for (let i = 0; i < binary.length; i++) {
 						bytes[i] = binary.charCodeAt(i);
 					}
-					const width = 640;
+					// Fit a landscape page either way (portrait photos included).
+					const aspect = block.aspect || 1.4;
+					const height = Math.min(Math.round(640 / aspect), 520);
+					const width = Math.round(height * aspect);
+					const type = /^data:image\/jpe?g/i.test(block.dataUrl) ? "jpg" : "png";
 					children.push(
 						new Paragraph({
 							alignment: AlignmentType.CENTER,
 							spacing: { after: 80 },
 							children: [
 								new ImageRun({
-									type: "png",
+									type,
 									data: bytes,
-									transformation: {
-										width,
-										height: Math.round(width / (block.aspect || 1.4)),
-									},
+									transformation: { width, height },
 								}),
 							],
 						})

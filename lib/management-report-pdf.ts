@@ -138,15 +138,23 @@ export async function downloadManagementReportPdf({
 			}
 
 			case "image": {
-				const w = Math.min(CONTENT_W, 200);
-				const h = w / (block.aspect || 1.4);
+				// Fit inside one page either way — a portrait photo at full
+				// width would run off the bottom.
+				const maxH = PAGE_H - MARGIN * 2 - LINE.body * 3;
+				let w = Math.min(CONTENT_W, 200);
+				let h = w / (block.aspect || 1.4);
+				if (h > maxH) {
+					h = maxH;
+					w = h * (block.aspect || 1.4);
+				}
 				ensure(h + LINE.body);
 				try {
 					// "FAST" turns on Flate compression for the bitmap. The
 					// choropleth is rendered at 1500px for the slides; embedded
 					// raw it alone made the PDF ~6 MB, which is a real cost for a
 					// report that gets emailed every week.
-					doc.addImage(block.dataUrl, "PNG", MARGIN, y, w, h, undefined, "FAST");
+					const format = /^data:image\/jpe?g/i.test(block.dataUrl) ? "JPEG" : "PNG";
+					doc.addImage(block.dataUrl, format, MARGIN, y, w, h, undefined, "FAST");
 					y += h + 2;
 				} catch {
 					// A map that will not decode must not take the report down —

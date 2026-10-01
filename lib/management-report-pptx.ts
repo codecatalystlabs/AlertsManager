@@ -1,887 +1,623 @@
-import type {
-	ManagementCount,
-	ManagementDetail,
-	ManagementDistrictRow,
-	ManagementReport,
-	ManagementScope,
-} from "@/lib/fetch-reports";
-import type { GeoFeature, GeoFeatureCollection } from "@/lib/fetch-geo";
-import {
-	bareHex,
-	defaultDeckConfig,
-	deriveDeckTheme,
-	type DeckConfig,
-} from "@/lib/management-report-config";
-
 /**
- * Generates the "Alerts Management report" presentation (.pptx) for a date
- * range — a faithful reproduction of the weekly deck (district tables split by
- * patient status, source/disease charts, response cascades, alert narratives,
- * district choropleth map, and the signals-vs-alerts trend). All numbers come
- * from GET /reports/alerts-management, which shares its outcome derivation
- * with the dashboard, so the deck always matches the app.
+ * Renders a built deck (management-report-deck.ts) to an editable .pptx with
+ * pptxgenjs: native text, native tables and native charts — so the file can be
+ * edited in PowerPoint — positioned with the same geometry the in-app preview
+ * uses (management-report-layout.ts), so the file matches the preview.
  *
- * A `DeckConfig` (see lib/management-report-config) controls the accent theme,
- * which sections appear, the cover slide, and an optional disease-focus section.
+ * All numbers come from GET /reports/alerts-management, which shares its
+ * outcome derivation with the dashboard, so the deck always matches the app.
  */
 
-// The standard red choropleth ramp (hex WITH "#"), used when a caller doesn't
-// pass an accent-derived ramp. All other brand colours come from the config's
-// accent via paletteFromConfig (pptxgenjs wants hex WITHOUT the leading "#").
-const DEFAULT_MAP_RAMP = ["#fee5d9", "#fcae91", "#fb6a4a", "#de2d26", "#a50f15"];
+import { bareHex, type DeckConfig } from "@/lib/management-report-config";
+import {
+	crowdedLabels,
+	footerParts,
+	type BuiltDeck,
+	type ChartSpec,
+	type DeckSlide,
+	type DeckStyle,
+} from "@/lib/management-report-deck";
+import {
+	agendaLayout,
+	bulletsLayout,
+	chartLayout,
+	chromeLayout,
+	closingLayout,
+	containBox,
+	contentBox,
+	coverLayout,
+	decorations,
+	dividerLayout,
+	fitFont,
+	imageLayout,
+	kpiLayout,
+	kpiTileParts,
+	mapLayout,
+	narrativesLayout,
+	statementLayout,
+	tableLayout,
+	twoColumnLayout,
+	type Box,
+} from "@/lib/management-report-layout";
 
-/** The bare-hex colours the deck paints, derived from the config's accent. */
-interface PptxPalette {
-	brand: string;
-	ink: string;
-	headerFill: string;
-	sectionFill: string;
-	totalFill: string;
-	border: string;
-	/** Cascade series [Alive, Dead, Unknown]. */
-	series: string[];
-	/** Choropleth ramp, hex WITH "#". */
-	mapRamp: string[];
-}
+// Older import sites (regional performance, view helpers) keep working.
+export {
+	formatReportRange,
+	MANAGEMENT_CASCADE_STAGES,
+	scopeColumns,
+	type ScopeColumn,
+} from "@/lib/management-report-deck";
+export { renderDistrictChoropleth } from "@/lib/management-report-map";
 
-function paletteFromConfig(config: DeckConfig): PptxPalette {
-	const theme = deriveDeckTheme(config.accent);
-	const brand = bareHex(theme.accent);
-	return {
-		brand,
-		ink: bareHex(theme.ink),
-		headerFill: brand,
-		sectionFill: bareHex(theme.accentSoft),
-		totalFill: bareHex(theme.neutralFill),
-		border: bareHex(theme.border),
-		series: [brand, bareHex(theme.ink), "9CA3AF"],
-		mapRamp: theme.mapRamp,
-	};
-}
-
-type PptxSlide = any;
 type Pptx = any;
+type PptxSlide = any;
 
-/* ------------------------------------------------------------------ */
-/* Date-range title formatting: "20th July 2026", "13th-19th July 2026" */
-/* ------------------------------------------------------------------ */
+const hx = (hex: string) => bareHex(hex);
 
-const MONTHS = [
-	"January", "February", "March", "April", "May", "June",
-	"July", "August", "September", "October", "November", "December",
-];
-
-function ordinal(n: number): string {
-	const v = n % 100;
-	if (v >= 11 && v <= 13) return `${n}th`;
-	switch (n % 10) {
-		case 1: return `${n}st`;
-		case 2: return `${n}nd`;
-		case 3: return `${n}rd`;
-		default: return `${n}th`;
-	}
-}
-
-function parts(iso: string): { d: number; m: number; y: number } {
-	const [y, m, d] = iso.split("-").map(Number);
-	return { d, m: m - 1, y };
-}
-
-/** "20th July 2026" / "13th-19th July 2026" / "28th June-4th July 2026". */
-export function formatReportRange(fromISO: string, toISO: string): string {
-	const f = parts(fromISO);
-	const t = parts(toISO);
-	if (fromISO === toISO) return `${ordinal(f.d)} ${MONTHS[f.m]} ${f.y}`;
-	if (f.y === t.y && f.m === t.m)
-		return `${ordinal(f.d)}-${ordinal(t.d)} ${MONTHS[t.m]} ${t.y}`;
-	if (f.y === t.y)
-		return `${ordinal(f.d)} ${MONTHS[f.m]}-${ordinal(t.d)} ${MONTHS[t.m]} ${t.y}`;
-	return `${ordinal(f.d)} ${MONTHS[f.m]} ${f.y}-${ordinal(t.d)} ${MONTHS[t.m]} ${t.y}`;
-}
-
-function shortDay(iso: string): string {
-	const p = parts(iso);
-	return `${p.d} ${MONTHS[p.m].slice(0, 3)}`;
-}
-
-/* ------------------------------------------------------------------ */
-/* District choropleth (canvas → PNG data URL) for the map slide        */
-/* ------------------------------------------------------------------ */
-
-interface MapBins {
-	color: string;
-	label: string;
-}
-
-/** Colour scale identical in spirit to the in-app map's makeScale. */
-function mapScale(
-	maxCount: number,
-	ramp: string[]
-): {
-	colorFor: (count: number) => string;
-	bins: MapBins[];
-} {
-	const max = Math.max(0, Math.floor(maxCount));
-	let uppers: number[];
-	if (max <= 0) {
-		uppers = [];
-	} else if (max <= ramp.length) {
-		uppers = Array.from({ length: max }, (_, i) => i + 1);
-	} else {
-		const set = new Set<number>();
-		for (const f of [0.1, 0.25, 0.45, 0.7]) set.add(Math.max(1, Math.ceil(max * f)));
-		set.add(max);
-		uppers = Array.from(set).filter((v) => v <= max).sort((a, b) => a - b);
-	}
-	const colorFor = (count: number): string => {
-		if (count <= 0 || uppers.length === 0) return "#ffffff";
-		for (let i = 0; i < uppers.length; i++) {
-			if (count <= uppers[i]) return ramp[Math.min(i, ramp.length - 1)];
-		}
-		return ramp[Math.min(uppers.length - 1, ramp.length - 1)];
-	};
-	const bins: MapBins[] = [{ color: "#ffffff", label: "No alerts" }];
-	let prev = 1;
-	for (let i = 0; i < uppers.length; i++) {
-		const hi = uppers[i];
-		bins.push({
-			color: ramp[Math.min(i, ramp.length - 1)],
-			label: prev >= hi ? `${hi}` : `${prev} - ${hi}`,
-		});
-		prev = hi + 1;
-	}
-	return { colorFor, bins };
-}
-
-function eachRing(
-	feature: GeoFeature,
-	cb: (ring: number[][]) => void
-): void {
-	const geom = feature.geometry;
-	if (!geom) return;
-	if (geom.type === "Polygon") {
-		for (const ring of geom.coordinates as number[][][]) cb(ring);
-	} else {
-		for (const poly of geom.coordinates as number[][][][]) {
-			for (const ring of poly) cb(ring);
-		}
-	}
-}
-
-/**
- * Draws the deck's map slide: a white-background district choropleth of alert
- * counts with named districts and a binned legend. `ramp` recolours the fill
- * to the deck's accent; it defaults to the standard red ramp.
- */
-export function renderDistrictChoropleth(
-	districts: GeoFeatureCollection,
-	ramp: string[] = DEFAULT_MAP_RAMP
-): { dataUrl: string; aspect: number } | null {
-	const feats = districts.features.filter((f) => f.geometry);
-	if (!feats.length) return null;
-
-	let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
-	for (const f of feats) {
-		const [a, b, c, d] = f.properties.bbox;
-		if (a < minLng) minLng = a;
-		if (b < minLat) minLat = b;
-		if (c > maxLng) maxLng = c;
-		if (d > maxLat) maxLat = d;
-	}
-	if (!Number.isFinite(minLng)) return null;
-
-	const W = 1500;
-	const pad = 24;
-	const legendW = 240;
-	const scalePx = (W - pad * 2 - legendW) / (maxLng - minLng);
-	const H = Math.round((maxLat - minLat) * scalePx + pad * 2);
-	const px = (lng: number) => pad + (lng - minLng) * scalePx;
-	const py = (lat: number) => pad + (maxLat - lat) * scalePx;
-
-	const canvas = document.createElement("canvas");
-	canvas.width = W;
-	canvas.height = H;
-	const ctx = canvas.getContext("2d");
-	if (!ctx) return null;
-
-	ctx.fillStyle = "#ffffff";
-	ctx.fillRect(0, 0, W, H);
-
-	const maxCount = feats.reduce((m, f) => Math.max(m, f.properties.count), 0);
-	const { colorFor, bins } = mapScale(maxCount, ramp);
-
-	for (const f of feats) {
-		ctx.beginPath();
-		eachRing(f, (ring) => {
-			ring.forEach(([lng, lat], i) => {
-				if (i === 0) ctx.moveTo(px(lng), py(lat));
-				else ctx.lineTo(px(lng), py(lat));
-			});
-			ctx.closePath();
-		});
-		ctx.fillStyle = colorFor(f.properties.count);
-		ctx.fill("evenodd");
-		ctx.strokeStyle = "#374151";
-		ctx.lineWidth = 1;
-		ctx.stroke();
-	}
-
-	// District names at centroids (the deck labels every district).
-	ctx.textAlign = "center";
-	ctx.textBaseline = "middle";
-	for (const f of feats) {
-		const [lng, lat] = f.properties.centroid;
-		if (!lng && !lat) continue;
-		const count = f.properties.count;
-		ctx.font = count > 0 ? "bold 13px sans-serif" : "11px sans-serif";
-		ctx.fillStyle = count > 0 ? "#111827" : "#6b7280";
-		ctx.fillText(f.properties.name.toUpperCase(), px(lng), py(lat));
-	}
-
-	// Legend (right-hand side, like the deck).
-	const lx = W - legendW + 10;
-	let ly = Math.max(pad + 10, H * 0.55);
-	ctx.textAlign = "left";
-	ctx.fillStyle = "#111827";
-	ctx.font = "bold 22px sans-serif";
-	ctx.fillText("Legend", lx, ly);
-	ly += 26;
-	ctx.font = "18px sans-serif";
-	for (const bin of bins) {
-		ctx.fillStyle = bin.color;
-		ctx.fillRect(lx, ly - 12, 30, 22);
-		ctx.strokeStyle = "#374151";
-		ctx.lineWidth = 1;
-		ctx.strokeRect(lx, ly - 12, 30, 22);
-		ctx.fillStyle = "#111827";
-		ctx.fillText(bin.label, lx + 40, ly);
-		ly += 30;
-	}
-
-	return { dataUrl: canvas.toDataURL("image/png"), aspect: W / H };
-}
-
-/* ------------------------------------------------------------------ */
-/* Table builders                                                       */
-/* ------------------------------------------------------------------ */
-
-export interface ScopeColumn {
-	header: string;
-	value: (r: ManagementDistrictRow) => number;
-}
-
-/**
- * The deck's fixed columns, plus EMS / SDB / Others columns only when the
- * range actually has such outcomes — the sample deck omits them because its
- * week had none, but hiding non-zero buckets would silently drop signals.
- * Shared by the .pptx tables and the in-app report view so they can't drift.
- */
-export function scopeColumns(
-	scope: ManagementScope,
-	withAlerts: boolean
-): ScopeColumn[] {
-	const cols: ScopeColumn[] = [
-		{ header: "Signals", value: (r) => r.signals },
-		{ header: "Discarded", value: (r) => r.discarded },
-	];
-	cols.push(
-		{ header: "Field Case Verification", value: (r) => r.fieldCaseVerification },
-		{ header: "Sample Collected", value: (r) => r.sampleCollected }
+/** Natural aspect (w/h) of each distinct image, for contain-fitting. */
+export async function measureImages(urls: (string | null | undefined)[]): Promise<Map<string, number>> {
+	const out = new Map<string, number>();
+	const unique = Array.from(new Set(urls.filter((u): u is string => Boolean(u))));
+	await Promise.all(
+		unique.map(
+			(url) =>
+				new Promise<void>((resolve) => {
+					const img = new Image();
+					img.onload = () => {
+						if (img.naturalWidth && img.naturalHeight) out.set(url, img.naturalWidth / img.naturalHeight);
+						resolve();
+					};
+					img.onerror = () => resolve();
+					img.src = url;
+				})
+		)
 	);
-	if (scope.totals.ems > 0) cols.push({ header: "EMS", value: (r) => r.ems });
-	if (scope.totals.sdb > 0) cols.push({ header: "SDB", value: (r) => r.sdb });
-	if (scope.totals.others > 0)
-		cols.push({ header: "Others", value: (r) => r.others });
-	cols.push({ header: "Pending verification", value: (r) => r.pending });
-	// Last and apart from the outcome columns (which sum to Signals): the
-	// alerts ISSUED — confirmed, risk-assessed, reporter told — the same count
-	// as the Alerts page, the dashboard and the regional report.
-	if (withAlerts) cols.push({ header: "Alerts issued", value: (r) => r.alerts });
-	return cols;
+	return out;
 }
 
-/**
- * The response-cascade stages, in order, shared by the slides, the in-app
- * view and the PDF/Word document so all three read the same. Verified and
- * alerts nest (alerts ⊆ verified); the response actions are what verification
- * recorded, so "Alerts issued" closes the chart rather than sitting between
- * stages it is not a subset of.
- */
-export const MANAGEMENT_CASCADE_STAGES: {
-	key: keyof ManagementScope["cascade"][string];
-	label: string;
-}[] = [
-	{ key: "signals", label: "Signals" },
-	{ key: "signalsVerified", label: "Signals verified" },
-	{ key: "sampleCollected", label: "Sample Collected" },
-	{ key: "fieldCaseVerification", label: "Field Case Verification" },
-	{ key: "sdb", label: "SDB" },
-	{ key: "rrtDeployment", label: "RRT deployment" },
-	{ key: "ems", label: "EMS" },
-	{ key: "alerts", label: "Alerts issued" },
-];
+interface Ctx {
+	pptx: Pptx;
+	style: DeckStyle;
+	config: DeckConfig;
+	deck: BuiltDeck;
+	aspects: Map<string, number>;
+	font: string;
+}
 
-function scopeTableRows(
-	scope: ManagementScope,
-	withAlerts: boolean,
-	pal: PptxPalette
-): any[][] {
-	const cols = scopeColumns(scope, withAlerts);
-	const rows: any[][] = [];
-
-	rows.push([
-		{ text: "District", options: { bold: true, color: "FFFFFF", fill: { color: pal.headerFill } } },
-		...cols.map((c) => ({
-			text: c.header,
-			options: { bold: true, color: "FFFFFF", fill: { color: pal.headerFill }, align: "center" },
-		})),
-	]);
-
-	// `?? []` guards a backend that serialised an empty scope's sections as null.
-	for (const section of scope.sections ?? []) {
-		rows.push([
-			{ text: section.status, options: { bold: true, fill: { color: pal.sectionFill } } },
-			...cols.map((c) => ({
-				text: String(c.value(section.totals)),
-				options: { bold: true, fill: { color: pal.sectionFill }, align: "center" },
-			})),
-		]);
-		for (const d of section.districts) {
-			rows.push([
-				{ text: d.district, options: {} },
-				...cols.map((c) => ({
-					text: String(c.value(d)),
-					options: { align: "center" },
-				})),
-			]);
-		}
+function text(
+	ctx: Ctx,
+	slide: PptxSlide,
+	value: string | any[],
+	box: Box,
+	o: {
+		size: number;
+		color: string;
+		bold?: boolean;
+		italic?: boolean;
+		align?: "left" | "center" | "right";
+		valign?: "top" | "middle" | "bottom";
+		shrink?: boolean;
 	}
-
-	rows.push([
-		{ text: "Total", options: { bold: true, fill: { color: pal.totalFill } } },
-		...cols.map((c) => ({
-			text: String(c.value(scope.totals)),
-			options: { bold: true, fill: { color: pal.totalFill }, align: "center" },
-		})),
-	]);
-
-	return rows;
+) {
+	slide.addText(value, {
+		x: box.x,
+		y: box.y,
+		w: box.w,
+		h: box.h,
+		fontFace: ctx.font,
+		fontSize: o.size,
+		color: hx(o.color),
+		bold: o.bold ?? false,
+		italic: o.italic ?? false,
+		align: o.align ?? "left",
+		valign: o.valign ?? "middle",
+		margin: 0,
+		...(o.shrink ? { fit: "shrink" } : {}),
+	});
 }
 
-/* ------------------------------------------------------------------ */
-/* Slide helpers                                                        */
-/* ------------------------------------------------------------------ */
-
-const PAGE_W = 10; // LAYOUT_16x9 inches
-const PAGE_H = 5.625;
-const MARGIN = 0.35;
-
-function addTitle(slide: PptxSlide, text: string, pal: PptxPalette): void {
-	slide.addText(text, {
-		x: MARGIN,
-		y: 0.16,
-		w: PAGE_W - MARGIN * 2,
-		h: 0.42,
-		fontSize: 18,
-		bold: true,
-		color: pal.ink,
-	});
-	slide.addShape("rect", {
-		x: MARGIN,
-		y: 0.6,
-		w: 2.2,
-		h: 0.045,
-		fill: { color: pal.brand },
+function rect(ctx: Ctx, slide: PptxSlide, box: Box, color: string, transparency = 0) {
+	slide.addShape(ctx.pptx.ShapeType.rect, {
+		x: box.x,
+		y: box.y,
+		w: box.w,
+		h: box.h,
+		fill: { color: hx(color), transparency },
 		line: { type: "none" },
 	});
 }
 
-function addScopeTableSlide(
-	pptx: Pptx,
-	title: string,
-	scope: ManagementScope,
-	withAlerts: boolean,
-	pal: PptxPalette
-): void {
-	const slide = pptx.addSlide();
-	addTitle(slide, title, pal);
-	const rows = scopeTableRows(scope, withAlerts, pal);
-	const cols = rows[0].length;
-	const tableW = PAGE_W - MARGIN * 2;
-	const firstColW = 1.9;
-	const otherW = (tableW - firstColW) / (cols - 1);
-	slide.addTable(rows, {
-		x: MARGIN,
-		y: 0.78,
-		w: tableW,
-		colW: [firstColW, ...Array(cols - 1).fill(otherW)],
-		fontSize: rows.length > 22 ? 8 : 10,
-		color: pal.ink,
-		border: { pt: 0.5, color: pal.border },
-		valign: "middle",
-		autoPage: true,
-		autoPageRepeatHeader: true,
-		autoPageSlideStartY: 0.78,
-	});
+function image(ctx: Ctx, slide: PptxSlide, url: string, box: Box, aspect?: number) {
+	const fit = containBox(box, aspect ?? ctx.aspects.get(url) ?? box.w / box.h);
+	slide.addImage({ data: url, x: fit.x, y: fit.y, w: fit.w, h: fit.h });
 }
 
-function barCascadeSlide(
-	pptx: Pptx,
-	title: string,
-	heading: string,
-	scope: ManagementScope,
-	pal: PptxPalette
-): void {
-	const slide = pptx.addSlide();
-	addTitle(slide, title, pal);
-	const labels = MANAGEMENT_CASCADE_STAGES.map((st) => st.label);
-	const data = ["Alive", "Dead", "Unknown"]
-		.filter((s) => scope.cascade?.[s] && scope.cascade[s].signals > 0)
-		.map((s) => {
-			const c = scope.cascade[s];
-			return {
-				name: s,
-				labels,
-				values: MANAGEMENT_CASCADE_STAGES.map((st) => c[st.key]),
-			};
-		});
-	if (!data.length) data.push({ name: "Alive", labels, values: labels.map(() => 0) });
-	slide.addChart((pptx as any).ChartType.bar, data, {
-		x: MARGIN,
-		y: 0.8,
-		w: PAGE_W - MARGIN * 2,
-		h: PAGE_H - 1.15,
-		barDir: "col",
-		chartColors: pal.series.slice(0, data.length),
-		showTitle: true,
-		title: heading,
-		titleFontSize: 13,
-		showLegend: true,
-		legendPos: "b",
-		showValue: true,
-		dataLabelFontSize: 9,
-		catAxisLabelFontSize: 9,
-		valAxisLabelFontSize: 9,
-	});
-}
+/* ------------------------------------------------------------------ */
+/* Chrome                                                              */
+/* ------------------------------------------------------------------ */
 
-function countBarSlide(
-	pptx: Pptx,
-	title: string,
-	heading: string,
-	counts: ManagementCount[],
-	pal: PptxPalette
-): void {
-	const slide = pptx.addSlide();
-	addTitle(slide, title, pal);
-	const data = [
-		{
-			name: "Count",
-			labels: counts.map((c) => c.label),
-			values: counts.map((c) => c.count),
-		},
-	];
-	slide.addChart((pptx as any).ChartType.bar, data, {
-		x: MARGIN,
-		y: 0.8,
-		w: PAGE_W - MARGIN * 2,
-		h: PAGE_H - 1.15,
-		barDir: "col",
-		chartColors: [pal.brand],
-		chartColorsOpacity: 100,
-		showTitle: true,
-		title: heading,
-		titleFontSize: 13,
-		showLegend: false,
-		showValue: true,
-		dataLabelFontSize: 9,
-		catAxisLabelFontSize: 9,
-		valAxisLabelFontSize: 9,
-	});
-}
-
-/** The "Alert details" narrative table slide (auto-pages onto continuations). */
-function narrativesSlide(
-	pptx: Pptx,
-	title: string,
-	details: ManagementDetail[],
-	detailsTotal: number,
-	emptyLabel: string,
-	pal: PptxPalette
-): void {
-	const slide = pptx.addSlide();
-	addTitle(slide, title, pal);
-	const rows: any[][] = [
-		[
-			{ text: "Source", options: { bold: true, color: "FFFFFF", fill: { color: pal.headerFill } } },
-			{ text: "District", options: { bold: true, color: "FFFFFF", fill: { color: pal.headerFill } } },
-			{ text: "Narrative", options: { bold: true, color: "FFFFFF", fill: { color: pal.headerFill } } },
-		],
-		...details.map((d) => [
-			{ text: d.source, options: {} },
-			{ text: d.district, options: {} },
-			{ text: d.narrative, options: {} },
-		]),
-	];
-	if (detailsTotal > details.length) {
-		rows.push([
-			{
-				text: `… ${detailsTotal - details.length} more alert(s) in this range not shown`,
-				options: { colspan: 3, italic: true, color: "6B7280" },
-			},
-		]);
-	}
-	if (details.length === 0) {
-		rows.push([
-			{ text: emptyLabel, options: { colspan: 3, italic: true, color: "6B7280" } },
-		]);
-	}
-	slide.addTable(rows, {
-		x: MARGIN,
-		y: 0.78,
-		w: PAGE_W - MARGIN * 2,
-		colW: [0.9, 1.35, PAGE_W - MARGIN * 2 - 2.25],
-		fontSize: 9,
-		color: pal.ink,
-		border: { pt: 0.5, color: pal.border },
-		valign: "top",
-		autoPage: true,
-		autoPageRepeatHeader: true,
-		autoPageSlideStartY: 0.78,
-	});
-}
-
-/** The optional cover / title slide. */
-function addCoverSlide(
-	pptx: Pptx,
-	config: DeckConfig,
-	range: string,
-	pal: PptxPalette
-): void {
-	const slide = pptx.addSlide();
-	slide.background = { color: pal.brand };
-
-	if (config.cover.logoDataUrl) {
-		slide.addImage({
-			data: config.cover.logoDataUrl,
-			x: PAGE_W / 2 - 0.6,
-			y: 0.55,
-			w: 1.2,
-			h: 1.2,
-			sizing: { type: "contain", w: 1.2, h: 1.2 },
-		});
-	}
-
-	slide.addText(config.cover.title.trim() || "Alerts Management Report", {
-		x: 0.6,
-		y: config.cover.logoDataUrl ? 2.0 : 1.6,
-		w: PAGE_W - 1.2,
-		h: 0.9,
-		fontSize: 32,
+function contentChrome(ctx: Ctx, slide: PptxSlide, s: DeckSlide, number: number, total: number) {
+	const { style, config } = ctx;
+	const t = style.theme;
+	const logo = config.cover.logoDataUrl;
+	const L = chromeLayout(style, config, Boolean(logo));
+	slide.background = { color: hx(t.bg) };
+	if (L.band) rect(ctx, slide, L.band, t.accent);
+	if (L.stripe) rect(ctx, slide, L.stripe, t.accent);
+	if (L.rule) rect(ctx, slide, L.rule, style.design.titleStyle === "sidebar" ? t.secondary : t.accent);
+	if (L.hairline) rect(ctx, slide, L.hairline, t.border);
+	text(ctx, slide, s.title, L.title, {
+		size: fitFont(s.title, L.title, L.titleFont, 12),
 		bold: true,
-		color: "FFFFFF",
-		align: "center",
+		color: L.titleColor === "onAccent" ? t.onAccent : L.titleColor === "accent" ? t.accent : t.ink,
 	});
+	if (L.logo && logo) image(ctx, slide, logo, L.logo);
 
-	const subtitle = config.cover.subtitle.trim() || range;
-	slide.addText(subtitle, {
-		x: 0.6,
-		y: config.cover.logoDataUrl ? 2.95 : 2.55,
-		w: PAGE_W - 1.2,
-		h: 0.5,
-		fontSize: 16,
-		color: "FFFFFF",
-		align: "center",
-	});
+	const f = footerParts(config, ctx.deck, number, total);
+	rect(ctx, slide, L.footerLine, t.border);
+	if (f.left) text(ctx, slide, f.left, L.footerLeft, { size: 8, color: t.muted });
+	if (f.center)
+		text(ctx, slide, f.center, L.footerCenter, {
+			size: 8,
+			bold: true,
+			color: /CONFIDENTIAL|RESTRICTED|SECRET/.test(f.center) ? t.bad : t.accent,
+			align: "center",
+		});
+	if (f.right) text(ctx, slide, f.right, L.footerRight, { size: 8, color: t.muted, align: "right" });
+}
 
-	if (config.cover.organization.trim()) {
-		slide.addText(config.cover.organization.trim(), {
-			x: 0.6,
-			y: PAGE_H - 0.8,
-			w: PAGE_W - 1.2,
-			h: 0.4,
-			fontSize: 13,
-			italic: true,
-			color: "FFFFFF",
+function decorate(ctx: Ctx, slide: PptxSlide, onColor: string) {
+	for (const d of decorations(ctx.style)) {
+		slide.addShape(ctx.pptx.ShapeType.ellipse, {
+			x: d.circle.x,
+			y: d.circle.y,
+			w: d.circle.w,
+			h: d.circle.h,
+			fill: { color: hx(onColor), transparency: Math.round((1 - d.opacity) * 100) },
+			line: { type: "none" },
+		});
+	}
+}
+
+/* ------------------------------------------------------------------ */
+/* Charts                                                              */
+/* ------------------------------------------------------------------ */
+
+function addChart(ctx: Ctx, slide: PptxSlide, spec: ChartSpec, box: Box) {
+	const { pptx, style } = ctx;
+	const t = style.theme;
+	if (spec.empty) {
+		text(ctx, slide, spec.empty, box, { size: 13, italic: true, color: t.muted, align: "center" });
+		return;
+	}
+	const plot = spec.heading
+		? { x: box.x, y: box.y + 0.32, w: box.w, h: box.h - 0.32 }
+		: box;
+	if (spec.heading) {
+		text(ctx, slide, spec.heading, { x: box.x, y: box.y, w: box.w, h: 0.3 }, {
+			size: 11,
+			bold: true,
+			color: t.ink,
 			align: "center",
 		});
 	}
+	const data = spec.series.map((s) => ({ name: s.name, labels: spec.labels, values: s.values }));
+	const common: Record<string, unknown> = {
+		x: plot.x,
+		y: plot.y,
+		w: plot.w,
+		h: plot.h,
+		showLegend: spec.showLegend,
+		legendPos: "b",
+		legendFontSize: 10,
+		legendFontFace: ctx.font,
+		legendColor: hx(t.ink),
+		catAxisLabelColor: hx(t.muted),
+		valAxisLabelColor: hx(t.muted),
+		catAxisLabelFontFace: ctx.font,
+		valAxisLabelFontFace: ctx.font,
+		catAxisLabelFontSize: spec.labels.length > 10 ? 8 : 9,
+		valAxisLabelFontSize: 9,
+		catAxisLineShow: false,
+		valAxisLineShow: false,
+		valGridLine: { color: hx(t.border), size: 0.5, style: "dash" },
+		catGridLine: { style: "none" },
+		dataLabelFontSize: 9,
+		dataLabelFontFace: ctx.font,
+		dataLabelColor: hx(t.ink),
+	};
+
+	if (spec.variant === "pie" || spec.variant === "doughnut") {
+		const doughnut = spec.variant === "doughnut";
+		slide.addChart(doughnut ? pptx.ChartType.doughnut : pptx.ChartType.pie, data, {
+			...common,
+			chartColors: (spec.pointColors ?? spec.series.map((s) => s.color)).map(hx),
+			showLegend: true,
+			legendPos: "r",
+			showValue: spec.dataLabels && !doughnut,
+			showPercent: spec.dataLabels,
+			showLabel: false,
+			dataLabelPosition: doughnut ? undefined : "bestFit",
+			dataLabelColor: doughnut ? "FFFFFF" : hx(t.ink),
+			holeSize: doughnut ? 55 : undefined,
+			dataBorder: { pt: 1, color: hx(t.bg) },
+		});
+		return;
+	}
+
+	const colors = spec.series.map((s) => hx(s.color));
+	if (spec.variant === "line" || spec.variant === "area") {
+		slide.addChart(spec.variant === "line" ? pptx.ChartType.line : pptx.ChartType.area, data, {
+			...common,
+			chartColors: colors,
+			chartColorsOpacity: spec.variant === "area" ? 55 : undefined,
+			lineSize: spec.variant === "line" ? 2.25 : 1,
+			lineDataSymbol: spec.variant === "line" && spec.labels.length <= 31 ? "circle" : "none",
+			lineDataSymbolSize: 5,
+			showValue: false,
+			catAxisLabelRotate: spec.labels.length > 12 ? -45 : 0,
+		});
+		return;
+	}
+
+	const horizontal = spec.variant === "bar" || spec.orientation === "horizontal";
+	const stacked = spec.variant === "stacked";
+	slide.addChart(pptx.ChartType.bar, data, {
+		...common,
+		barDir: horizontal ? "bar" : "col",
+		barGrouping: stacked ? "stacked" : "clustered",
+		barGapWidthPct: 60,
+		chartColors: colors,
+		showValue: spec.dataLabels,
+		dataLabelPosition: stacked ? "ctr" : "outEnd",
+		dataLabelColor: stacked ? "FFFFFF" : hx(t.ink),
+		// Horizontal bars read top-down in rank order.
+		...(horizontal ? { catAxisOrientation: "maxMin" } : {}),
+		catAxisLabelRotate: !horizontal && crowdedLabels(spec.labels, plot.w) ? -35 : 0,
+	});
 }
 
 /* ------------------------------------------------------------------ */
-/* The deck                                                             */
+/* Slide renderers                                                     */
+/* ------------------------------------------------------------------ */
+
+function renderCover(ctx: Ctx, slide: PptxSlide, s: Extract<DeckSlide, { type: "cover" }>) {
+	const t = ctx.style.theme;
+	const c = s.cover;
+	const logos = [c.logo, c.partnerLogo].filter((l): l is string => Boolean(l));
+	const L = coverLayout(ctx.style, c.layout, logos.length);
+	const onColor = c.layout === "minimal" ? t.ink : c.layout === "split" ? t.ink : t.onAccent;
+
+	if (c.layout === "centered") {
+		slide.background = { color: hx(t.accent) };
+		decorate(ctx, slide, t.onAccent);
+	} else {
+		slide.background = { color: hx(t.bg) };
+	}
+	if (L.panel) {
+		rect(ctx, slide, L.panel, t.accent);
+		slide.addShape(ctx.pptx.ShapeType.ellipse, {
+			x: L.panel.w - 2.4, y: L.panel.h - 2.4, w: 2.0, h: 2.0,
+			fill: { color: hx(t.onAccent), transparency: 90 }, line: { type: "none" },
+		});
+	}
+	if (L.bottomBar) rect(ctx, slide, L.bottomBar, c.layout === "centered" ? t.secondary : t.accent);
+	if (L.verticalRule) rect(ctx, slide, L.verticalRule, c.layout === "split" ? t.accent : t.accent);
+	logos.forEach((url, i) => image(ctx, slide, url, L.logos[i]));
+
+	const titleColor = c.layout === "centered" ? t.onAccent : t.ink;
+	text(ctx, slide, c.title, L.title, {
+		size: fitFont(c.title, L.title, L.titleFont, 18),
+		bold: true,
+		color: titleColor,
+		align: L.align,
+		valign: "bottom",
+	});
+	text(ctx, slide, c.subtitle, L.subtitle, {
+		size: 17,
+		color: c.layout === "centered" ? t.onAccent : t.accent,
+		align: L.align,
+	});
+	if (c.scope)
+		text(ctx, slide, c.scope, L.scope, {
+			size: 13,
+			bold: true,
+			color: c.layout === "centered" ? t.onAccent : t.secondary,
+			align: L.align,
+		});
+	const orgColor = c.layout === "split" ? t.onAccent : onColor;
+	if (c.organization)
+		text(ctx, slide, c.organization, L.organization, {
+			size: 14,
+			bold: true,
+			color: orgColor,
+			align: c.layout === "split" ? "left" : L.align,
+			valign: c.layout === "split" ? "bottom" : "middle",
+		});
+	if (c.presenter)
+		text(ctx, slide, c.presenter, L.presenter, {
+			size: 12,
+			color: c.layout === "centered" ? t.onAccent : t.muted,
+			align: L.align,
+		});
+	text(ctx, slide, c.dateLine, L.date, {
+		size: 11,
+		italic: true,
+		color: c.layout === "centered" ? t.onAccent : t.muted,
+		align: c.layout === "minimal" ? "right" : L.align,
+	});
+}
+
+function renderTable(ctx: Ctx, slide: PptxSlide, s: Extract<DeckSlide, { type: "table" }>) {
+	const { style } = ctx;
+	const t = style.theme;
+	if (s.empty) {
+		text(ctx, slide, s.empty, contentBox(style), { size: 13, italic: true, color: t.muted, align: "center" });
+		return;
+	}
+	const L = tableLayout(style, s);
+	const rows = s.rows.map((r) =>
+		r.cells.map((cell, ci) => {
+			const base: Record<string, unknown> = { align: ci === 0 ? "left" : "center" };
+			switch (r.style) {
+				case "header":
+					return { text: cell, options: { ...base, bold: true, color: hx(t.onAccent), fill: { color: hx(t.accent) } } };
+				case "section":
+					return { text: cell, options: { ...base, bold: true, color: hx(t.ink), fill: { color: hx(t.sectionFill) } } };
+				case "total":
+					return { text: cell, options: { ...base, bold: true, color: hx(t.ink), fill: { color: hx(t.totalFill) } } };
+				case "fold":
+					return { text: cell, options: { ...base, italic: true, color: hx(t.muted), fill: { color: hx(t.surface) } } };
+				default:
+					return { text: cell, options: { ...base, color: hx(t.ink), fill: { color: hx(t.surface) }, ...(ci === 0 ? { margin: [0.02, 0.06, 0.02, 0.16] } : {}) } };
+			}
+		})
+	);
+	slide.addTable(rows, {
+		x: L.box.x,
+		y: L.box.y,
+		w: L.box.w,
+		colW: L.colW,
+		rowH: L.rowH,
+		fontFace: ctx.font,
+		fontSize: style.table.font,
+		border: { type: "solid", pt: 0.5, color: hx(t.border) },
+		valign: "middle",
+		margin: [0.02, 0.06, 0.02, 0.06],
+		autoPage: false,
+	});
+	if (L.note && s.note) text(ctx, slide, s.note, L.note, { size: 8, italic: true, color: t.muted });
+}
+
+function renderNarratives(ctx: Ctx, slide: PptxSlide, s: Extract<DeckSlide, { type: "narratives" }>) {
+	const { style } = ctx;
+	const t = style.theme;
+	if (s.empty) {
+		text(ctx, slide, s.empty, contentBox(style), { size: 13, italic: true, color: t.muted, align: "center" });
+		return;
+	}
+	const L = narrativesLayout(style, s);
+	const head = (v: string) => ({ text: v, options: { bold: true, color: hx(t.onAccent), fill: { color: hx(t.accent) }, valign: "middle" } });
+	const body = (v: string) => ({ text: v, options: { color: hx(t.ink), fill: { color: hx(t.surface) } } });
+	slide.addTable(
+		[[head("Source"), head("District"), head("Narrative")], ...s.rows.map((d) => [body(d.source), body(d.district), body(d.narrative)])],
+		{
+			x: L.box.x,
+			y: L.box.y,
+			w: L.box.w,
+			colW: L.colW,
+			rowH: L.rowH,
+			fontFace: ctx.font,
+			fontSize: style.narrative.font,
+			border: { type: "solid", pt: 0.5, color: hx(t.border) },
+			valign: "top",
+			margin: [0.03, 0.06, 0.03, 0.06],
+			autoPage: false,
+		}
+	);
+	if (L.note && s.note) text(ctx, slide, s.note, L.note, { size: 8.5, italic: true, color: t.muted });
+}
+
+function renderKpis(ctx: Ctx, slide: PptxSlide, s: Extract<DeckSlide, { type: "kpis" }>) {
+	const { style } = ctx;
+	const t = style.theme;
+	const L = kpiLayout(style, s.tiles.length, Boolean(s.comparison));
+	s.tiles.forEach((tile, i) => {
+		const box = L.tiles[i];
+		const p = kpiTileParts(box);
+		slide.addShape(ctx.pptx.ShapeType.rect, {
+			x: box.x, y: box.y, w: box.w, h: box.h,
+			fill: { color: hx(t.surface) },
+			line: { color: hx(t.border), width: 0.75 },
+		});
+		rect(ctx, slide, p.strip, i % 2 === 0 ? t.accent : t.secondary);
+		text(ctx, slide, tile.label.toUpperCase(), p.label, { size: 9.5, bold: true, color: t.muted });
+		text(ctx, slide, tile.value, p.value, { size: fitFont(tile.value, p.value, L.valueFont, 14), bold: true, color: t.ink });
+		if (tile.delta) {
+			const arrow = tile.delta.direction === "up" ? "▲" : tile.delta.direction === "down" ? "▼" : "■";
+			const color = tile.delta.tone === "good" ? t.good : tile.delta.tone === "bad" ? t.bad : t.muted;
+			text(
+				ctx,
+				slide,
+				[
+					{ text: `${arrow} ${tile.delta.text}`, options: { bold: true, color: hx(color) } },
+					{ text: `  prev ${tile.delta.previous}`, options: { color: hx(t.muted) } },
+				],
+				p.delta,
+				{ size: 9.5, color: color }
+			);
+		}
+		text(ctx, slide, tile.hint, p.hint, { size: 8, italic: true, color: t.muted });
+	});
+	if (L.comparison && s.comparison)
+		text(ctx, slide, `Change ${s.comparison}.`, L.comparison, { size: 9, italic: true, color: t.muted });
+}
+
+function toneColor(style: DeckStyle, tone: "good" | "bad" | "neutral" | "info"): string {
+	const t = style.theme;
+	return tone === "good" ? t.good : tone === "bad" ? t.bad : tone === "info" ? t.secondary : t.muted;
+}
+
+function renderBullets(ctx: Ctx, slide: PptxSlide, s: Extract<DeckSlide, { type: "bullets" }>) {
+	const { style } = ctx;
+	const t = style.theme;
+	if (s.bullets.length === 0) {
+		if (s.empty) text(ctx, slide, s.empty, contentBox(style), { size: 13, italic: true, color: t.muted, align: "center" });
+		return;
+	}
+	const L = bulletsLayout(style, s.bullets);
+	s.bullets.forEach((b, i) => {
+		const row = L.rows[i];
+		const fill = toneColor(style, b.tone);
+		slide.addShape(ctx.pptx.ShapeType.ellipse, {
+			x: row.marker.x, y: row.marker.y, w: row.marker.w, h: row.marker.h,
+			fill: { color: hx(fill) }, line: { type: "none" },
+		});
+		text(ctx, slide, b.mark, row.marker, { size: L.markerFont, bold: true, color: "#ffffff", align: "center" });
+		text(ctx, slide, b.text, row.text, { size: L.font, color: t.ink, valign: "top" });
+	});
+}
+
+function renderAgenda(ctx: Ctx, slide: PptxSlide, s: Extract<DeckSlide, { type: "agenda" }>) {
+	const t = ctx.style.theme;
+	const L = agendaLayout(ctx.style, s.items.length);
+	s.items.forEach((label, i) => {
+		const row = L.rows[i];
+		slide.addShape(ctx.pptx.ShapeType.ellipse, {
+			x: row.marker.x, y: row.marker.y, w: row.marker.w, h: row.marker.h,
+			fill: { color: hx(i % 2 === 0 ? t.accent : t.secondary) }, line: { type: "none" },
+		});
+		text(ctx, slide, String(i + 1), row.marker, {
+			size: 12, bold: true, color: i % 2 === 0 ? t.onAccent : t.onSecondary, align: "center",
+		});
+		text(ctx, slide, label, row.text, { size: L.font, color: t.ink });
+	});
+}
+
+function bulletRuns(lines: string[], color: string) {
+	return lines.map((l, i) => ({
+		text: l,
+		options: { bullet: { indent: 16 }, color: hx(color), breakLine: i < lines.length - 1, paraSpaceAfter: 8 },
+	}));
+}
+
+function renderTwoColumn(ctx: Ctx, slide: PptxSlide, s: Extract<DeckSlide, { type: "twoColumn" }>) {
+	const t = ctx.style.theme;
+	const L = twoColumnLayout(ctx.style);
+	rect(ctx, slide, L.divider, t.border);
+	if (s.left.length) text(ctx, slide, bulletRuns(s.left, t.ink), L.left, { size: 15, color: t.ink, valign: "top" });
+	if (s.right.length) text(ctx, slide, bulletRuns(s.right, t.ink), L.right, { size: 15, color: t.ink, valign: "top" });
+}
+
+function renderStatement(ctx: Ctx, slide: PptxSlide, s: Extract<DeckSlide, { type: "statement" }>) {
+	const t = ctx.style.theme;
+	const L = statementLayout(ctx.style, s.text);
+	text(ctx, slide, "“", L.quote, { size: 96, bold: true, color: t.accentSoft, valign: "top" });
+	text(ctx, slide, s.text, L.text, { size: L.font, italic: true, color: t.accent, valign: "middle" });
+	if (s.attribution) text(ctx, slide, `— ${s.attribution}`, L.attribution, { size: 13, color: t.muted, align: "right" });
+}
+
+function renderMap(ctx: Ctx, slide: PptxSlide, s: Extract<DeckSlide, { type: "map" }>) {
+	const t = ctx.style.theme;
+	const L = mapLayout(ctx.style, Boolean(s.top));
+	if (s.map) image(ctx, slide, s.map.dataUrl, L.map, s.map.aspect);
+	else text(ctx, slide, "Map unavailable (no boundary data).", L.map, { size: 12, italic: true, color: t.muted, align: "center" });
+	if (s.top && L.top) addChart(ctx, slide, s.top, L.top);
+}
+
+function renderImage(ctx: Ctx, slide: PptxSlide, s: Extract<DeckSlide, { type: "image" }>) {
+	const t = ctx.style.theme;
+	const L = imageLayout(ctx.style, Boolean(s.caption));
+	if (s.image) image(ctx, slide, s.image, L.image);
+	else text(ctx, slide, "No image chosen.", L.image, { size: 13, italic: true, color: t.muted, align: "center" });
+	if (L.caption && s.caption) text(ctx, slide, s.caption, L.caption, { size: 11, italic: true, color: t.muted, align: "center" });
+}
+
+function renderDivider(ctx: Ctx, slide: PptxSlide, s: Extract<DeckSlide, { type: "divider" }>) {
+	const t = ctx.style.theme;
+	const fill = s.tone === "accent" ? t.accent : t.secondary;
+	const on = s.tone === "accent" ? t.onAccent : t.onSecondary;
+	slide.background = { color: hx(fill) };
+	decorate(ctx, slide, on);
+	const L = dividerLayout(ctx.style);
+	text(ctx, slide, s.heading, L.heading, { size: fitFont(s.heading, L.heading, 36, 20), bold: true, color: on, valign: "bottom" });
+	rect(ctx, slide, L.rule, s.tone === "accent" ? t.secondary : t.accent);
+	if (s.subheading) text(ctx, slide, s.subheading, L.subheading, { size: 16, color: on, valign: "top" });
+}
+
+function renderClosing(ctx: Ctx, slide: PptxSlide, s: Extract<DeckSlide, { type: "closing" }>) {
+	const t = ctx.style.theme;
+	const logo = ctx.config.cover.logoDataUrl;
+	slide.background = { color: hx(t.accent) };
+	decorate(ctx, slide, t.onAccent);
+	const L = closingLayout(ctx.style, Boolean(logo));
+	if (L.logo && logo) image(ctx, slide, logo, L.logo);
+	text(ctx, slide, s.heading, L.heading, { size: fitFont(s.heading, L.heading, 40, 20), bold: true, color: t.onAccent, align: "center" });
+	if (s.message) text(ctx, slide, s.message, L.message, { size: 18, color: t.onAccent, align: "center" });
+	if (s.contact.length)
+		text(ctx, slide, s.contact.join("\n"), L.contact, { size: 12, color: t.onAccent, align: "center", valign: "bottom" });
+}
+
+/* ------------------------------------------------------------------ */
+/* The deck                                                            */
 /* ------------------------------------------------------------------ */
 
 export interface ManagementDeckInput {
-	report: ManagementReport;
-	/** District-level FeatureCollection with alert counts (for the map slide). */
-	districtGeo: GeoFeatureCollection | null;
-	/** Theme / sections / focus / cover configuration. Defaults applied if omitted. */
-	config?: DeckConfig;
+	deck: BuiltDeck;
+	config: DeckConfig;
+	/** File name WITHOUT extension. */
+	fileStem: string;
 }
 
 /** Builds and downloads the .pptx. Returns the filename it saved under. */
-export async function downloadManagementReportPptx({
-	report,
-	districtGeo,
-	config = defaultDeckConfig(),
-}: ManagementDeckInput): Promise<string> {
-	const pal = paletteFromConfig(config);
-	const slides = config.slides;
-
+export async function downloadManagementReportPptx({ deck, config, fileStem }: ManagementDeckInput): Promise<string> {
+	const style = deck.style;
 	const { default: PptxGenJS } = await import("pptxgenjs");
 	const pptx: Pptx = new PptxGenJS();
-	pptx.layout = "LAYOUT_16x9";
-	pptx.author = "Alerts MIS";
-	pptx.title = config.cover.title.trim() || "Alerts Management report";
+	pptx.layout = { "16x9": "LAYOUT_16x9", "16x10": "LAYOUT_16x10", "4x3": "LAYOUT_4x3" }[style.design.aspect];
+	pptx.author = config.cover.presenter.trim() || "Alerts MIS";
+	pptx.company = config.cover.organization.trim() || "Ministry of Health, Uganda";
+	pptx.subject = `Alerts Management report ${deck.range}${deck.scopeSuffix}`;
+	pptx.title = deck.title;
+	pptx.theme = { headFontFace: style.design.font, bodyFontFace: style.design.font };
 
-	const range = formatReportRange(report.fromDate, report.toDate);
-	const rangeTitle = `Alerts Management report (${range})`;
+	const aspects = await measureImages([
+		config.cover.logoDataUrl,
+		config.cover.partnerLogoDataUrl,
+		...deck.slides.map((s) => (s.type === "image" ? s.image : null)),
+	]);
+	const ctx: Ctx = { pptx, style, config, deck, aspects, font: style.design.font };
 
-	// 0. Optional cover slide.
-	if (config.cover.enabled) {
-		addCoverSlide(pptx, config, range, pal);
-	}
-
-	// 1–2. District tables split by patient status.
-	if (slides.districtTables) {
-		addScopeTableSlide(pptx, `${rangeTitle} — All PHEs`, report.allPhes, false, pal);
-		addScopeTableSlide(pptx, `${rangeTitle} — VHFs`, report.vhf, true, pal);
-	}
-
-	// 3. Signal sources pie.
-	if (slides.sources) {
+	const total = deck.slides.length;
+	deck.slides.forEach((s, i) => {
 		const slide = pptx.addSlide();
-		addTitle(slide, `${rangeTitle} — Signals sources`, pal);
-		const data = [
-			{
-				name: "Count of Source",
-				labels: report.sources.map((s) => s.label),
-				values: report.sources.map((s) => s.count),
-			},
-		];
-		slide.addChart((pptx as any).ChartType.pie, data, {
-			x: 1.6,
-			y: 0.8,
-			w: PAGE_W - 3.2,
-			h: PAGE_H - 1.2,
-			showLegend: true,
-			legendPos: "r",
-			showValue: true,
-			showPercent: true,
-			dataLabelFontSize: 10,
-		});
-	}
-
-	// 4. Alert details narratives (auto-pages onto continuation slides).
-	if (slides.narratives) {
-		narrativesSlide(
-			pptx,
-			`Alerts Management report: Alert details (${range})`,
-			report.details,
-			report.detailsTotal,
-			"No VHF alerts in this range.",
-			pal
-		);
-	}
-
-	// 5–6. Response cascades (Alive vs Dead), All PHEs then VHFs only.
-	if (slides.cascade) {
-		barCascadeSlide(pptx, rangeTitle, "All PHEs", report.allPhes, pal);
-		barCascadeSlide(pptx, rangeTitle, "VHFs", report.vhf, pal);
-	}
-
-	// 7. Signal sources bar with n=total signals.
-	if (slides.sources) {
-		const totalSignals = report.sources.reduce((s, c) => s + c.count, 0);
-		countBarSlide(
-			pptx,
-			rangeTitle,
-			`Signal Sources (n=${totalSignals})`,
-			report.sources,
-			pal
-		);
-	}
-
-	// 8. Alerts by disease/PHE (VHF variants folded into one bar).
-	if (slides.diseaseBar) {
-		countBarSlide(
-			pptx,
-			rangeTitle,
-			"Other PHEs reported: Alerts",
-			report.otherPhes,
-			pal
-		);
-	}
-
-	// 9. Map + top-10 districts.
-	if (slides.map) {
-		const slide = pptx.addSlide();
-		const totalAlerts = report.allPhes.totals.alerts;
-		addTitle(
-			slide,
-			`Map showing distribution of alerts, N=${totalAlerts}: All PHEs (${range})`,
-			pal
-		);
-		const map = districtGeo ? renderDistrictChoropleth(districtGeo, pal.mapRamp) : null;
-		if (map) {
-			const availH = PAGE_H - 1.0;
-			const mapW = Math.min(5.6, availH * map.aspect);
-			slide.addImage({
-				data: map.dataUrl,
-				x: MARGIN,
-				y: 0.75,
-				w: mapW,
-				h: mapW / map.aspect,
-			});
-		} else {
-			slide.addText("Map unavailable (no boundary data).", {
-				x: MARGIN,
-				y: 2.4,
-				w: 5,
-				h: 0.5,
-				fontSize: 12,
-				italic: true,
-				color: "6B7280",
-			});
+		if (s.chrome === "content") contentChrome(ctx, slide, s, i + 1, total);
+		switch (s.type) {
+			case "cover": renderCover(ctx, slide, s); break;
+			case "agenda": renderAgenda(ctx, slide, s); break;
+			case "kpis": renderKpis(ctx, slide, s); break;
+			case "bullets": renderBullets(ctx, slide, s); break;
+			case "twoColumn": renderTwoColumn(ctx, slide, s); break;
+			case "statement": renderStatement(ctx, slide, s); break;
+			case "table": renderTable(ctx, slide, s); break;
+			case "narratives": renderNarratives(ctx, slide, s); break;
+			case "chart": addChart(ctx, slide, s.chart, chartLayout(style, false).plot); break;
+			case "map": renderMap(ctx, slide, s); break;
+			case "divider": renderDivider(ctx, slide, s); break;
+			case "image": renderImage(ctx, slide, s); break;
+			case "closing": renderClosing(ctx, slide, s); break;
 		}
-		const top = report.topDistricts;
-		const chartData = [
-			{
-				name: "VHFs",
-				labels: top.map((t) => t.district.toUpperCase()),
-				values: top.map((t) => t.vhf),
-			},
-			{
-				name: "Other PHEs",
-				labels: top.map((t) => t.district.toUpperCase()),
-				values: top.map((t) => t.other),
-			},
-		];
-		slide.addChart((pptx as any).ChartType.bar, chartData, {
-			x: 6.15,
-			y: 0.8,
-			w: PAGE_W - 6.15 - MARGIN,
-			h: PAGE_H - 1.2,
-			barDir: "bar",
-			barGrouping: "stacked",
-			chartColors: [pal.brand, pal.ink],
-			showTitle: true,
-			title: "Top 10 districts registering alerts",
-			titleFontSize: 11,
-			showLegend: true,
-			legendPos: "b",
-			showValue: false,
-			catAxisLabelFontSize: 8,
-			valAxisLabelFontSize: 8,
-		});
-	}
+		if (s.notes) slide.addNotes(s.notes);
+	});
 
-	// 10. Trend of signals vs alerts.
-	if (slides.trend) {
+	if (total === 0) {
 		const slide = pptx.addSlide();
-		const trendTitle = `Trend of signals vs alerts reported (${formatReportRange(
-			report.trendFrom,
-			report.toDate
-		)})`;
-		addTitle(slide, trendTitle, pal);
-		const data = [
-			{
-				name: "Signals",
-				labels: report.trend.map((p) => shortDay(p.date)),
-				values: report.trend.map((p) => p.signals),
-			},
-			{
-				name: "Alerts issued",
-				labels: report.trend.map((p) => shortDay(p.date)),
-				values: report.trend.map((p) => p.alerts),
-			},
-		];
-		slide.addChart((pptx as any).ChartType.line, data, {
-			x: MARGIN,
-			y: 0.8,
-			w: PAGE_W - MARGIN * 2,
-			h: PAGE_H - 1.15,
-			chartColors: [pal.brand, pal.ink],
-			lineSize: 2,
-			lineSmooth: false,
-			showLegend: true,
-			legendPos: "b",
-			catAxisLabelFontSize: 8,
-			valAxisLabelFontSize: 9,
-		});
+		slide.addText("No slides enabled.", { x: 1, y: 2, w: 8, h: 1, fontSize: 18, align: "center" });
 	}
 
-	// 11+. Disease-focus section — added alongside the full deck.
-	if (slides.focus && report.focus && report.focus.diseases.length > 0) {
-		addFocusSection(pptx, report, range, pal);
-	}
-
-	const fileName = focusFilename(report, config);
-	await pptx.writeFile({ fileName });
+	const fileName = `${fileStem}.pptx`;
+	// Table cells are ~1.6 KB of repetitive XML each; DEFLATE takes a 48-slide
+	// deck from ~3.3 MB (pptxgenjs stores uncompressed by default) to a fraction.
+	await pptx.writeFile({ fileName, compression: true });
 	return fileName;
-}
-
-/** The highlighted disease-focus slides (divider, table, cascade, sources, narratives). */
-function addFocusSection(
-	pptx: Pptx,
-	report: ManagementReport,
-	range: string,
-	pal: PptxPalette
-): void {
-	const focus = report.focus!;
-	const label = focus.diseases.join(", ");
-
-	// Divider slide.
-	const divider = pptx.addSlide();
-	divider.background = { color: pal.brand };
-	divider.addText("Disease focus", {
-		x: 0.6,
-		y: 1.9,
-		w: PAGE_W - 1.2,
-		h: 0.7,
-		fontSize: 30,
-		bold: true,
-		color: "FFFFFF",
-		align: "center",
-	});
-	divider.addText(`${label} — ${range}`, {
-		x: 0.6,
-		y: 2.7,
-		w: PAGE_W - 1.2,
-		h: 0.6,
-		fontSize: 16,
-		color: "FFFFFF",
-		align: "center",
-	});
-
-	const focusTitle = `Disease focus (${label})`;
-	addScopeTableSlide(pptx, `${focusTitle} — district table`, focus.scope, true, pal);
-	barCascadeSlide(pptx, focusTitle, "Response cascade", focus.scope, pal);
-	if (focus.sources.length > 0) {
-		countBarSlide(pptx, focusTitle, "Signal sources", focus.sources, pal);
-	}
-	narrativesSlide(
-		pptx,
-		`${focusTitle}: Alert details`,
-		focus.details,
-		focus.detailsTotal,
-		"No alerts for the focus diseases in this range.",
-		pal
-	);
-}
-
-/** Filename, with a short focus token when a disease focus is active. */
-function focusFilename(report: ManagementReport, config: DeckConfig): string {
-	let token = "";
-	if (config.slides.focus && report.focus && report.focus.diseases.length > 0) {
-		const slug = report.focus.diseases
-			.join("-")
-			.toLowerCase()
-			.replace(/[^a-z0-9]+/g, "-")
-			.replace(/^-+|-+$/g, "")
-			.slice(0, 40);
-		if (slug) token = `_${slug}`;
-	}
-	return `alerts-management-report${token}_${report.fromDate}_to_${report.toDate}.pptx`;
 }

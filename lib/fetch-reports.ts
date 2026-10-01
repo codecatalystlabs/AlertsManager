@@ -82,6 +82,10 @@ export interface ReportsQueryParams {
 	 * Off by default — a table titled "EVD" counts signals recorded as EVD/VHF.
 	 */
 	include_unrecorded?: boolean;
+	/** Alerts-management deck: bars in the top-districts chart. */
+	top?: number;
+	/** Alerts-management deck: rows per alert-details table. */
+	details_limit?: number;
 }
 
 export function todayIsoDate(): string {
@@ -246,6 +250,8 @@ async function requestReport<T>(path: string, params?: ReportsQueryParams): Prom
 	if (params?.districts) searchParams.set("districts", params.districts);
 	if (params?.response) searchParams.set("response", params.response);
 	if (params?.include_unrecorded) searchParams.set("include_unrecorded", "true");
+	if (params?.top) searchParams.set("top", String(params.top));
+	if (params?.details_limit) searchParams.set("details_limit", String(params.details_limit));
 	const query = searchParams.toString();
 	const url = query
 		? `${apiBase}/reports/${path}?${query}`
@@ -558,25 +564,42 @@ export interface ManagementReport {
 	focus?: ManagementFocus | null;
 }
 
+export interface ManagementReportOptions {
+	/** alertResponse codes: adds a disease-focus block; [] = none. */
+	focusDiseases?: string[];
+	/** Region names scoping the whole report; [] = national. */
+	regions?: string[];
+	/** Bars in the top-districts chart (server default 10). */
+	topDistricts?: number;
+	/** Rows per alert-details table (server default 60). */
+	detailsLimit?: number;
+}
+
 /**
  * Fetch the Alerts Management deck aggregate for an inclusive date range. All
  * counts are derived server-side with the same outcome/taxonomy primitives as
  * the dashboard, so the generated deck always reconciles with the app.
  *
  * `focusDiseases` (alertResponse codes) adds a disease-focus block to the
- * payload; an empty list leaves the standard deck unfiltered.
+ * payload; an empty list leaves the standard deck unfiltered. `regions` scopes
+ * every count to those regions' districts. An older backend ignores
+ * `top` / `details_limit` and keeps its defaults.
  */
 export async function fetchManagementReport(
 	range: ReportsDateRange,
-	focusDiseases: string[] = []
+	opts: ManagementReportOptions | string[] = {}
 ): Promise<ManagementReport> {
+	const o: ManagementReportOptions = Array.isArray(opts) ? { focusDiseases: opts } : opts;
 	const params: ReportsQueryParams = {
 		from_date: range.fromDate,
 		to_date: range.toDate,
 	};
-	if (focusDiseases.length > 0) {
-		params.response = focusDiseases.join(",");
+	if (o.focusDiseases && o.focusDiseases.length > 0) {
+		params.response = o.focusDiseases.join(",");
 	}
+	if (o.regions && o.regions.length > 0) params.regions = o.regions.join(",");
+	if (o.topDistricts) params.top = o.topDistricts;
+	if (o.detailsLimit) params.details_limit = o.detailsLimit;
 	return requestReport<ManagementReport>("alerts-management", params);
 }
 
