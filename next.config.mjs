@@ -20,6 +20,11 @@ const nextConfig = {
       crypto: { browser: "./lib/empty-module.ts" },
     },
   },
+  // Turbopack's on-disk dev cache (.next/dev/cache/turbopack) is on by default in
+  // Next 16 and grew to 11GB here; loading it exhausted RAM and froze the machine.
+  experimental: {
+    turbopackFileSystemCacheForDev: false,
+  },
 }
 
 export default nextConfig

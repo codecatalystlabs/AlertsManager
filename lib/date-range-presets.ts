@@ -73,12 +73,23 @@ export function resolveDateRangePreset(key: DateRangePresetKey): ResolvedRange {
 /**
  * Which preset (if any) the current from/to range matches exactly — used to
  * highlight the active preset button. Returns null for a custom range.
+ *
+ * Presets can coincide: in the first days of a quarter, "This month" and
+ * "This quarter" are the same dates (on 5 Oct both are 1–5 Oct). Without a
+ * hint the first match wins, so clicking "This quarter" lit "This month" and
+ * read as a button that did nothing. `prefer` — the preset last clicked —
+ * wins whenever it still describes the range.
  */
 export function matchActiveDateRangePreset(
 	fromDate: string,
-	toDate: string
+	toDate: string,
+	prefer?: DateRangePresetKey | null
 ): DateRangePresetKey | null {
 	if (!fromDate || !toDate) return null;
+	if (prefer) {
+		const resolved = resolveDateRangePreset(prefer);
+		if (resolved.fromDate === fromDate && resolved.toDate === toDate) return prefer;
+	}
 	for (const preset of DATE_RANGE_PRESETS) {
 		const resolved = resolveDateRangePreset(preset.key);
 		if (resolved.fromDate === fromDate && resolved.toDate === toDate) {
@@ -86,4 +97,18 @@ export function matchActiveDateRangePreset(
 		}
 	}
 	return null;
+}
+
+/** "1 Oct – 5 Oct 2026" (or "5 Oct 2026" for one day) — a preset's dates, for
+ * its tooltip, so a preset that matches another one says so. */
+export function describeDateRangePreset(key: DateRangePresetKey): string {
+	const { fromDate, toDate } = resolveDateRangePreset(key);
+	const fmt = (iso: string, withYear: boolean) =>
+		new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", {
+			day: "numeric",
+			month: "short",
+			...(withYear ? { year: "numeric" } : {}),
+		});
+	if (fromDate === toDate) return fmt(toDate, true);
+	return `${fmt(fromDate, fromDate.slice(0, 4) !== toDate.slice(0, 4))} – ${fmt(toDate, true)}`;
 }

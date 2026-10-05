@@ -9,6 +9,7 @@ import {
 	ReportsMatrixTable,
 	ReportsChartFilters,
 	ReportsDateFilter,
+	DistrictPerformancePanel,
 	ManagementReportPanel,
 	RegionalPerformancePanel,
 	SignalOverviewPanel,
@@ -71,8 +72,8 @@ export default function ReportsPage() {
 				<h1 className={LAYOUT.pageTitle}>Summaries / Reports</h1>
 				<p className={LAYOUT.pageSubtitle}>
 					Overview breaks every signal down by time, place, source and outcome. The EVD tabs
-					count signals recorded as EVD/VHF. Regional performance scores each region&apos;s EBS
-					steps; Presentation builds the weekly management deck.
+					count signals recorded as EVD/VHF. Regional and District performance score each
+					region&apos;s and district&apos;s EBS steps; Presentation builds the weekly management deck.
 				</p>
 			</div>
 
@@ -82,6 +83,7 @@ export default function ReportsPage() {
 					<TabsTrigger value="trend">EVD trend</TabsTrigger>
 					<TabsTrigger value="district">EVD by district</TabsTrigger>
 					<TabsTrigger value="regional">Regional performance</TabsTrigger>
+					<TabsTrigger value="district-performance">District performance</TabsTrigger>
 					<TabsTrigger value="presentation">Presentation</TabsTrigger>
 				</TabsList>
 
@@ -201,6 +203,11 @@ export default function ReportsPage() {
 				{/* Regional performance — the EBS funnel per region for a date range */}
 				<TabsContent value="regional" className="space-y-3">
 					<RegionalPerformancePanel />
+				</TabsContent>
+
+				{/* District performance — the same funnel per district, filterable */}
+				<TabsContent value="district-performance" className="space-y-3">
+					<DistrictPerformancePanel />
 				</TabsContent>
 
 				{/* Presentation — the full Alerts Management deck for a date range */}

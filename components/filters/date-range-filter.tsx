@@ -1,12 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
 	DATE_RANGE_PRESETS,
+	describeDateRangePreset,
 	resolveDateRangePreset,
 	matchActiveDateRangePreset,
+	type DateRangePresetKey,
 } from "@/lib/date-range-presets";
 
 interface DateRange {
@@ -27,7 +30,10 @@ export function DateRangePresetBar({
 	toDate: string;
 	onChange: (range: DateRange) => void;
 }) {
-	const activePreset = matchActiveDateRangePreset(fromDate, toDate);
+	// The preset last clicked: when two presets give the same dates (This month
+	// and This quarter early in a quarter), the one clicked is the one lit.
+	const [picked, setPicked] = useState<DateRangePresetKey | null>(null);
+	const activePreset = matchActiveDateRangePreset(fromDate, toDate, picked);
 	return (
 		<div className="flex flex-wrap items-center gap-1.5">
 			<span className="text-[11px] text-muted-foreground mr-1">Quick range:</span>
@@ -36,7 +42,10 @@ export function DateRangePresetBar({
 					key={preset.key}
 					type="button"
 					variant={activePreset === preset.key ? "default" : "outline"}
+					aria-pressed={activePreset === preset.key}
+					title={describeDateRangePreset(preset.key)}
 					onClick={() => {
+						setPicked(preset.key);
 						const range = resolveDateRangePreset(preset.key);
 						onChange({ fromDate: range.fromDate, toDate: range.toDate });
 					}}

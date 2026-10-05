@@ -3,6 +3,7 @@ import { getClientApiBaseUrl } from "@/lib/api-config";
 import { formatAlertsFetchError } from "@/lib/api-errors";
 import { canonicalDistrictName } from "@/lib/district-name";
 import { toLocalISODate } from "@/lib/date-range-presets";
+import type { SignalOriginFilter } from "@/lib/signal-origin";
 
 class ReportsFetchError extends Error {
 	constructor(
@@ -86,6 +87,10 @@ export interface ReportsQueryParams {
 	top?: number;
 	/** Alerts-management deck: rows per alert-details table. */
 	details_limit?: number;
+	/** Performance tables: division (subcounty) name. */
+	division?: string;
+	/** Performance tables: came in via (6767 | echis | poe | direct). */
+	origin?: string;
 }
 
 export function todayIsoDate(): string {
@@ -252,6 +257,8 @@ async function requestReport<T>(path: string, params?: ReportsQueryParams): Prom
 	if (params?.include_unrecorded) searchParams.set("include_unrecorded", "true");
 	if (params?.top) searchParams.set("top", String(params.top));
 	if (params?.details_limit) searchParams.set("details_limit", String(params.details_limit));
+	if (params?.division) searchParams.set("division", params.division);
+	if (params?.origin) searchParams.set("origin", params.origin);
 	const query = searchParams.toString();
 	const url = query
 		? `${apiBase}/reports/${path}?${query}`
@@ -603,11 +610,14 @@ export async function fetchManagementReport(
 	return requestReport<ManagementReport>("alerts-management", params);
 }
 
-/** One region's EBS funnel (GET /reports/regional-performance). Each count is
- * a subset of the one before it, except `verifiedWithin24h`, a subset of
- * `verified` that the later columns do not build on. */
+/** One row of a signal-performance table (GET /reports/regional-performance
+ * or /reports/district-performance). Each count is a subset of the one before
+ * it, except `verifiedWithin24h`, a subset of `verified` that the later
+ * columns do not build on. */
 export interface RegionalPerformanceRow {
 	region: string;
+	/** District table only — canonical ("Gulu" = Gulu City + Gulu District). */
+	district?: string;
 	rawData: number;
 	triaged: number;
 	signals: number;
@@ -617,9 +627,34 @@ export interface RegionalPerformanceRow {
 	alerts: number;
 }
 
+/** What one row of a performance table is. */
+export type PerformanceLevel = "region" | "district";
+
+/** The filters a performance table can be cut by. Empty = no filter. */
+export interface PerformanceFilterValues {
+	regions: string[];
+	districts: string[];
+	/** Division (subcounty) — only meaningful inside one district. */
+	division: string;
+	/** Came in via (lib/signal-origin), "all" = every origin. */
+	origin: SignalOriginFilter;
+}
+
+/** The filters as the server applied them, after the caller's access scope. */
+export interface PerformanceFiltersEcho {
+	regions: string[];
+	districts: string[];
+	division?: string;
+	origin?: string;
+}
+
 export interface RegionalPerformanceReport {
+	/** Absent from an API older than the district table. */
+	groupBy?: PerformanceLevel;
 	fromDate: string;
 	toDate: string;
+	/** Absent from an API older than the filters (it ignores them). */
+	filters?: PerformanceFiltersEcho;
 	rows: RegionalPerformanceRow[];
 	total: RegionalPerformanceRow;
 	/**
@@ -628,24 +663,40 @@ export interface RegionalPerformanceReport {
 	 * Optional: an older API does not send it.
 	 */
 	alertsOutsideFunnel?: number;
+	/**
+	 * Set only when the period holds no reports: the most recent report date
+	 * (YYYY-MM-DD) under the same filters, on or before toDate. Optional: an
+	 * older API does not send it.
+	 */
+	latestSignalDate?: string;
 }
 
+const PERFORMANCE_PATHS: Record<PerformanceLevel, string> = {
+	region: "regional-performance",
+	district: "district-performance",
+};
+
 /**
- * The regional signal-performance table for an inclusive date range. Every
- * column is counted server-side with the pipeline's own stage predicates, so
- * it reconciles with the register tabs and the Alerts page. `regions` limits
- * the table to those regions (each gets a row even at zero); empty = all.
+ * A signal-performance table for an inclusive date range — one row per region
+ * or per district. Every column is counted server-side with the pipeline's own
+ * stage predicates, so it reconciles with the register tabs and the Alerts
+ * page. Named regions/districts get a row even at zero (on the district table,
+ * a region filter lists all of its districts).
  */
-export async function fetchRegionalPerformance(
+export async function fetchSignalPerformance(
+	level: PerformanceLevel,
 	range: ReportsDateRange,
-	regions: string[] = []
+	filters: Partial<PerformanceFilterValues> = {}
 ): Promise<RegionalPerformanceReport> {
 	const params: ReportsQueryParams = {
 		from_date: range.fromDate,
 		to_date: range.toDate,
 	};
-	if (regions.length > 0) params.regions = regions.join(",");
-	return requestReport<RegionalPerformanceReport>("regional-performance", params);
+	if (filters.regions?.length) params.regions = filters.regions.join(",");
+	if (filters.districts?.length) params.districts = filters.districts.join(",");
+	if (filters.division && filters.division !== "all") params.division = filters.division;
+	if (filters.origin && filters.origin !== "all") params.origin = filters.origin;
+	return requestReport<RegionalPerformanceReport>(PERFORMANCE_PATHS[level], params);
 }
 
 export async function fetchReportMatrix(
