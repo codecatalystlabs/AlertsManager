@@ -186,20 +186,18 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading, scope }) =>
 	const i = summary?.indicators;
 	const reported = i?.signalsReported ?? 0;
 	const triaged = i?.signalsTriaged ?? 0;
-	const verified = i?.signalsVerified ?? 0;
-	const events = i?.events ?? 0;
-	const riskAssessed = i?.eventsRiskAssessed ?? 0;
-	const alerts = i?.alertsReported ?? 0;
+	const verified = i?.verifiedCoded ?? 0;
+	const events = i?.eventsCoded ?? 0;
+	const riskAssessed = i?.riskAssessedCoded ?? 0;
+	const alerts = i?.alertsCoded ?? 0;
 	// Raw Information is the untriaged queue — the sidebar page's default view
 	// (stage=triage) — so the card counts the flow's "awaiting-triage" state.
 	const rawInformation =
 		buildSignalFlow(summary?.signalFlow).find((f) => f.key === "awaiting-triage")
 			?.count ?? 0;
-	// Signals: raw information that triage judged a real signal and forwarded
-	// to verification (the backend also folds legacy priority-only rows in).
-	const signals =
-		summary?.triageOutcomes?.find((o) => o.key === "forwarded_to_verification")
-			?.count ?? 0;
+	// Signals: triaged signals matched to an EBS signal definition at triage
+	// (signal_code set), matching the summaries page's funnel definition.
+	const signals = i?.signalsCoded ?? 0;
 	const router = useRouter();
 
 	const rows = useMemo(() => buildEbsIndicatorRows(summary), [summary]);
@@ -237,7 +235,7 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading, scope }) =>
 			title: "Signals",
 			value: signals.toLocaleString(),
 			sub: shareText(signals, triaged, "triaged"),
-			hint: "Triaged raw information judged to be a real signal and forwarded to verification. Logged and discarded items are not counted.",
+			hint: "Triaged signals matched to an EBS signal definition (signal code assigned at triage). Logged, discarded and uncoded items are not counted.",
 			icon: Workflow,
 			ink: AMBER_INK,
 		},
@@ -252,8 +250,8 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading, scope }) =>
 		{
 			title: "Verified",
 			value: verified.toLocaleString(),
-			sub: shareText(verified, reported, "signals reported"),
-			hint: "An outcome is on record and the signal is not escalated to the field. Equals \"to date\" on the register strip's Verified tile; the tile's own number is the verified signals still waiting on risk assessment.",
+			sub: shareText(verified, signals, "signals"),
+			hint: "Coded signals with a verification outcome on record and not escalated to the field.",
 			icon: ShieldCheck,
 			ink: EMERALD_INK,
 		},
@@ -268,8 +266,8 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading, scope }) =>
 		{
 			title: "Events",
 			value: events.toLocaleString(),
-			sub: shareText(events, verified, "verified signals"),
-			hint: "Verified signals whose outcome is Confirmed — the events that require a risk assessment (signal-to-event conversion, KPI 5).",
+			sub: shareText(events, verified, "verified"),
+			hint: "Coded signals whose verification outcome is Confirmed — events requiring risk assessment.",
 			icon: Split,
 			ink: INDIGO_INK,
 		},
@@ -284,8 +282,8 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading, scope }) =>
 		{
 			title: "Alerts",
 			value: alerts.toLocaleString(),
-			sub: shareText(alerts, riskAssessed, "risk-assessed events"),
-			hint: "Confirmed, risk-assessed events whose reporter has been told — exactly the signals on the Alerts page. Click to open them.",
+			sub: shareText(alerts, riskAssessed, "risk-assessed"),
+			hint: "Coded, confirmed, risk-assessed events whose reporter has been told. Click to open the Alerts page.",
 			icon: Siren,
 			ink: ROSE_INK,
 			onClick: () => router.push(withDashboardScope("/dashboard/alerts", scope)),
