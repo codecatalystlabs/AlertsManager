@@ -131,6 +131,13 @@ export interface DashboardIndicators {
 	 * as /dashboard/alerts and the regional report's Alerts column.
 	 */
 	alertsReported: number;
+
+	/** Coded-funnel: signals with signal_code set at triage (matches summaries page). */
+	signalsCoded?: number;
+	verifiedCoded?: number;
+	eventsCoded?: number;
+	riskAssessedCoded?: number;
+	alertsCoded?: number;
 }
 
 /**
@@ -296,6 +303,11 @@ const EMPTY_SUMMARY: DashboardSummary = {
 		sdb: 0,
 		sdbEligible: 0,
 		alertsReported: 0,
+		signalsCoded: 0,
+		verifiedCoded: 0,
+		eventsCoded: 0,
+		riskAssessedCoded: 0,
+		alertsCoded: 0,
 	},
 	indicatorSeries: [],
 	reportedByRegion: [],
