@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
 	DataTable,
+	TextSummaryCell,
+	WhenCell,
 	dateRangeFilter,
 	exactStringFilter,
 	textIncludesFilter,
@@ -25,6 +27,8 @@ import { can, PERM } from "@/lib/access";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { RawInformationCell } from "@/components/eidsr-alerts/raw-information-cell";
 import { formatDateTime, formatTimeAgo } from "@/lib/format-date";
+import { reportedAt } from "@/lib/signal-received";
+import { hiddenByDefault } from "@/lib/table-columns";
 import { arrivedRecently } from "@/lib/signal-origin";
 import {
 	Eye,
@@ -66,6 +70,9 @@ function arrivedInSync(message: EidsrMessage, since: string | null | undefined):
 	return Number.isFinite(at) && Number.isFinite(start) && at >= start;
 }
 
+/** Contact details, off by default per the column standard (lib/table-columns.ts). */
+const EIDSR_HIDDEN_COLUMNS = hiddenByDefault("personReporting", "contactNumber");
+
 function createColumns(handlers: {
 	onView: (m: EidsrMessage) => void;
 	onEdit: (m: EidsrMessage) => void;
@@ -83,60 +90,28 @@ function createColumns(handlers: {
 				<span className="font-medium">{row.original.id}</span>
 			),
 		},
+		// WHEN, then WHAT, then WHERE — the column standard (lib/table-columns.ts).
 		{
-			// When the mirror first saw it — the order the list is in, so the
-			// newest sync's arrivals read as the top block of the table.
-			id: "synced",
-			header: "Synced",
-			enableColumnFilter: false,
-			cell: ({ row }) => {
-				const at = row.original.createdAt;
-				return (
-					<span
-						className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-muted-foreground"
-						title={at ? `Synced ${formatDateTime(at)}` : undefined}
-					>
-						{formatTimeAgo(at, "—")}
-						{arrivedRecently(at) && (
-							<span className="rounded-full bg-primary/10 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-primary">
-								New
-							</span>
-						)}
-					</span>
-				);
-			},
-		},
-		{
-			// Next to Synced, not at the far edge: "where did it go?" is the
-			// question right after "when did it arrive?", and at the end of a
-			// wide table it scrolled out of view.
-			id: "inRegister",
-			accessorFn: (row) =>
-				resolveRegisterRef(row) != null ? "moved" : "not_moved",
-			header: "Raw Information",
-			filterFn: exactStringFilter,
+			id: "date",
+			accessorFn: (row) => row.receivedAt || row.createdAt || "",
+			// The reporter's own time, as eIDSR has it (date only when that is all
+			// it recorded). Distinct from "Synced", which is when it reached us.
+			header: "Reported",
+			filterFn: dateRangeFilter,
 			meta: {
-				filterVariant: "select",
-				filterOptions: [
-					{ value: "moved", label: "In Raw Information" },
-					{ value: "not_moved", label: "Not logged" },
-				],
+				filterVariant: "dateRange",
 			},
-			cell: ({ row }) => <RawInformationCell message={row.original} />,
+			cell: ({ row }) => {
+				const { at, hasTime } = reportedAt(row.original.receivedAt || row.original.createdAt);
+				return <WhenCell value={at} hasTime={hasTime} />;
+			},
 		},
 		{
-			accessorKey: "personReporting",
-			header: "Reporter",
+			accessorKey: "messageText",
+			header: "Message",
 			// No dedicated server filter — searchable via the top filter bar.
 			enableColumnFilter: false,
-			cell: ({ row }) => row.original.personReporting || "—",
-		},
-		{
-			accessorKey: "contactNumber",
-			header: "Phone",
-			// No dedicated server filter — searchable via the top filter bar.
-			enableColumnFilter: false,
-			cell: ({ row }) => row.original.contactNumber || "—",
+			cell: ({ row }) => <TextSummaryCell text={row.original.messageText} />,
 		},
 		{
 			id: "location",
@@ -162,34 +137,60 @@ function createColumns(handlers: {
 			},
 		},
 		{
-			accessorKey: "messageText",
-			header: "Message",
-			// No dedicated server filter — searchable via the top filter bar.
+			// Where it went — the status column of the standard
+			// (lib/table-columns.ts). With contact details hidden the table no
+			// longer scrolls it out of view.
+			id: "inRegister",
+			accessorFn: (row) =>
+				resolveRegisterRef(row) != null ? "moved" : "not_moved",
+			header: "Raw Information",
+			filterFn: exactStringFilter,
+			meta: {
+				filterVariant: "select",
+				filterOptions: [
+					{ value: "moved", label: "In Raw Information" },
+					{ value: "not_moved", label: "Not logged" },
+				],
+			},
+			cell: ({ row }) => <RawInformationCell message={row.original} />,
+		},
+		{
+			// When the mirror first saw it — the order the list is in, so the
+			// newest sync's arrivals read as the top block of the table.
+			id: "synced",
+			header: "Synced",
 			enableColumnFilter: false,
 			cell: ({ row }) => {
-				const text = row.original.messageText || "—";
+				const at = row.original.createdAt;
 				return (
 					<span
-						className="block max-w-[280px] truncate"
-						title={text !== "—" ? text : undefined}
+						className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-muted-foreground"
+						title={at ? `Synced ${formatDateTime(at)}` : undefined}
 					>
-						{text}
+						{formatTimeAgo(at, "—")}
+						{arrivedRecently(at) && (
+							<span className="rounded-full bg-primary/10 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-primary">
+								New
+							</span>
+						)}
 					</span>
 				);
 			},
 		},
+		// Contact details: hidden by default (EIDSR_HIDDEN_COLUMNS).
 		{
-			id: "date",
-			accessorFn: (row) => row.receivedAt || row.createdAt || "",
-			// The reporter's own event date, as eIDSR has it. Distinct from
-			// "Synced", which is when it reached this system.
-			header: "Reported",
-			filterFn: dateRangeFilter,
-			meta: {
-				filterVariant: "dateRange",
-			},
-			cell: ({ row }) =>
-				row.original.receivedAt || row.original.createdAt || "—",
+			accessorKey: "personReporting",
+			header: "Reporter",
+			// No dedicated server filter — searchable via the top filter bar.
+			enableColumnFilter: false,
+			cell: ({ row }) => row.original.personReporting || "—",
+		},
+		{
+			accessorKey: "contactNumber",
+			header: "Phone",
+			// No dedicated server filter — searchable via the top filter bar.
+			enableColumnFilter: false,
+			cell: ({ row }) => row.original.contactNumber || "—",
 		},
 		{
 			id: "actions",
@@ -308,6 +309,7 @@ export const EidsrAlertsTable = memo<EidsrAlertsTableProps>(
 					<DataTable
 						id="eidsr-6767"
 						columns={columns}
+						initialState={{ columnVisibility: EIDSR_HIDDEN_COLUMNS }}
 						data={messages}
 						enableHeaderFilters
 						manualFiltering

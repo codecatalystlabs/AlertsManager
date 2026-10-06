@@ -1,11 +1,13 @@
 import { memo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
+	TextSummaryCell,
+	WhenCell,
 	dateRangeFilter,
 	textIncludesFilter,
 } from "@/components/ui/data-table";
 import type { EchisAlertRow } from "@/lib/fetch-ndw-alerts";
-import { formatDate, formatDateTime } from "@/lib/format-date";
+import { reportedAt } from "@/lib/signal-received";
 import { echisSignalMeta } from "@/lib/echis-signals";
 import { cn } from "@/lib/utils";
 import {
@@ -30,13 +32,13 @@ export function EchisSignalPill({ code }: { code?: string | null }) {
 	);
 }
 
-const LIST_TIME: Intl.DateTimeFormatOptions = { dateStyle: "short", timeStyle: "short" };
 
 /** "Kazinga Health Centre III" → "Kazinga HC III", the form used on the ground. */
 const shortFacility = (v: string) => v.replace(/\bHealth Cent(re|er)\b/gi, "HC");
 
 const stripDistrict = (v?: string) => (v ?? "").replace(/\s+District$/i, "").trim();
 
+// The column standard (lib/table-columns.ts): WHEN, WHAT, WHERE, then Status.
 const ECHIS_DOMAIN_COLUMNS: ColumnDef<EchisAlertRow>[] = [
 	{
 		// The day filter runs on `date` (the report's day); the cell prefers the
@@ -45,13 +47,10 @@ const ECHIS_DOMAIN_COLUMNS: ColumnDef<EchisAlertRow>[] = [
 		header: "Reported",
 		filterFn: dateRangeFilter,
 		meta: { filterVariant: "dateRange" },
-		cell: ({ row }) => (
-			<span className="text-muted-foreground">
-				{row.original.reportedAt
-					? formatDateTime(row.original.reportedAt, "—", LIST_TIME)
-					: formatDate(row.original.date, "—")}
-			</span>
-		),
+		cell: ({ row }) => {
+			const { at, hasTime } = reportedAt(row.original.reportedAt || row.original.date);
+			return <WhenCell value={at} hasTime={hasTime} />;
+		},
 	},
 	{
 		// Filtered by the signal tiles above the table, not a header funnel.
@@ -59,6 +58,21 @@ const ECHIS_DOMAIN_COLUMNS: ColumnDef<EchisAlertRow>[] = [
 		header: "Signal",
 		enableColumnFilter: false,
 		cell: ({ row }) => <EchisSignalPill code={row.original.signalReported} />,
+	},
+	{
+		// WHAT, after the signal type: the VHT's own account. The newer feed
+		// often leaves the brief description empty and puts the account in
+		// "additional information".
+		accessorKey: "briefDescription",
+		header: "Description",
+		filterFn: textIncludesFilter,
+		meta: { filterPlaceholder: "Description" },
+		cell: ({ row }) => (
+			<TextSummaryCell
+				text={row.original.briefDescription || row.original.additionalInformation}
+				maxWidthClass="max-w-[18rem]"
+			/>
+		),
 	},
 	{
 		accessorKey: "district",
@@ -115,34 +129,16 @@ const ECHIS_DOMAIN_COLUMNS: ColumnDef<EchisAlertRow>[] = [
 	},
 ];
 
-// After Status: free text, truncated anyway, so it is the column to scroll to.
-const ECHIS_TRAILING_COLUMNS: ColumnDef<EchisAlertRow>[] = [
-	// NOTE: the eCHIS feed's own "Verification" column stays hidden (2026-08-28):
-	// it reads "Pending Verification" on every row. What verification means to
-	// THIS system is the Status column (forwarded / in alerts + their chips).
-	{
-		accessorKey: "briefDescription",
-		header: "Description",
-		filterFn: textIncludesFilter,
-		meta: { filterPlaceholder: "Description" },
-		cell: ({ row }) => {
-			// The newer feed often leaves the brief description empty and puts
-			// the account in "additional information".
-			const text = row.original.briefDescription || row.original.additionalInformation;
-			return text ? (
-				<span className="block max-w-[200px] truncate" title={text}>
-					{text}
-				</span>
-			) : (
-				<span className="text-muted-foreground">—</span>
-			);
-		},
-	},
-];
+// NOTE: the eCHIS feed's own "Verification" column stays hidden (2026-08-28):
+// it reads "Pending Verification" on every row. What verification means to
+// THIS system is the Status column (forwarded / in alerts + their chips).
+
+/** The VHT's name and phone: contact details, off by default (lib/table-columns.ts). */
+const ECHIS_HIDDEN_COLUMNS = ["vhtName"];
 
 type EchisAlertsTableProps = Omit<
 	NdwSignalsTableProps<EchisAlertRow>,
-	"domainColumns" | "trailingColumns" | "feed" | "noun"
+	"domainColumns" | "trailingColumns" | "hiddenColumns" | "feed" | "noun"
 >;
 
 export const EchisAlertsTable = memo<EchisAlertsTableProps>((props) => (
@@ -150,7 +146,7 @@ export const EchisAlertsTable = memo<EchisAlertsTableProps>((props) => (
 		feed="echis"
 		noun="signals"
 		domainColumns={ECHIS_DOMAIN_COLUMNS}
-		trailingColumns={ECHIS_TRAILING_COLUMNS}
+		hiddenColumns={ECHIS_HIDDEN_COLUMNS}
 		{...props}
 	/>
 ));

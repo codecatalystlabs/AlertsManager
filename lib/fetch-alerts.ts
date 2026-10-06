@@ -54,6 +54,11 @@ export interface AlertsListParams {
 	 * "direct". See lib/signal-origin.ts.
 	 */
 	origin?: string;
+	/**
+	 * Only signals discarded at this level: "triage" | "desk" | "field". See
+	 * lib/discard-level.ts.
+	 */
+	discard_level?: string;
 	/** Free-text search across reporter, case name, contact, CIF, district, id. */
 	search?: string;
 	/** Partial match on the alert id (per-column "Alert ID" filter). */
@@ -99,6 +104,18 @@ export interface AlertsListParams {
 	 * 99.5% of rows). Signal Logs omits it and keeps showing everything.
 	 */
 	outcome_recorded?: boolean;
+	/**
+	 * Disease SELECTION: alertResponse code(s), comma-separated, matched the
+	 * way the dashboard and the reports match them (every stored spelling of
+	 * the disease). Distinct from `response`, the Disease column's free-text
+	 * "contains" search.
+	 */
+	disease?: string;
+	/**
+	 * "yes" = verified as the dashboard counts it (an outcome recorded, not
+	 * escalated to the field), "no" = everything else. Not the is_verified flag.
+	 */
+	verified?: "yes" | "no";
 	/** Sort column: date | created_at | id | name | district | status | reporter. */
 	sort_by?: string;
 	/** Sort direction. */
@@ -154,6 +171,9 @@ function appendAlertFilterParams(
 	if (params.origin) {
 		searchParams.set("origin", params.origin);
 	}
+	if (params.discard_level) {
+		searchParams.set("discard_level", params.discard_level);
+	}
 	if (params.search) {
 		searchParams.set("search", params.search);
 	}
@@ -177,6 +197,12 @@ function appendAlertFilterParams(
 	}
 	if (params.response) {
 		searchParams.set("response", params.response);
+	}
+	if (params.disease) {
+		searchParams.set("disease", params.disease);
+	}
+	if (params.verified) {
+		searchParams.set("verified", params.verified);
 	}
 	if (params.time) {
 		searchParams.set("time", params.time);
@@ -437,4 +463,37 @@ export async function fetchAlertOrigins(
 	}
 	const total = Number(json.total);
 	return { total: Number.isFinite(total) ? total : 0, origins };
+}
+
+/** Discarded signals per level ("triage", "desk", "field"), plus the total. */
+export interface AlertDiscardLevelCounts {
+	total: number;
+	levels: Record<string, number>;
+}
+
+/**
+ * GET /api/v1/alerts/discard-levels — how many signals matching the same
+ * filters as the list were discarded at each level. The server ignores
+ * `discard_level` itself, so every chip keeps its count while one is selected.
+ */
+export async function fetchAlertDiscardLevels(
+	params: AlertsListParams = {}
+): Promise<AlertDiscardLevelCounts> {
+	const apiBase = getClientApiBaseUrl();
+	const searchParams = new URLSearchParams();
+	appendAlertFilterParams(searchParams, params);
+	const query = searchParams.toString();
+	const json = await requestAlerts<Record<string, unknown>>(
+		query
+			? `${apiBase}/alerts/discard-levels?${query}`
+			: `${apiBase}/alerts/discard-levels`
+	);
+	const levels: Record<string, number> = {};
+	const raw = (json.levels ?? {}) as Record<string, unknown>;
+	for (const [key, value] of Object.entries(raw)) {
+		const n = Number(value);
+		levels[key] = Number.isFinite(n) ? n : 0;
+	}
+	const total = Number(json.total);
+	return { total: Number.isFinite(total) ? total : 0, levels };
 }

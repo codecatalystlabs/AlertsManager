@@ -2,11 +2,11 @@ import { memo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Biohazard, Thermometer } from "lucide-react";
 import {
+	WhenCell,
 	dateRangeFilter,
 	textIncludesFilter,
 } from "@/components/ui/data-table";
 import type { PoeAlertRow } from "@/lib/fetch-ndw-alerts";
-import { formatDateTime } from "@/lib/format-date";
 import {
 	poeRiskPill,
 	poeScreening,
@@ -70,43 +70,24 @@ function PoeScreeningCell({ row }: { row: PoeAlertRow }) {
 }
 
 const mono = "font-mono text-[12px]";
-const LIST_TIME: Intl.DateTimeFormatOptions = { dateStyle: "short", timeStyle: "short" };
 
 const POE_DOMAIN_COLUMNS: ColumnDef<PoeAlertRow>[] = [
+	// The column standard (lib/table-columns.ts): WHEN, WHAT (the screening),
+	// WHERE (the port), WHO (the traveller), then Status.
 	{
 		accessorKey: "createdAtRemote",
-		header: "Created",
+		header: "Reported",
 		filterFn: dateRangeFilter,
 		meta: { filterVariant: "dateRange" },
-		cell: ({ row }) => (
-			<span className="text-muted-foreground">
-				{formatDateTime(row.original.createdAtRemote, "—", LIST_TIME)}
-			</span>
-		),
+		cell: ({ row }) => <WhenCell value={row.original.createdAtRemote} />,
 	},
 	{
-		accessorKey: "fullName",
-		header: "Traveller",
+		// accessorKey stays symptomsText: its header filter maps to ?symptom=.
+		accessorKey: "symptomsText",
+		header: "Screening",
 		filterFn: textIncludesFilter,
-		meta: { filterPlaceholder: "Traveller name" },
-		cell: ({ row }) => (
-			<span className="font-semibold">{row.original.fullName || "—"}</span>
-		),
-	},
-	{
-		accessorKey: "passportNumber",
-		header: "Passport",
-		filterFn: textIncludesFilter,
-		meta: { filterPlaceholder: "Passport" },
-		cell: ({ row }) => <span className={mono}>{row.original.passportNumber || "—"}</span>,
-	},
-	{
-		accessorKey: "nationality",
-		header: "Nationality",
-		filterFn: textIncludesFilter,
-		meta: { filterPlaceholder: "Nationality" },
-		cell: ({ row }) =>
-			row.original.nationality || <span className="text-muted-foreground">—</span>,
+		meta: { filterPlaceholder: "Symptom, e.g. fever" },
+		cell: ({ row }) => <PoeScreeningCell row={row.original} />,
 	},
 	{
 		accessorKey: "portOfEntry",
@@ -120,19 +101,36 @@ const POE_DOMAIN_COLUMNS: ColumnDef<PoeAlertRow>[] = [
 		),
 	},
 	{
+		accessorKey: "fullName",
+		header: "Traveller",
+		filterFn: textIncludesFilter,
+		meta: { filterPlaceholder: "Traveller name" },
+		cell: ({ row }) => (
+			<span className="font-semibold">{row.original.fullName || "—"}</span>
+		),
+	},
+	{
+		accessorKey: "nationality",
+		header: "Nationality",
+		filterFn: textIncludesFilter,
+		meta: { filterPlaceholder: "Nationality" },
+		cell: ({ row }) =>
+			row.original.nationality || <span className="text-muted-foreground">—</span>,
+	},
+	// Identifiers: hidden by default (POE_HIDDEN_COLUMNS).
+	{
+		accessorKey: "passportNumber",
+		header: "Passport",
+		filterFn: textIncludesFilter,
+		meta: { filterPlaceholder: "Passport" },
+		cell: ({ row }) => <span className={mono}>{row.original.passportNumber || "—"}</span>,
+	},
+	{
 		accessorKey: "flightNumber",
 		header: "Flight",
 		filterFn: textIncludesFilter,
 		meta: { filterPlaceholder: "Flight" },
 		cell: ({ row }) => <span className={mono}>{row.original.flightNumber || "—"}</span>,
-	},
-	{
-		// accessorKey stays symptomsText: its header filter maps to ?symptom=.
-		accessorKey: "symptomsText",
-		header: "Screening",
-		filterFn: textIncludesFilter,
-		meta: { filterPlaceholder: "Symptom, e.g. fever" },
-		cell: ({ row }) => <PoeScreeningCell row={row.original} />,
 	},
 	{
 		accessorKey: "refCode",
@@ -147,9 +145,12 @@ const POE_DOMAIN_COLUMNS: ColumnDef<PoeAlertRow>[] = [
 	},
 ];
 
+/** Passport, flight and reference numbers: identifiers, off by default (lib/table-columns.ts). */
+const POE_HIDDEN_COLUMNS = ["passportNumber", "flightNumber", "refCode"];
+
 type PoeAlertsTableProps = Omit<
 	NdwSignalsTableProps<PoeAlertRow>,
-	"domainColumns" | "trailingColumns" | "feed" | "noun"
+	"domainColumns" | "trailingColumns" | "hiddenColumns" | "feed" | "noun"
 >;
 
 export const PoeAlertsTable = memo<PoeAlertsTableProps>((props) => (
@@ -157,6 +158,7 @@ export const PoeAlertsTable = memo<PoeAlertsTableProps>((props) => (
 		feed="poe"
 		noun="travellers"
 		domainColumns={POE_DOMAIN_COLUMNS}
+		hiddenColumns={POE_HIDDEN_COLUMNS}
 		{...props}
 	/>
 ));

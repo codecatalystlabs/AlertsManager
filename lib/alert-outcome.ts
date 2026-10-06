@@ -122,3 +122,20 @@ export function deriveAlertOutcome(alert: OutcomeSource): string {
 
 	return OUTCOME_NOT_RECORDED;
 }
+
+/**
+ * "Verified", as the dashboard and the register count it: a verification
+ * outcome is on record and the desk did not escalate the signal to the field
+ * (an escalation records that the desk could NOT answer). Twin of Go
+ * rowIsVerified / VerifiedSQL. NOT the is_verified flag, which is set on rows
+ * nobody adjudicated — the export's "Verified" column read the flag and
+ * disagreed with the dashboard by hundreds of rows.
+ */
+export function isSignalVerified(
+	alert: OutcomeSource & { verificationOutcome?: string | null }
+): boolean {
+	const outcome = (alert.verificationOutcome ?? "").trim().toLowerCase();
+	if (outcome === "escalated to field") return false;
+	if (outcome === "confirmed" || outcome === "discarded") return true;
+	return deriveAlertOutcome(alert) !== OUTCOME_NOT_RECORDED;
+}

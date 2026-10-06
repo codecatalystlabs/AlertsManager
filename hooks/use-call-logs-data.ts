@@ -10,16 +10,19 @@ import {
     type CallLogsFilterState,
 } from '@/constants/call-logs';
 import {
+    fetchAlertDiscardLevels,
     fetchAlertOrigins,
     fetchAlertsPage,
     fetchAlertsStats,
+    type AlertDiscardLevelCounts,
     type AlertOriginCounts,
     type AlertsListParams,
 } from '@/lib/fetch-alerts';
 import { columnFiltersToAlertParams } from '@/lib/alert-column-filters';
-import { STAGE_PROCESSED, stageLabel } from '@/lib/pipeline';
+import { STAGE_DISCARDED, STAGE_PROCESSED, stageLabel } from '@/lib/pipeline';
 import { sourceFilterValues } from '@/lib/source-of-alert';
 import { isSignalOrigin, signalOriginLabel } from '@/lib/signal-origin';
+import { discardLevelLabel, isDiscardLevel } from '@/lib/discard-level';
 import { useInvalidateAlerts } from '@/hooks/use-invalidate-alerts';
 
 /** Server-side sort selection for the call-logs list. */
@@ -183,6 +186,8 @@ interface UseCallLogsDataReturn {
     alerts: AlertLog[];
     /** Signals per origin in the current view, for the "Came in via" chips. */
     originCounts: AlertOriginCounts | null;
+    /** Discards per level, for the Discarded Events chips; null off that list. */
+    discardLevelCounts: AlertDiscardLevelCounts | null;
     filteredAlerts: AlertLog[];
     stats: CallLogsStats;
     filters: CallLogsFilters;
@@ -225,12 +230,14 @@ function toApiParams(
 ): AlertsListParams {
     const params: AlertsListParams = { page, limit };
 
-    // Verified status is a first-class server filter: "verified" -> is_verified=1
-    // (desk verification done), "pending" -> is_verified=0, "all" -> unfiltered.
+    // Verified status is a first-class server filter, on the dashboard's
+    // definition of "verified" (an outcome recorded, not escalated to the
+    // field) — not the is_verified flag, which put 12,834 signals under
+    // "Verified" here against the dashboard's 13,353.
     if (filters.verification === 'verified') {
-        params.is_verified = true;
+        params.verified = 'yes';
     } else if (filters.verification === 'pending') {
-        params.is_verified = false;
+        params.verified = 'no';
     }
 
     if (filters.region && filters.region !== 'all') {
@@ -245,6 +252,11 @@ function toApiParams(
         params.division = filters.division;
     }
 
+    // A disease scope carried in from the dashboard (?disease=): the same
+    // canonical match the dashboard counted with.
+    if (filters.disease && filters.disease !== 'all') {
+        params.disease = filters.disease;
+    }
     if (filters.fromDate) {
         params.from_date = filters.fromDate;
     }
@@ -276,6 +288,12 @@ function toApiParams(
     // Which door the signal came in through (the "Came in via" chips).
     if (filters.origin && filters.origin !== 'all') {
         params.origin = filters.origin;
+    }
+
+    // Which level discarded the signal (the Discarded Events chips). Only on
+    // that list: anywhere else a level would silently empty the queue.
+    if (filters.stage === STAGE_DISCARDED && isDiscardLevel(filters.discardLevel)) {
+        params.discard_level = filters.discardLevel;
     }
 
     // Free-text search now runs server-side (scans the whole dataset, not just
@@ -343,10 +361,10 @@ function applyClientFilters(alerts: AlertLog[], filters: CallLogsFilters): Alert
     const ageMax = parseInt(filters.ageMax, 10);
 
     return alerts.filter((alert) => {
-        const matchesVerification =
-            filters.verification === 'all' ||
-            (filters.verification === 'verified' && alert.isVerified) ||
-            (filters.verification === 'pending' && !alert.isVerified);
+        // Verification is filtered server-side (params.verified), on a
+        // definition the row's is_verified flag does not share; re-filtering
+        // here on the flag would drop rows the server matched.
+        const matchesVerification = true;
 
         // Status (including "other" = not Alive) is now fully server-side via the
         // status / status_not params, so it scopes the whole dataset and the
@@ -427,7 +445,11 @@ function buildExportFilterTokens(filters: CallLogsFilters): string[] {
         tokens.push(filters.verification);
     }
     if (filters.source && filters.source !== 'all') tokens.push(filters.source);
+    if (filters.disease && filters.disease !== 'all') tokens.push(filters.disease.replace(/,/g, '+'));
     if (isSignalOrigin(filters.origin)) tokens.push(signalOriginLabel(filters.origin));
+    if (filters.stage === STAGE_DISCARDED && isDiscardLevel(filters.discardLevel)) {
+        tokens.push(discardLevelLabel(filters.discardLevel));
+    }
     if (filters.sex && filters.sex !== 'all') tokens.push(filters.sex);
     if (filters.ageMin || filters.ageMax) {
         tokens.push(`age${filters.ageMin || '0'}-${filters.ageMax || 'max'}`);
@@ -547,6 +569,24 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
         ['alerts', 'call-logs-origins', originScope, columnFilters] as const,
         ([, , currentFilters, currentColumnFilters]) =>
             fetchAlertOrigins({
+                ...toApiParams(currentFilters, 1, 1),
+                ...columnFiltersToAlertParams(currentColumnFilters),
+            }),
+        { keepPreviousData: true }
+    );
+
+    // Counts for the Discarded Events level chips, same scheme as the origin
+    // chips. Fetched only on that list (a null key skips the request).
+    const discardLevelScope = useMemo(
+        () => ({ ...filters, discardLevel: 'all' }),
+        [filters]
+    );
+    const { data: discardLevelCounts } = useSWR(
+        filters.stage === STAGE_DISCARDED
+            ? (['alerts', 'call-logs-discard-levels', discardLevelScope, columnFilters] as const)
+            : null,
+        ([, , currentFilters, currentColumnFilters]) =>
+            fetchAlertDiscardLevels({
                 ...toApiParams(currentFilters, 1, 1),
                 ...columnFiltersToAlertParams(currentColumnFilters),
             }),
@@ -771,6 +811,8 @@ export const useCallLogsData = (): UseCallLogsDataReturn => {
     return {
         alerts,
         originCounts: originCounts ?? null,
+        discardLevelCounts:
+            filters.stage === STAGE_DISCARDED ? (discardLevelCounts ?? null) : null,
         filteredAlerts,
         stats,
         filters,

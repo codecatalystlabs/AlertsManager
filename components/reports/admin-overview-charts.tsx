@@ -474,8 +474,8 @@ function VerificationTimelinessCard({ summary, isLoading }: PanelProps) {
 	return (
 		<ChartCard
 			icon={Timer}
-			title="Verification timeliness (KPI 4)"
-			description={`Against each signal's priority deadline (12h High, 24h Medium, 48h Low). ${
+			title="Verified within priority deadline (KPI 4)"
+			description={`Timed from the signal against its priority deadline (12h High, 24h Medium, 48h Low) — a different measure from "Verified within 24h" on the dashboard and the performance tables, which is timed from triage. ${
 				kpi4 === null ? "Nothing verified in scope." : `${kpi4}% of verified signals met it — target 80%.`
 			}`}
 			isLoading={isLoading}
@@ -504,6 +504,7 @@ function RankedBarsCard({
 	max = 10,
 	className,
 	missingNoun = "not recorded",
+	total,
 }: {
 	icon: LucideIcon;
 	title: string;
@@ -516,13 +517,18 @@ function RankedBarsCard({
 	className?: string;
 	/** How the footnote names the missing remainder. */
 	missingNoun?: string;
+	/**
+	 * Signals in scope, when `items` is a top-N that does not add up to them
+	 * (the leading districts) — the footnote's share is of all signals.
+	 */
+	total?: number;
 }) {
 	const { named, missing } = useMemo(() => splitMissing(items), [items]);
 	const data = useMemo(
 		() => named.filter((i) => i.count > 0).sort((a, b) => b.count - a.count).slice(0, max),
 		[named, max]
 	);
-	const all = items.reduce((s, i) => s + i.count, 0);
+	const all = total ?? items.reduce((s, i) => s + i.count, 0);
 	const top = data[0]?.count ?? 0;
 	const height = Math.max(160, data.length * 26 + 16);
 	return (
@@ -801,11 +807,12 @@ export const AdminOverviewCharts = memo<PanelProps>(({ summary, isLoading }) => 
 		<RankedBarsCard
 			icon={Map}
 			title="Leading districts"
-			description="The districts reporting the most signals."
+			description="The 8 districts reporting the most signals (City and District units counted together, named as on District performance)."
 			items={summary?.topDistricts ?? []}
 			hue={BLUE}
 			isLoading={isLoading}
 			missingNoun="with no district recorded"
+			total={summary?.total}
 		/>
 		<RankedBarsCard
 			icon={Layers}

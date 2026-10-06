@@ -99,7 +99,7 @@ const FUNNEL_COLUMNS: RegionalColumn[] = [
 		key: "verifiedWithin24h",
 		header: "Verify <24h",
 		description:
-			"Verified signals whose outcome was recorded within 24 hours of the signal being triaged (timed from triage, not from the event date, so signals that reached the register late are not counted as slow).",
+			"Verified signals whose recorded verification time is within 24 hours of the signal being triaged (timed from triage, not from the event date, so signals that reached the register late are not counted as slow) — the same clock as the dashboard's \"Verified within 24h\".",
 		...count((r) => r.verifiedWithin24h),
 	},
 	{

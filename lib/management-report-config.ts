@@ -387,7 +387,7 @@ export const KPI_META: Record<KpiKey, KpiMeta> = {
 	verificationRate: { label: "Verification rate", hint: "Verified ÷ signals", polarity: "up", format: "percent" },
 	alerts: { label: "Alerts issued", hint: "Confirmed, assessed, fed back", polarity: "neutral", format: "count" },
 	discarded: { label: "Discarded", hint: "Signals discarded", polarity: "neutral", format: "count" },
-	pending: { label: "Pending verification", hint: "Still awaiting verification", polarity: "down", format: "count" },
+	pending: { label: "Pending verification", hint: "Forwarded by triage (or escalated to the field) and not yet verified — the dashboard's \"Awaiting verification\"", polarity: "down", format: "count" },
 	deaths: { label: "Deaths", hint: "Signals with patient status Dead", polarity: "down", format: "count" },
 	districts: { label: "Districts reporting", hint: "Districts with ≥1 signal", polarity: "neutral", format: "count" },
 	vhfSignals: { label: "VHF signals", hint: "Viral haemorrhagic fevers", polarity: "neutral", format: "count" },

@@ -247,8 +247,11 @@ export const ReportsMatrixTable = memo<ReportsMatrixTableProps>(
 								</TableHeader>
 								<TableBody>
 									<TableRow className="border-b-2 border-slate-200 bg-slate-100/80 hover:bg-slate-100/80">
-										<TableCell className="h-8 px-2 font-semibold text-slate-900 sticky left-0 z-10 bg-slate-100 border-r border-slate-200 whitespace-nowrap">
-											Total
+										<TableCell
+											className="h-8 px-2 font-semibold text-slate-900 sticky left-0 z-10 bg-slate-100 border-r border-slate-200 whitespace-nowrap"
+											title={districtFilter.trim() ? "The total over every district, not only the rows the district filter is showing." : undefined}
+										>
+											{districtFilter.trim() ? "Total (all districts)" : "Total"}
 										</TableCell>
 										{matrix.columns.map((col, colIndex) => (
 											<TableCell

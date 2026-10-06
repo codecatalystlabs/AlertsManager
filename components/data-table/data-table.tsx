@@ -53,6 +53,7 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
+import { TABLE_LAYOUT_VERSION } from "@/lib/table-columns"
 import { cn } from "@/lib/utils"
 
 import { CardGrid, GroupCardHeader, RowCard } from "./card-view"
@@ -406,6 +407,17 @@ export function DataTable<TData, TValue = unknown>(props: DataTableProps<TData, 
 
   /* ── preferences (persisted per table id) ────────────────────────────── */
 
+  // Changes whenever this table's default columns (or the standard) change, so a
+  // layout saved against old defaults gives way to the new ones once.
+  const layoutKey = React.useMemo(
+    () =>
+      `${TABLE_LAYOUT_VERSION}|${JSON.stringify(
+        Object.entries(initialState?.columnVisibility ?? {}).sort(([a], [b]) => a.localeCompare(b))
+      )}`,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  )
+
   const { prefs, setPref, resetLayout, views, saveView, deleteView, persistent } = useTablePreferences(id, {
     density: defaultDensity,
     view: defaultView,
@@ -418,7 +430,7 @@ export function DataTable<TData, TValue = unknown>(props: DataTableProps<TData, 
     columnOrder: [],
     columnPinning: initialState?.columnPinning ?? null,
     columnSizing: {},
-  })
+  }, layoutKey)
   const view = isMobile ? "cards" : prefs.view
   const virtual = canVirtual && prefs.scrollMode === "virtual"
   const inspectorOpen = enableInspector && prefs.inspector

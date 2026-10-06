@@ -47,7 +47,12 @@ export interface SavedView {
 interface Stored {
   prefs: Partial<TablePreferences>
   views: SavedView[]
+  /** The default layout `prefs` was saved against; see useTablePreferences. */
+  layoutKey?: string
 }
+
+/** The prefs that describe the columns, as opposed to how the table is viewed. */
+const LAYOUT_PREFS = ["columnVisibility", "columnOrder", "columnPinning", "columnSizing"] as const
 
 const VERSION = 1
 const keyFor = (id: string) => `dt:v${VERSION}:${id}`
@@ -78,7 +83,18 @@ export const useIsomorphicLayoutEffect =
 
 type Updater<T> = T | ((prev: T) => T)
 
-export function useTablePreferences(id: string | undefined, defaults: TablePreferences) {
+/**
+ * `layoutKey` identifies the table's DEFAULT column layout. The prefs are saved
+ * on first view, untouched or not, so without it a changed default would never
+ * reach anyone who had already opened the table. When the key differs from the
+ * one the prefs were saved against, the saved column layout is dropped (once)
+ * and the new default applies; density, view mode and saved views are kept.
+ */
+export function useTablePreferences(
+  id: string | undefined,
+  defaults: TablePreferences,
+  layoutKey?: string
+) {
   const defaultsRef = React.useRef(defaults)
   const [prefs, setPrefs] = React.useState<TablePreferences>(defaults)
   const [views, setViews] = React.useState<SavedView[]>([])
@@ -90,16 +106,22 @@ export function useTablePreferences(id: string | undefined, defaults: TablePrefe
     if (!id) return
     const stored = read(id)
     if (!stored) return
-    setPrefs((prev) => ({ ...prev, ...stored.prefs }))
+    const saved = { ...stored.prefs }
+    if (layoutKey !== undefined && stored.layoutKey !== layoutKey) {
+      for (const key of LAYOUT_PREFS) delete saved[key]
+    }
+    setPrefs((prev) => ({ ...prev, ...saved }))
     setViews(Array.isArray(stored.views) ? stored.views : [])
+    // layoutKey is fixed for a table's lifetime (derived from its defaults).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   // Debounced write: a column drag-resize fires dozens of updates a second.
   React.useEffect(() => {
     if (!id || !loadedRef.current) return
-    const handle = setTimeout(() => write(id, { prefs, views }), 250)
+    const handle = setTimeout(() => write(id, { prefs, views, layoutKey }), 250)
     return () => clearTimeout(handle)
-  }, [id, prefs, views])
+  }, [id, prefs, views, layoutKey])
 
   const setPref = React.useCallback(
     <K extends keyof TablePreferences>(key: K, value: Updater<TablePreferences[K]>) => {

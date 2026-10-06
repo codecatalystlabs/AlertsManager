@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 
 import { downloadDashboardPdf, type DashboardPdfSection } from "@/lib/charts-pdf";
 import { exportAlertsToExcel } from "@/lib/alert-export";
@@ -19,6 +19,8 @@ import { can, PERM } from "@/lib/access";
 import { useDashboardSummary } from "@/hooks/use-dashboard-summary";
 import { LAYOUT } from "@/constants/layout";
 import { EBS_DATA_SOURCE } from "@/lib/ebs-indicators";
+import type { DashboardLinkScope } from "@/lib/dashboard-scope-link";
+import { cn } from "@/lib/utils";
 
 /**
  * The dashboard: the published signal-to-alert indicators for the selected
@@ -41,6 +43,18 @@ export default function DashboardPage(): React.JSX.Element {
 		region,
 		response,
 		division
+	);
+	// The scope every figure was counted over, carried by the links from them.
+	const linkScope = useMemo<DashboardLinkScope>(
+		() => ({
+			from: range.from,
+			to: range.to,
+			region,
+			district,
+			division,
+			disease: response,
+		}),
+		[range.from, range.to, region, district, division, response]
 	);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
@@ -100,7 +114,10 @@ export default function DashboardPage(): React.JSX.Element {
 				...(region !== "all" ? { region } : {}),
 				...(district !== "all" ? { district } : {}),
 				...(division !== "all" ? { division } : {}),
-				...(response !== "all" ? { response } : {}),
+				// The dashboard's own disease match (every spelling of the
+				// selected disease), not the list's free-text "contains" search —
+				// so the sheet holds exactly the signals the figures counted.
+				...(response !== "all" ? { disease: response } : {}),
 			};
 
 			const first = await fetchAlertsPage({
@@ -147,6 +164,10 @@ export default function DashboardPage(): React.JSX.Element {
 	}, [range.from, range.to, region, district, division, response]);
 
 	const isLoading = loading && !summary;
+	// A new scope is loading while the previous scope's figures are still on
+	// screen (SWR keepPreviousData): dim them so they are never read as the
+	// figures for the filters now selected.
+	const isStale = loading && !!summary;
 
 	return (
 		<div className={LAYOUT.pageGap}>
@@ -168,16 +189,24 @@ export default function DashboardPage(): React.JSX.Element {
 				<ErrorAlert error={error} onRetry={handleRefresh} retrying={isRefreshing} />
 			)}
 
-			<div ref={statsRef} className={LAYOUT.pageGap}>
-				<HeadlineStats summary={summary} isLoading={isLoading} />
-				<SignalFlowCard summary={summary} isLoading={isLoading} />
+			<div
+				ref={statsRef}
+				className={cn(LAYOUT.pageGap, isStale && "opacity-50 transition-opacity")}
+				aria-busy={isStale}
+			>
+				<HeadlineStats summary={summary} isLoading={isLoading} scope={linkScope} />
+				<SignalFlowCard summary={summary} isLoading={isLoading} scope={linkScope} />
 			</div>
 
 			{/* Every graph in one two-column grid: the two timeliness indicators
 			    (triaged and verified within 24h) lead, then signals by epi week,
 			    then the remaining indicator cards in table order, then the
 			    reporting-unit breakdown. */}
-			<div ref={chartsRef} className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
+			<div
+				ref={chartsRef}
+				className={cn("grid grid-cols-1 gap-2.5 lg:grid-cols-2", isStale && "opacity-50 transition-opacity")}
+				aria-busy={isStale}
+			>
 				<IndicatorTrendCards summary={summary} isLoading={isLoading} select="lead" />
 				<WeeklySignalsCard summary={summary} isLoading={isLoading} />
 				<IndicatorTrendCards summary={summary} isLoading={isLoading} select="rest" />

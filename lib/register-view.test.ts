@@ -53,7 +53,7 @@ const {
 	STAGE_FEEDBACK,
 	STAGE_OFF_PIPELINE,
 } = await import("./pipeline.ts");
-const { discardLevel, DISCARD_AT_TRIAGE, DISCARD_AT_VERIFICATION } =
+const { discardLevel, DISCARD_AT_TRIAGE, DISCARD_AT_DESK, DISCARD_AT_FIELD } =
 	await import("./discard-level.ts");
 
 let passed = 0;
@@ -227,15 +227,80 @@ check(
 );
 
 check(
-	"a verification discard reads as discarded at verification",
-	discardLevel({ verificationOutcome: "Discarded" })?.level,
-	DISCARD_AT_VERIFICATION
+	"a desk discard reads as discarded at desk verification",
+	discardLevel({ verificationOutcome: "Discarded", verificationLevel: "Desk" })?.level,
+	DISCARD_AT_DESK
 );
 
 check(
-	"triage wins when both gates recorded something",
+	"a field discard reads as discarded at field verification",
+	discardLevel({ verificationOutcome: "Discarded", verificationLevel: "Field" })?.level,
+	DISCARD_AT_FIELD
+);
+
+check(
+	"a recorded level wins over legacy field evidence",
+	discardLevel({
+		verificationOutcome: "Discarded",
+		verificationLevel: "Desk",
+		fieldVerificationDecision: "Discard",
+	})?.level,
+	DISCARD_AT_DESK
+);
+
+// Legacy rows (verified before levels were recorded) were all written by the
+// desk form, so they read as desk unless they show a field visit — the same
+// rule as Go discardedInFieldSQL, so each row's badge matches its chip.
+check(
+	"a legacy verification discard reads as desk",
+	discardLevel({ verificationOutcome: "Discarded", caseVerificationDesk: "Discarded" })?.level,
+	DISCARD_AT_DESK
+);
+
+check(
+	"a legacy discard the field team decided reads as field",
+	discardLevel({ verificationOutcome: "Discarded", fieldVerificationDecision: "Discard" })?.level,
+	DISCARD_AT_FIELD
+);
+
+check(
+	"a legacy discard after the desk sent a field team reads as field",
+	discardLevel({
+		verificationOutcome: "Discarded",
+		caseVerificationDesk: "Field Case Verification, Discarded",
+	})?.level,
+	DISCARD_AT_FIELD
+);
+
+check(
+	"a recorded discard reason is shown under the badge",
+	discardLevel({
+		verificationOutcome: "Discarded",
+		verificationLevel: "Desk",
+		discardReason: "False or hoax report",
+	})?.reason,
+	"False or hoax report"
+);
+
+// A recorded verification verdict wins over a triage close (2026-10-06): the
+// furthest step reached, where the dashboard's signal flow places the signal.
+// Only legacy rows carry both — e.g. imports bulk-marked Logged whose
+// old-system verdict was Discarded.
+check(
+	"a verification verdict wins over a triage close",
+	discardLevel({ triageDecision: "Logged", verificationOutcome: "Discarded" })
+		?.level,
+	DISCARD_AT_DESK
+);
+check(
+	"…over a triage duplicate too",
 	discardLevel({ triageDecision: "Discarded", verificationOutcome: "Discarded" })
 		?.level,
+	DISCARD_AT_DESK
+);
+check(
+	"a triage close with no verdict stays at triage",
+	discardLevel({ triageDecision: "Logged" })?.level,
 	DISCARD_AT_TRIAGE
 );
 

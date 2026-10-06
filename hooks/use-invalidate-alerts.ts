@@ -14,6 +14,10 @@ const ALERTS_KEY_ROOTS = new Set([
 	"today-activity",
 	"dashboard-chart-alerts",
 	"dashboard-summary",
+	// The register's step strip. Its counts ARE the queues a verify/triage/
+	// assessment moves a signal between, so a stale strip reads as the signal
+	// never having moved.
+	"pipeline",
 ]);
 
 function isAlertsKey(key: unknown): boolean {

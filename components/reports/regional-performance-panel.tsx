@@ -693,6 +693,14 @@ function PerformanceTable({
 					</div>
 				)}
 
+				{(report.verifiedInPeriod ?? 0) > report.total.verified && (
+					<p className="text-[11px] text-amber-800">
+						Verified counts only signals coded at triage (each column nests in the one before).
+						In all, {report.verifiedInPeriod!.toLocaleString()} signal
+						{report.verifiedInPeriod === 1 ? " was" : "s were"} verified in this period under these
+						filters — the dashboard&apos;s &ldquo;Verified&rdquo; for the same dates.
+					</p>
+				)}
 				{(report.alertsOutsideFunnel ?? 0) > 0 && (
 					<p className="text-[11px] text-amber-800">
 						+ {report.alertsOutsideFunnel!.toLocaleString()} more alert

@@ -6,7 +6,7 @@
  *
  * It exits non-zero on the first failed assertion.
  */
-import { deriveAlertOutcome, OUTCOME_NOT_RECORDED } from "./alert-outcome.ts";
+import { deriveAlertOutcome, isSignalVerified, OUTCOME_NOT_RECORDED } from "./alert-outcome.ts";
 
 let passed = 0;
 function check(name: string, actual: string, expected: string): void {
@@ -137,5 +137,28 @@ check(
 	deriveAlertOutcome({ caseVerificationDesk: "   ", actions: "  " }),
 	OUTCOME_NOT_RECORDED
 );
+
+// --- isSignalVerified: the dashboard's "Verified" (twin of Go rowIsVerified) --
+
+const yes = (b: boolean) => (b ? "verified" : "not verified");
+check("Confirmed outcome", yes(isSignalVerified({ verificationOutcome: "Confirmed" })), "verified");
+check("Discarded outcome", yes(isSignalVerified({ verificationOutcome: "Discarded" })), "verified");
+check(
+	"escalated to the field is NOT verified, even with the desk mirror set",
+	yes(isSignalVerified({ verificationOutcome: "Escalated to Field", caseVerificationDesk: "Field Case Verification" })),
+	"not verified"
+);
+check(
+	"legacy desk decision with no outcome column",
+	yes(isSignalVerified({ caseVerificationDesk: "Sample Collected" })),
+	"verified"
+);
+check(
+	"legacy discard in actions (the 2026-10-06 backfill's rows)",
+	yes(isSignalVerified({ actions: "Discarded" })),
+	"verified"
+);
+check("the creation stamp alone is not a verification", yes(isSignalVerified({ actions: "Alert reported" })), "not verified");
+check("nothing recorded", yes(isSignalVerified({})), "not verified");
 
 console.log(`\nAll ${passed} assertions passed.`);

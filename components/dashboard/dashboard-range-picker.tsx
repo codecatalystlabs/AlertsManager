@@ -1,6 +1,7 @@
 "use client";
 
 import React, { memo, useState } from "react";
+import { resolveDateRangePreset } from "@/lib/date-range-presets";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,15 +19,16 @@ export interface DashboardRangeValue {
 	to: string;
 }
 
-// All time by default: the dashboard must open showing the full recorded count
-// (Total Signals = every captured record), not a recent slice. The old reason
-// for defaulting to 90d — an all-time default made the chart fetch page through
-// up to CHART_MAX_PAGES (20k rows) — no longer applies: the dashboard now runs
-// off one server-side /dashboard/summary aggregate (no client paging), so an
-// all-time default is cheap. Users can still pick a narrower range.
-export const DEFAULT_RANGE_PRESET = "all";
+// "This month" by default (programme decision 2026-10-06, replacing the
+// all-time default of 2026-06-16): every summary tab — this dashboard, the
+// Overview, Regional/District performance, the EVD trend and the Presentation —
+// now opens on the same period, so two tabs showing different numbers are
+// showing different periods only when someone chose that. "All time" is still
+// one click away.
+export const DEFAULT_RANGE_PRESET = "month";
 
 const PRESETS = [
+	{ id: "month", label: "This month" },
 	{ id: "30d", label: "Last 30 days" },
 	{ id: "90d", label: "Last 90 days" },
 	{ id: "6m", label: "Last 6 months" },
@@ -51,6 +53,11 @@ export function resolveDashboardRange(
 ): DashboardRangeValue {
 	if (preset === "all") return { from: "", to: "" };
 	if (preset === "custom") return { from: customFrom, to: customTo };
+	if (preset === "month") {
+		// The same "This month" the performance tables' preset bar resolves.
+		const { fromDate, toDate } = resolveDateRangePreset("month");
+		return { from: fromDate, to: toDate };
+	}
 
 	// Subtract whole months without JS date overflow: e.g. Aug 31 minus 6 months
 	// must be Feb 28/29, not "Feb 31" → March 3. Clamp the day to the target month.

@@ -1,5 +1,6 @@
 "use client";
 
+import { withDashboardScope, type DashboardLinkScope } from "@/lib/dashboard-scope-link";
 import { memo, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -135,6 +136,12 @@ function hintFor(row: EbsIndicatorRow): string {
 interface BoardProps {
 	summary: DashboardSummary | undefined;
 	isLoading?: boolean;
+	/**
+	 * The scope the figures were counted over. Every link from a figure carries
+	 * it, so the list that opens holds the signals the figure counted rather
+	 * than the whole register (lib/dashboard-scope-link.ts).
+	 */
+	scope?: DashboardLinkScope;
 }
 
 function shareText(part: number, whole: number, of: string): string {
@@ -175,7 +182,7 @@ function weekTickInterval(n: number, maxTicks: number): number {
  * because a count of on-time triages grows with volume and says nothing
  * about timeliness.
  */
-export const HeadlineStats = memo<BoardProps>(({ summary, isLoading }) => {
+export const HeadlineStats = memo<BoardProps>(({ summary, isLoading, scope }) => {
 	const i = summary?.indicators;
 	const reported = i?.signalsReported ?? 0;
 	const triaged = i?.signalsTriaged ?? 0;
@@ -216,7 +223,7 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading }) => {
 			hint: "Signals in Raw Information: reported, not yet triaged, and nothing downstream has happened to them. Triage is due within 24 hours. Click to open Raw Information.",
 			icon: RadioTower,
 			ink: SKY_INK,
-			onClick: () => router.push("/dashboard/signal-logs"),
+			onClick: () => router.push(withDashboardScope("/dashboard/signal-logs?stage=triage", scope)),
 		},
 		{
 			title: "Triaged",
@@ -246,7 +253,7 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading }) => {
 			title: "Verified",
 			value: verified.toLocaleString(),
 			sub: shareText(verified, reported, "signals reported"),
-			hint: "An outcome is on record and the signal is not escalated to the field — the register's Verified count.",
+			hint: "An outcome is on record and the signal is not escalated to the field. Equals \"to date\" on the register strip's Verified tile; the tile's own number is the verified signals still waiting on risk assessment.",
 			icon: ShieldCheck,
 			ink: EMERALD_INK,
 		},
@@ -278,9 +285,10 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading }) => {
 			title: "Alerts",
 			value: alerts.toLocaleString(),
 			sub: shareText(alerts, riskAssessed, "risk-assessed events"),
-			hint: "Confirmed, risk-assessed events whose reporter has been told — exactly the signals on the Alerts page.",
+			hint: "Confirmed, risk-assessed events whose reporter has been told — exactly the signals on the Alerts page. Click to open them.",
 			icon: Siren,
 			ink: ROSE_INK,
+			onClick: () => router.push(withDashboardScope("/dashboard/alerts", scope)),
 		},
 	];
 
@@ -350,8 +358,14 @@ function FlowRow({ item }: { item: SignalFlowItem }) {
  * register list that holds it. This replaces the old cascade, which drew
  * Verified above Triaged because each bar was counted a different way.
  */
-export const SignalFlowCard = memo<BoardProps>(({ summary, isLoading }) => {
-	const flow = useMemo(() => buildSignalFlow(summary?.signalFlow), [summary?.signalFlow]);
+export const SignalFlowCard = memo<BoardProps>(({ summary, isLoading, scope }) => {
+	const flow = useMemo(
+		() =>
+			buildSignalFlow(summary?.signalFlow).map((f) =>
+				f.href ? { ...f, href: withDashboardScope(f.href, scope) } : f
+			),
+		[summary?.signalFlow, scope]
+	);
 	const total = flow.reduce((s, f) => s + f.count, 0);
 	const open = openWorkTotal(flow);
 	const groups = (["queue", "issue", "exit", "done"] as const)
@@ -471,6 +485,15 @@ function WeeklyTooltip({ active, payload }: { active?: boolean; payload?: { payl
 export const WeeklySignalsCard = memo<BoardProps>(({ summary, isLoading }) => {
 	const data = useMemo(() => buildWeeklyCascade(summary), [summary]);
 	const span = epiWeekSpanLabel(summary);
+	// The series is capped at the latest 52 epi weeks, so over a longer range
+	// the bars cover fewer signals than the headline figures above. Say so,
+	// with both numbers, rather than let the two read as a discrepancy.
+	const inBars = (summary?.indicatorSeries ?? []).reduce(
+		(n, w) => n + (w.counts?.signalsReported ?? 0),
+		0
+	);
+	const reported = summary?.indicators?.signalsReported ?? 0;
+	const capped = !isLoading && inBars < reported;
 	const config: ChartConfig = Object.fromEntries(
 		WEEKLY_SERIES.map((s) => [s.key, { label: s.label, color: s.color }])
 	);
@@ -487,8 +510,9 @@ export const WeeklySignalsCard = memo<BoardProps>(({ summary, isLoading }) => {
 					<span className="shrink-0 text-[11px] text-gray-500">{span}</span>
 				</div>
 				<CardDescription className="truncate text-[11px]">
-					How far each week&apos;s signals got: verified, confirmed and alerts drawn inside the
-					reported bar.
+					{capped
+						? `Latest 52 epi weeks only: ${inBars.toLocaleString()} of the ${reported.toLocaleString()} signals in scope. Pick a shorter range to see every week.`
+						: "How far each week's signals got: verified, confirmed and alerts drawn inside the reported bar."}
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="pt-0">

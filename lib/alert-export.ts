@@ -5,6 +5,7 @@ import { altCode } from "@/lib/alt-code";
 import {
 	deriveAlertOutcome,
 	deriveDeskVerificationOutcome,
+	isSignalVerified,
 } from "./alert-outcome";
 import { isSignalTriaged } from "@/lib/alert-triage";
 import { signalSummary } from "@/lib/ebs-signals";
@@ -133,7 +134,9 @@ const SIGNAL_COLUMNS: ExportColumn[] = [
 const OUTCOME_SUMMARY_COLUMNS: ExportColumn[] = [
 	{
 		header: "Verified",
-		getValue: (a) => (a.isVerified ? "Yes" : "Pending"),
+		// The dashboard's "Verified" (isSignalVerified), so the sheet's count
+		// of "Yes" is the figure on the page it was exported from.
+		getValue: (a) => (isSignalVerified(a) ? "Yes" : "Pending"),
 	},
 	{
 		header: "Desk Verification Outcome",
@@ -335,7 +338,10 @@ const EXPORT_COLUMNS: ExportColumn[] = [
  */
 function stageReached(alert: ExportableAlert): string {
 	if (isRiskAssessed(alert.riskLevel)) return "Risk assessed";
-	if (alert.isVerified || deriveAlertOutcome(alert)) return "Verified";
+	// deriveAlertOutcome never returns "" (it says "Not Recorded"), so testing
+	// its truthiness labelled every unscored row "Verified" — "Triaged" and
+	// "Reported" never appeared. isSignalVerified is the dashboard's rule.
+	if (isSignalVerified(alert)) return "Verified";
 	if (isSignalTriaged(alert)) return "Triaged";
 	return "Reported";
 }

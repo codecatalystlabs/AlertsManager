@@ -11,7 +11,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { alertResponse } from "@/constants";
+import { DISEASE_SCOPE_OPTIONS } from "@/lib/disease-scope";
 import type { DashboardScope } from "@/hooks/use-dashboard-scope";
 import { DashboardRangePicker } from "./dashboard-range-picker";
 import { DashboardDistrictPicker } from "./dashboard-district-picker";
@@ -180,7 +180,7 @@ export const DashboardScopeBar = memo<DashboardScopeBarProps>(
 							{/* Canonical response taxonomy (same list as the Add/Edit/Verify
 							    forms) — value is the disease code, which the backend matches
 							    by folding stored responses onto the same canonical bucket. */}
-							{alertResponse.map((r) => (
+							{DISEASE_SCOPE_OPTIONS.map((r) => (
 								<SelectItem key={r.code} value={r.code}>
 									{r.name}
 								</SelectItem>

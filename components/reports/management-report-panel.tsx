@@ -39,7 +39,7 @@ import {
 	DeckPresenter,
 	DeckPreview,
 } from "@/components/reports/deck-preview";
-import { toLocalISODate } from "@/lib/date-range-presets";
+import { resolveDateRangePreset, toLocalISODate } from "@/lib/date-range-presets";
 import {
 	fetchManagementReport,
 	todayIsoDate,
@@ -104,11 +104,9 @@ interface DeckData {
 
 type ExportKind = "pptx" | "slides" | "pdf" | "docx";
 
+/** This month, the 1st to today — the period every summary tab opens on. */
 function defaultDeckRange(): { fromDate: string; toDate: string } {
-	const to = new Date();
-	const from = new Date();
-	from.setDate(from.getDate() - 6);
-	return { fromDate: toLocalISODate(from), toDate: toLocalISODate(to) };
+	return resolveDateRangePreset("month");
 }
 
 /**

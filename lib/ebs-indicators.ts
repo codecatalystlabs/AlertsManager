@@ -133,7 +133,7 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 		kind: "proportion",
 		stage: "verification",
 		unit: "signals",
-		note: "Timed from the signal to its recorded verification time, over triaged signals verified with a time on record. §11 KPI 4 (target 80%) uses priority deadlines instead — see Reports → Overview.",
+		note: "Timed from TRIAGE to the recorded verification time (guideline Ch.4 Step 3, Note 3) — the same clock as the Regional/District performance tables' \"Verify <24h\" — over triaged signals verified with both times on record. Reports → Overview's \"verified within priority deadline\" (12/24/48h) is a different measure.",
 	},
 	{
 		n: 5,
@@ -277,7 +277,7 @@ function countsFor(id: string, i: DashboardIndicators): RowCounts {
 				numerator: i.verifiedWithin24h,
 				denominator: i.signalsVerified,
 				rateBase: timed,
-				gap: { count: eligible - timed, label: "verified with no verification time" },
+				gap: { count: eligible - timed, label: "verified with no triage or verification time" },
 			};
 		}
 		case "signal-to-event":

@@ -2,7 +2,7 @@ import { AuthService } from "@/lib/auth";
 import { getClientApiBaseUrl } from "@/lib/api-config";
 import { formatAlertsFetchError } from "@/lib/api-errors";
 import { canonicalDistrictName } from "@/lib/district-name";
-import { toLocalISODate } from "@/lib/date-range-presets";
+import { resolveDateRangePreset, toLocalISODate } from "@/lib/date-range-presets";
 import type { SignalOriginFilter } from "@/lib/signal-origin";
 
 class ReportsFetchError extends Error {
@@ -100,15 +100,13 @@ export function todayIsoDate(): string {
 	return toLocalISODate(new Date());
 }
 
-/** Default 6-day window ending today (matches API timeseries default). */
+/**
+ * Default window: this month, the 1st to today — the period every summary tab
+ * opens on (programme decision 2026-10-06), so the EVD trend and the dashboard
+ * beside it show the same period until someone changes one.
+ */
 export function defaultReportDateRange(): ReportsDateRange {
-	const to = new Date();
-	const from = new Date();
-	from.setDate(from.getDate() - 5);
-	return {
-		fromDate: toLocalISODate(from),
-		toDate: toLocalISODate(to),
-	};
+	return resolveDateRangePreset("month");
 }
 
 export function buildReportsQuery(
@@ -150,7 +148,12 @@ const METRIC_LABELS: Record<string, string> = {
 	discarded_signals: "Discarded",
 	evacuated: "Evacuated",
 	sdb: "SDB",
-	pending_verification: "Pending verification",
+	// Every signal without a verdict yet — untriaged, closed at triage, waiting
+	// on verification or escalated to the field — so Signals = Verified, not
+	// discarded + Discarded + Not verified, and it equals the dashboard's
+	// "not verified". "Pending verification" read as the verification queue
+	// alone, which is a much smaller number.
+	pending_verification: "Not verified",
 	samples_taken: "Samples taken",
 };
 
@@ -489,7 +492,13 @@ export interface ManagementDistrictRow {
 	ems: number;
 	sdb: number;
 	others: number;
+	/** No verification outcome recorded yet (a column of the outcome partition). */
 	pending: number;
+	/**
+	 * Forwarded by triage (or escalated to the field) and not yet answered —
+	 * the dashboard's "Awaiting verification". Absent from older APIs.
+	 */
+	awaitingVerification?: number;
 }
 
 export interface ManagementStatusSection {
@@ -663,6 +672,12 @@ export interface RegionalPerformanceReport {
 	 * Optional: an older API does not send it.
 	 */
 	alertsOutsideFunnel?: number;
+	/**
+	 * Every signal verified in the period under these filters, coded or not —
+	 * the dashboard's "Verified". The table's Verified column counts only the
+	 * coded, triaged ones (it nests in the funnel). Absent from older APIs.
+	 */
+	verifiedInPeriod?: number;
 	/**
 	 * Set only when the period holds no reports: the most recent report date
 	 * (YYYY-MM-DD) under the same filters, on or before toDate. Optional: an

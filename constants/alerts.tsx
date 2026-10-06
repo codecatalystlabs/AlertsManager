@@ -19,6 +19,9 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { sourceOfAlertOptions } from "@/lib/source-of-alert";
+import { RiskBadge } from "@/components/risk";
+import { receivedColumn, signalColumn } from "@/components/signal-columns";
+import { hiddenByDefault } from "@/lib/table-columns";
 import { spotRepIsMandated } from "@/lib/spotrep";
 import {
 	VerificationBadge,
@@ -52,6 +55,9 @@ export interface AlertsTableCallbacks {
 	onGenerateSpotRep?: (alert: AlertType) => void;
 }
 
+/** Off by default: contact details (the column standard) and Verified, which every row on this list already is. */
+export const ALERTS_HIDDEN_COLUMNS = hiddenByDefault("personReporting", "contactNumber", "isVerified");
+
 export const createAlertsTableColumns = (
 	callbacks: AlertsTableCallbacks
 ): ColumnDef<AlertType>[] => [
@@ -74,98 +80,21 @@ export const createAlertsTableColumns = (
 		},
 	},
 	{
-		accessorKey: "status",
-		filterFn: exactStringFilter,
-		meta: {
-			filterLabel: "Status",
-			filterVariant: "select",
-			filterOptions: STATUS_OPTIONS.filter(
-				(option) => option.value !== "all"
-			),
-		},
-		header: ({ column }) => (
-			<SortableHeader column={column}>Status</SortableHeader>
-		),
-		cell: ({ row }) => {
-			const status = row.getValue("status") as string;
-			return (
-				<Badge variant="secondary" className={statusBadgeClass(status)}>
-					{status}
-				</Badge>
-			);
-		},
+		// The column that defines this list: an issued alert is a confirmed,
+		// risk-assessed event, and its level is what sets the response.
+		id: "risk",
+		accessorKey: "riskLevel",
+		header: "Risk",
+		enableSorting: false,
+		enableColumnFilter: false,
+		cell: ({ row }) => <RiskBadge level={row.original.riskLevel} />,
 	},
-	{
-		accessorKey: "date",
-		filterFn: dateRangeFilter,
-		meta: {
-			filterLabel: "Date",
-			filterVariant: "dateRange",
-		},
-		header: ({ column }) => (
-			<SortableHeader column={column}>Date</SortableHeader>
-		),
-		cell: ({ row }) => {
-			const date = new Date(row.getValue("date"));
-			return (
-				<div className="text-sm"> {date.toLocaleDateString()} </div>
-			);
-		},
-	},
-	{
-		accessorKey: "time",
-		header: "Time",
-		filterFn: textIncludesFilter,
-		meta: {
-			filterPlaceholder: "Time",
-		},
-		cell: ({ row }) => {
-			const time = new Date(row.getValue("time"));
-			return (
-				<div className="font-mono text-sm">
-					{time.toLocaleTimeString()}
-				</div>
-			);
-		},
-	},
-	{
-		accessorKey: "personReporting",
-		header: "Reporter",
-		meta: {
-			filterPlaceholder: "Reporter name",
-		},
-		cell: ({ row }) => {
-			const reporter = row.getValue("personReporting") as string;
-			return (
-				<div className="font-medium">
-					{reporter || "Not specified"}
-				</div>
-			);
-		},
-	},
-	{
-		accessorKey: "sourceOfAlert",
-		header: "Source of signal",
-		filterFn: exactStringFilter,
-		meta: {
-			filterVariant: "select",
-			filterOptions: sourceOfAlertOptions().map((source) => ({
-				value: source,
-				label: source,
-			})),
-		},
-		cell: ({ row }) => {
-			const source = row.getValue("sourceOfAlert") as string;
-			return (
-				<Badge
-					variant="outline"
-					className="border-uganda-blue text-uganda-blue"
-				>
-					{source}
-				</Badge>
-			);
-		},
-	},
+	// WHEN, then WHAT, then WHERE — the column standard (lib/table-columns.ts).
+	receivedColumn<AlertType>(),
+	// The account of what happened, in full: an issued alert is read for its
+	// substance, so the description wraps (up to 4 lines, ~95% of them whole;
+	// the rest end in "…" with the full text on hover and in the details).
+	signalColumn<AlertType>({ header: "Description", lines: 4, size: 400 }),
 	{
 		accessorKey: "alertCaseDistrict",
 		header: "District",
@@ -174,26 +103,10 @@ export const createAlertsTableColumns = (
 		},
 		cell: ({ row }) => {
 			const district = row.getValue("alertCaseDistrict") as string;
-			return (
-				<div className="text-sm">
-					{" "}
-					{district || "Not specified"}
-				</div>
-			);
-		},
-	},
-	{
-		accessorKey: "contactNumber",
-		header: "Contact Number",
-		meta: {
-			filterPlaceholder: "Phone number",
-		},
-		cell: ({ row }) => {
-			const contact = row.getValue("contactNumber") as string;
-			return (
-				<div className="font-mono text-sm">
-					{contact || "Not provided"}
-				</div>
+			return district ? (
+				<span>{district}</span>
+			) : (
+				<span className="text-muted-foreground">—</span>
 			);
 		},
 	},
@@ -208,13 +121,11 @@ export const createAlertsTableColumns = (
 		),
 		cell: ({ row }) => {
 			const name = row.getValue("alertCaseName") as string;
+			// One line like every other cell; the full name is on hover.
 			return (
-				<div
-					className="max-w-[280px] whitespace-normal font-medium line-clamp-2 break-words"
-					title={name}
-				>
+				<span className="block max-w-[14rem] truncate font-medium" title={name}>
 					{name}
-				</div>
+				</span>
 			);
 		},
 	},
@@ -255,6 +166,83 @@ export const createAlertsTableColumns = (
 				>
 					{sex}
 				</Badge>
+			);
+		},
+	},
+	{
+		accessorKey: "sourceOfAlert",
+		header: "Source of signal",
+		filterFn: exactStringFilter,
+		meta: {
+			filterVariant: "select",
+			filterOptions: sourceOfAlertOptions().map((source) => ({
+				value: source,
+				label: source,
+			})),
+		},
+		cell: ({ row }) => {
+			const source = row.getValue("sourceOfAlert") as string;
+			return (
+				<Badge
+					variant="outline"
+					className="border-uganda-blue text-uganda-blue"
+				>
+					{source}
+				</Badge>
+			);
+		},
+	},
+	{
+		accessorKey: "status",
+		filterFn: exactStringFilter,
+		meta: {
+			filterLabel: "Status",
+			filterVariant: "select",
+			filterOptions: STATUS_OPTIONS.filter(
+				(option) => option.value !== "all"
+			),
+		},
+		header: ({ column }) => (
+			<SortableHeader column={column}>Status</SortableHeader>
+		),
+		cell: ({ row }) => {
+			const status = row.getValue("status") as string;
+			return (
+				<Badge variant="secondary" className={statusBadgeClass(status)}>
+					{status}
+				</Badge>
+			);
+		},
+	},
+	// Hidden by default (ALERTS_HIDDEN_COLUMNS): contact details per the
+	// standard, and Verified because every issued alert is verified.
+	{
+		accessorKey: "personReporting",
+		header: "Reporter",
+		meta: {
+			filterPlaceholder: "Reporter name",
+		},
+		cell: ({ row }) => {
+			const reporter = row.getValue("personReporting") as string;
+			return (
+				<div className="font-medium">
+					{reporter || "Not specified"}
+				</div>
+			);
+		},
+	},
+	{
+		accessorKey: "contactNumber",
+		header: "Contact Number",
+		meta: {
+			filterPlaceholder: "Phone number",
+		},
+		cell: ({ row }) => {
+			const contact = row.getValue("contactNumber") as string;
+			return (
+				<div className="font-mono text-sm">
+					{contact || "Not provided"}
+				</div>
 			);
 		},
 	},

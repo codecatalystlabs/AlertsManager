@@ -153,7 +153,8 @@ function StageTile({
 }) {
 	const step = STAGE_STEP[stage.key as StageKey];
 	const overdue = stage.overdue > 0 ? stage.overdue : 0;
-	const pending = stage.pending > 0 ? stage.pending : 0;
+	// Older backends predate the running total; treat absent as "none".
+	const toDate = typeof stage.toDate === "number" ? stage.toDate : -1;
 	const description = STAGE_DESCRIPTION[stage.key as StageKey];
 
 	const body = (
@@ -171,6 +172,11 @@ function StageTile({
 					<Lock aria-hidden className="ml-auto h-3 w-3 shrink-0 text-gray-400" />
 				)}
 			</div>
+			{/* The headline is the worklist the tile opens — the signals that
+			    have reached this state and wait on the next step — so a
+			    verification visibly moves a signal from one tile to the next.
+			    The running total of everything that ever reached the state sits
+			    beside it, small: context, not the work. */}
 			<div className="mt-0.5 flex items-baseline gap-1.5">
 				<span
 					className={cn(
@@ -180,22 +186,25 @@ function StageTile({
 				>
 					{stage.available ? stage.count.toLocaleString() : "—"}
 				</span>
+				{stage.available && toDate >= 0 && (
+					<span className="ml-auto truncate text-[10px] leading-none text-gray-400 tabular-nums">
+						{toDate.toLocaleString()} to date
+					</span>
+				)}
 			</div>
-			{/* The backlog, demoted to the second line — still the number
-			    someone works today, but no longer the one that stands for the
-			    stage. Detection has no queue of its own, so it says nothing
-			    rather than inventing one. */}
+			{/* How much of the list is late for the next step. A step with no
+			    deadline (feedback) says nothing rather than inventing one. */}
 			{overdue > 0 ? (
 				<p className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold leading-none text-destructive">
 					<AlertTriangle aria-hidden className="h-3 w-3" />
-					{pending.toLocaleString()} waiting · {overdue.toLocaleString()} overdue
+					{overdue.toLocaleString()} overdue
 				</p>
 			) : (
 				<p className="mt-0.5 text-[10px] leading-none text-gray-400">
-					{pending > 0
-						? `${pending.toLocaleString()} waiting`
-						: stage.overdue < 0
-							? " "
+					{stage.overdue < 0
+						? " "
+						: stage.count > 0
+							? "none overdue"
 							: "nothing waiting"}
 				</p>
 			)}

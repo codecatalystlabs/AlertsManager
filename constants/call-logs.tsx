@@ -29,6 +29,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { SignalOriginBadge } from "@/components/signal-origin-badge";
+import { receivedColumn, signalColumn } from "@/components/signal-columns";
+import { hiddenByDefault } from "@/lib/table-columns";
 import { DiscardLevelBadge } from "@/components/triage";
 import { verificationBlockedReason } from "@/lib/alert-triage";
 import { nextAction, type NextActionKey } from "@/lib/next-action";
@@ -94,6 +96,12 @@ export interface CallLogsFilterState {
 	 * table, or by an ?origin= link such as the 6767 page's post-sync button.
 	 */
 	origin: string;
+	/**
+	 * Which level discarded the signal: "all" | "triage" | "desk" | "field"
+	 * (lib/discard-level.ts). Set by the chips on the Discarded Events list and
+	 * only sent there — on any other list it would match nothing.
+	 */
+	discardLevel: string;
 	search: string;
 	verification: string;
 	/** Selected region name, or "all" for no region filter. */
@@ -102,6 +110,13 @@ export interface CallLogsFilterState {
 	district: string;
 	/** Selected division/subcounty name, or "all" for no division filter. */
 	division: string;
+	/**
+	 * Disease scope: alertResponse code(s), comma-separated, or "all". Arrives
+	 * only with a link from the dashboard (?disease=) — the filter bar has no
+	 * control for it — so the page states it above the list with a way to
+	 * clear it.
+	 */
+	disease: string;
 	/** Inclusive start of the call date range (YYYY-MM-DD); "" means unbounded. */
 	fromDate: string;
 	/** Inclusive end of the call date range (YYYY-MM-DD); "" means unbounded. */
@@ -138,6 +153,7 @@ export const CALL_LOGS_INITIAL_FILTERS: CallLogsFilterState = {
 	status: "all",
 	source: "all",
 	origin: "all",
+	discardLevel: "all",
 	priority: "all",
 	triageDecision: "all",
 	stage: "",
@@ -146,6 +162,7 @@ export const CALL_LOGS_INITIAL_FILTERS: CallLogsFilterState = {
 	region: "all",
 	district: "all",
 	division: "all",
+	disease: "all",
 	fromDate: "",
 	toDate: "",
 	sex: "all",
@@ -347,6 +364,9 @@ export interface CallLogsTableColumnOptions {
 	showResponse?: boolean;
 }
 
+/** Contact details, off by default per the column standard (lib/table-columns.ts). */
+export const REGISTER_HIDDEN_COLUMNS = hiddenByDefault("personReporting", "contactNumber");
+
 export const createCallLogsTableColumns = (
 	callbacks: CallLogsTableCallbacks,
 	options: CallLogsTableColumnOptions = {}
@@ -396,6 +416,31 @@ export const createCallLogsTableColumns = (
 				} satisfies ColumnDef<AlertLog>,
 			]
 			: []),
+		// Spread, not a filtered array — see the note on "Discarded at" below.
+		// Beside Risk: on the Risk Assessed list the two read as one decision.
+		...(options.showResponse
+			? [
+				{
+					accessorKey: "response",
+					header: "Response",
+					meta: {
+						filterPlaceholder: "Response",
+					},
+					cell: ({ row }) => {
+						const response = row.getValue("response") as string;
+						return response ? (
+							<Badge variant="secondary" className="text-xs">
+								{response}
+							</Badge>
+						) : (
+							<Badge className={`${PENDING_BADGE_CLASS} text-xs`}>
+								Pending
+							</Badge>
+						);
+					},
+				} satisfies ColumnDef<AlertLog>,
+			]
+			: []),
 		// Spread rather than a filtered array: an entry that is not wanted must not
 		// exist at all, or TanStack sizes a hole for it.
 		...(options.showDiscardLevel
@@ -404,9 +449,10 @@ export const createCallLogsTableColumns = (
 					id: "discardLevel",
 					header: "Discarded at",
 					enableSorting: false,
-					// Derived from two columns (triage_decision, verification_outcome),
-					// so there is no single server field to filter it by. The two
-					// halves of the split ARE the filter.
+					// Derived from several columns (triage_decision,
+					// verification_outcome, verification_level…), so there is no
+					// single server field to filter it by. The "Discarded at" chips
+					// above the list ARE the filter.
 					enableColumnFilter: false,
 					// Which gate threw the signal out. The same count means opposite
 					// things at the two levels — a pile discarded at triage is a
@@ -417,39 +463,62 @@ export const createCallLogsTableColumns = (
 				} satisfies ColumnDef<AlertLog>,
 			]
 			: []),
+		// WHEN, then WHAT, then WHERE — the column standard (lib/table-columns.ts).
+		receivedColumn<AlertLog>(),
+		signalColumn<AlertLog>(),
 		{
-			accessorKey: "date",
-			filterFn: dateRangeFilter,
+			accessorKey: "alertCaseDistrict",
+			header: "District",
 			meta: {
-				filterLabel: "Date",
-				filterVariant: "dateRange",
+				filterPlaceholder: "District",
 			},
-			header: ({ column }) => (
-			<SortableHeader column={column}>Date</SortableHeader>
-		),
 			cell: ({ row }) => {
-				const date = new Date(row.getValue("date"));
-				return (
-					<div className="text-sm">{date.toLocaleDateString()}</div>
+				const district = row.getValue("alertCaseDistrict") as string;
+				return district ? (
+					<span>{district}</span>
+				) : (
+					<span className="text-muted-foreground">—</span>
 				);
 			},
 		},
 		{
-			accessorKey: "time",
-			header: "Time",
-			filterFn: textIncludesFilter,
+			// Which door the signal came in through. The 6767 flag is the one
+			// people scan for: those signals now arrive by themselves, logged on
+			// sync, so the list has to say which rows nobody typed in. Filtered
+			// by the "Came in via" chips above the table, not a header funnel —
+			// one control per filter.
+			id: "origin",
+			header: "Came in via",
+			enableSorting: false,
+			enableColumnFilter: false,
+			cell: ({ row }) => (
+				<SignalOriginBadge
+					alertFrom={row.original.alertFrom}
+					arrivedAt={row.original.forwardedAt || row.original.createdAt}
+				/>
+			),
+		},
+		{
+			accessorKey: "sourceOfAlert",
+			header: "Source",
+			filterFn: exactStringFilter,
 			meta: {
-				filterPlaceholder: "Time",
+				filterVariant: "select",
+				filterOptions: sourceFilterOptions().filter(
+					(option) => option.value !== "all"
+				),
 			},
 			cell: ({ row }) => {
-				const time = new Date(row.getValue("time"));
+				const source = row.getValue("sourceOfAlert") as string;
 				return (
-					<div className="whitespace-nowrap font-mono text-xs">
-						{time.toLocaleTimeString()}
-					</div>
+					<Badge variant="outline" className="text-xs">
+						{source}
+					</Badge>
 				);
 			},
 		},
+		// Contact details: hidden by default (REGISTER_HIDDEN_COLUMNS), one click
+		// away under Columns, always in the details dialog and exports.
 		{
 			accessorKey: "personReporting",
 			meta: {
@@ -484,57 +553,6 @@ export const createCallLogsTableColumns = (
 			},
 		},
 		{
-			accessorKey: "sourceOfAlert",
-			header: "Source",
-			filterFn: exactStringFilter,
-			meta: {
-				filterVariant: "select",
-				filterOptions: sourceFilterOptions().filter(
-					(option) => option.value !== "all"
-				),
-			},
-			cell: ({ row }) => {
-				const source = row.getValue("sourceOfAlert") as string;
-				return (
-					<div className="min-w-[160px]">
-						<Badge variant="outline" className="text-xs">
-							{source}
-						</Badge>
-					</div>
-				);
-			},
-		},
-		{
-			// Which door the signal came in through. The 6767 flag is the one
-			// people scan for: those signals now arrive by themselves, logged on
-			// sync, so the list has to say which rows nobody typed in. Filtered
-			// by the "Came in via" chips above the table, not a header funnel —
-			// one control per filter.
-			id: "origin",
-			header: "Came in via",
-			enableSorting: false,
-			enableColumnFilter: false,
-			cell: ({ row }) => (
-				<SignalOriginBadge
-					alertFrom={row.original.alertFrom}
-					arrivedAt={row.original.forwardedAt || row.original.createdAt}
-				/>
-			),
-		},
-		{
-			accessorKey: "alertCaseDistrict",
-			header: "District",
-			meta: {
-				filterPlaceholder: "District",
-			},
-			cell: ({ row }) => {
-				const district = row.getValue("alertCaseDistrict") as string;
-				return (
-					<div className="text-sm">{district || "Not specified"}</div>
-				);
-			},
-		},
-		{
 			accessorKey: "status",
 			header: "Status",
 			filterFn: exactStringFilter,
@@ -562,30 +580,6 @@ export const createCallLogsTableColumns = (
 				);
 			},
 		},
-		// Spread, not a filtered array — see the note on "Discarded at" below.
-		...(options.showResponse
-			? [
-				{
-					accessorKey: "response",
-					header: "Response",
-					meta: {
-						filterPlaceholder: "Response",
-					},
-					cell: ({ row }) => {
-						const response = row.getValue("response") as string;
-						return response ? (
-							<Badge variant="secondary" className="text-xs">
-								{response}
-							</Badge>
-						) : (
-							<Badge className={`${PENDING_BADGE_CLASS} text-xs`}>
-								Pending
-							</Badge>
-						);
-					},
-				} satisfies ColumnDef<AlertLog>,
-			]
-			: []),
 		// Spread, not a filtered array — see the note on "Discarded at" below.
 		...(options.showVerification
 			? [

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
 	AlertsHeader,
@@ -11,6 +12,8 @@ import {
 import { ErrorAlert } from "@/components/dashboard";
 import { StatsGridSkeleton } from "@/components/ui/skeletons";
 import { useAlertsData } from "@/hooks/use-alerts-data";
+import { scopeFromSearchParams, scopeKey } from "@/lib/dashboard-scope-link";
+import { diseaseScopeLabel } from "@/lib/disease-scope";
 
 // The composer pulls in `docx` and jsPDF on demand; keeping the whole dialog out
 // of the initial bundle keeps this page's first paint where it was.
@@ -69,6 +72,22 @@ export default function AlertsPage(): React.JSX.Element {
 		exportToCSV,
 		exportToExcel,
 	} = useAlertsData();
+
+	// A scope carried in from the dashboard's "Alert issued" figure: open on the
+	// alerts it counted, not on every alert. Applied once per scope.
+	const searchParams = useSearchParams();
+	const appliedScopeRef = useRef("");
+	useEffect(() => {
+		const scope = scopeFromSearchParams(searchParams);
+		const key = scopeKey(scope);
+		if (!scope) {
+			appliedScopeRef.current = "";
+			return;
+		}
+		if (appliedScopeRef.current === key) return;
+		appliedScopeRef.current = key;
+		setFilters(scope);
+	}, [searchParams, setFilters]);
 
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [selectedAlert, setSelectedAlert] = useState<AlertType | null>(null);
@@ -157,6 +176,22 @@ export default function AlertsPage(): React.JSX.Element {
 			    state — the panel snapped shut on every field you touched. The
 			    controls do not depend on the fetched list anyway. */}
 			<AlertsFilters filters={filters} onFiltersChange={setFilters} />
+
+			{filters.disease && filters.disease !== "all" && (
+				<div className="flex flex-wrap items-center gap-2 rounded border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600">
+					<span>
+						Disease: <span className="font-medium text-gray-900">{diseaseScopeLabel(filters.disease)}</span>
+						{" "}— carried over from the dashboard.
+					</span>
+					<button
+						type="button"
+						className="font-medium text-uganda-red hover:underline"
+						onClick={() => setFilters({ disease: "" })}
+					>
+						Show all diseases
+					</button>
+				</div>
+			)}
 
 			<AlertsTable
 				alerts={filteredAlerts}

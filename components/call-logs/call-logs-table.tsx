@@ -9,6 +9,7 @@ import {
 	CALL_LOGS_CONFIG,
 	createCallLogsTableColumns,
 	type CallLogsTableCallbacks,
+	REGISTER_HIDDEN_COLUMNS,
 } from "@/constants/call-logs";
 import { alertSlaRowClass } from "@/lib/alert-sla";
 import { useTickingNow } from "@/hooks/use-ticking-now";
@@ -128,6 +129,7 @@ export const CallLogsTable = memo<CallLogsTableProps>(
 					<DataTable
 						id="signal-register"
 						columns={columns}
+						initialState={{ columnVisibility: REGISTER_HIDDEN_COLUMNS }}
 						data={alerts}
 						enableHeaderFilters
 						searchKey="personReporting"

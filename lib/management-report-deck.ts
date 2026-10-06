@@ -147,7 +147,10 @@ export function scopeColumns(scope: ManagementScope, withAlerts: boolean): Scope
 	if (scope.totals.ems > 0) cols.push({ header: "EMS", value: (r) => r.ems });
 	if (scope.totals.sdb > 0) cols.push({ header: "SDB", value: (r) => r.sdb });
 	if (scope.totals.others > 0) cols.push({ header: "Others", value: (r) => r.others });
-	cols.push({ header: "Pending verification", value: (r) => r.pending });
+	// No outcome recorded yet — untriaged, closed at triage, or waiting on
+	// verification. Not the "Pending verification" tile (the verification
+	// queue alone); named apart so the two are not read as one number.
+	cols.push({ header: "No outcome yet", value: (r) => r.pending });
 	// Last and apart from the outcome columns (which sum to Signals): the
 	// alerts ISSUED — confirmed, risk-assessed, reporter told — the same count
 	// as the Alerts page, the dashboard and the regional report.
@@ -481,6 +484,25 @@ function verifiedCount(scope: ManagementScope): number {
 	return Object.values(scope.cascade ?? {}).reduce((s, c) => s + (c?.signalsVerified ?? 0), 0);
 }
 
+/**
+ * Events with a sample collected, by the dashboard's rule (cascade, not the
+ * table's exclusive outcome partition, where an event both evacuated and
+ * sampled counts only as evacuated) — so the tile reads the dashboard's
+ * "Samples collected".
+ */
+function samplesCount(scope: ManagementScope): number {
+	return Object.values(scope.cascade ?? {}).reduce((s, c) => s + (c?.sampleCollected ?? 0), 0);
+}
+
+/**
+ * Signals forwarded and still waiting on verification — the dashboard's
+ * "Awaiting verification" and the register's Triaged list. Falls back to the
+ * no-outcome column for an API that predates the field.
+ */
+function awaitingVerificationOf(scope: ManagementScope): number {
+	return scope.totals.awaitingVerification ?? scope.totals.pending;
+}
+
 function rrtCount(scope: ManagementScope): number {
 	return Object.values(scope.cascade ?? {}).reduce((s, c) => s + (c?.rrtDeployment ?? 0), 0);
 }
@@ -489,14 +511,26 @@ function deathsOf(scope: ManagementScope): number {
 	return (scope.sections ?? []).find((s) => s.status === "Dead")?.totals.signals ?? 0;
 }
 
+/**
+ * One district's key and name: "Gulu City" and "Gulu District" are one
+ * district, "Gulu", as on District performance and the dashboard — counted
+ * apart, "Districts reporting" read two districts where the other pages read
+ * one.
+ */
+const DISTRICT_UNIT_SUFFIX = /\s+(district|city)$/i;
+function districtKey(name: string): string {
+	return name.trim().replace(DISTRICT_UNIT_SUFFIX, "").toLowerCase();
+}
+
 /** One row per district across the status sections (summed). */
 export function mergedDistricts(scope: ManagementScope): ManagementDistrictRow[] {
 	const by = new Map<string, ManagementDistrictRow>();
 	for (const section of scope.sections ?? []) {
 		for (const d of section.districts ?? []) {
-			const cur = by.get(d.district);
+			const key = districtKey(d.district);
+			const cur = by.get(key);
 			if (!cur) {
-				by.set(d.district, { ...d });
+				by.set(key, { ...d, district: d.district.trim().replace(DISTRICT_UNIT_SUFFIX, "") || d.district });
 				continue;
 			}
 			cur.signals += d.signals;
@@ -508,6 +542,9 @@ export function mergedDistricts(scope: ManagementScope): ManagementDistrictRow[]
 			cur.sdb += d.sdb;
 			cur.others += d.others;
 			cur.pending += d.pending;
+			if (d.awaitingVerification !== undefined) {
+				cur.awaitingVerification = (cur.awaitingVerification ?? 0) + d.awaitingVerification;
+			}
 		}
 	}
 	return Array.from(by.values());
@@ -522,13 +559,13 @@ function kpiValue(key: KpiKey, r: ManagementReport): number {
 			return all.totals.signals > 0 ? verifiedCount(all) / all.totals.signals : 0;
 		case "alerts": return all.totals.alerts;
 		case "discarded": return all.totals.discarded;
-		case "pending": return all.totals.pending;
+		case "pending": return awaitingVerificationOf(all);
 		case "deaths": return deathsOf(all);
 		case "districts":
 			return mergedDistricts(all).filter((d) => d.signals > 0 && !isUnknownDistrict(d.district)).length;
 		case "vhfSignals": return r.vhf.totals.signals;
 		case "vhfAlerts": return r.vhf.totals.alerts;
-		case "sampleCollected": return all.totals.sampleCollected;
+		case "sampleCollected": return samplesCount(all);
 		case "fieldVerification": return all.totals.fieldCaseVerification;
 		case "ems": return all.totals.ems;
 		case "rrt": return rrtCount(all);
@@ -651,7 +688,7 @@ export function buildInsights(
 				break;
 			}
 			case "pending": {
-				const p = all.totals.pending;
+				const p = awaitingVerificationOf(all);
 				out.push(
 					p === 0
 						? { text: "No signals are pending verification.", tone: "good", mark: "✓" }

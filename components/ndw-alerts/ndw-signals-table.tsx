@@ -18,6 +18,7 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { LAYOUT } from "@/constants/layout";
 import { forwardedToLabel, signalRegisterHref } from "@/lib/signal-register-link";
 import type { ForwardedAlertRef } from "@/lib/fetch-ndw-alerts";
+import { hiddenByDefault } from "@/lib/table-columns";
 
 /** The fields the shared NDW columns (Status / actions) read. */
 export interface NdwSignalRow {
@@ -177,6 +178,8 @@ export interface NdwSignalsTableProps<TRow> {
 	 * that is fine to scroll to, so Status stays on screen on a laptop.
 	 */
 	trailingColumns?: ColumnDef<TRow>[];
+	/** Column ids hidden by default — contact details per lib/table-columns.ts. */
+	hiddenColumns?: string[];
 	alerts: TRow[];
 	totalCount: number;
 	page: number;
@@ -207,6 +210,7 @@ export function NdwSignalsTable<TRow extends NdwSignalRow>({
 	noun,
 	domainColumns,
 	trailingColumns,
+	hiddenColumns,
 	alerts,
 	totalCount,
 	page,
@@ -247,6 +251,7 @@ export function NdwSignalsTable<TRow extends NdwSignalRow>({
 				<DataTable
 					id={`ndw-${feed}`}
 					columns={columns}
+					initialState={{ columnVisibility: hiddenByDefault(...(hiddenColumns ?? [])) }}
 					data={alerts}
 					hideToolbar
 					enableHeaderFilters

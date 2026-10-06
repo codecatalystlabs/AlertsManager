@@ -41,6 +41,37 @@ export function formatDateTime(
 }
 
 /**
+ * The one date format every table column uses: "30 Sep 2026". Day before month
+ * with the month spelled out, so it reads the same in every browser locale —
+ * "9/30/2026" (the browser default here) and "30/09/2026" are both in use in
+ * Uganda and a list cannot leave readers guessing which one they are seeing.
+ */
+// Spelled out by hand: Intl's en-GB short month is "Sep" or "Sept" depending on
+// the browser's ICU version, and one table must not read both ways.
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+function toTableDate(value?: string | Date | null): Date | null {
+	const d = value instanceof Date ? value : toValidDate(value);
+	return d && !Number.isNaN(d.getTime()) ? d : null;
+}
+
+export function formatTableDate(value?: string | Date | null, fallback = ""): string {
+	if (!value) return fallback;
+	const d = toTableDate(value);
+	return d ? `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}` : String(value);
+}
+
+/** "30 Sep 2026, 22:14" — the table format with a 24-hour clock. */
+export function formatTableDateTime(value?: string | Date | null, fallback = ""): string {
+	if (!value) return fallback;
+	const d = toTableDate(value);
+	return d
+		? `${formatTableDate(d)}, ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+		: String(value);
+}
+
+/**
  * "just now" / "12 min ago" / "3 h ago" / "2 d ago", then the plain date once it
  * is more than a week old — for "when did this arrive", where recency is the
  * point and a full timestamp belongs in the tooltip. Same null/unparseable

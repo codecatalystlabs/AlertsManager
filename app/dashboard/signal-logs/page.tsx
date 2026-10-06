@@ -10,11 +10,18 @@ import {
 	CallLogsFilters,
 	CallLogsTable,
 	SignalOriginChips,
+	DiscardLevelChips,
 } from "@/components/call-logs";
 import {
 	parseSignalOriginFilter,
 	type SignalOriginFilter,
 } from "@/lib/signal-origin";
+import {
+	parseDiscardLevelFilter,
+	type DiscardLevelFilter,
+} from "@/lib/discard-level";
+import { scopeFromSearchParams, scopeKey } from "@/lib/dashboard-scope-link";
+import { diseaseScopeLabel } from "@/lib/disease-scope";
 import { ErrorAlert } from "@/components/dashboard";
 import { TriageDialog } from "@/components/triage";
 import { RiskAssessmentDialog } from "@/components/risk";
@@ -88,6 +95,7 @@ export default function CallLogsPage(): React.JSX.Element {
 	const {
 		filteredAlerts,
 		originCounts,
+		discardLevelCounts,
 		filters,
 		sort,
 		pagination,
@@ -155,11 +163,14 @@ export default function CallLogsPage(): React.JSX.Element {
 		const wanted = view ? `view:${view}` : `stage:${stageParam ?? ""}`;
 		if (appliedViewRef.current === wanted) return;
 		appliedViewRef.current = wanted;
-		setFilters(
-			view
+		setFilters({
+			...(view
 				? registerViewFilters(view)
-				: { stage: stageParam ?? "", verification: "all" }
-		);
+				: { stage: stageParam ?? "", verification: "all" }),
+			// A level chip belongs to the Discarded Events list; leaving and
+			// coming back opens it on every level again.
+			discardLevel: "all",
+		});
 		// setFilters is stable; re-running on every render would reset paging.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [view, stageParam]);
@@ -181,8 +192,30 @@ export default function CallLogsPage(): React.JSX.Element {
 		setFilters({ origin: parseSignalOriginFilter(origin) });
 	}, [searchParams, setFilters]);
 
+	// A scope carried in from the dashboard (?from_date= &to_date= &region=
+	// &district= &division= &disease=): the list opens on the signals the figure
+	// clicked was counted over, rather than on the whole register. Applied once
+	// per scope, like ?origin=, so refinements made afterwards stick.
+	const appliedScopeRef = useRef<string>("");
+	useEffect(() => {
+		const scope = scopeFromSearchParams(searchParams);
+		const key = scopeKey(scope);
+		if (!scope) {
+			appliedScopeRef.current = "";
+			return;
+		}
+		if (appliedScopeRef.current === key) return;
+		appliedScopeRef.current = key;
+		setFilters(scope);
+	}, [searchParams, setFilters]);
+
 	const handleOriginChange = useCallback(
 		(origin: SignalOriginFilter) => setFilters({ origin }),
+		[setFilters]
+	);
+
+	const handleDiscardLevelChange = useCallback(
+		(discardLevel: DiscardLevelFilter) => setFilters({ discardLevel }),
 		[setFilters]
 	);
 
@@ -361,6 +394,30 @@ export default function CallLogsPage(): React.JSX.Element {
 				onFiltersChange={setFilters}
 				onClearFilters={clearFilters}
 			/>
+
+			{showingDiscarded && (
+				<DiscardLevelChips
+					value={parseDiscardLevelFilter(filters.discardLevel)}
+					onChange={handleDiscardLevelChange}
+					counts={discardLevelCounts}
+				/>
+			)}
+
+			{filters.disease && filters.disease !== "all" && (
+				<div className="flex flex-wrap items-center gap-2 rounded border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-600">
+					<span>
+						Disease: <span className="font-medium text-gray-900">{diseaseScopeLabel(filters.disease)}</span>
+						{" "}— carried over from the dashboard, so this list holds the signals its figure counted.
+					</span>
+					<button
+						type="button"
+						className="font-medium text-uganda-red hover:underline"
+						onClick={() => setFilters({ disease: "all" })}
+					>
+						Show all diseases
+					</button>
+				</div>
+			)}
 
 			<SignalOriginChips
 				value={parseSignalOriginFilter(filters.origin)}

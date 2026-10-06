@@ -27,6 +27,7 @@ import {
 	MessageCircleReply,
 	ShieldQuestion,
 	ShieldCheck,
+	Archive,
 } from "lucide-react";
 import { MohLogo } from "@/components/moh-logo";
 
@@ -82,11 +83,17 @@ const navigationGroups: NavigationGroup[] = [
 				icon: MessageCircleReply,
 			},
 			{ name: "Alerts", href: "/dashboard/alerts", icon: Siren },
-			// NOTE: the "Discarded Events" link was removed from this nav on
-			// request (2026-08-28). The queue itself still exists and is still
-			// reachable at /dashboard/signal-logs?stage=offpipeline — the
-			// guideline's rule is "discard AND record", so those signals are an
-			// archive, not a bin, and nothing about them was deleted.
+			// The pipeline's other exit. The guideline's rule is "discard AND
+			// record", so a discarded signal is a decision that was taken, not a
+			// row that vanished — at triage, desk verification or field
+			// verification. Removed on 2026-08-28 and restored on 2026-10-05:
+			// without it nothing in the app reached the ~10,000 discards, and
+			// nobody could see them.
+			{
+				name: "Discarded Events",
+				href: "/dashboard/signal-logs?stage=discarded",
+				icon: Archive,
+			},
 		],
 	},
 	{

@@ -25,6 +25,8 @@ interface AlertsFilters {
     toDate: string;
     /** SLA colour: 'all' | 'green' | 'yellow' | 'red'. See lib/alert-sla.ts. */
     sla: string;
+    /** Disease scope carried in from the dashboard (?disease=), or '' / 'all'. */
+    disease: string;
 }
 
 interface AlertsStats {
@@ -81,6 +83,7 @@ const initialFilters: AlertsFilters = {
     fromDate: '',
     toDate: '',
     sla: 'all',
+    disease: '',
 };
 
 function toApiParams(
@@ -145,6 +148,9 @@ function toApiParams(
     }
     if (filters.toDate) {
         params.to_date = filters.toDate;
+    }
+    if (filters.disease && filters.disease !== 'all') {
+        params.disease = filters.disease;
     }
 
     return params;

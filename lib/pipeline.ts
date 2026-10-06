@@ -57,15 +57,22 @@ export type StageKey =
 	| typeof STAGE_ASSESSED
 	| typeof STAGE_PROCESSED;
 
-/** One gate's live queue, as the backend reports it. */
+/**
+ * One tile on the register's strip, as the backend reports it: a worklist named
+ * for the state its signals have REACHED and holding the work due NEXT.
+ */
 export interface PipelineStage {
+	/** The ?stage= list the tile opens (intake = the untriaged queue). */
 	key: StageKey;
 	label: string;
+	/** Signals in that list — exactly the rows the tile opens. */
 	count: number;
-	/** Still standing at the gate, behind the headline. */
+	/** Same as count (every tile is a queue); kept for older readers. */
 	pending: number;
-	/** Of those pending, how many are past the national deadline. -1 when the stage has no clock. */
+	/** Of those, how many are past the deadline for the next step. -1 when that step has no clock. */
 	overdue: number;
+	/** Every signal that ever reached this state, including those since moved on. -1 on intake. */
+	toDate: number;
 	/** False when the system cannot record this stage yet (step 5). */
 	available: boolean;
 	note?: string;
@@ -77,15 +84,16 @@ export interface PipelineSnapshot {
 }
 
 /**
- * Which EBS step each stage is, for the strip's numbering. Steps 5 (alert) and
- * 6 (feedback) are not on the strip — alert issuance has no timestamp this
- * system records, and feedback is its own sidebar destination.
+ * The strip's numbering, keyed by the list each tile opens: Raw information,
+ * then the three states a signal reaches — Triaged (waiting on verification),
+ * Verified (waiting on risk assessment), Risk assessed (owing feedback). Alert
+ * issuance is not on the strip — it has no timestamp this system records.
  */
 export const STAGE_STEP: Partial<Record<StageKey, number>> = {
 	[STAGE_INTAKE]: 1,
-	[STAGE_TRIAGED]: 2,
-	[STAGE_VERIFIED]: 3,
-	[STAGE_ASSESSED]: 4,
+	[STAGE_VERIFICATION]: 2,
+	[STAGE_RISK]: 3,
+	[STAGE_FEEDBACK]: 4,
 };
 
 /** One line on what each gate decides, shown on hover over the pipeline strip. */

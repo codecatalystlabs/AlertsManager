@@ -8,6 +8,7 @@ import {
 	ALERTS_CONFIG,
 	createAlertsTableColumns,
 	type AlertsTableCallbacks,
+	ALERTS_HIDDEN_COLUMNS,
 } from "@/constants/alerts";
 import { LAYOUT } from "@/constants/layout";
 import { alertSlaRowClass } from "@/lib/alert-sla";
@@ -94,6 +95,7 @@ export const AlertsTable = memo<AlertsTableProps>(
 					<DataTable
 						id="alerts"
 						columns={columns}
+						initialState={{ columnVisibility: ALERTS_HIDDEN_COLUMNS }}
 						data={alerts}
 						enableHeaderFilters
 						searchKey="alertCaseName"

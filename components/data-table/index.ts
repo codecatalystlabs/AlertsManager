@@ -10,6 +10,7 @@
  */
 export { DataTable } from "./data-table"
 export { SortableHeader } from "./column-header"
+export { TextSummaryCell, WhenCell } from "./cells"
 export {
   booleanFilter,
   dateRangeFilter,
