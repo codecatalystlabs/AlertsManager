@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/select";
 import {
 	DATE_RANGE_PRESETS,
+	describeDateRange,
 	matchActiveDateRangePreset,
 	resolveDateRangePreset,
 } from "@/lib/date-range-presets";
@@ -114,6 +115,9 @@ function rangeLabel(from: string, to: string): string {
 	if (!from && !to) return "Any time";
 	const preset = matchActiveDateRangePreset(from, to);
 	if (preset) return DATE_RANGE_PRESETS.find((p) => p.key === preset)?.label ?? "";
+	// A whole epi week, month, quarter or year reads as one ("September 2026").
+	const named = from && to ? describeDateRange(from, to) : "";
+	if (named) return named;
 	const f = parseDay(from);
 	const t = parseDay(to);
 	const md: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };

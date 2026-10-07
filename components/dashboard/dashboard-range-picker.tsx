@@ -1,13 +1,21 @@
 "use client";
 
 import React, { memo, useState } from "react";
-import { resolveDateRangePreset } from "@/lib/date-range-presets";
+import {
+	DATE_RANGE_PRESETS,
+	describeDateRange,
+	resolveDateRangePreset,
+	type DateRangePresetKey,
+} from "@/lib/date-range-presets";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
 	Select,
 	SelectContent,
+	SelectGroup,
 	SelectItem,
+	SelectLabel,
+	SelectSeparator,
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
@@ -27,23 +35,11 @@ export interface DashboardRangeValue {
 // one click away.
 export const DEFAULT_RANGE_PRESET = "month";
 
-const PRESETS = [
-	{ id: "month", label: "This month" },
-	{ id: "30d", label: "Last 30 days" },
-	{ id: "90d", label: "Last 90 days" },
-	{ id: "6m", label: "Last 6 months" },
-	{ id: "12m", label: "Last 12 months" },
-	{ id: "all", label: "All time" },
-	{ id: "custom", label: "Custom range" },
-] as const;
-
-/** Local-time YYYY-MM-DD (avoids UTC off-by-one near midnight). */
-function toYmd(d: Date): string {
-	const y = d.getFullYear();
-	const m = String(d.getMonth() + 1).padStart(2, "0");
-	const day = String(d.getDate()).padStart(2, "0");
-	return `${y}-${m}-${day}`;
-}
+// The app-wide quick ranges (lib/date-range-presets.ts), so "Last 6 months"
+// here is the same dates as on the register, the reports and the deck.
+const ROLLING = DATE_RANGE_PRESETS.filter((p) => p.group === "rolling" && p.key !== "today");
+const PERIODS = DATE_RANGE_PRESETS.filter((p) => p.group === "period");
+const isPresetKey = (v: string): v is DateRangePresetKey => DATE_RANGE_PRESETS.some((p) => p.key === v);
 
 /** Resolve a preset id (and optional custom dates) to a concrete window. */
 export function resolveDashboardRange(
@@ -53,40 +49,8 @@ export function resolveDashboardRange(
 ): DashboardRangeValue {
 	if (preset === "all") return { from: "", to: "" };
 	if (preset === "custom") return { from: customFrom, to: customTo };
-	if (preset === "month") {
-		// The same "This month" the performance tables' preset bar resolves.
-		const { fromDate, toDate } = resolveDateRangePreset("month");
-		return { from: fromDate, to: toDate };
-	}
-
-	// Subtract whole months without JS date overflow: e.g. Aug 31 minus 6 months
-	// must be Feb 28/29, not "Feb 31" → March 3. Clamp the day to the target month.
-	function subtractMonths(d: Date, months: number) {
-		const day = d.getDate();
-		d.setDate(1);
-		d.setMonth(d.getMonth() - months);
-		const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-		d.setDate(Math.min(day, daysInMonth));
-	}
-
-	const to = new Date();
-	const from = new Date();
-	switch (preset) {
-		case "30d":
-			from.setDate(from.getDate() - 29);
-			break;
-		case "90d":
-			from.setDate(from.getDate() - 89);
-			break;
-		case "6m":
-			subtractMonths(from, 6);
-			break;
-		case "12m":
-		default:
-			subtractMonths(from, 12);
-			break;
-	}
-	return { from: toYmd(from), to: toYmd(to) };
+	const { fromDate, toDate } = resolveDateRangePreset(isPresetKey(preset) ? preset : "12m");
+	return { from: fromDate, to: toDate };
 }
 
 interface DashboardRangePickerProps {
@@ -139,14 +103,43 @@ export const DashboardRangePicker = memo<DashboardRangePickerProps>(
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
-							{PRESETS.map((p) => (
-								<SelectItem key={p.id} value={p.id}>
-									{p.label}
-								</SelectItem>
-							))}
+							<SelectGroup>
+								<SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
+									Rolling
+								</SelectLabel>
+								{ROLLING.map((p) => (
+									<SelectItem key={p.key} value={p.key}>
+										{p.label}
+									</SelectItem>
+								))}
+							</SelectGroup>
+							<SelectSeparator />
+							<SelectGroup>
+								<SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
+									Reporting periods
+								</SelectLabel>
+								{PERIODS.map((p) => (
+									<SelectItem key={p.key} value={p.key}>
+										{p.label}
+									</SelectItem>
+								))}
+							</SelectGroup>
+							<SelectSeparator />
+							<SelectItem value="all">All time</SelectItem>
+							<SelectItem value="custom">Custom range</SelectItem>
 						</SelectContent>
 					</Select>
 				</div>
+
+				{/* The dates a preset stands for today, in a report's words. */}
+				{isPresetKey(preset) && (
+					<span className="pb-2 text-[11px] text-muted-foreground">
+						{(() => {
+							const r = resolveDashboardRange(preset);
+							return describeDateRange(r.from, r.to);
+						})()}
+					</span>
+				)}
 
 				{preset === "custom" && (
 					<>

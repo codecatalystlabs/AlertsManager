@@ -40,7 +40,7 @@ import {
 import { ErrorAlert } from "@/components/dashboard";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { isDistrictScoped, isRegionScoped } from "@/lib/access";
-import { resolveDateRangePreset } from "@/lib/date-range-presets";
+import { describeDateRange, resolveDateRangePreset, toLocalISODate } from "@/lib/date-range-presets";
 import {
 	fetchDistrictUnits,
 	fetchRegions,
@@ -447,6 +447,7 @@ function SignalPerformancePanel({ level }: { level: PerformanceLevel }) {
 					onSort={setSort}
 					refreshing={loading}
 					filtered={activeFilters}
+					onJumpToRange={setRange}
 				/>
 			) : loading ? (
 				<Skeleton className="h-80 w-full" />
@@ -519,6 +520,20 @@ function DownloadButton({
 	);
 }
 
+/** The calendar month a YYYY-MM-DD falls in, up to today at most. */
+function monthOf(iso: string): { fromDate: string; toDate: string } | null {
+	const m = /^(\d{4})-(\d{2})-\d{2}$/.exec(iso);
+	if (!m) return null;
+	const year = Number(m[1]);
+	const month = Number(m[2]) - 1;
+	const end = new Date(year, month + 1, 0);
+	const today = new Date();
+	return {
+		fromDate: toLocalISODate(new Date(year, month, 1)),
+		toDate: toLocalISODate(end > today ? today : end),
+	};
+}
+
 /**
  * Why the table is all zeros. Recent periods are where this happens — a
  * database copy that ends on 30 Sep reads as a broken date picker when "This
@@ -527,9 +542,11 @@ function DownloadButton({
 function EmptyPeriodNote({
 	report,
 	filtered,
+	onJump,
 }: {
 	report: RegionalPerformanceReport;
 	filtered: boolean;
+	onJump?: (range: { fromDate: string; toDate: string }) => void;
 }) {
 	const latest = report.latestSignalDate;
 	const latestLabel = latest
@@ -539,6 +556,9 @@ function EmptyPeriodNote({
 				year: "numeric",
 			})
 		: null;
+	// One click to the month the latest report falls in, rather than a hint
+	// to go and find it: the whole month, up to today.
+	const jump = latest ? monthOf(latest) : null;
 	return (
 		<div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
 			<p className="font-medium">
@@ -546,9 +566,21 @@ function EmptyPeriodNote({
 				{filtered ? " under these filters" : ""}.
 			</p>
 			{latestLabel ? (
-				<p>
-					The most recent report{filtered ? " matching them" : ""} is dated {latestLabel} — pick a
-					range that includes it (for example Last 30 days).
+				<p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+					<span>
+						The most recent report{filtered ? " matching them" : ""} is dated {latestLabel}.
+					</span>
+					{jump && onJump && (
+						<Button
+							type="button"
+							size="sm"
+							variant="outline"
+							className="h-6 border-amber-300 bg-white px-2 text-[11px] text-amber-900 hover:bg-amber-100 dark:bg-transparent dark:text-amber-200"
+							onClick={() => onJump(jump)}
+						>
+							Show {describeDateRange(jump.fromDate, jump.toDate, { kind: "month" })}
+						</Button>
+					)}
 				</p>
 			) : (
 				filtered && <p>Try clearing a filter or widening the dates.</p>
@@ -577,6 +609,7 @@ function PerformanceTable({
 	onSort,
 	refreshing,
 	filtered,
+	onJumpToRange,
 }: {
 	report: RegionalPerformanceReport;
 	level: PerformanceLevel;
@@ -584,6 +617,8 @@ function PerformanceTable({
 	onSort: (sort: PerformanceSort) => void;
 	refreshing: boolean;
 	filtered: boolean;
+	/** Set the date range — the empty-period note's "Show <month>" button. */
+	onJumpToRange?: (range: { fromDate: string; toDate: string }) => void;
 }) {
 	const columns = performanceColumns(level);
 	const lines = regionalTableRows(report);
@@ -614,7 +649,7 @@ function PerformanceTable({
 				</div>
 
 				{report.total.rawData === 0 && (
-					<EmptyPeriodNote report={report} filtered={filtered} />
+					<EmptyPeriodNote report={report} filtered={filtered} onJump={onJumpToRange} />
 				)}
 
 				{report.rows.length === 0 ? null : (
