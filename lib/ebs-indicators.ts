@@ -127,13 +127,13 @@ export const EBS_INDICATORS: readonly EbsIndicatorDefinition[] = [
 		id: "signals-verified",
 		label: "Verified within 24h",
 		name: "Signals verified",
-		definition: "Proportion of triaged signals verified within 24 hours.",
-		numeratorLabel: "Total number of triaged signals verified within 24 hours",
-		denominatorLabel: "Total number of signals verified",
+		definition: "Proportion of signals verified within 24 hours of triage.",
+		numeratorLabel: "Total number of signals verified within 24 hours of triage",
+		denominatorLabel: "Total number of signals (coded at triage)",
 		kind: "proportion",
 		stage: "verification",
 		unit: "signals",
-		note: "Timed from TRIAGE to the recorded verification time (guideline Ch.4 Step 3, Note 3) — the same clock as the Regional/District performance tables' \"Verify <24h\" — over triaged signals verified with both times on record. Reports → Overview's \"verified within priority deadline\" (12/24/48h) is a different measure.",
+		note: "Timed from TRIAGE to the recorded verification time (guideline Ch.4 Step 3, Note 3), over the signals coded at triage — the Regional/District performance tables' \"Verify <24h\" and \"(%)\", the same number. Reports → Overview's \"verified within priority deadline\" (12/24/48h) is a different measure.",
 	},
 	{
 		n: 5,
@@ -271,13 +271,15 @@ function countsFor(id: string, i: DashboardIndicators): RowCounts {
 		case "duplicated-signals":
 			return { numerator: i.duplicateSignals, denominator: i.signalsReported, rateBase: i.signalsReported };
 		case "signals-verified": {
-			const eligible = i.triagedVerified ?? i.signalsVerified;
-			const timed = i.verificationTimed ?? eligible;
+			// The performance tables' "(%)": verified within 24h of triage ÷
+			// the signals coded at triage — one number on both pages. An API
+			// from before the funnel has no signalsCoded: fall back to the
+			// timed verifications it used to divide by.
+			const signals = i.signalsCoded ?? i.verificationTimed ?? i.signalsVerified;
 			return {
 				numerator: i.verifiedWithin24h,
-				denominator: i.signalsVerified,
-				rateBase: timed,
-				gap: { count: eligible - timed, label: "verified with no triage or verification time" },
+				denominator: signals,
+				rateBase: signals,
 			};
 		}
 		case "signal-to-event":
@@ -377,7 +379,7 @@ function rateBaseNoun(id: string): string {
 		case "duplicated-signals":
 			return "signals reported";
 		case "signals-verified":
-			return "timed verifications";
+			return "signals";
 		case "signal-to-event":
 			return "verified signals";
 		case "events-risk-assessed":

@@ -183,51 +183,54 @@ function weekTickInterval(n: number, maxTicks: number): number {
  * about timeliness.
  */
 export const HeadlineStats = memo<BoardProps>(({ summary, isLoading, scope }) => {
+	// FUNNEL EVERYWHERE (2026-10-06). Each tile counts what the Regional /
+	// District performance tables count under the same name — a step holds only
+	// signals that came through every step before it — so the dashboard and
+	// those tables read one number for the same place and dates. Signals
+	// verified without being triaged and coded are shown apart ("outside the
+	// steps"), never dropped; with them, the figures are the register's.
 	const i = summary?.indicators;
 	const reported = i?.signalsReported ?? 0;
 	const triaged = i?.signalsTriaged ?? 0;
-	const verified = i?.verifiedCoded ?? 0;
-	const events = i?.eventsCoded ?? 0;
-	const riskAssessed = i?.riskAssessedCoded ?? 0;
-	const alerts = i?.alertsCoded ?? 0;
-	// Raw Information is the untriaged queue — the sidebar page's default view
-	// (stage=triage) — so the card counts the flow's "awaiting-triage" state.
-	const rawInformation =
+	const verified = i?.signalsVerified ?? 0;
+	const events = i?.events ?? 0;
+	const riskAssessed = i?.eventsRiskAssessed ?? 0;
+	const alerts = i?.alertsReported ?? 0;
+	const verifiedOutside = i?.verifiedOutsideSteps ?? 0;
+	const eventsOutside = i?.eventsOutsideSteps ?? 0;
+	const alertsOutside = i?.alertsOutsideSteps ?? 0;
+	// The untriaged queue (Raw Information) — now the caption of "Raw data".
+	const awaitingTriage =
 		buildSignalFlow(summary?.signalFlow).find((f) => f.key === "awaiting-triage")
 			?.count ?? 0;
-	// Signals: triaged signals matched to an EBS signal definition at triage
-	// (signal_code set), matching the summaries page's funnel definition.
-	const signals = i?.signalsCoded ?? 0;
+	// Signals: triaged AND matched to an Annex I/II signal — the tables'
+	// "Signal". An API from before the funnel falls back to "forwarded".
+	const signals =
+		i?.signalsCoded ??
+		summary?.triageOutcomes?.find((o) => o.key === "forwarded_to_verification")?.count ??
+		0;
 	const router = useRouter();
 
 	const rows = useMemo(() => buildEbsIndicatorRows(summary), [summary]);
 	const triage = rows.find((r) => r.id === "signals-triaged");
 	const verify = rows.find((r) => r.id === "signals-verified");
-	// The count leads, like every other tile; the rate moves to the caption.
-	const timely = (row: EbsIndicatorRow | undefined) => ({
-		value: row ? row.numerator.toLocaleString() : "—",
-		sub: row && row.rateBase
-			? `${row.rate ?? 0}% of ${row.rateBase.toLocaleString()} timed${row.target ? ` · target ${row.target.percent}%` : ""}`
-			: "nothing timed in scope",
-	});
-	const triageTimely = timely(triage);
-	const verifyTimely = timely(verify);
+	const outside = (n: number) => (n > 0 ? ` · +${n.toLocaleString()} outside the steps` : "");
 
 	const cards = [
 		{
-			title: "Raw Information",
-			value: rawInformation.toLocaleString(),
-			sub: `awaiting triage · of ${reported.toLocaleString()} signals reported`,
-			hint: "Signals in Raw Information: reported, not yet triaged, and nothing downstream has happened to them. Triage is due within 24 hours. Click to open Raw Information.",
+			title: "Raw data",
+			value: reported.toLocaleString(),
+			sub: `${awaitingTriage.toLocaleString()} still awaiting triage`,
+			hint: "Every signal logged in the period — the performance tables' Raw Data. The caption is the untriaged queue (Raw Information), due within 24 hours. Click to open every signal in scope.",
 			icon: RadioTower,
 			ink: SKY_INK,
-			onClick: () => router.push(withDashboardScope("/dashboard/signal-logs?stage=triage", scope)),
+			onClick: () => router.push(withDashboardScope("/dashboard/signal-logs?view=all", scope)),
 		},
 		{
 			title: "Triaged",
 			value: triaged.toLocaleString(),
-			sub: shareText(triaged, reported, "signals reported"),
-			hint: "Signals through the triage gate — a decision or priority is recorded, whichever exit it took.",
+			sub: shareText(triaged, reported, "raw data"),
+			hint: "Signals through the triage gate — a decision or priority is recorded, whichever exit it took. The performance tables' Triaged.",
 			icon: ListChecks,
 			ink: AMBER_INK,
 		},
@@ -235,14 +238,16 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading, scope }) =>
 			title: "Signals",
 			value: signals.toLocaleString(),
 			sub: shareText(signals, triaged, "triaged"),
-			hint: "Triaged signals matched to an EBS signal definition (signal code assigned at triage). Logged, discarded and uncoded items are not counted.",
+			hint: "Triaged and matched to an EBS signal definition (Annex I/II code) — the performance tables' Signal.",
 			icon: Workflow,
 			ink: AMBER_INK,
 		},
 		{
 			title: "Triaged within 24h",
-			value: triageTimely.value,
-			sub: triageTimely.sub,
+			value: triage ? triage.numerator.toLocaleString() : "—",
+			sub: triage && triage.rateBase
+				? `${triage.rate ?? 0}% of ${triage.rateBase.toLocaleString()} timed · target ${triage.target?.percent ?? 90}%`
+				: "nothing timed in scope",
 			hint: triage ? hintFor(triage) : undefined,
 			icon: Timer,
 			ink: AMBER_INK,
@@ -250,15 +255,21 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading, scope }) =>
 		{
 			title: "Verified",
 			value: verified.toLocaleString(),
-			sub: shareText(verified, signals, "signals"),
-			hint: "Coded signals with a verification outcome on record and not escalated to the field.",
+			sub: `${shareText(verified, signals, "signals")}${outside(verifiedOutside)}`,
+			hint: `Signals with a verification outcome recorded (not escalated to the field), counted through the steps — the performance tables' Verified.${
+				verifiedOutside > 0
+					? ` ${verifiedOutside.toLocaleString()} more were verified without being triaged and coded; with them, ${(verified + verifiedOutside).toLocaleString()} were verified in all.`
+					: ""
+			}`,
 			icon: ShieldCheck,
 			ink: EMERALD_INK,
 		},
 		{
 			title: "Verified within 24h",
-			value: verifyTimely.value,
-			sub: verifyTimely.sub,
+			value: verify ? verify.numerator.toLocaleString() : "—",
+			sub: verify && verify.rateBase
+				? `${verify.rate ?? 0}% of ${verify.rateBase.toLocaleString()} signals`
+				: "no signals in scope",
 			hint: verify ? hintFor(verify) : undefined,
 			icon: Clock,
 			ink: EMERALD_INK,
@@ -266,45 +277,65 @@ export const HeadlineStats = memo<BoardProps>(({ summary, isLoading, scope }) =>
 		{
 			title: "Events",
 			value: events.toLocaleString(),
-			sub: shareText(events, verified, "verified"),
-			hint: "Coded signals whose verification outcome is Confirmed — events requiring risk assessment.",
+			sub: `${shareText(events, verified, "verified")}${outside(eventsOutside)}`,
+			hint: "Verified signals whose outcome is Confirmed — the events that require a risk assessment (signal-to-event conversion, KPI 5).",
 			icon: Split,
 			ink: INDIGO_INK,
 		},
 		{
 			title: "Risk-assessed",
 			value: riskAssessed.toLocaleString(),
-			sub: `${shareText(riskAssessed, events, "events")} · target 90%`,
-			hint: "Confirmed events carrying a risk level. KPI 6: more than 90% of events assessed.",
+			sub: `${shareText(riskAssessed, events, "events")}${events > 0 ? " · target 90%" : ""}`,
+			hint: "Confirmed events carrying a risk level — the performance tables' Risk assessed. KPI 6: more than 90% of events assessed.",
 			icon: Gauge,
 			ink: VIOLET_INK,
 		},
 		{
 			title: "Alerts",
 			value: alerts.toLocaleString(),
-			sub: shareText(alerts, riskAssessed, "risk-assessed"),
-			hint: "Coded, confirmed, risk-assessed events whose reporter has been told. Click to open the Alerts page.",
+			sub: `${shareText(alerts, riskAssessed, "risk-assessed")}${outside(alertsOutside)}`,
+			hint: `Confirmed, risk-assessed events whose reporter has been told — the performance tables' Alerts.${
+				alertsOutside > 0
+					? ` With the ${alertsOutside.toLocaleString()} outside the steps, the Alerts page lists ${(alerts + alertsOutside).toLocaleString()}.`
+					: ""
+			} Click to open them.`,
 			icon: Siren,
 			ink: ROSE_INK,
 			onClick: () => router.push(withDashboardScope("/dashboard/alerts", scope)),
 		},
 	];
+	const anyOutside = verifiedOutside + eventsOutside + alertsOutside > 0;
 
 	return (
-		<div className="grid grid-cols-2 gap-2.5 md:grid-cols-3">
-			{cards.map((c) => (
-				<StatCard
-					key={c.title}
-					title={c.title}
-					value={c.value}
-					subText={c.sub}
-					hint={c.hint}
-					icon={c.icon}
-					ink={c.ink}
-					onClick={"onClick" in c ? c.onClick : undefined}
-					isLoading={isLoading}
-				/>
-			))}
+		<div className="space-y-1.5">
+			<div className="grid grid-cols-2 gap-2.5 md:grid-cols-3">
+				{cards.map((c) => (
+					<StatCard
+						key={c.title}
+						title={c.title}
+						value={c.value}
+						subText={c.sub}
+						hint={c.hint}
+						icon={c.icon}
+						ink={c.ink}
+						onClick={"onClick" in c ? c.onClick : undefined}
+						isLoading={isLoading}
+					/>
+				))}
+			</div>
+			{!isLoading && anyOutside && (
+				<p className="px-0.5 text-[11px] leading-snug text-muted-foreground">
+					Each figure follows the steps, as on Regional/District performance: it counts only
+					signals that came through every step before it. Outside the steps —
+					verified without being triaged and coded, mostly logged before triage was required:{" "}
+					<span className="font-medium text-foreground">
+						{verifiedOutside.toLocaleString()} verified · {eventsOutside.toLocaleString()} events ·{" "}
+						{alertsOutside.toLocaleString()} alerts
+					</span>
+					. &ldquo;Where every signal is now&rdquo; below still places all{" "}
+					{reported.toLocaleString()}.
+				</p>
+			)}
 		</div>
 	);
 });

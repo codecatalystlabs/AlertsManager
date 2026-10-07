@@ -131,9 +131,18 @@ export interface DashboardIndicators {
 	 * as /dashboard/alerts and the regional report's Alerts column.
 	 */
 	alertsReported: number;
-
-	/** Coded-funnel: signals with signal_code set at triage (matches summaries page). */
+	/**
+	 * The funnel (2026-10-06): from signalsVerified on, the indicators count
+	 * signals that came through the steps, as the performance tables do.
+	 * signalsCoded is the tables' "Signal" (triaged + matched to a signal);
+	 * the …OutsideSteps counts are what was verified without that, shown apart.
+	 * Optional: absent from an API that predates the funnel.
+	 */
 	signalsCoded?: number;
+	verifiedOutsideSteps?: number;
+	eventsOutsideSteps?: number;
+	alertsOutsideSteps?: number;
+	/** The same funnel counts under their first names (= signalsVerified, events, eventsRiskAssessed, alertsReported). */
 	verifiedCoded?: number;
 	eventsCoded?: number;
 	riskAssessedCoded?: number;
@@ -308,6 +317,9 @@ const EMPTY_SUMMARY: DashboardSummary = {
 		eventsCoded: 0,
 		riskAssessedCoded: 0,
 		alertsCoded: 0,
+		verifiedOutsideSteps: 0,
+		eventsOutsideSteps: 0,
+		alertsOutsideSteps: 0,
 	},
 	indicatorSeries: [],
 	reportedByRegion: [],

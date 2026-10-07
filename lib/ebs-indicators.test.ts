@@ -65,6 +65,7 @@ const indicators = {
 	sdb: 586,
 	sdbEligible: 11,
 	alertsReported: 951,
+	signalsCoded: 793,
 };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const rows = buildEbsIndicatorRows({ indicators } as any);
@@ -83,8 +84,11 @@ check("untimed triages are a gap, not late", row("signals-triaged").gap, {
 	label: "triaged with no triage time",
 });
 check("triage is held to KPI 3", row("signals-triaged").status, "below");
-check("verification rate uses timed verifications", row("signals-verified").rateBase, 6273);
-check("verification gap", row("signals-verified").gap?.count, 102);
+// Funnel (2026-10-06): the performance tables' "(%)" — within 24h of triage ÷
+// the signals coded at triage, so the card and the table read one number.
+check("verification rate divides by the coded signals", row("signals-verified").rateBase, 793);
+check("verification rate", row("signals-verified").rate, 38); // 303 / 793
+check("no timed-gap on the funnel rate", row("signals-verified").gap ?? null, null);
 check("row 4 carries no §11 target (KPI 4 uses priority deadlines)", row("signals-verified").status, null);
 
 // --- a rate only over a true superset ----------------------------------------
