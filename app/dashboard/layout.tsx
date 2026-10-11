@@ -78,7 +78,9 @@ export default function DashboardLayout({
 								<PanelLeftClose className="h-5 w-5" />
 							)}
 						</Button>
-						<div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
+						{/* min-w-0 lets the title truncate; without it the row's min-content
+						    (the full title) pushed phone layouts out to ~600px wide. */}
+						<div className="flex min-w-0 flex-1 gap-x-4 self-stretch lg:gap-x-6">
 							<div className="flex flex-1 items-center min-w-0">
 								<h1 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
 									Uganda Health Alert Management System (alertsMIS)

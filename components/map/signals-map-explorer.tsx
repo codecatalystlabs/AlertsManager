@@ -938,48 +938,61 @@ export function SignalsMapExplorer({
 			</div>
 
 			<div className={cn("flex min-h-0 flex-col gap-3 lg:flex-row", expanded && "flex-1")}>
-				<div className={cn("min-w-0 flex-1", expanded ? "h-full min-h-[320px]" : "h-[72vh] min-h-[420px]")}>
-					<AlertsGeoMap
-						drill={drill}
-						onNavigate={setDrill}
-						onAreaClick={handleAreaClick}
-						features={levelFeatures}
-						counts={view.counts}
-						scaleMax={view.scaleMax}
-						colorMode={effectiveColorMode}
-						onColorModeChange={setColorMode}
-						trends={view.trends}
-						trendText={view.trendText}
-						changeLabel={view.changeLabel}
-						legendNote={
-							timelineActive && tl
-								? frameReady
-									? `${tl.buckets[frameIdx].label} · ${cumulative ? "cumulative" : `per ${tl.granularity}`}`
-									: "Loading frames…"
-								: null
-						}
-						focusKey={focus.key}
-						focusBounds={focus.bounds}
-						highlightUid={highlightUid}
-						flashUids={flashUids}
-						unassigned={unassigned}
-						onUnassignedClick={() =>
-							drill.level === "subcounty" &&
-							setListTarget({
-								districtUid: drill.district.uid,
-								districtName: drill.district.name,
-								unassigned: true,
-							})
-						}
-						statusText={statusText}
-						regions={regions}
-						districts={districts}
-						onLocatorRegionClick={openRegion}
-						toolbar={toolbar}
-						footer={timelineBar}
-						onMapReady={handleMapReady}
-						captureRef={captureRef}
-					/>
+				{/* Below lg this row stacks into a column, where `flex-1` (basis 0%)
+				    sizes the box from its content — and Leaflet's panes are all
+				    absolutely positioned, so the map's `h-full` resolved to 0px and
+				    it vanished on phones. The height is pinned here (flex-1 only
+				    where the box flexes on a definite axis) and the map fills it
+				    absolutely, which resolves the same in every engine. */}
+				<div
+					className={cn(
+						"relative min-w-0",
+						expanded ? "min-h-[320px] flex-1" : "h-[72vh] min-h-[420px] lg:flex-1"
+					)}
+				>
+					<div className="absolute inset-0">
+						<AlertsGeoMap
+							drill={drill}
+							onNavigate={setDrill}
+							onAreaClick={handleAreaClick}
+							features={levelFeatures}
+							counts={view.counts}
+							scaleMax={view.scaleMax}
+							colorMode={effectiveColorMode}
+							onColorModeChange={setColorMode}
+							trends={view.trends}
+							trendText={view.trendText}
+							changeLabel={view.changeLabel}
+							legendNote={
+								timelineActive && tl
+									? frameReady
+										? `${tl.buckets[frameIdx].label} · ${cumulative ? "cumulative" : `per ${tl.granularity}`}`
+										: "Loading frames…"
+									: null
+							}
+							focusKey={focus.key}
+							focusBounds={focus.bounds}
+							highlightUid={highlightUid}
+							flashUids={flashUids}
+							unassigned={unassigned}
+							onUnassignedClick={() =>
+								drill.level === "subcounty" &&
+								setListTarget({
+									districtUid: drill.district.uid,
+									districtName: drill.district.name,
+									unassigned: true,
+								})
+							}
+							statusText={statusText}
+							regions={regions}
+							districts={districts}
+							onLocatorRegionClick={openRegion}
+							toolbar={toolbar}
+							footer={timelineBar}
+							onMapReady={handleMapReady}
+							captureRef={captureRef}
+						/>
+					</div>
 				</div>
 				{insightsOpen && (
 					<AreaInsightsPanel
